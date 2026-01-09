@@ -6,12 +6,14 @@ module.exports = {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
+  transformIgnorePatterns: ['node_modules/(?!(better-sqlite3)/)'],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
     '!src/**/*.spec.ts',
     '!src/**/*.test.ts',
     '!src/**/index.ts',
+    '!src/types/**/*.ts',
   ],
   coverageThreshold: {
     global: {

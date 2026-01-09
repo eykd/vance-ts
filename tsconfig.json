@@ -39,7 +39,7 @@
     "sourceMap": true,
     "outDir": "./dist",
     "removeComments": false,
-    "importHelpers": true,
+    "importHelpers": false,
     "downlevelIteration": true,
 
     /* Interop Constraints */
