@@ -1,7 +1,7 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src'],
+  roots: ['<rootDir>/src', '<rootDir>/.claude'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   transform: {
     '^.+\\.ts$': 'ts-jest',
@@ -9,11 +9,16 @@ module.exports = {
   transformIgnorePatterns: ['node_modules/(?!(better-sqlite3)/)'],
   collectCoverageFrom: [
     'src/**/*.ts',
+    '.claude/**/*.ts',
     '!src/**/*.d.ts',
+    '!.claude/**/*.d.ts',
     '!src/**/*.spec.ts',
     '!src/**/*.test.ts',
+    '!.claude/**/*.spec.ts',
+    '!.claude/**/*.test.ts',
     '!src/**/index.ts',
     '!src/types/**/*.ts',
+    '!.claude/types/**/*.ts',
   ],
   coverageThreshold: {
     global: {

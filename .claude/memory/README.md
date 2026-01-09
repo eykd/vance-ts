@@ -20,7 +20,7 @@ The system consists of three main components:
 **Usage**:
 
 ```typescript
-import { Ledger } from './memory/ledger';
+import { Ledger } from './ledger';
 
 // Create and populate ledger
 const ledger = new Ledger('my-session');
@@ -50,7 +50,7 @@ const loaded = Ledger.load('my-session');
 **Usage**:
 
 ```typescript
-import { Handoff } from './memory/handoff';
+import { Handoff } from './handoff';
 
 const handoff = new Handoff('session-123');
 handoff.outcome = 'SUCCESS';
@@ -80,7 +80,7 @@ handoff.save();
 **Usage**:
 
 ```typescript
-import { ArtifactIndex } from './memory/artifact-index';
+import { ArtifactIndex } from './artifact-index';
 
 const index = new ArtifactIndex('thoughts/artifacts.db');
 
@@ -100,7 +100,7 @@ index.close();
 
 ```bash
 npm run build
-node -e "const { ArtifactIndex } = require('./dist/memory/artifact-index.js'); const idx = new ArtifactIndex('test.db'); idx.indexHandoff('test.md', 'test content'); console.log('Results:', idx.search('test').length); idx.close();"
+node -e "const { ArtifactIndex } = require('./dist/.claude/memory/artifact-index.js'); const idx = new ArtifactIndex('test.db'); idx.indexHandoff('test.md', 'test content'); console.log('Results:', idx.search('test').length); idx.close();"
 ```
 
 ## Claude Code Hooks
@@ -211,17 +211,17 @@ thoughts/
     └── {session}/
         └── handoff-{timestamp}.md
 
-src/memory/
-├── ledger.ts           # Ledger management
-├── ledger.spec.ts      # Ledger tests
-├── handoff.ts          # Handoff management
-├── handoff.spec.ts     # Handoff tests
-├── artifact-index.ts   # SQLite FTS5 index
-└── artifact-index.spec.ts  # Index tests (Jest-incompatible)
-
-.claude/hooks/
-├── session-start.sh/.ts        # Auto-load ledgers
-├── pre-compact.sh/.ts          # Prevent lossy compaction
-├── user-prompt-submit.sh/.ts   # Context warnings
-└── status-line.sh/.ts          # Real-time context display
+.claude/
+├── memory/
+│   ├── ledger.ts           # Ledger management
+│   ├── ledger.spec.ts      # Ledger tests
+│   ├── handoff.ts          # Handoff management
+│   ├── handoff.spec.ts     # Handoff tests
+│   ├── artifact-index.ts   # SQLite FTS5 index
+│   └── artifact-index.spec.ts  # Index tests (Jest-incompatible)
+└── hooks/
+    ├── session-start.sh/.ts        # Auto-load ledgers
+    ├── pre-compact.sh/.ts          # Prevent lossy compaction
+    ├── user-prompt-submit.sh/.ts   # Context warnings
+    └── status-line.sh/.ts          # Real-time context display
 ```

@@ -7,10 +7,10 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "clean": "rm -rf dist coverage",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\"",
+    "lint": "eslint src .claude/memory .claude/types --ext .ts",
+    "lint:fix": "eslint src .claude/memory .claude/types --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\"",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -51,6 +51,7 @@
     "@types/node": "^25.0.3",
     "@typescript-eslint/eslint-plugin": "^8.52.0",
     "@typescript-eslint/parser": "^8.52.0",
+    "better-sqlite3": "^12.5.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
@@ -62,8 +63,5 @@
     "prettier": "^3.7.4",
     "ts-jest": "^29.4.6",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "better-sqlite3": "^12.5.0"
   }
 }

@@ -37,37 +37,6 @@ just fix           # format + lint-fix
 just ci            # Full CI pipeline locally
 ```
 
-## Architecture
-
-### Memory System (src/memory/)
-
-Cross-session continuity system with three components:
-
-1. **Ledger** (`ledger.ts`): Session state tracking with structured markdown format
-   - Saved to `thoughts/ledgers/CONTINUITY_CLAUDE-<session-name>.md`
-   - Tracks: goal, constraints, completed/in-progress items, decisions, working files
-
-2. **Handoff** (`handoff.ts`): Detailed session handoff with YAML frontmatter
-   - Saved to `thoughts/handoffs/<session-id>/handoff-<timestamp>.md`
-   - Outcome types: SUCCESS, PARTIAL_PLUS, PARTIAL, BLOCKED
-   - Contains: context summary, changes, what worked/failed, patterns, next steps
-
-3. **ArtifactIndex** (`artifact-index.ts`): SQLite FTS5 full-text search over handoffs
-   - Uses better-sqlite3 for FTS5 virtual tables
-   - Enables semantic search across all handoff artifacts
-
-### Directory Structure
-
-```
-src/
-  memory/     - Cross-session continuity system
-  types/      - TypeScript type definitions
-  utils/      - Utility functions
-thoughts/
-  ledgers/    - Session continuity ledgers
-  handoffs/   - Session handoff documents
-```
-
 ## Code Quality Standards
 
 ### TypeScript Configuration
