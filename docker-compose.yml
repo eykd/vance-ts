@@ -1,0 +1,38 @@
+# Docker configuration for safely sandboxing a local Claude Code session.
+# NOTE: THIS IS NOT FOR RUNNING THE APPLICATION ITSELF.
+services:
+  claude-container:
+    build:
+      context: .
+      dockerfile: Dockerfile.claude
+      args:
+        TZ: ${TZ:-America/Los_Angeles}                   # Pass host timezone
+        HOST_UID: ${UID:-1000}
+        HOST_GID: ${GID:-1000}
+    user: "${UID:-1000}:${GID:-1000}"                    # run as you
+    entrypoint: /usr/local/bin/docker-entrypoint.sh      # auto-install deps on first run
+    command: tail -f /dev/null                           # Keep container running
+    environment:
+      TZ: ${TZ:-UTC}                                     # Set container timezone
+      ALLOWED_DOMAINS: >-
+        registry.npmjs.org,
+        api.anthropic.com,
+        sentry.io,
+        statsig.anthropic.com,
+        statsig.com
+    volumes:
+      - ./:/workspace:rw                                 # dedicated workspace folder, RW
+      - ./.history:/commandhistory:rw                    # persist shell history
+      # Platform-specific node_modules: bind mount shadows host's node_modules inside container
+      - ./.node_modules_linux:/workspace/node_modules:rw
+      - ./.node_modules_linux_apps_worker:/workspace/apps/worker/node_modules:rw
+      - ./.node_modules_linux_packages_core:/workspace/packages/core/node_modules:rw
+    ports: []
+    tmpfs:
+      - /tmp                                             # avoid writing to container FS
+    read_only: false                                     # repo is already RW
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges
+    pids_limit: 256
