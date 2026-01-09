@@ -50,51 +50,28 @@ Think about:
 - `test`: Adding or updating tests
 - `chore`: Maintenance tasks, dependency updates
 
-### 3. Present Plan to User
+### 3. Execute Commit(s)
 
-List:
-
-- Files to be added for each commit
-- Commit message(s) you'll use
-- Ask: "I plan to create [N] commit(s) with these changes. Shall I proceed?"
-
-### 4. Execute Upon Confirmation
-
-**CRITICAL: Sandbox Mode Issue**
-
-The heredoc approach fails in sandbox mode:
-
-```bash
-# ❌ This fails with "can't create temp file for here document"
-git commit -m "$(cat <<'EOF'
-Multi-line
-message
-EOF
-)"
-```
-
-**Solution:** Use `dangerouslyDisableSandbox: true` for git commit commands.
-
-**Steps:**
+**For multi-line commit messages, use a single `-m` flag with embedded newlines:**
 
 ```bash
 # Stage specific files (never use -A or .)
 git add file1.ts file2.ts dir/
 
-# Commit with multi-line message using heredoc
-# MUST use dangerouslyDisableSandbox: true
-git commit -m "$(cat <<'EOF'
-feat: add new feature
+# Commit with proper conventional format: title, blank line, body
+git commit -m "feat: add new feature
 
-Detailed description of what changed and why.
-EOF
-)"
+- Implement core functionality
+- Add comprehensive test coverage
+- Update documentation"
 
 # Show result
 git log --oneline -n 3
 ```
 
-### 5. Pre-commit Hooks
+This creates the proper format with a blank line between title and body, avoiding the extra blank lines that multiple `-m` flags would create.
+
+### 4. Pre-commit Hooks
 
 **This project has automatic pre-commit validation:**
 
@@ -140,14 +117,11 @@ git status
 # Stage specific files
 git add src/utils/validator.ts src/utils/validator.spec.ts
 
-# Commit with multi-line message (requires dangerouslyDisableSandbox: true)
-git commit -m "$(cat <<'EOF'
-feat: add email validator utility
+# Commit with multi-line message using single -m flag with embedded newlines
+git commit -m "feat: add email validator utility
 
 Implement email validation with comprehensive regex pattern.
-Includes full test coverage with edge cases.
-EOF
-)"
+Includes full test coverage with edge cases."
 
 # Show result
 git log --oneline -n 2
