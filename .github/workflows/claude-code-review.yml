@@ -67,6 +67,9 @@ jobs:
             - Anti-patterns: Flag any issues like missing assertions, testing framework code, or shared mutable state
             - Test pain signals: Do difficult tests indicate design problems in the production code?
 
+            **Security Review:**
+            Use the /security-review skill to review changes for security concerns or vulnerabilities. Flag all issues and categorize them by criticality (Critical, High, Medium, Low). For each issue, specify the file and line number, describe the vulnerability, explain the security risk, and provide a fix.
+
             **Recommendations:**
             - Anything that should be addressed before merging?
             - Opportunities to simplify or improve?
