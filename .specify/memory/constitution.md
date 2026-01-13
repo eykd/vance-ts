@@ -1,73 +1,184 @@
-# [PROJECT_NAME] Constitution
+# turtlebased-ts Constitution
 
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report:
+- Version: (none) → 1.0.0 (MAJOR - Initial ratification)
+- Modified principles: Initial establishment of 7 core principles
+- Added sections: Complete constitution structure established
+- Removed sections: None (initial version)
+- Templates requiring updates:
+  ✅ plan-template.md - Constitution Check section aligns with principles
+  ✅ spec-template.md - User story prioritization aligns with Test-First principle
+  ✅ tasks-template.md - Task organization by user story aligns with principles
+- Follow-up TODOs: None
+-->
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
+### I. Test-First Development (NON-NEGOTIABLE)
 
-<!-- Example: I. Library-First -->
+Test-Driven Development is MANDATORY for all code changes. No exceptions.
 
-[PRINCIPLE_1_DESCRIPTION]
+- Tests MUST be written BEFORE implementation code
+- Red-Green-Refactor cycle MUST be strictly followed:
+  1. **Red**: Write failing test first
+  2. **Green**: Write minimal code to pass
+  3. **Refactor**: Improve code while maintaining green tests
+- 100% test coverage threshold MUST be maintained (branches, functions, lines, statements)
+- Tests use `.spec.ts` or `.test.ts` suffix
+- Watch mode (`npx jest --watch`) MUST be used during development
 
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+**Rationale**: Pre-written tests ensure code correctness, prevent regressions, and serve as living documentation. The strict red-green-refactor discipline prevents implementation drift and maintains high quality standards.
 
-### [PRINCIPLE_2_NAME]
+### II. Type Safety and Static Analysis
 
-<!-- Example: II. CLI Interface -->
+Extremely strict type checking and linting standards MUST be enforced at all times.
 
-[PRINCIPLE_2_DESCRIPTION]
+- TypeScript strict mode with ALL strict flags enabled
+- Additional strict checks: `noUncheckedIndexedAccess`, `noImplicitOverride`, `noPropertyAccessFromIndexSignature`
+- No unused locals/parameters, no implicit returns
+- **Explicit return types required** on ALL functions
+- **No `any` types** allowed (use `unknown` with type guards)
+- **Strict boolean expressions**: no truthy/falsy checks on strings, numbers, nullable objects
+- **Type imports**: Use `type` keyword for type-only imports
+- ESLint max-warnings: 0 (zero tolerance for warnings)
 
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+**Rationale**: Strict type safety catches bugs at compile time, improves IDE intelligence, and makes refactoring safer. Zero-warning policy prevents gradual quality degradation.
 
-### [PRINCIPLE_3_NAME]
+### III. Code Quality Standards
 
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
+Consistent code style, documentation, and naming conventions MUST be maintained.
 
-[PRINCIPLE_3_DESCRIPTION]
+- **JSDoc required** for all public functions, methods, classes, interfaces, types, enums
+- **Naming conventions**:
+  - Interfaces: PascalCase (no `I` prefix)
+  - Type aliases: PascalCase
+  - Enums: PascalCase with UPPER_CASE members
+- **Import order**: builtin → external → internal → parent → sibling → index (alphabetized)
+- Prettier formatting enforced automatically
+- All code MUST pass lint-staged checks before commit
 
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+**Rationale**: Consistent style reduces cognitive load, improves maintainability, and enables effective code review. JSDoc documentation ensures APIs are self-documenting.
 
-### [PRINCIPLE_4_NAME]
+### IV. Pre-commit Quality Gates
 
-<!-- Example: IV. Integration Testing -->
+Automated quality gates MUST pass before ANY commit is accepted.
 
-[PRINCIPLE_4_DESCRIPTION]
+- Husky + lint-staged enforce:
+  - Prettier formatting
+  - ESLint (max-warnings: 0)
+  - TypeScript type checking
+  - Jest tests for changed files
+- ALL quality checks MUST pass (no bypassing)
+- Commit messages MUST follow conventional commits format:
+  - Types: feat, fix, docs, style, refactor, perf, test, chore, revert
+  - Format: `type: lowercase subject` (no period, max 100 chars)
 
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+**Rationale**: Pre-commit gates catch issues before they enter the repository, maintaining a consistently high-quality codebase. Conventional commits enable automated changelog generation and semantic versioning.
 
-### [PRINCIPLE_5_NAME]
+### V. Warning and Deprecation Policy
 
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
+ALL warnings and deprecations MUST be addressed immediately. No deferral allowed.
 
-[PRINCIPLE_5_DESCRIPTION]
+- Compiler warnings (TypeScript, ESLint) MUST be fixed before proceeding
+- Deprecation warnings (dependencies, runtime) MUST be addressed
+- Security advisories (`npm audit`) MUST be resolved
+- Test warnings or flaky tests MUST be fixed
+- Never ignore or defer warnings
 
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+**Rationale**: Warnings are early indicators of problems. Addressing them immediately prevents technical debt accumulation and avoids compounding issues that become harder to fix later.
 
-## [SECTION_2_NAME]
+### VI. Cloudflare Workers Target Environment
 
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Code MUST be compatible with Cloudflare Workers runtime constraints.
 
-[SECTION_2_CONTENT]
+- Target: ES2022, NodeNext modules
+- No Node.js-specific APIs unless polyfilled
+- Respect Workers runtime limits (CPU time, memory, size)
+- Code MUST work in the Workers V8 isolate environment
 
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+**Rationale**: Cloudflare Workers has specific runtime constraints different from Node.js. Code that doesn't respect these constraints will fail in production.
 
-## [SECTION_3_NAME]
+### VII. Simplicity and Maintainability
 
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Start simple, build only what's needed, maintain clarity over cleverness.
 
-[SECTION_3_CONTENT]
+- YAGNI (You Aren't Gonna Need It) - no speculative features
+- KISS (Keep It Simple, Stupid) - prefer simplicity over complexity
+- DRY (Don't Repeat Yourself) - abstract common functionality
+- Clear, descriptive names over terse abbreviations
+- Comments explain "why", not "what" (code should be self-documenting)
 
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+**Rationale**: Simple code is easier to understand, maintain, test, and debug. Premature optimization and feature speculation create unnecessary complexity and technical debt.
+
+## Development Workflow
+
+### Essential Commands
+
+- `npm run check` - Full validation (type-check + lint + test)
+- `npm run fix` - Auto-fix formatting and linting
+- `npm run test` - Run all tests
+- `npm run test:watch` - TDD watch mode
+- `npm run build` - Build TypeScript to JavaScript
+- `npm run validate` - Comprehensive pre-release validation
+
+Alternative using Just:
+
+- `just check` - Full validation
+- `just fix` - Auto-fix formatting and linting
+- `just test-watch` - TDD watch mode
+- `just ci` - Full CI pipeline locally
+
+### Implementation Pattern
+
+1. Write failing test(s) in `.spec.ts` file
+2. Run `npm run test:watch` or `just test-watch`
+3. Implement minimal code to pass tests
+4. Refactor while keeping tests green
+5. Ensure 100% coverage maintained
+6. Run `npm run check` before commit
+7. Commit follows conventional commit format
+
+### Code Review Checklist
+
+All PRs MUST verify:
+
+- [ ] Tests written BEFORE implementation
+- [ ] 100% test coverage maintained
+- [ ] All type checking passes with strict mode
+- [ ] Zero ESLint warnings
+- [ ] JSDoc present on all public APIs
+- [ ] Conventional commit messages used
+- [ ] All quality gates pass
+- [ ] No warnings or deprecations introduced
+- [ ] Code compatible with Cloudflare Workers
 
 ## Governance
 
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+### Amendment Procedure
 
-[GOVERNANCE_RULES]
+1. Propose amendment with clear rationale
+2. Identify affected templates and code
+3. Create migration plan for existing code if needed
+4. Update constitution with version bump
+5. Propagate changes to all dependent templates
+6. Update CLAUDE.md if runtime guidance affected
+7. Commit with message: `docs: amend constitution to vX.Y.Z (summary)`
 
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+### Versioning Policy
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
+Constitution follows semantic versioning:
 
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+- **MAJOR**: Backward incompatible governance/principle removals or redefinitions
+- **MINOR**: New principle/section added or materially expanded guidance
+- **PATCH**: Clarifications, wording, typo fixes, non-semantic refinements
+
+### Compliance Review
+
+- Constitution supersedes all other practices and documentation
+- All PRs/reviews MUST verify compliance with constitution
+- Any complexity introduced MUST be justified (see plan-template.md Complexity Tracking)
+- Violations require either fix or constitutional amendment
+- Use CLAUDE.md for runtime development guidance to Claude Code
+
+**Version**: 1.0.0 | **Ratified**: 2026-01-13 | **Last Amended**: 2026-01-13
