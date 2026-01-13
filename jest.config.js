@@ -9,16 +9,11 @@ module.exports = {
   transformIgnorePatterns: ['node_modules/(?!(better-sqlite3)/)'],
   collectCoverageFrom: [
     'src/**/*.ts',
-    '.claude/**/*.ts',
     '!src/**/*.d.ts',
-    '!.claude/**/*.d.ts',
     '!src/**/*.spec.ts',
     '!src/**/*.test.ts',
-    '!.claude/**/*.spec.ts',
-    '!.claude/**/*.test.ts',
     '!src/**/index.ts',
     '!src/types/**/*.ts',
-    '!.claude/types/**/*.ts',
   ],
   coverageThreshold: {
     global: {

@@ -82,6 +82,17 @@ Conventional commits enforced via commitlint:
 - Types: feat, fix, docs, style, refactor, perf, test, chore, revert
 - Format: `type: lowercase subject` (no period, max 100 chars)
 
+### Warnings and Deprecations
+
+**Address immediately** - Never ignore or defer:
+
+- Compiler warnings (TypeScript, ESLint)
+- Deprecation warnings (dependencies, runtime)
+- Security advisories (`npm audit`)
+- Test warnings or flaky tests
+
+When you encounter a warning or deprecation, fix it before proceeding with other work.
+
 ## TDD Workflow
 
 This project **requires strict red-green-refactor TDD**:

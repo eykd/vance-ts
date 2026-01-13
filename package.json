@@ -18,6 +18,7 @@
     "check": "npm run type-check && npm run lint && npm run test",
     "validate": "npm run type-check && npm run lint && npm run format:check && npm run test:coverage && npm run build",
     "fix": "npm run format && npm run lint:fix",
+    "actionlint": "npx -y @tktco/node-actionlint",
     "prepare": "husky"
   },
   "engines": {
@@ -42,6 +43,10 @@
       "bash -c 'tsc --noEmit'",
       "jest --bail --findRelatedTests --passWithNoTests"
     ],
+    ".github/workflows/*.{yml,yaml}": [
+      "prettier --write",
+      "npm run actionlint"
+    ],
     "*.{json,md,yml,yaml}": [
       "prettier --write"
     ]
@@ -50,6 +55,7 @@
     "@commitlint/cli": "^20.3.1",
     "@commitlint/config-conventional": "^20.3.1",
     "@testing-library/jest-dom": "^6.9.1",
+    "@tktco/node-actionlint": "^1.6.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.0.3",
     "@typescript-eslint/eslint-plugin": "^8.52.0",
