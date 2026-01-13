@@ -20,6 +20,9 @@
     "fix": "npm run format && npm run lint:fix",
     "prepare": "husky"
   },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/turtlebased/turtlebased-ts.git"
