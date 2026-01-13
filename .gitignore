@@ -34,3 +34,5 @@ yarn-error.log*
 .claude/tsc-cache/
 thoughts/
 !thoughts/**/.gitkeep
+.history/
+.node_modules_linux/
