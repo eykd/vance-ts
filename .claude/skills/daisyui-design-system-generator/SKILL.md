@@ -1,6 +1,6 @@
 ---
 name: daisyui-design-system-generator
-description: Generate WCAG AAA-compliant DaisyUI 5 color themes using OKLCH color format. Use when creating custom themes for TailwindCSS 4 + DaisyUI 5 projects, ensuring accessible contrast ratios (7:1 normal text, 4.5:1 large text) between foreground and background colors. Covers light/dark mode pairs, semantic color naming, and theme documentation for team handoff.
+description: 'Use when: (1) creating WCAG AAA-compliant DaisyUI 5 color themes, (2) generating OKLCH color palettes, (3) ensuring accessible contrast ratios, (4) documenting themes for team handoff.'
 ---
 
 # DaisyUI Design System Generator

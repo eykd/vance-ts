@@ -1,6 +1,6 @@
 ---
 name: hypermedia-pattern-advisor
-description: Advisor for hypermedia-driven web development with HTMX and Alpine.js. Use when deciding between HTMX vs Alpine.js for interactions, selecting hx-trigger strategies, choosing swap strategies (innerHTML, outerHTML, beforeend, etc.), or identifying when to use out-of-band updates. Also use when building interactive web apps with HTMX/Alpine.js patterns, troubleshooting hypermedia interactions, or optimizing client-server communication patterns.
+description: 'Use when: (1) deciding HTMX vs Alpine.js for interactions, (2) selecting hx-trigger strategies, (3) choosing swap strategies, (4) using out-of-band updates, (5) troubleshooting hypermedia interactions.'
 ---
 
 # Hypermedia Pattern Advisor

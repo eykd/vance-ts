@@ -1,6 +1,6 @@
 ---
 name: latent-features
-description: Progressive disclosure of implementation patterns for Cloudflare platform features, especially security-critical patterns
+description: 'Use when: (1) defining feature specs (/sp:02-specify), (2) planning implementations (/sp:04-plan), (3) implementing authentication/sessions, (4) security-sensitive features. NOT for simple CRUD or bug fixes.'
 allowed-tools: [Read, Bash]
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: ddd-domain-modeling
-description: Create pure TypeScript domain models following Domain-Driven Design principles. Use when building domain entities with validation and invariants, value objects with encapsulation, repository interfaces, or domain services. Also use for questions about keeping domain code free of external dependencies, enforcing business rules in the domain layer, or implementing tactical DDD patterns. Triggers on mentions of DDD, domain model, entity, value object, aggregate, repository interface, domain service, or business logic encapsulation.
+description: 'Use when: (1) building domain entities with validation, (2) creating value objects, (3) defining repository interfaces, (4) implementing domain services, (5) questions about DDD patterns or business logic encapsulation.'
 ---
 
 # DDD Domain Modeling

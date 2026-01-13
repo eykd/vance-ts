@@ -1,6 +1,6 @@
 ---
 name: cloudflare-use-case-creator
-description: Generate use cases in the application layer for Cloudflare Workers TypeScript projects using Clean Architecture and DDD. Use when creating new use cases, DTOs (request/response objects), wiring domain services and repository interfaces, or implementing CRUD operations in the application layer. Also use when asked to add a feature, create an endpoint, implement business logic, or add a new capability that requires orchestrating domain objects.
+description: 'Use when: (1) creating use cases in application layer, (2) defining DTOs (request/response), (3) wiring repositories to use cases, (4) implementing CRUD operations, (5) adding features that orchestrate domain objects.'
 ---
 
 # Cloudflare Use Case Creator

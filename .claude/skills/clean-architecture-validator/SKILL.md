@@ -1,6 +1,6 @@
 ---
 name: clean-architecture-validator
-description: Analyze code for Clean Architecture dependency rule violations. Use when reviewing code for architecture compliance, identifying domain/infrastructure coupling, validating layer boundaries, suggesting refactoring to proper layers, or checking interface placement. Triggers include requests to review architecture, find dependency violations, validate clean architecture, check layer dependencies, identify coupling issues, or refactor for better separation.
+description: 'Use when: (1) reviewing code for architecture compliance, (2) finding dependency violations, (3) validating layer boundaries, (4) checking interface placement, (5) refactoring for better separation.'
 ---
 
 # Clean Architecture Validator

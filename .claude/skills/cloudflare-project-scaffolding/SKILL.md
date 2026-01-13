@@ -1,6 +1,6 @@
 ---
 name: cloudflare-project-scaffolding
-description: Scaffold Cloudflare interactive web app projects with DDD/Clean Architecture structure. Use when users want to (1) create a new Cloudflare Workers project, (2) set up HTMX + Alpine.js + TailwindCSS 4 + DaisyUI 5 stack, (3) initialize a project with domain/application/infrastructure/presentation layers, (4) configure Vitest with @cloudflare/vitest-pool-workers, or (5) start a hypermedia-driven web application on Cloudflare's edge platform.
+description: 'Use when: (1) creating a new Cloudflare Workers project, (2) setting up HTMX + Alpine.js + TailwindCSS 4 + DaisyUI 5 stack, (3) initializing DDD/Clean Architecture layers, (4) configuring Vitest with vitest-pool-workers.'
 ---
 
 # Cloudflare Project Scaffolding

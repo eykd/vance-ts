@@ -1,6 +1,6 @@
 ---
 name: htmx-pattern-library
-description: Production-ready HTMX patterns with Alpine.js for interactive web applications. Use when building (1) Form submissions with validation/error handling, (2) Infinite scroll or lazy loading, (3) Search with debouncing, (4) Out-of-band updates for multiple regions, (5) Loading states and optimistic UI, (6) Modal dialogs and dropdowns, (7) Tab switching and accordions. Patterns include HTML markup, server response formats, and HTMX/Alpine coordination.
+description: 'Use when building: (1) forms with validation, (2) infinite scroll/lazy loading, (3) search with debouncing, (4) out-of-band updates, (5) loading states/optimistic UI, (6) modals/dropdowns, (7) tabs/accordions.'
 ---
 
 # HTMX Pattern Library

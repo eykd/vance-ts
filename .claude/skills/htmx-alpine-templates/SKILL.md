@@ -1,6 +1,6 @@
 ---
 name: htmx-alpine-templates
-description: Generate HTML templates using tagged template literals with HTMX, Alpine.js, TailwindCSS 4, and DaisyUI 5. Use when creating layouts, pages, and partials for hypermedia-driven web apps. Triggers include requests to create HTML templates, add HTMX interactivity, implement Alpine.js components, use DaisyUI components, or build server-rendered UI with partial updates.
+description: 'Use when: (1) creating HTML layouts/pages/partials, (2) adding HTMX interactivity, (3) implementing Alpine.js components, (4) using DaisyUI 5 components, (5) building server-rendered UI with partial updates.'
 ---
 
 # HTMX + Alpine.js HTML Templates

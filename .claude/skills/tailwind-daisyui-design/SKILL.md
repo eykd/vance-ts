@@ -1,6 +1,6 @@
 ---
 name: tailwind-daisyui-design
-description: Create accessible, visually compelling web designs using TailwindCSS 4 and DaisyUI 5. Use when building UI components, pages, or layouts that need to be accessible and well-designed. Covers component selection (prefer existing DaisyUI components), typography for readability (tailwindcss-typography, column width), accessible form patterns, semantic color usage from DaisyUI themes, and when to customize vs use components as-is.
+description: 'Use when: (1) building accessible UI components/layouts, (2) choosing DaisyUI components, (3) implementing typography for readability, (4) creating accessible forms, (5) applying semantic colors from themes.'
 ---
 
 # TailwindCSS + DaisyUI Design Patterns

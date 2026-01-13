@@ -1,6 +1,6 @@
 ---
 name: worker-request-handler
-description: Generate typed Cloudflare Worker request handlers in presentation layer following clean architecture. Use when (1) creating new route handlers for pages or HTMX partials, (2) extracting and validating form/query data from requests, (3) connecting handlers to use cases and repositories, (4) returning HTML responses with proper status codes and HX-Trigger headers, (5) implementing middleware for auth/error-handling/logging, or (6) questions about Worker handler patterns and HTMX response conventions.
+description: 'Use when: (1) creating route handlers for pages/partials, (2) extracting form/query data, (3) connecting handlers to use cases, (4) returning HTML with HX-Trigger headers, (5) implementing middleware (auth/errors/logging).'
 ---
 
 # Worker Request Handler

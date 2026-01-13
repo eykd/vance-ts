@@ -1,6 +1,6 @@
 ---
 name: d1-repository-implementation
-description: Implement repository interfaces using Cloudflare D1 database. Use when creating D1 repositories for Clean Architecture, writing D1 migration files, setting up type-safe database queries, implementing integration tests with @cloudflare/vitest-pool-workers, or handling D1 connection pooling and errors. Triggers on D1 repository, D1 migration, Cloudflare database, SQLite edge database, vitest-pool-workers testing, or D1TaskRepository patterns.
+description: 'Use when: (1) implementing D1 repositories for Clean Architecture, (2) writing D1 migration files, (3) setting up type-safe D1 queries, (4) integration testing with vitest-pool-workers, (5) handling D1 errors.'
 ---
 
 # D1 Repository Implementation
