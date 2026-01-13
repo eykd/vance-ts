@@ -49,8 +49,11 @@ jobs:
         run: npm run build
 
   deploy:
-    # Only deploy on push to master branch (after PR merge)
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    # Only deploy on push to master branch when wrangler.toml exists (after PR merge)
+    if: |
+      github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
+      hashFiles('wrangler.toml') != ''
     needs: quality
     runs-on: ubuntu-latest
 
