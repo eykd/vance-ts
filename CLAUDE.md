@@ -109,3 +109,20 @@ When adding new functionality:
 3. Run `npx jest --watch` or `just test-watch`
 4. Implement code to pass tests
 5. Ensure 100% coverage maintained
+
+## Implementation Patterns
+
+When defining specifications or planning new features, **ALWAYS use the `/latent-features` skill** to access important implementation patterns for the Cloudflare platform. This skill provides progressive disclosure of comprehensive guides covering:
+
+- Security-critical patterns (authentication, session management, CSRF/XSS protection)
+- Architectural best practices for Cloudflare Workers
+- OWASP-compliant implementations (as of January 2026)
+- Domain-driven design patterns
+
+**Required usage during**:
+
+- `/sp:02-specify` - Feature specification phase
+- `/sp:04-plan` - Planning phase
+- Implementation of security-sensitive features
+
+The skill prevents token overload by providing focused access to relevant sections of comprehensive guides rather than loading entire documents.
