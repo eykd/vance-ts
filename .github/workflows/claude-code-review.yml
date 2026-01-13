@@ -1,0 +1,92 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    # Optional: Only run on specific file changes
+    # paths:
+    #   - "src/**/*.ts"
+    #   - "src/**/*.tsx"
+    #   - "src/**/*.js"
+    #   - "src/**/*.jsx"
+
+jobs:
+  claude-review:
+    # Optional: Filter by PR author
+    # if: |
+    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.user.login == 'new-developer' ||
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            You're reviewing this pull request for a non-technical stakeholder who cares about product vision and user outcomes.
+
+            Please provide a clear, jargon-free review that answers:
+
+            **What Changed:**
+            - Summarize what this PR does in plain English
+            - What user-facing features or improvements does it deliver?
+            - What problem does it solve?
+
+            **Does It Work:**
+            - Are the changes well-tested and safe to ship?
+            - Any risks or concerns for users?
+            - Is this production-ready?
+
+            **Simplicity & Maintainability:**
+            - Is the implementation straightforward and easy to understand?
+            - Are there any overly complex parts that could cause future issues?
+            - Does it follow the project's standards and patterns?
+
+            **Test Quality (if tests are included):**
+            If this PR includes any test files (files in tests/ or files matching *_test.py or test_*.py), invoke the pytest-test-review skill and provide a dedicated test review section. Apply Kent Beck's Test Desiderata and GOOS principles to evaluate:
+            - Test classification: Are unit/integration/acceptance tests correctly layered?
+            - Test properties: Are tests behavioral, readable, fast, deterministic, isolated, and specific?
+            - Mocking appropriateness: Are mocks used correctly (mocking roles, not values; verifying interactions)?
+            - Anti-patterns: Flag any issues like missing assertions, testing framework code, or shared mutable state
+            - Test pain signals: Do difficult tests indicate design problems in the production code?
+
+            **Recommendations:**
+            - Anything that should be addressed before merging?
+            - Opportunities to simplify or improve?
+
+            **Next Steps:**
+            If you have recommendations, include a section titled "Copy-Paste Prompt for Claude Code" with a triple-backtick code block containing a ready-to-use prompt that implements your recommended changes. This prompt should be specific, actionable, and reference exact file paths and line numbers where relevant. The stakeholder should be able to copy this prompt directly into Claude Code to implement the changes.
+
+            Example format:
+            ### Copy-Paste Prompt for Claude Code
+            ```
+            Please update the user registration form to include email validation as discussed in the review. Specifically:
+            - Add client-side validation in src/accounts/forms.py:45
+            - Update the error messages to be more user-friendly
+            - Ensure the tests in tests/test_registration.py cover the new validation
+            ```
+
+            Use the repository's CLAUDE.md for context on project standards. Keep your language accessible and focus on outcomes over technical minutiae.
+
+            Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
+
+          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
+          # or https://code.claude.com/docs/en/cli-reference for available options
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
