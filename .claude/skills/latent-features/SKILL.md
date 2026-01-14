@@ -86,7 +86,40 @@ reference/secure-auth/
 
 ---
 
-### 2. Stripe Payments Integration
+### 2. Slack Bot Integration
+
+**Triggers**: slack, bot, slack-bot, events, slash-commands, interactive, block-kit, oauth, webhook
+
+**Covers**: Complete Slack bot integration for Cloudflare Workers with events, commands, modals, and OAuth
+
+**Quick start**: Read `reference/slack-bot/PATTERN.md`
+
+**Progressive disclosure**:
+
+- Specification → `architecture/overview.md` (~140 lines)
+- Planning → `implementation/request-verification.md` + `implementation/event-handling.md` (~360 lines)
+- Implementation → Choose from implementation/\*.md files (~140-200 lines each)
+
+**Reference structure**:
+
+```
+reference/slack-bot/
+├── PATTERN.md                          # Pattern guide
+├── architecture/
+│   └── overview.md                     # Architecture, request flow, project structure
+└── implementation/
+    ├── request-verification.md         # HMAC signature verification
+    ├── event-handling.md               # Events API handling
+    ├── slash-commands.md               # Slash command handlers
+    ├── interactive-components.md       # Buttons, modals, selects
+    ├── oauth-installation.md           # Multi-workspace OAuth flow
+    ├── block-kit-messaging.md          # Block Kit message builder
+    └── testing.md                      # Test fixtures and strategies
+```
+
+---
+
+### 3. Stripe Payments Integration
 
 **Triggers**: stripe, payments, checkout, subscription, billing, invoicing, usage-based, webhook
 
