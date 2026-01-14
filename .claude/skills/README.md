@@ -135,6 +135,38 @@ Skills can also be activated automatically by Claude when it detects relevant co
 - **Use when:** Creating D1 migration files, handling schema changes safely, seeding development/testing data
 - **Provides:** Migration file patterns, schema change strategies, seed data patterns
 
+### Hugo + Cloudflare Pages
+
+**[hugo-templates](./hugo-templates/SKILL.md)**
+
+- **Use when:** Creating Hugo layouts with HTMX integration, building partials for dynamic content, writing shortcodes with Alpine.js state
+- **Provides:** Base layouts, content templates, partials, shortcodes, HTMX integration patterns
+- **Cross-references:** htmx-pattern-library, tailwind-daisyui-design, hypermedia-pattern-advisor
+
+**[typescript-html-templates](./typescript-html-templates/SKILL.md)**
+
+- **Use when:** Creating TypeScript HTML response functions, implementing escapeHtml utilities, building template literals for HTMX partials
+- **Provides:** Template functions, HTML escaping, HX-Trigger headers, error responses, response patterns
+- **Cross-references:** worker-request-handler, tailwind-daisyui-design, htmx-pattern-library
+
+**[hugo-project-setup](./hugo-project-setup/SKILL.md)**
+
+- **Use when:** Creating a new Hugo + Cloudflare Pages project, setting up directory structure, configuring hugo.toml with HTMX endpoints
+- **Provides:** Directory layout, Hugo configuration, Wrangler configuration, build pipeline, development workflow
+- **Cross-references:** cloudflare-project-scaffolding, vitest-cloudflare-config, hugo-templates
+
+**[static-first-routing](./static-first-routing/SKILL.md)**
+
+- **Use when:** Understanding CDN vs Pages Functions routing, configuring URL structure, deciding which requests need dynamic handling
+- **Provides:** Request flow diagrams, path conventions, static vs dynamic decision matrix, /app/\_/\* patterns
+- **Cross-references:** worker-request-handler, cloudflare-project-scaffolding, hugo-project-setup
+
+**[hugo-search-indexing](./hugo-search-indexing/SKILL.md)**
+
+- **Use when:** Building search from Hugo markdown content, populating D1 search tables, implementing FTS5 full-text search
+- **Provides:** Build scripts for index generation, D1 schema with FTS5, search handler patterns, deployment commands
+- **Cross-references:** d1-repository-implementation, cloudflare-migrations, typescript-html-templates
+
 ### Frontend & UI
 
 **[htmx-pattern-library](./htmx-pattern-library/SKILL.md)**
