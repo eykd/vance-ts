@@ -28,7 +28,7 @@ Copy-paste patterns for HTMX + Alpine.js. Server returns HTML fragments, not JSO
 ### HTMX: Server Communication
 
 ```html
-<button hx-get="/api/data" hx-target="#result" hx-swap="innerHTML">Load</button>
+<button hx-get="/app/_/data" hx-target="#result" hx-swap="innerHTML">Load</button>
 ```
 
 ### Alpine.js: UI State

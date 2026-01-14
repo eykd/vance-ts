@@ -33,6 +33,18 @@
 - Rate limiting and account lockout
 - Secure cookie configuration
 
+**Routing boundary**:
+
+This pattern uses a static-first routing model:
+
+- `/auth/*` routes are public (login, logout, register)
+- `/app/*` routes are authenticated (require valid session)
+- `/app/_/*` routes are HTMX partials (also authenticated)
+- `/webhooks/*` routes use signature verification (no session auth)
+- `/` and other static routes are served by Cloudflare Pages (no Worker involvement)
+
+Auth middleware is applied at the `/app/*` boundary in the router, not at individual handlers.
+
 ---
 
 ## Progressive Disclosure Path

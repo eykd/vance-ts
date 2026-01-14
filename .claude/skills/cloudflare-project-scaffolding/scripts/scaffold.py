@@ -75,10 +75,19 @@ def scaffold_project(project_name: str, output_dir: Path, db_name: str = None):
     "enabled": true
   }},
 
+  // Static-first routing: Pages serves static content, Worker handles dynamic routes
   "assets": {{
     "directory": "./public",
     "binding": "ASSETS"
   }},
+
+  // Routes: Worker only handles /app/*, /auth/*, /webhooks/*
+  // All other routes (/, /about, /pricing) are served from public/ by Pages
+  "routes": [
+    {{ "pattern": "{project_name}.workers.dev/app/*", "zone_name": "{project_name}.workers.dev" }},
+    {{ "pattern": "{project_name}.workers.dev/auth/*", "zone_name": "{project_name}.workers.dev" }},
+    {{ "pattern": "{project_name}.workers.dev/webhooks/*", "zone_name": "{project_name}.workers.dev" }}
+  ],
 
   "d1_databases": [
     {{
@@ -180,10 +189,34 @@ export default defineWorkersConfig({
   }
 }''')
 
-    # === Public Assets ===
-    
+    # === Public Assets (Static pages served by Cloudflare Pages) ===
+
+    create_file(root / "public" / "index.html", f'''<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{project_name}</title>
+  <link href="/css/app.css" rel="stylesheet">
+  <script src="/js/htmx.min.js" defer></script>
+  <script src="/js/alpine.min.js" defer></script>
+</head>
+<body class="min-h-screen bg-base-200">
+  <div class="hero min-h-screen">
+    <div class="hero-content text-center">
+      <div class="max-w-md">
+        <h1 class="text-5xl font-bold">Welcome</h1>
+        <p class="py-6">This is a static marketing page served by Cloudflare Pages.</p>
+        <a href="/app" class="btn btn-primary">Go to App</a>
+        <a href="/auth/login" class="btn btn-ghost">Login</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>''')
+
     create_file(root / "public" / "css" / ".gitkeep", "# Compiled CSS output directory")
-    
+
     create_file(root / "public" / "js" / ".gitkeep", '''# Add HTMX and Alpine.js here:
 # - htmx.min.js (from https://unpkg.com/htmx.org)
 # - alpine.min.js (from https://unpkg.com/alpinejs)''')
@@ -207,11 +240,11 @@ export default defineWorkersConfig({
     create_file(root / "src" / "infrastructure" / "services" / ".gitkeep", "# External service adapters")
 
     # === Presentation Layer ===
-    
+
     create_file(root / "src" / "presentation" / "handlers" / ".gitkeep", "# HTTP request handlers")
     create_file(root / "src" / "presentation" / "templates" / "layouts" / ".gitkeep", "# Page layouts")
-    create_file(root / "src" / "presentation" / "templates" / "pages" / ".gitkeep", "# Full page templates")
-    create_file(root / "src" / "presentation" / "templates" / "partials" / ".gitkeep", "# HTMX partial templates")
+    create_file(root / "src" / "presentation" / "templates" / "app" / ".gitkeep", "# Worker-rendered app pages (/app/*)")
+    create_file(root / "src" / "presentation" / "templates" / "app" / "partials" / ".gitkeep", "# HTMX partial templates (/app/_/*)")
     create_file(root / "src" / "presentation" / "middleware" / ".gitkeep", "# Request middleware")
 
     # === Entry Point & Router ===
@@ -255,31 +288,32 @@ export class Router {
     this.registerRoutes();
   }
 
+  // Static-first routing: Worker handles /app/*, /auth/*, /webhooks/* only
+  // Static pages (/, /about, /pricing) are served by Cloudflare Pages from public/
   private registerRoutes(): void {
-    // Pages
-    this.get("/", (req) => this.homePage(req));
+    // Auth routes (public)
+    this.get("/auth/login", (req) => this.loginPage(req));
+    this.post("/auth/login", (req) => this.handleLogin(req));
+    this.post("/auth/logout", (req) => this.handleLogout(req));
 
-    // API endpoints (return HTML partials for HTMX)
-    // this.get("/api/items", (req) => this.listItems(req));
-    // this.post("/api/items", (req) => this.createItem(req));
+    // Application pages (authenticated) - all under /app
+    this.get("/app", (req) => this.dashboardPage(req));
 
-    // Static assets fallback
-    this.get("/*", async (req) => {
-      const response = await this.env.ASSETS.fetch(req);
-      if (response.status === 404) {
-        return new Response("Not found", { status: 404 });
-      }
-      return response;
-    });
+    // HTMX partials (authenticated) - all under /app/_
+    // this.get("/app/_/items", (req) => this.listItems(req));
+    // this.post("/app/_/items", (req) => this.createItem(req));
+
+    // Webhooks (signature verification, no session auth)
+    // this.post("/webhooks/stripe", (req) => this.handleStripeWebhook(req));
   }
 
-  private async homePage(request: Request): Promise<Response> {
+  private async dashboardPage(request: Request): Promise<Response> {
     const html = `<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome</title>
+  <title>Dashboard</title>
   <link href="/css/app.css" rel="stylesheet">
   <script src="/js/htmx.min.js" defer></script>
   <script src="/js/alpine.min.js" defer></script>
@@ -288,12 +322,13 @@ export class Router {
   <div class="hero min-h-screen">
     <div class="hero-content text-center">
       <div class="max-w-md">
-        <h1 class="text-5xl font-bold">Hello!</h1>
-        <p class="py-6">Your Cloudflare project is ready. Start building!</p>
+        <h1 class="text-5xl font-bold">Dashboard</h1>
+        <p class="py-6">Your app is ready. Start building!</p>
         <div x-data="{ count: 0 }" class="space-y-4">
           <p>Alpine.js counter: <span x-text="count" class="font-bold"></span></p>
           <button @click="count++" class="btn btn-primary">Increment</button>
         </div>
+        <a href="/" class="btn btn-ghost mt-4">Back to Home</a>
       </div>
     </div>
   </div>
@@ -302,6 +337,20 @@ export class Router {
     return new Response(html, {
       headers: { "Content-Type": "text/html; charset=utf-8" }
     });
+  }
+
+  private async loginPage(request: Request): Promise<Response> {
+    return new Response("Login page - implement auth", {
+      headers: { "Content-Type": "text/html; charset=utf-8" }
+    });
+  }
+
+  private async handleLogin(request: Request): Promise<Response> {
+    return new Response(null, { status: 303, headers: { Location: "/app" } });
+  }
+
+  private async handleLogout(request: Request): Promise<Response> {
+    return new Response(null, { status: 303, headers: { Location: "/" } });
   }
 
   private addRoute(method: string, path: string, handler: RouteHandler): void {

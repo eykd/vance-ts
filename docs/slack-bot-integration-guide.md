@@ -403,7 +403,7 @@ users:read          - View user info
 **Redirect URLs**:
 
 ```
-https://your-app.workers.dev/slack/oauth/callback
+https://your-app.workers.dev/auth/slack/callback
 ```
 
 ### Setting Up Event Subscriptions
@@ -411,7 +411,7 @@ https://your-app.workers.dev/slack/oauth/callback
 Under "Event Subscriptions":
 
 1. Enable Events
-2. Set Request URL: `https://your-app.workers.dev/slack/events`
+2. Set Request URL: `https://your-app.workers.dev/webhooks/slack/events`
 3. Subscribe to bot events:
    - `app_mention` - When someone mentions your bot
    - `message.channels` - Messages in public channels
@@ -422,17 +422,17 @@ Under "Event Subscriptions":
 
 Under "Slash Commands", create commands:
 
-| Command | Request URL                                   | Description             |
-| ------- | --------------------------------------------- | ----------------------- |
-| `/task` | `https://your-app.workers.dev/slack/commands` | Create and manage tasks |
-| `/help` | `https://your-app.workers.dev/slack/commands` | Show help information   |
+| Command | Request URL                                            | Description             |
+| ------- | ------------------------------------------------------ | ----------------------- |
+| `/task` | `https://your-app.workers.dev/webhooks/slack/commands` | Create and manage tasks |
+| `/help` | `https://your-app.workers.dev/webhooks/slack/commands` | Show help information   |
 
 ### Enabling Interactive Components
 
 Under "Interactivity & Shortcuts":
 
 1. Enable Interactivity
-2. Set Request URL: `https://your-app.workers.dev/slack/interactions`
+2. Set Request URL: `https://your-app.workers.dev/webhooks/slack/interactions`
 
 ### Collecting Credentials
 

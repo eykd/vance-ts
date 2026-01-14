@@ -57,6 +57,57 @@ This architecture embraces several key principles that distinguish it from tradi
 
 ## Architecture Overview
 
+### Static-First Routing Model
+
+This architecture follows the principle: **"Static by default. Dynamic by intent."**
+
+The root domain (`/`) serves static HTML pages (marketing site) directly from Cloudflare Pages, while the Worker handles only explicitly dynamic routes:
+
+- `/app/*` — Authenticated application pages and HTMX partials
+- `/auth/*` — Authentication flows (login, logout, OAuth callbacks)
+- `/webhooks/*` — External service callbacks (Stripe, Slack, etc.)
+
+```
+Static-First Architecture:
+┌──────────────────────────────────────────────────────────────┐
+│                      Cloudflare Edge                          │
+├──────────────────────────────────────────────────────────────┤
+│  Request arrives at domain                                    │
+│           │                                                   │
+│           ▼                                                   │
+│  ┌─────────────────┐                                         │
+│  │ Route Matching  │                                         │
+│  └────────┬────────┘                                         │
+│           │                                                   │
+│     ┌─────┴─────┐                                            │
+│     ▼           ▼                                            │
+│ ┌───────┐  ┌────────┐                                        │
+│ │Static │  │Dynamic │                                        │
+│ │Routes │  │Routes  │                                        │
+│ └───┬───┘  └───┬────┘                                        │
+│     │          │                                             │
+│     ▼          ▼                                             │
+│ ┌───────┐  ┌────────────────────────────────────┐           │
+│ │Pages  │  │              Worker                 │           │
+│ │(HTML) │  │  ┌────────┐  ┌─────┐  ┌────────┐  │           │
+│ └───────┘  │  │ /auth  │  │/app │  │/webhooks│  │           │
+│            │  │ (open) │  │(auth)│  │(sig)   │  │           │
+│            │  └────────┘  └─────┘  └────────┘  │           │
+│            └────────────────────────────────────┘           │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Route Ownership:**
+
+| Route Pattern                 | Handler | Auth Required | Purpose                    |
+| ----------------------------- | ------- | ------------- | -------------------------- |
+| `/`, `/about`, `/pricing`     | Pages   | No            | Static marketing pages     |
+| `/blog/*`, `/assets/*`        | Pages   | No            | Static content and assets  |
+| `/auth/login`, `/auth/logout` | Worker  | No/Session    | Authentication flows       |
+| `/app/*`                      | Worker  | Session       | Authenticated application  |
+| `/app/_/*`                    | Worker  | Session       | HTMX partial responses     |
+| `/webhooks/*`                 | Worker  | Signature     | External service callbacks |
+
 ### The Hypermedia Approach
 
 Traditional SPAs separate concerns by placing a JSON API on the server and a JavaScript application on the client. The client fetches data, manages state, renders HTML, and handles user interactions. This creates two parallel codebases that must stay synchronized.
@@ -128,6 +179,85 @@ The key insight is understanding what each tool does best:
 └─────────────────────────────────────────────────────────────┘
 ```
 
+#### Authentication Middleware Pattern
+
+Authentication middleware sits in the presentation layer, wrapping all authenticated routes (typically `/app/*`) to ensure consistent session checking:
+
+```typescript
+// src/presentation/middleware/auth.ts
+export async function requireAuth(
+  request: Request,
+  env: Env
+): Promise<{ user: User; session: Session } | Response> {
+  const sessionId = getCookie(request, 'session_id');
+
+  if (!sessionId) {
+    // No session - redirect to login
+    return new Response(null, {
+      status: 303,
+      headers: { Location: '/auth/login' },
+    });
+  }
+
+  // Load session from KV
+  const session = await env.SESSIONS.get(sessionId, 'json');
+
+  if (!session || session.expiresAt < Date.now()) {
+    // Invalid or expired session
+    return new Response(null, {
+      status: 303,
+      headers: {
+        Location: '/auth/login',
+        'Set-Cookie': 'session_id=; Max-Age=0; Path=/', // Clear cookie
+      },
+    });
+  }
+
+  // Load user from D1
+  const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?')
+    .bind(session.userId)
+    .first();
+
+  if (!user) {
+    // User deleted but session still exists
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  // Return authenticated context
+  return { user, session };
+}
+
+// Usage in route handlers
+export const onRequest: PagesFunction<Env> = async (context) => {
+  const url = new URL(context.request.url);
+
+  // Public routes (marketing pages)
+  if (!url.pathname.startsWith('/app')) {
+    return await handlePublicRoute(context);
+  }
+
+  // All /app/* routes require authentication
+  const authResult = await requireAuth(context.request, context.env);
+
+  if (authResult instanceof Response) {
+    // Authentication failed - return redirect/error response
+    return authResult;
+  }
+
+  // Authentication succeeded - pass to app handlers
+  return await handleAppRoute(context, authResult.user, authResult.session);
+};
+```
+
+**Key Points**:
+
+- **Consistent checking**: All `/app/*` routes automatically require authentication
+- **HTMX partials included**: HTMX endpoints like `/app/_/task-list` also go through auth
+- **Presentation layer concern**: Authentication checking belongs in presentation, not domain
+- **Session renewal**: Consider refreshing session expiry on each authenticated request
+
+**Note**: HTMX partial endpoints (e.g., `/app/_/task-list`) **must** also pass through authentication middleware. Without this, attackers could access HTMX endpoints directly, bypassing the full page authentication check.
+
 ---
 
 ## Project Structure
@@ -136,6 +266,21 @@ The key insight is understanding what each tool does best:
 
 ```
 project-root/
+├── public/                        # Static marketing site (served by Pages)
+│   ├── index.html                # / - Marketing home page
+│   ├── about/
+│   │   └── index.html            # /about - About page
+│   ├── pricing/
+│   │   └── index.html            # /pricing - Pricing page
+│   ├── blog/                     # /blog/* - Blog content
+│   │   └── index.html
+│   ├── css/
+│   │   └── app.css               # Compiled TailwindCSS
+│   ├── js/
+│   │   ├── htmx.min.js
+│   │   └── alpine.min.js
+│   └── images/
+│
 ├── src/
 │   ├── domain/                    # Pure business logic (no dependencies)
 │   │   ├── entities/
@@ -175,35 +320,29 @@ project-root/
 │   │   └── services/
 │   │       └── EmailService.ts
 │   │
-│   ├── presentation/              # HTTP/Worker layer
+│   ├── presentation/              # HTTP/Worker layer (dynamic routes only)
 │   │   ├── handlers/
 │   │   │   ├── TaskHandlers.ts
 │   │   │   ├── TaskHandlers.spec.ts
-│   │   │   └── TaskHandlers.acceptance.test.ts
-│   │   ├── templates/             # HTML templates
+│   │   │   ├── TaskHandlers.acceptance.test.ts
+│   │   │   ├── AuthHandlers.ts
+│   │   │   └── WebhookHandlers.ts
+│   │   ├── templates/
 │   │   │   ├── layouts/
-│   │   │   │   └── base.ts
-│   │   │   ├── pages/
-│   │   │   │   ├── home.ts
-│   │   │   │   └── tasks.ts
-│   │   │   └── partials/
+│   │   │   │   └── app-base.ts   # Base layout for /app/* pages
+│   │   │   ├── app/              # Full pages for /app/* routes
+│   │   │   │   ├── dashboard.ts  # /app - Dashboard
+│   │   │   │   └── tasks.ts      # /app/tasks - Tasks page
+│   │   │   └── partials/         # HTMX fragments for /app/_/* routes
 │   │   │       ├── task-list.ts
 │   │   │       ├── task-item.ts
 │   │   │       └── task-form.ts
 │   │   └── middleware/
-│   │       ├── auth.ts
+│   │       ├── auth.ts           # Applied at /app/* boundary
 │   │       └── errorHandler.ts
 │   │
 │   ├── index.ts                   # Worker entry point
-│   └── router.ts                  # Route definitions
-│
-├── public/                        # Static assets (served by Pages)
-│   ├── css/
-│   │   └── app.css               # Compiled TailwindCSS
-│   ├── js/
-│   │   ├── htmx.min.js
-│   │   └── alpine.min.js
-│   └── images/
+│   └── router.ts                  # Route definitions (/app/*, /auth/*, /webhooks/*)
 │
 ├── tests/
 │   ├── setup.ts                  # Test configuration
@@ -226,13 +365,203 @@ project-root/
 
 ### Key Principles of This Structure
 
-1. **Domain Independence**: The `domain/` folder has zero dependencies on external frameworks or infrastructure. It contains pure TypeScript/JavaScript and can be tested without mocking.
+1. **Static-First**: The `public/` folder contains marketing pages served directly by Cloudflare Pages. These pages work without JavaScript and don't require the Worker.
 
-2. **Dependency Rule**: Dependencies point inward. Infrastructure depends on Application, which depends on Domain. Never the reverse.
+2. **Domain Independence**: The `domain/` folder has zero dependencies on external frameworks or infrastructure. It contains pure TypeScript/JavaScript and can be tested without mocking.
 
-3. **Test Colocation**: Unit tests (`.spec.ts`) live next to their implementation files. Integration tests (`.integration.test.ts`) test adapters with real infrastructure. Acceptance tests (`.acceptance.test.ts`) test complete features.
+3. **Dependency Rule**: Dependencies point inward. Infrastructure depends on Application, which depends on Domain. Never the reverse.
 
-4. **Template Organization**: HTML templates are organized by purpose: layouts (page scaffolding), pages (full page renders), and partials (HTMX fragments).
+4. **Test Colocation**: Unit tests (`.spec.ts`) live next to their implementation files. Integration tests (`.integration.test.ts`) test adapters with real infrastructure. Acceptance tests (`.acceptance.test.ts`) test complete features.
+
+5. **Template Organization**: HTML templates are organized by route type: `app/` for full pages under `/app/*`, and `partials/` for HTMX fragments returned by `/app/_/*` endpoints.
+
+### Static Site Generators for Marketing Pages
+
+The `public/` directory can be populated manually with HTML files, or more commonly, generated by a Static Site Generator (SSG). Popular choices include:
+
+| SSG              | Language              | Best For                                |
+| ---------------- | --------------------- | --------------------------------------- |
+| Hugo             | Go templates          | Fast builds, content-heavy sites, blogs |
+| Astro            | JavaScript/TypeScript | Component islands, mixed content        |
+| 11ty (Eleventy)  | JavaScript            | Flexibility, simple templating          |
+| Next.js (export) | React                 | Teams already using React               |
+
+**The SSG's role is limited to marketing pages:**
+
+- Home page (`/`)
+- About, pricing, contact pages
+- Blog posts and documentation
+- Any publicly accessible content
+
+**The Worker handles all dynamic functionality:**
+
+- User authentication (`/auth/*`)
+- Application logic (`/app/*`)
+- HTMX partial responses (`/app/_/*`)
+- Webhook endpoints (`/webhooks/*`)
+
+**Example: Hugo Project Structure**
+
+```
+project-root/
+├── hugo/                          # Hugo source files
+│   ├── content/
+│   │   ├── _index.md             # Home page content
+│   │   ├── about.md
+│   │   └── blog/
+│   │       └── first-post.md
+│   ├── layouts/
+│   │   └── _default/
+│   │       └── baseof.html
+│   └── hugo.toml
+│
+├── public/                        # Hugo output (gitignored, built at deploy)
+│   ├── index.html
+│   ├── about/index.html
+│   └── blog/first-post/index.html
+│
+└── src/                           # Worker source (dynamic routes)
+    └── ...
+```
+
+**Build Process:**
+
+```bash
+# Build static marketing pages
+cd hugo && hugo --destination ../public
+
+# Deploy to Cloudflare (Pages serves public/, Worker handles /app/*, /auth/*, /webhooks/*)
+wrangler deploy
+```
+
+### SSG-Worker Interaction Patterns
+
+Static pages can interact with the Worker through forms and HTMX. This enables progressive enhancement where marketing pages work without JavaScript but gain dynamic features when JS is available.
+
+#### Pattern 1: Contact Form on Static Page
+
+A static marketing page can POST to a Worker endpoint:
+
+```html
+<!-- public/contact/index.html (generated by SSG) -->
+<form action="/app/_/contact" method="POST">
+  <input type="text" name="name" required />
+  <input type="email" name="email" required />
+  <textarea name="message" required></textarea>
+  <button type="submit">Send Message</button>
+</form>
+```
+
+For enhanced UX with HTMX (no full page reload):
+
+```html
+<!-- public/contact/index.html (generated by SSG) -->
+<form hx-post="/app/_/contact" hx-target="#form-result" hx-swap="innerHTML">
+  <input type="text" name="name" required />
+  <input type="email" name="email" required />
+  <textarea name="message" required></textarea>
+  <button type="submit">
+    <span class="htmx-indicator loading loading-spinner"></span>
+    Send Message
+  </button>
+</form>
+<div id="form-result"></div>
+```
+
+#### Pattern 2: Newsletter Signup
+
+```html
+<!-- In SSG template (e.g., Hugo partial) -->
+<form hx-post="/app/_/newsletter/subscribe" hx-swap="outerHTML" class="flex gap-2">
+  <input
+    type="email"
+    name="email"
+    placeholder="your@email.com"
+    required
+    class="input input-bordered"
+  />
+  <button type="submit" class="btn btn-primary">Subscribe</button>
+</form>
+```
+
+Worker returns HTML fragment:
+
+```typescript
+// src/presentation/handlers/NewsletterHandlers.ts
+async handleSubscribe(request: Request): Promise<Response> {
+  const formData = await request.formData();
+  const email = formData.get('email') as string;
+
+  // Process subscription...
+
+  return new Response(
+    `<div class="alert alert-success">Thanks for subscribing!</div>`,
+    { headers: { 'Content-Type': 'text/html' } }
+  );
+}
+```
+
+#### Pattern 3: Dynamic Content in Static Pages
+
+Load dynamic content into static page sections:
+
+```html
+<!-- public/pricing/index.html -->
+<section class="pricing-cards">
+  <!-- Static pricing info -->
+</section>
+
+<section hx-get="/app/_/pricing/current-promotion" hx-trigger="load" hx-swap="innerHTML">
+  <!-- Dynamic promotion banner loaded from Worker -->
+  <div class="skeleton h-20"></div>
+</section>
+```
+
+#### Pattern 4: Authentication State in Static Pages
+
+Check auth state and show appropriate UI:
+
+```html
+<!-- In SSG layout template -->
+<nav>
+  <div hx-get="/app/_/auth/status" hx-trigger="load" hx-swap="innerHTML">
+    <!-- Auth status loaded dynamically -->
+    <a href="/auth/login" class="btn">Login</a>
+  </div>
+</nav>
+```
+
+Worker returns appropriate partial:
+
+```typescript
+// src/presentation/handlers/AuthHandlers.ts
+async getAuthStatus(request: Request): Promise<Response> {
+  const session = await this.getSession(request);
+
+  if (session) {
+    return new Response(`
+      <span>Welcome, ${escapeHtml(session.user.name)}</span>
+      <a href="/app" class="btn btn-primary">Dashboard</a>
+      <form hx-post="/auth/logout" hx-swap="none">
+        <button type="submit" class="btn btn-ghost">Logout</button>
+      </form>
+    `, { headers: { 'Content-Type': 'text/html' } });
+  }
+
+  return new Response(`
+    <a href="/auth/login" class="btn">Login</a>
+    <a href="/auth/register" class="btn btn-primary">Sign Up</a>
+  `, { headers: { 'Content-Type': 'text/html' } });
+}
+```
+
+**Key Principles for SSG-Worker Interaction:**
+
+1. **Forms always work**: Use standard `action` and `method` attributes as fallback
+2. **HTMX enhances**: Add `hx-*` attributes for better UX when JS is available
+3. **Endpoints under `/app/_/`**: All HTMX partials use the `/app/_/` convention
+4. **No auth required for public forms**: Contact forms don't need sessions
+5. **Auth-required endpoints**: Check session for sensitive operations
 
 ---
 
@@ -282,10 +611,19 @@ Create or update `wrangler.jsonc`:
   },
 
   // Static assets configuration
+  // Marketing pages in public/ are served directly by Cloudflare Pages
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
   },
+
+  // Routes: Worker only handles dynamic paths
+  // Static content (/, /about, /pricing, etc.) falls through to Pages
+  "routes": [
+    { "pattern": "example.com/app/*", "zone_name": "example.com" },
+    { "pattern": "example.com/auth/*", "zone_name": "example.com" },
+    { "pattern": "example.com/webhooks/*", "zone_name": "example.com" },
+  ],
 
   // D1 Database binding
   "d1_databases": [
@@ -571,18 +909,18 @@ HTMX extends HTML with attributes that enable AJAX requests and DOM updates with
 
 ```html
 <!-- Basic GET request, swap inner content -->
-<button hx-get="/api/data" hx-target="#result">Load Data</button>
+<button hx-get="/app/_/data" hx-target="#result">Load Data</button>
 <div id="result"></div>
 
 <!-- POST form data -->
-<form hx-post="/api/tasks" hx-target="#task-list" hx-swap="beforeend">
+<form hx-post="/app/_/tasks" hx-target="#task-list" hx-swap="beforeend">
   <input type="text" name="title" required />
   <button type="submit">Add Task</button>
 </form>
 
 <!-- DELETE with confirmation -->
 <button
-  hx-delete="/api/tasks/123"
+  hx-delete="/app/_/tasks/123"
   hx-confirm="Are you sure?"
   hx-target="closest .task-item"
   hx-swap="outerHTML"
@@ -653,10 +991,10 @@ HTMX extends HTML with attributes that enable AJAX requests and DOM updates with
 </button>
 
 <!-- Disable button during request -->
-<button hx-get="/api/action" hx-disabled-elt="this" class="btn btn-primary">Submit</button>
+<button hx-get="/app/_/action" hx-disabled-elt="this" class="btn btn-primary">Submit</button>
 
 <!-- Add class during request -->
-<form hx-post="/api/submit" hx-indicator="#form-spinner" class="[&.htmx-request]:opacity-50">
+<form hx-post="/app/_/submit" hx-indicator="#form-spinner" class="[&.htmx-request]:opacity-50">
   <!-- Form fields -->
   <span id="form-spinner" class="loading loading-spinner htmx-indicator"></span>
 </form>
@@ -791,7 +1129,7 @@ The real power emerges when combining both libraries. HTMX handles server commun
   />
 
   <!-- HTMX loads the list -->
-  <ul id="item-list" hx-get="/api/items" hx-trigger="load" hx-swap="innerHTML">
+  <ul id="item-list" hx-get="/app/_/items" hx-trigger="load" hx-swap="innerHTML">
     <li class="loading loading-spinner"></li>
   </ul>
 </div>
@@ -824,7 +1162,7 @@ The real power emerges when combining both libraries. HTMX handles server commun
       class="checkbox"
       :checked="optimisticComplete"
       @click="optimisticComplete = !optimisticComplete"
-      hx-patch="/api/tasks/123/toggle"
+      hx-patch="/app/_/tasks/123/toggle"
       hx-swap="none"
       @htmx:after-request="if(!event.detail.successful) optimisticComplete = !optimisticComplete"
     />
@@ -865,7 +1203,7 @@ The real power emerges when combining both libraries. HTMX handles server commun
 
 ```html
 <form
-  hx-post="/api/tasks"
+  hx-post="/app/_/tasks"
   hx-target="#task-list"
   hx-swap="beforeend"
   x-data="{ 
@@ -916,7 +1254,7 @@ When HTMX swaps content containing Alpine components, state can be lost. The Alp
 
 <body>
   <!-- Use morph swap to preserve Alpine state -->
-  <div hx-get="/api/component" hx-trigger="click" hx-swap="morph" hx-ext="alpine-morph">
+  <div hx-get="/app/_/component" hx-trigger="click" hx-swap="morph" hx-ext="alpine-morph">
     <div x-data="{ count: 0 }">
       <p>Count: <span x-text="count"></span></p>
       <button @click="count++">Increment</button>
@@ -970,6 +1308,9 @@ export default {
 // src/router.ts
 import type { Env } from './index';
 import type { TaskHandlers } from './presentation/handlers/TaskHandlers';
+import type { AuthHandlers } from './presentation/handlers/AuthHandlers';
+import type { WebhookHandlers } from './presentation/handlers/WebhookHandlers';
+import type { AuthMiddleware } from './presentation/middleware/auth';
 
 type RouteHandler = (request: Request, params: Record<string, string>) => Promise<Response>;
 
@@ -985,30 +1326,54 @@ export class Router {
 
   constructor(
     private env: Env,
-    private taskHandlers: TaskHandlers
+    private taskHandlers: TaskHandlers,
+    private authHandlers: AuthHandlers,
+    private webhookHandlers: WebhookHandlers,
+    private authMiddleware: AuthMiddleware
   ) {
     this.registerRoutes();
   }
 
   private registerRoutes(): void {
-    // Pages
-    this.get('/', (req) => this.taskHandlers.homePage(req));
-    this.get('/tasks', (req) => this.taskHandlers.tasksPage(req));
+    // Auth routes (public)
+    this.get('/auth/login', (req) => this.authHandlers.loginPage(req));
+    this.post('/auth/login', (req) => this.authHandlers.login(req));
+    this.post('/auth/logout', (req) => this.authHandlers.logout(req));
+    this.get('/auth/callback/:provider', (req, p) =>
+      this.authHandlers.oauthCallback(req, p.provider)
+    );
 
-    // API endpoints (return HTML partials for HTMX)
-    this.get('/api/tasks', (req) => this.taskHandlers.listTasks(req));
-    this.post('/api/tasks', (req) => this.taskHandlers.createTask(req));
-    this.patch('/api/tasks/:id', (req, params) => this.taskHandlers.updateTask(req, params.id));
-    this.delete('/api/tasks/:id', (req, params) => this.taskHandlers.deleteTask(req, params.id));
+    // Webhook routes (signature verification, no session auth)
+    this.post('/webhooks/stripe', (req) => this.webhookHandlers.stripe(req));
+    this.post('/webhooks/slack', (req) => this.webhookHandlers.slack(req));
 
-    // Static assets fallback
-    this.get('/*', async (req) => {
-      const response = await this.env.ASSETS.fetch(req);
-      if (response.status === 404) {
-        return new Response('Not found', { status: 404 });
-      }
-      return response;
-    });
+    // Application pages (authenticated) - all under /app
+    this.get('/app', (req) => this.withAuth(req, () => this.taskHandlers.dashboardPage(req)));
+    this.get('/app/tasks', (req) => this.withAuth(req, () => this.taskHandlers.tasksPage(req)));
+
+    // HTMX partials (authenticated) - all under /app/_
+    this.get('/app/_/tasks', (req) => this.withAuth(req, () => this.taskHandlers.listTasks(req)));
+    this.post('/app/_/tasks', (req) => this.withAuth(req, () => this.taskHandlers.createTask(req)));
+    this.patch('/app/_/tasks/:id', (req, p) =>
+      this.withAuth(req, () => this.taskHandlers.updateTask(req, p.id))
+    );
+    this.delete('/app/_/tasks/:id', (req, p) =>
+      this.withAuth(req, () => this.taskHandlers.deleteTask(req, p.id))
+    );
+
+    // Note: Static content (/, /about, /pricing, /blog/*, /assets/*) is served
+    // directly by Cloudflare Pages, NOT by this Worker.
+  }
+
+  private async withAuth(request: Request, handler: () => Promise<Response>): Promise<Response> {
+    const session = await this.authMiddleware.getSession(request);
+    if (!session) {
+      return new Response(null, {
+        status: 302,
+        headers: { Location: '/auth/login' },
+      });
+    }
+    return handler();
   }
 
   private addRoute(method: string, path: string, handler: RouteHandler): void {
@@ -1217,7 +1582,7 @@ export function taskForm(): string {
   return `
     <div class="card bg-base-100 shadow">
       <div class="card-body">
-        <form hx-post="/api/tasks"
+        <form hx-post="/app/_/tasks"
               hx-target="#task-list"
               hx-swap="beforeend"
               hx-on::after-request="if(event.detail.successful) this.reset(); document.getElementById('task-list-empty')?.classList.add('hidden')"
@@ -1260,14 +1625,14 @@ export function taskItem(task: Task): string {
       <input type="checkbox" 
              class="checkbox checkbox-primary"
              ${completed ? 'checked' : ''}
-             hx-patch="/api/tasks/${id}"
+             hx-patch="/app/_/tasks/${id}"
              hx-target="closest .task-item"
              hx-swap="outerHTML"
              hx-vals='{"completed": "${!completed}"}'>
       <span class="flex-1 ${completed ? 'line-through opacity-60' : ''}">${title}</span>
       <button class="btn btn-ghost btn-sm btn-square text-error"
               @click="deleting = true"
-              hx-delete="/api/tasks/${id}"
+              hx-delete="/app/_/tasks/${id}"
               hx-target="closest .task-item"
               hx-swap="outerHTML"
               hx-confirm="Delete this task?"
@@ -2246,6 +2611,27 @@ Following the 12 properties of good tests:
 
 ## Deployment and Operations
 
+### Static-First Build Process
+
+The static-first architecture separates the build into two parts:
+
+1. **Static Site Generation (SSG)**: Marketing pages are pre-built to `public/`
+2. **Worker Deployment**: The Worker handles only dynamic routes (`/app/*`, `/auth/*`, `/webhooks/*`)
+
+```bash
+# Build static marketing pages (if using an SSG like Hugo or Astro)
+npm run build:static   # Outputs to public/
+
+# Deploy Worker and static assets together
+npm run deploy         # wrangler deploy
+```
+
+The deployment flow:
+
+1. SSG (Hugo, Astro, 11ty) builds marketing pages to `public/`
+2. Cloudflare Pages serves static content from `public/` at `/`, `/about`, `/pricing`, etc.
+3. Worker receives only requests matching configured routes: `/app/*`, `/auth/*`, `/webhooks/*`
+
 ### Deploying to Cloudflare
 
 ```bash
@@ -2433,7 +2819,7 @@ Converts links to AJAX requests, swapping just the body.
 **3. Loading states with htmx-indicator**
 
 ```html
-<button hx-get="/api/data" class="btn">
+<button hx-get="/app/_/data" class="btn">
   <span class="htmx-indicator">Loading...</span>
   <span class="[.htmx-request_&]:hidden">Load Data</span>
 </button>
@@ -2442,7 +2828,7 @@ Converts links to AJAX requests, swapping just the body.
 **4. Form reset after successful submission**
 
 ```html
-<form hx-post="/api/items" hx-on::after-request="if(event.detail.successful) this.reset()"></form>
+<form hx-post="/app/_/items" hx-on::after-request="if(event.detail.successful) this.reset()"></form>
 ```
 
 ### Alpine.js Patterns

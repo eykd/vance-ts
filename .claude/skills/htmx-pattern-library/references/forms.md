@@ -14,7 +14,7 @@
 ## Basic Form Submission
 
 ```html
-<form hx-post="/api/items" hx-target="#item-list" hx-swap="beforeend">
+<form hx-post="/app/_/items" hx-target="#item-list" hx-swap="beforeend">
   <input type="text" name="title" required />
   <button type="submit">Add</button>
 </form>
@@ -31,7 +31,7 @@ Validate before sending to server:
 
 ```html
 <form
-  hx-post="/api/tasks"
+  hx-post="/app/_/tasks"
   hx-target="#task-list"
   hx-swap="beforeend"
   x-data="{ 
@@ -71,7 +71,7 @@ Validate before sending to server:
 ```html
 <!-- Original form with error target -->
 <div id="form-container">
-  <form hx-post="/api/users" hx-target="#form-container" hx-swap="innerHTML">
+  <form hx-post="/app/_/users" hx-target="#form-container" hx-swap="innerHTML">
     <input type="email" name="email" required />
     <button type="submit">Register</button>
   </form>
@@ -81,7 +81,7 @@ Validate before sending to server:
 **Server error response (400):**
 
 ```html
-<form hx-post="/api/users" hx-target="#form-container" hx-swap="innerHTML">
+<form hx-post="/app/_/users" hx-target="#form-container" hx-swap="innerHTML">
   <div class="alert alert-error">Email already registered</div>
   <input type="email" name="email" value="user@example.com" class="input-error" required />
   <button type="submit">Register</button>
@@ -92,7 +92,7 @@ Validate before sending to server:
 
 ```html
 <div id="form-errors"></div>
-<form hx-post="/api/users" hx-target="#result" hx-target-error="#form-errors">
+<form hx-post="/app/_/users" hx-target="#result" hx-target-error="#form-errors">
   <!-- fields -->
 </form>
 ```
@@ -115,12 +115,12 @@ Validate before sending to server:
 Validate individual fields on blur:
 
 ```html
-<form hx-post="/api/register" hx-target="#result">
+<form hx-post="/app/_/register" hx-target="#result">
   <div class="form-control">
     <input
       type="email"
       name="email"
-      hx-post="/api/validate/email"
+      hx-post="/app/_/validate/email"
       hx-trigger="blur changed"
       hx-target="next .field-error"
       hx-swap="innerHTML"
@@ -132,7 +132,7 @@ Validate individual fields on blur:
     <input
       type="text"
       name="username"
-      hx-post="/api/validate/username"
+      hx-post="/app/_/validate/username"
       hx-trigger="blur changed delay:200ms"
       hx-target="next .field-error"
       hx-swap="innerHTML"
@@ -164,7 +164,7 @@ return new Response('<span class="text-error">Username already taken</span>', { 
 
 ```html
 <form
-  hx-post="/api/items"
+  hx-post="/app/_/items"
   hx-target="#item-list"
   hx-swap="beforeend"
   hx-on::after-request="if(event.detail.successful) this.reset()"
@@ -178,7 +178,7 @@ return new Response('<span class="text-error">Username already taken</span>', { 
 
 ```html
 <form
-  hx-post="/api/items"
+  hx-post="/app/_/items"
   hx-target="#item-list"
   hx-swap="beforeend"
   x-data="{ title: '', description: '' }"
@@ -215,7 +215,7 @@ Use Alpine for step management, HTMX for step validation:
   <!-- Step 1: Basic Info -->
   <div x-show="step === 1">
     <form
-      hx-post="/api/wizard/validate-step-1"
+      hx-post="/app/_/wizard/validate-step-1"
       hx-target="#step1-errors"
       hx-swap="innerHTML"
       @htmx:after-request="if($event.detail.successful) { step = 2; }"
@@ -230,7 +230,7 @@ Use Alpine for step management, HTMX for step validation:
   <!-- Step 2: Details -->
   <div x-show="step === 2">
     <form
-      hx-post="/api/wizard/validate-step-2"
+      hx-post="/app/_/wizard/validate-step-2"
       hx-target="#step2-errors"
       hx-swap="innerHTML"
       @htmx:after-request="if($event.detail.successful) { step = 3; }"
@@ -247,7 +247,7 @@ Use Alpine for step management, HTMX for step validation:
     <h3>Confirm Your Details</h3>
     <p>Name: <span x-text="formData.name"></span></p>
     <p>Email: <span x-text="formData.email"></span></p>
-    <form hx-post="/api/wizard/submit" hx-target="#result" hx-vals="JSON.stringify(formData)">
+    <form hx-post="/app/_/wizard/submit" hx-target="#result" hx-vals="JSON.stringify(formData)">
       <button type="button" @click="step = 2">Back</button>
       <button type="submit">Submit</button>
     </form>

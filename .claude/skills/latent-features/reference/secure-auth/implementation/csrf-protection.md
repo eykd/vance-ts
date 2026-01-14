@@ -82,7 +82,7 @@ export interface CsrfConfig {
   headerName: string; // "X-CSRF-Token"
   formFieldName: string; // "_csrf"
   protectedMethods: string[]; // ["POST", "PUT", "PATCH", "DELETE"]
-  excludePaths: string[]; // ["/api/webhooks"]
+  excludePaths: string[]; // ["/webhooks"]
 }
 
 export function createCsrfMiddleware(config: Partial<CsrfConfig> = {}) {

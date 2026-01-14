@@ -32,6 +32,7 @@ yarn-error.log*
 
 # Claude cache and session artifacts
 .claude/tsc-cache/
+.claude/settings.local.json
 thoughts/
 !thoughts/**/.gitkeep
 .history/

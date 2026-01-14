@@ -1,7 +1,14 @@
 {
   "sandbox": {
     "enabled": true,
-    "autoAllowBashIfSandboxed": true
+    "autoAllowBashIfSandboxed": true,
+    "network": {
+      "allowedHosts": [
+        "github.com",
+        "api.github.com",
+        "*.github.com"
+      ]
+    }
   },
   "hooks": {
     "SessionStart": [

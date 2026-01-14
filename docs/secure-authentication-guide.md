@@ -2105,9 +2105,9 @@ namespace_id = 1002
 limit = 10
 period = 60
 
-# API rate limit
+# Application routes rate limit (/app/* including /app/_/*)
 [[rate_limits]]
-binding = "RATE_LIMIT_API"
+binding = "RATE_LIMIT_APP"
 namespace_id = 1003
 limit = 1000
 period = 60
@@ -2119,7 +2119,7 @@ period = 60
 export interface Env {
   RATE_LIMIT_GENERAL: RateLimit;
   RATE_LIMIT_AUTH: RateLimit;
-  RATE_LIMIT_API: RateLimit;
+  RATE_LIMIT_APP: RateLimit; // For /app/* routes including HTMX partials
 }
 
 export async function rateLimitMiddleware(request: Request, env: Env): Promise<Response | null> {
@@ -2128,11 +2128,12 @@ export async function rateLimitMiddleware(request: Request, env: Env): Promise<R
 
   let limiter: RateLimit;
 
-  // Select appropriate rate limiter
+  // Select appropriate rate limiter based on static-first routing model
   if (url.pathname.startsWith('/auth/')) {
     limiter = env.RATE_LIMIT_AUTH;
-  } else if (url.pathname.startsWith('/api/')) {
-    limiter = env.RATE_LIMIT_API;
+  } else if (url.pathname.startsWith('/app/')) {
+    // All dynamic routes under /app/* including HTMX partials (/app/_/*)
+    limiter = env.RATE_LIMIT_APP;
   } else {
     limiter = env.RATE_LIMIT_GENERAL;
   }

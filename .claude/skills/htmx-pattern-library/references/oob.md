@@ -21,7 +21,7 @@ Mark elements with `hx-swap-oob="true"` in response to update them regardless of
 **Request:**
 
 ```html
-<button hx-post="/api/tasks" hx-target="#task-list" hx-swap="beforeend">Add Task</button>
+<button hx-post="/app/_/tasks" hx-target="#task-list" hx-swap="beforeend">Add Task</button>
 
 <ul id="task-list"></ul>
 <div id="task-count">0 tasks</div>
@@ -220,7 +220,7 @@ return new Response(withToast(taskItemHtml, { message: 'Task created!', type: 's
 **When completing a task:**
 
 ```html
-<form hx-post="/api/tasks/123/complete" hx-target="#task-item-123" hx-swap="outerHTML">
+<form hx-post="/app/_/tasks/123/complete" hx-target="#task-item-123" hx-swap="outerHTML">
   <button>Complete</button>
 </form>
 ```
@@ -275,7 +275,7 @@ return new Response(taskItemHtml, {
   @refresh-counts.window="htmx.trigger('#counts', 'load')"
   @show-toast.window="showToast($event.detail)"
 >
-  <div id="counts" hx-get="/api/counts" hx-trigger="load, refresh-counts from:body">
+  <div id="counts" hx-get="/app/_/counts" hx-trigger="load, refresh-counts from:body">
     <!-- Counts loaded here -->
   </div>
 

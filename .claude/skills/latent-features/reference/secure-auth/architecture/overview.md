@@ -6,6 +6,20 @@
 
 ---
 
+## Static-First Routing Model
+
+This architecture follows a static-first routing model where:
+
+- **Static content** (`/`, `/about`, `/pricing`) is served directly by Cloudflare Pages
+- **Auth routes** (`/auth/*`) are public and handled by the Worker
+- **App routes** (`/app/*`) require authentication and are handled by the Worker
+- **HTMX partials** (`/app/_/*`) are authenticated endpoints returning HTML fragments
+- **Webhooks** (`/webhooks/*`) use signature verification, not session auth
+
+Auth middleware is applied at the `/app/*` boundary in the router, not at individual handlers.
+
+---
+
 ## Defense-in-Depth Model
 
 Security for browser-based applications requires multiple overlapping layers of protection. No single measure is sufficient; the goal is to ensure that if one layer fails, others continue to provide protection.

@@ -126,3 +126,11 @@ When defining specifications or planning new features, **ALWAYS use the `/latent
 - Implementation of security-sensitive features
 
 The skill prevents token overload by providing focused access to relevant sections of comprehensive guides rather than loading entire documents.
+
+## Active Technologies
+
+- Markdown documentation, TypeScript code examples + N/A (documentation update only) (001-static-first-routing)
+
+## Recent Changes
+
+- 001-static-first-routing: Added Markdown documentation, TypeScript code examples + N/A (documentation update only)

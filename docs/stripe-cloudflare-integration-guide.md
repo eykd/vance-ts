@@ -929,8 +929,8 @@ function pricingCard(price: Stripe.Price): string {
           ${price.recurring ? `<span class="text-base-content/70">/${interval}</span>` : ''}
         </div>
 
-        <form 
-          action="/api/checkout" 
+        <form
+          action="/app/_/checkout"
           method="POST"
           x-data="{ loading: false }"
           @submit="loading = true"
@@ -1555,7 +1555,7 @@ export function billingSection(customer: { stripeCustomerId: string }): string {
         <h2 class="card-title">Billing & Subscription</h2>
         <p>Manage your subscription, update payment methods, and view invoices.</p>
         
-        <form action="/api/customer-portal" method="POST">
+        <form action="/app/_/customer-portal" method="POST">
           <button type="submit" class="btn btn-primary">
             Manage Billing
           </button>
@@ -1938,34 +1938,25 @@ export class Router {
   }
 
   private registerRoutes(): void {
-    // Static pages
-    this.get('/', (req) => this.paymentHandlers.homePage(req));
-    this.get('/pricing', (req) => this.paymentHandlers.pricingPage(req));
-    this.get('/success', (req) => this.paymentHandlers.successPage(req));
-    this.get('/cancel', (req) => this.paymentHandlers.cancelPage(req));
+    // Application pages (authenticated) - served under /app
+    this.get('/app', (req) => this.paymentHandlers.dashboardPage(req));
+    this.get('/app/billing', (req) => this.paymentHandlers.billingPage(req));
 
-    // Checkout
-    this.post('/api/checkout', (req) => this.paymentHandlers.createCheckout(req));
-    this.post('/api/checkout/embedded', (req) => this.paymentHandlers.embeddedCheckout(req));
-
-    // Subscriptions
-    this.post('/api/subscribe', (req) => this.subscriptionHandlers.createSubscription(req));
-    this.post('/api/subscription/cancel', (req) =>
+    // HTMX partials (authenticated) - served under /app/_
+    this.post('/app/_/checkout', (req) => this.paymentHandlers.createCheckout(req));
+    this.post('/app/_/checkout/embedded', (req) => this.paymentHandlers.embeddedCheckout(req));
+    this.post('/app/_/subscribe', (req) => this.subscriptionHandlers.createSubscription(req));
+    this.post('/app/_/subscription/cancel', (req) =>
       this.subscriptionHandlers.cancelSubscription(req)
     );
-    this.get('/api/subscription/status', (req) => this.subscriptionHandlers.getStatus(req));
+    this.get('/app/_/subscription/status', (req) => this.subscriptionHandlers.getStatus(req));
+    this.post('/app/_/customer-portal', (req) => this.portalHandlers.createPortalSession(req));
 
-    // Customer portal
-    this.post('/api/customer-portal', (req) => this.portalHandlers.createPortalSession(req));
-
-    // Webhooks
+    // Webhooks (signature verification, no session auth)
     this.post('/webhooks/stripe', (req) => this.webhookHandlers.handleStripeWebhook(req, this.env));
 
-    // Static assets
-    this.get('/*', async (req) => {
-      const response = await this.env.ASSETS.fetch(req);
-      return response;
-    });
+    // Note: Static pages (/, /pricing, /success, /cancel) are served by
+    // Cloudflare Pages from public/, NOT by the Worker
   }
 
   private addRoute(method: string, path: string, handler: RouteHandler): void {
@@ -2132,10 +2123,10 @@ function planCard(plan: Plan): string {
             .join('')}
         </ul>
 
-        <form 
-          action="/api/subscribe" 
+        <form
+          action="/app/_/subscribe"
           method="POST"
-          hx-post="/api/subscribe"
+          hx-post="/app/_/subscribe"
           hx-swap="none"
           x-data="{ loading: false }"
           @htmx:before-request="loading = true"

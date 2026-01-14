@@ -33,7 +33,7 @@ export function errorHandler(error: unknown): Response {
   if (error instanceof UnauthorizedError) {
     return new Response(null, {
       status: 302,
-      headers: { Location: '/login' },
+      headers: { Location: '/auth/login' },
     });
   }
 
@@ -187,7 +187,7 @@ export class AuthHandlers {
     return new Response(null, {
       status: 303,
       headers: {
-        Location: '/tasks',
+        Location: '/app/tasks',
         'Set-Cookie': `session=${sessionId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${7 * 24 * 60 * 60}`,
       },
     });
@@ -210,6 +210,125 @@ export class AuthHandlers {
     });
   }
 }
+```
+
+### Secure Cookie Configuration
+
+Session cookies must be configured with security flags to prevent common attacks:
+
+```typescript
+// src/presentation/middleware/cookies.ts
+
+export interface CookieOptions {
+  maxAge?: number; // Seconds until expiration
+  path?: string; // Cookie path scope
+  domain?: string; // Cookie domain scope
+  expires?: Date; // Absolute expiration date
+}
+
+/**
+ * Creates a secure Set-Cookie header value with security flags.
+ *
+ * Security flags included:
+ * - HttpOnly: Prevents JavaScript access (XSS protection)
+ * - Secure: Only sent over HTTPS (prevents interception)
+ * - SameSite=Strict: Prevents CSRF attacks
+ * - Path: Limits cookie scope
+ * - Max-Age: Sets expiration time
+ */
+export function createSecureCookie(
+  name: string,
+  value: string,
+  options: CookieOptions = {}
+): string {
+  const {
+    maxAge = 7 * 24 * 60 * 60, // Default: 7 days
+    path = '/',
+    domain,
+    expires,
+  } = options;
+
+  const parts = [`${name}=${value}`];
+
+  // Security flags (always enabled)
+  parts.push('HttpOnly'); // Prevents XSS attacks
+  parts.push('Secure'); // HTTPS only
+  parts.push('SameSite=Strict'); // Prevents CSRF attacks
+
+  // Scoping
+  parts.push(`Path=${path}`);
+  if (domain) {
+    parts.push(`Domain=${domain}`);
+  }
+
+  // Expiration
+  if (expires) {
+    parts.push(`Expires=${expires.toUTCString()}`);
+  } else {
+    parts.push(`Max-Age=${maxAge}`);
+  }
+
+  return parts.join('; ');
+}
+
+/**
+ * Creates a cookie deletion header.
+ */
+export function deleteCookie(name: string, path: string = '/'): string {
+  return createSecureCookie(name, '', { maxAge: 0, path });
+}
+```
+
+**Usage in handlers:**
+
+```typescript
+// Login - set session cookie
+const sessionId = await this.sessionStore.create(user.id, user.email);
+
+return new Response(null, {
+  status: 303,
+  headers: {
+    Location: '/app/tasks',
+    'Set-Cookie': createSecureCookie('session', sessionId, {
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+    }),
+  },
+});
+
+// Logout - delete session cookie
+return new Response(null, {
+  status: 303,
+  headers: {
+    Location: '/',
+    'Set-Cookie': deleteCookie('session'),
+  },
+});
+```
+
+**Security flag reference:**
+
+| Flag              | Purpose                                                | Why It Matters                                                                         |
+| ----------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `HttpOnly`        | Prevents JavaScript access via `document.cookie`       | Blocks XSS attacks from stealing session tokens                                        |
+| `Secure`          | Only transmit over HTTPS                               | Prevents session hijacking on insecure networks                                        |
+| `SameSite=Strict` | Cookie only sent on same-site requests                 | Prevents CSRF attacks by blocking cross-site cookie transmission                       |
+| `Path=/`          | Limits cookie to specific path                         | Reduces exposure to other applications on same domain                                  |
+| `Max-Age`         | Sets expiration in seconds                             | Limits window for session hijacking; prefer over `Expires` for consistency             |
+| `Domain`          | (Optional) Limits cookie to specific domain/subdomains | Use sparingly; omitting means cookie only applies to current domain (most restrictive) |
+
+**Important notes:**
+
+- **Always use all three security flags** (`HttpOnly`, `Secure`, `SameSite=Strict`) together
+- **Never use `SameSite=None`** unless you have a specific cross-site use case (e.g., OAuth redirects)
+- **Prefer `Max-Age` over `Expires`** for consistent behavior across timezones
+- **Omit `Domain` flag** unless you need subdomain sharing; omitting is more restrictive and secure
+- **Development exception**: `Secure` flag requires HTTPS, which may not work in local development. Consider environment-based configuration:
+
+```typescript
+const isProduction = env.ENVIRONMENT === 'production';
+const secureCookie = isProduction
+  ? createSecureCookie('session', sessionId)
+  : createSecureCookie('session', sessionId).replace('Secure; ', ''); // Remove Secure for local dev
 ```
 
 ## Logging
@@ -333,7 +452,9 @@ export default {
 };
 ```
 
-### Router with Auth Routes
+### Router with Static-First Routing
+
+The Worker handles only `/app/*`, `/auth/*`, and `/webhooks/*` routes. Static pages are served by Cloudflare Pages.
 
 ```typescript
 // src/router.ts
@@ -347,21 +468,22 @@ export class Router {
   }
 
   private registerRoutes(): void {
-    // Auth routes
-    this.get('/login', (req) => this.authHandlers.loginPage(req));
-    this.post('/login', (req) => this.authHandlers.login(req));
-    this.post('/logout', (req) => this.authHandlers.logout(req));
+    // Auth routes (public)
+    this.get('/auth/login', (req) => this.authHandlers.loginPage(req));
+    this.post('/auth/login', (req) => this.authHandlers.login(req));
+    this.post('/auth/logout', (req) => this.authHandlers.logout(req));
 
-    // Task routes
-    this.get('/', (req) => this.taskHandlers.homePage(req));
-    this.get('/tasks', (req) => this.taskHandlers.tasksPage(req));
-    this.get('/api/tasks', (req) => this.taskHandlers.listTasks(req));
-    this.post('/api/tasks', (req) => this.taskHandlers.createTask(req));
-    this.patch('/api/tasks/:id', (req, p) => this.taskHandlers.updateTask(req, p.id));
-    this.delete('/api/tasks/:id', (req, p) => this.taskHandlers.deleteTask(req, p.id));
+    // Application pages (authenticated) - all under /app
+    this.get('/app', (req) => this.taskHandlers.dashboardPage(req));
+    this.get('/app/tasks', (req) => this.taskHandlers.tasksPage(req));
 
-    // Static assets
-    this.get('/*', async (req) => this.env.ASSETS.fetch(req));
+    // HTMX partials (authenticated) - all under /app/_
+    this.get('/app/_/tasks', (req) => this.taskHandlers.listTasks(req));
+    this.post('/app/_/tasks', (req) => this.taskHandlers.createTask(req));
+    this.patch('/app/_/tasks/:id', (req, p) => this.taskHandlers.updateTask(req, p.id));
+    this.delete('/app/_/tasks/:id', (req, p) => this.taskHandlers.deleteTask(req, p.id));
+
+    // Note: Static pages (/, /about, /pricing) are served by Cloudflare Pages, NOT by Worker
   }
 
   // ... route registration methods

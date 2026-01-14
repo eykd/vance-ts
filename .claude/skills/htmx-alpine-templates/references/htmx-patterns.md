@@ -15,11 +15,11 @@
 ### Request Methods
 
 ```html
-<button hx-get="/api/data">GET</button>
-<form hx-post="/api/create">POST</form>
-<button hx-put="/api/update/1">PUT</button>
-<button hx-patch="/api/partial/1">PATCH</button>
-<button hx-delete="/api/remove/1">DELETE</button>
+<button hx-get="/app/_/data">GET</button>
+<form hx-post="/app/_/create">POST</form>
+<button hx-put="/app/_/update/1">PUT</button>
+<button hx-patch="/app/_/partial/1">PATCH</button>
+<button hx-delete="/app/_/remove/1">DELETE</button>
 ```
 
 ### Targeting
@@ -184,7 +184,7 @@
 ### Loading State Pattern
 
 ```html
-<button hx-get="/api/action" class="btn btn-primary">
+<button hx-get="/app/_/action" class="btn btn-primary">
   <span class="htmx-indicator loading loading-spinner loading-sm"></span>
   <span class="[.htmx-request_&]:hidden">Submit</span>
   <span class="hidden [.htmx-request_&]:inline">Loading...</span>
@@ -263,7 +263,7 @@ headers: { "HX-Reswap": "outerHTML" }
 
 ```html
 <form
-  hx-post="/api/items"
+  hx-post="/app/_/items"
   hx-target="#item-list"
   hx-swap="beforeend"
   hx-on::after-request="if(event.detail.successful) this.reset()"
@@ -328,7 +328,7 @@ headers: { "HX-Reswap": "outerHTML" }
 
 ```html
 <button
-  hx-delete="/api/items/1"
+  hx-delete="/app/_/items/1"
   hx-target="closest .item"
   hx-swap="outerHTML"
   hx-confirm="Are you sure you want to delete this item?"

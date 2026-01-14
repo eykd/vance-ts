@@ -28,6 +28,8 @@ python3 scripts/scaffold.py my-app --output /home/claude
 
 ## Generated Structure
 
+The project follows a **static-first routing model**: Cloudflare Pages serves static content from `public/`, while the Worker handles only `/app/*`, `/auth/*`, and `/webhooks/*` routes.
+
 ```
 project-name/
 ├── src/
@@ -47,20 +49,23 @@ project-name/
 │   │   ├── handlers/
 │   │   ├── templates/
 │   │   │   ├── layouts/
-│   │   │   ├── pages/
-│   │   │   └── partials/ # HTMX fragments
+│   │   │   └── app/      # Worker-rendered app pages
+│   │   │       └── partials/ # HTMX fragments (/app/_/*)
 │   │   └── middleware/
 │   ├── styles/
 │   │   └── app.css       # TailwindCSS 4 source
 │   ├── index.ts          # Worker entry point
-│   └── router.ts         # Route definitions
-├── public/
+│   └── router.ts         # Route definitions (/app/*, /auth/*, /webhooks/*)
+├── public/               # Static marketing pages (served by Pages)
+│   ├── index.html        # Home page (/)
+│   ├── about/
+│   ├── pricing/
 │   ├── css/              # Compiled CSS output
 │   └── js/               # HTMX + Alpine.js
 ├── tests/
 ├── migrations/           # D1 SQL migrations
 ├── package.json
-├── wrangler.jsonc
+├── wrangler.jsonc        # Routes config for /app/*, /auth/*, /webhooks/*
 ├── tsconfig.json
 └── vitest.config.ts
 ```
@@ -86,10 +91,10 @@ project-name/
 
 ### HTMX Endpoints
 
-API routes return HTML partials, not JSON:
+HTMX partial routes return HTML, not JSON. All HTMX endpoints use the `/app/_/` prefix:
 
 ```typescript
-this.post('/api/items', (req) => this.createItem(req));
+this.post('/app/_/items', (req) => this.createItem(req));
 // Returns: <li class="...">New item</li>
 ```
 

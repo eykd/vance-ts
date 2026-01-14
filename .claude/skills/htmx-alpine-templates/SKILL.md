@@ -9,12 +9,20 @@ Generate HTML templates as TypeScript tagged template literals for hypermedia-dr
 
 ## Template Structure
 
+Templates for Worker-rendered pages live under `app/` (served at `/app/*`):
+
 ```
 templates/
-├── layouts/    # Page scaffolding (base.ts)
-├── pages/      # Full page renders (tasks.ts, home.ts)
-└── partials/   # HTMX fragments (task-item.ts, task-list.ts)
+├── layouts/       # Page scaffolding (base.ts)
+└── app/           # Worker-rendered application pages (/app/*)
+    ├── dashboard.ts   # /app (dashboard page)
+    ├── tasks.ts       # /app/tasks
+    └── partials/      # HTMX fragments (/app/_/*)
+        ├── task-item.ts
+        └── task-list.ts
 ```
+
+Note: Marketing pages (/, /about, /pricing) are static HTML served from `public/`, not Worker templates.
 
 ## Core Template Pattern
 
@@ -86,14 +94,24 @@ export function taskItem(task: Task): string {
 
 ```html
 <!-- GET request, swap target's innerHTML -->
-<button hx-get="/api/items" hx-target="#list">Load</button>
+<button hx-get="/app/_/items" hx-target="#list">Load</button>
 
 <!-- POST form, append to list -->
-<form hx-post="/api/items" hx-target="#list" hx-swap="beforeend">
+<form hx-post="/app/_/items" hx-target="#list" hx-swap="beforeend">
   <!-- DELETE with confirmation -->
-  <button hx-delete="/api/items/1" hx-confirm="Sure?" hx-target="closest .item" hx-swap="outerHTML">
+  <button
+    hx-delete="/app/_/items/1"
+    hx-confirm="Sure?"
+    hx-target="closest .item"
+    hx-swap="outerHTML"
+  >
     <!-- Debounced search -->
-    <input hx-get="/search" hx-trigger="keyup changed delay:300ms" hx-target="#results" name="q" />
+    <input
+      hx-get="/app/_/search"
+      hx-trigger="keyup changed delay:300ms"
+      hx-target="#results"
+      name="q"
+    />
   </button>
 </form>
 ```
