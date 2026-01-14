@@ -86,6 +86,37 @@ reference/secure-auth/
 
 ---
 
+### 2. Stripe Payments Integration
+
+**Triggers**: stripe, payments, checkout, subscription, billing, invoicing, usage-based, webhook
+
+**Covers**: Comprehensive Stripe payment integration for Cloudflare Workers with HTMX/Alpine.js
+
+**Quick start**: Read `reference/stripe-payments/PATTERN.md`
+
+**Progressive disclosure**:
+
+- Specification phase → `architecture/overview.md` (~140 lines)
+- Planning phase → `implementation/checkout-integration.md` (~380 lines)
+- Implementation → Choose from implementation/\*.md files (~180-420 lines each)
+
+**Reference structure**:
+
+```
+reference/stripe-payments/
+├── PATTERN.md                          # Pattern guide
+├── architecture/
+│   └── overview.md                     # Payment architecture, flow diagrams
+└── implementation/
+    ├── checkout-integration.md         # Stripe Checkout (hosted/embedded)
+    ├── payment-use-cases.md            # One-time, subscriptions, usage-based
+    ├── webhook-handling.md             # Webhook setup, event handlers
+    ├── customer-portal.md              # Customer self-service portal
+    └── security-testing.md             # Security best practices, testing
+```
+
+---
+
 ## Usage Pattern
 
 ### 1. Read Pattern Guide First
