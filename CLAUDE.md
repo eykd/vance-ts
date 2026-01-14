@@ -129,6 +129,9 @@ The skill prevents token overload by providing focused access to relevant sectio
 
 ## Active Technologies
 
+- TypeScript (ES2022, NodeNext modules) + Cloudflare Workers runtime, Analytics Engine, D1, KV (002-observability-skills)
+- N/A (skill is documentation, not code) (002-observability-skills)
+
 - Markdown documentation, TypeScript code examples + N/A (documentation update only) (001-static-first-routing)
 
 ## Recent Changes
