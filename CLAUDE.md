@@ -116,9 +116,70 @@ When adding new functionality:
 4. Implement code to pass tests
 5. Ensure 100% coverage maintained
 
-## Implementation Patterns
+## Claude Code Skills
 
-When defining specifications or planning new features, **ALWAYS use the `/latent-features` skill** to access important implementation patterns for the Cloudflare platform. This skill provides progressive disclosure of comprehensive guides covering:
+This project includes comprehensive Claude Code skills for implementation guidance. Skills provide progressive disclosure through decision trees and detailed reference files.
+
+### Logging & Tracing Skills
+
+**Structured Logging** (`/structured-logging`)
+
+- **Use when:** Adding structured logging to Cloudflare Workers with request correlation and environment-aware redaction
+- **Provides:** SafeLogger class, AsyncLocalStorage context patterns, BaseLogFields schema, event naming, logger factory
+
+**Log Categorization** (`/log-categorization`)
+
+- **Use when:** Determining whether logs belong to domain, application, or infrastructure layers
+- **Provides:** Decision matrix, category-specific logging patterns, required fields by category
+
+**PII Redaction** (`/pii-redaction`)
+
+- **Use when:** Implementing systematic PII and secret redaction for defense-in-depth data protection
+- **Provides:** Sensitive pattern regex, field detection, redaction functions, URL sanitization
+
+**Sentry Integration** (`/sentry-integration`)
+
+- **Use when:** Integrating Sentry for rich error tracking with breadcrumbs and context
+- **Provides:** withSentry wrapper configuration, context management, breadcrumb patterns, error capture
+
+**Testing Observability** (`/testing-observability`)
+
+- **Use when:** Writing tests for logging implementation including logger behavior and redaction correctness
+- **Provides:** Logger unit test patterns, redaction validation tests, Miniflare integration tests
+
+### Other Available Skills
+
+See `.claude/skills/README.md` for complete skill catalog including:
+
+- **Observability**: cloudflare-observability (SLOs, metrics, health checks)
+- **Testing**: typescript-unit-testing, vitest-cloudflare-config, vitest-integration-testing
+- **DDD**: ddd-domain-modeling, clean-architecture-validator
+- **Workers**: worker-request-handler, d1-repository-implementation, kv-session-management, portable-datetime
+- **UI**: htmx-pattern-library, htmx-alpine-templates, tailwind-daisyui-design
+- **Security**: security-review, latent-features
+
+### Skill Invocation Patterns
+
+**Explicit Invocation:**
+
+```
+"Use /structured-logging to add a logger to this Worker"
+"Apply /pii-redaction patterns to this log statement"
+"Use /log-categorization to determine where this log belongs"
+```
+
+**Context-Based Activation:**
+Claude automatically detects when skills are relevant based on your task.
+
+**Skill Chains:**
+Skills often reference related skills, creating implementation chains:
+
+- Logging: structured-logging → log-categorization → pii-redaction → sentry-integration → testing-observability
+- DDD: ddd-domain-modeling → cloudflare-use-case-creator → d1-repository-implementation → clean-architecture-validator
+
+### Required Skill Usage
+
+**ALWAYS use the `/latent-features` skill** when defining specifications or planning new features. This skill provides progressive disclosure of comprehensive guides covering:
 
 - Security-critical patterns (authentication, session management, CSRF/XSS protection)
 - Architectural best practices for Cloudflare Workers
@@ -131,9 +192,10 @@ When defining specifications or planning new features, **ALWAYS use the `/latent
 - `/sp:04-plan` - Planning phase
 - Implementation of security-sensitive features
 
-The skill prevents token overload by providing focused access to relevant sections of comprehensive guides rather than loading entire documents.
-
 ## Active Technologies
+
+- TypeScript (ES2022, NodeNext modules) + Cloudflare Workers runtime, AsyncLocalStorage (nodejs_als), @sentry/cloudflare (003-logging-tracing-skills)
+- N/A (skills are documentation, not code) (003-logging-tracing-skills)
 
 - TypeScript (ES2022, NodeNext modules) + Cloudflare Workers runtime, Analytics Engine, D1, KV (002-observability-skills)
 - N/A (skill is documentation, not code) (002-observability-skills)
