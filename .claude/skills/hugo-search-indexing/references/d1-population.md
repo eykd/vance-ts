@@ -50,6 +50,8 @@ END;
 
 ## Seeding D1 from JSON
 
+**⚠️ Security Note:** This string concatenation approach is safe only for trusted build-time content generated from your own markdown files. Never use this pattern with user-provided data. For dynamic seeding, use Cloudflare D1's parameterized queries via `env.DB.prepare().bind()`.
+
 **scripts/seed-search.mjs:**
 
 ```javascript
@@ -76,6 +78,34 @@ VALUES (
 await writeFile('./dist/search-index.sql', sql);
 console.log(`Generated SQL for ${index.length} entries`);
 ```
+
+**Alternative: Parameterized Seeding via Workers Script**
+
+For dynamic data or extra safety, use prepared statements:
+
+```typescript
+// scripts/seed-search.ts (run with wrangler)
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const index: SearchEntry[] = await request.json();
+
+    const stmt = env.DB.prepare(`
+      INSERT OR REPLACE INTO search_index (id, title, url, excerpt, content, date)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    const batch = index.map((entry) =>
+      stmt.bind(entry.id, entry.title, entry.url, entry.excerpt, entry.content, entry.date)
+    );
+
+    await env.DB.batch(batch);
+
+    return new Response(`Seeded ${index.length} entries`);
+  },
+};
+```
+
+Run with: `curl -X POST http://localhost:8787 -d @dist/search-index.json`
 
 ## Querying with FTS5
 
