@@ -177,6 +177,8 @@ ctx.waitUntil(
 
 Analytics Engine data can be queried via the Cloudflare API.
 
+> **Security Note**: When building SQL queries dynamically, always validate and sanitize user inputs to prevent SQL injection. Numeric parameters should be validated as integers within expected ranges. String parameters (like dataset names) should be validated against an allowlist of known values when possible.
+
 ### Latency Percentiles
 
 ```sql
@@ -239,7 +241,9 @@ LIMIT 100
  * @param accountId - Cloudflare account ID
  * @param apiToken - API token with Analytics Engine read access
  * @param datasetName - Analytics Engine dataset name
- * @param hours - Time window in hours
+ * @param hours - Time window in hours (validated to prevent SQL injection)
+ * @throws Error if hours is invalid
+ * @security Always validate inputs before interpolating into SQL queries
  */
 async function getLatencyPercentiles(
   accountId: string,
@@ -247,6 +251,14 @@ async function getLatencyPercentiles(
   datasetName: string,
   hours: number = 24
 ): Promise<{ p50: number; p95: number; p99: number }> {
+  // Validate hours parameter to prevent SQL injection
+  if (!Number.isInteger(hours) || hours < 0 || hours > 8760) {
+    throw new Error('hours must be a positive integer <= 8760');
+  }
+
+  // Note: datasetName should also be validated/sanitized in production use
+  // to prevent SQL injection if accepting from untrusted sources
+
   const query = `
     SELECT
       quantileExact(0.5)(double1) as p50,
