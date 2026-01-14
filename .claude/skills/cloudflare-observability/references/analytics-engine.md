@@ -240,9 +240,9 @@ LIMIT 100
  * Query latency percentiles from Analytics Engine.
  * @param accountId - Cloudflare account ID
  * @param apiToken - API token with Analytics Engine read access
- * @param datasetName - Analytics Engine dataset name
+ * @param datasetName - Analytics Engine dataset name (validated against allowlist)
  * @param hours - Time window in hours (validated to prevent SQL injection)
- * @throws Error if hours is invalid
+ * @throws Error if datasetName is not in allowlist or hours is invalid
  * @security Always validate inputs before interpolating into SQL queries
  */
 async function getLatencyPercentiles(
@@ -256,8 +256,11 @@ async function getLatencyPercentiles(
     throw new Error('hours must be a positive integer <= 8760');
   }
 
-  // Note: datasetName should also be validated/sanitized in production use
-  // to prevent SQL injection if accepting from untrusted sources
+  // Validate datasetName to prevent SQL injection
+  const VALID_DATASETS = ['worker_metrics', 'app_metrics'];
+  if (!VALID_DATASETS.includes(datasetName)) {
+    throw new Error('Invalid dataset name');
+  }
 
   const query = `
     SELECT
