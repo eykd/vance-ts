@@ -82,6 +82,12 @@ Conventional commits enforced via commitlint:
 - Types: feat, fix, docs, style, refactor, perf, test, chore, revert
 - Format: `type: lowercase subject` (no period, max 100 chars)
 
+### Git Workflow Rules (Non-Negotiable)
+
+- **NEVER amend commits** - Always create new commits for changes
+- **NEVER squash-merge** - Preserve full commit history when merging PRs
+- **NEVER force-push** - Except when explicitly requested by the user
+
 ### Warnings and Deprecations
 
 **Address immediately** - Never ignore or defer:
