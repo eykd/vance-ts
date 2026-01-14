@@ -82,6 +82,12 @@ Conventional commits enforced via commitlint:
 - Types: feat, fix, docs, style, refactor, perf, test, chore, revert
 - Format: `type: lowercase subject` (no period, max 100 chars)
 
+### Git Workflow Rules (Non-Negotiable)
+
+- **NEVER amend commits** - Always create new commits for changes
+- **NEVER squash-merge** - Preserve full commit history when merging PRs
+- **NEVER force-push** - Except when explicitly requested by the user
+
 ### Warnings and Deprecations
 
 **Address immediately** - Never ignore or defer:
@@ -128,6 +134,9 @@ When defining specifications or planning new features, **ALWAYS use the `/latent
 The skill prevents token overload by providing focused access to relevant sections of comprehensive guides rather than loading entire documents.
 
 ## Active Technologies
+
+- TypeScript (ES2022, NodeNext modules) + Cloudflare Workers runtime, Analytics Engine, D1, KV (002-observability-skills)
+- N/A (skill is documentation, not code) (002-observability-skills)
 
 - Markdown documentation, TypeScript code examples + N/A (documentation update only) (001-static-first-routing)
 
