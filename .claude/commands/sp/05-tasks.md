@@ -66,27 +66,35 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Create parallel execution examples per user story
    - Validate task completeness (each user story has all needed tasks, independently testable)
 
-5. **Create Beads Tasks** (instead of markdown checkboxes):
+5. **Create Beads Tasks** (as children of the [sp:06-implement] phase task):
+
+   **First, find the implement phase task** (created by `/sp:01-specify`):
+
+   ```bash
+   IMPLEMENT_TASK_ID=$(npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:06-implement]")) | .id')
+   ```
+
+   Store this ID - all user story tasks will be created as children of this task.
 
    For each user story from spec.md:
 
-   a. Create a task for the user story:
+   a. Create a task for the user story **as a child of the implement task**:
 
    ```bash
-   npx bd create "US<N>: <user-story-title>" -p <priority> --parent <epic-id> --json
+   npx bd create "US<N>: <user-story-title>" -p <priority> --parent $IMPLEMENT_TASK_ID --json
    ```
 
    - `<N>`: User story number (1, 2, 3...)
    - `<priority>`: Map P1→1, P2→2, P3→3, etc.
-   - `--parent <epic-id>`: Link to the feature epic
+   - `--parent $IMPLEMENT_TASK_ID`: Link to the **implement phase task** (NOT the epic)
 
    b. For each implementation step within the user story, create a sub-task:
 
    ```bash
-   npx bd create "<step-description>" -p <priority> --parent <task-id> --json
+   npx bd create "<step-description>" -p <priority> --parent <user-story-task-id> --json
    ```
 
-   - `<task-id>`: The user story task ID from step (a)
+   - `<user-story-task-id>`: The user story task ID from step (a)
 
    c. Establish dependencies between sequential tasks:
 
@@ -124,13 +132,35 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Implementation strategy section (MVP first, incremental delivery)
    - **Include beads task IDs** next to each task for reference
 
-8. **Report**: Output summary including:
+8. **Close Phase Task in Beads**:
+
+   After creating all implementation tasks, close the 05-tasks phase task to unblock the implement phase.
+
+   a. Find the tasks phase task:
+
+   ```bash
+   npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:05-tasks]")) | .id'
+   ```
+
+   b. Close the task with a completion summary:
+
+   ```bash
+   npx bd close <tasks-task-id> --reason "Created <N> tasks across <M> user stories under [sp:06-implement]"
+   ```
+
+   c. The [sp:06-implement] phase task is now ready (its dependency on 05-tasks is satisfied).
+
+   d. Report: "Phase [sp:05-tasks] complete. Run `/sp:next` or `/sp:06-implement` to begin implementation."
+
+9. **Report**: Output summary including:
    - Path to generated tasks.md (human-readable reference)
    - **Beads epic ID** and total tasks created in beads
+   - **Implement task ID** (`$IMPLEMENT_TASK_ID`) containing all user story tasks
    - Task count per user story
    - Parallel opportunities identified
    - Independent test criteria for each story
    - Suggested MVP scope (typically just User Story 1)
+   - **Next step**: Run `/sp:next` or `/sp:06-implement` to begin implementation
    - **How to view ready tasks**: `npx bd ready --json`
 
 Context for task generation: $ARGUMENTS

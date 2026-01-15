@@ -158,7 +158,70 @@ Given that feature description, do this:
 
    f. If epic creation fails, display error but continue with spec creation (beads integration is enhancement, not blocker)
 
-8. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
+8. **Create Phase Tasks with Dependency Chain**:
+
+   After creating the epic, create ALL phase tasks upfront with dependencies. This enables `/sp:next` to orchestrate the workflow.
+
+   a. Create all six phase tasks under the epic:
+
+   ```bash
+   # Extract feature name from branch (e.g., "010-user-auth" -> "user-auth")
+   FEATURE_NAME="<short-name-from-step-2>"
+
+   # Create phase tasks (store IDs from JSON responses)
+   npx bd create "[sp:02-clarify] Clarify requirements for $FEATURE_NAME" -p 1 --parent <epic-id> --json
+   # Store returned ID as CLARIFY_ID
+
+   npx bd create "[sp:03-plan] Create implementation plan for $FEATURE_NAME" -p 1 --parent <epic-id> --json
+   # Store returned ID as PLAN_ID
+
+   npx bd create "[sp:04-checklist] Generate requirements checklist for $FEATURE_NAME" -p 2 --parent <epic-id> --json
+   # Store returned ID as CHECKLIST_ID
+
+   npx bd create "[sp:05-tasks] Generate implementation tasks for $FEATURE_NAME" -p 1 --parent <epic-id> --json
+   # Store returned ID as TASKS_ID
+
+   npx bd create "[sp:06-implement] Execute implementation for $FEATURE_NAME" -p 1 --parent <epic-id> --json
+   # Store returned ID as IMPLEMENT_ID
+
+   npx bd create "[sp:09-review] Code review for $FEATURE_NAME" -p 2 --parent <epic-id> --json
+   # Store returned ID as REVIEW_ID
+   ```
+
+   b. Create the dependency chain (each phase depends on the previous):
+
+   ```bash
+   npx bd dep add <PLAN_ID> <CLARIFY_ID>
+   npx bd dep add <CHECKLIST_ID> <PLAN_ID>
+   npx bd dep add <TASKS_ID> <CHECKLIST_ID>
+   npx bd dep add <IMPLEMENT_ID> <TASKS_ID>
+   npx bd dep add <REVIEW_ID> <IMPLEMENT_ID>
+   ```
+
+   c. Store phase task IDs in spec.md front matter for reference:
+
+   ```markdown
+   **Beads Phase Tasks**:
+
+   - clarify: `<CLARIFY_ID>`
+   - plan: `<PLAN_ID>`
+   - checklist: `<CHECKLIST_ID>`
+   - tasks: `<TASKS_ID>`
+   - implement: `<IMPLEMENT_ID>`
+   - review: `<REVIEW_ID>`
+   ```
+
+   d. Verify the dependency chain:
+
+   ```bash
+   npx bd dep tree <epic-id>
+   ```
+
+   Expected output shows the chain: clarify → plan → checklist → tasks → implement → review
+
+   e. If phase task creation fails, log the error and continue. The workflow can still function with manual skill invocation.
+
+9. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
 
    a. **Create Spec Quality Checklist**: Generate a checklist file at `FEATURE_DIR/checklists/requirements.md` using the checklist template structure with these validation items:
 
@@ -249,12 +312,15 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-9. Report completion with:
-   - Branch name
-   - Spec file path
-   - **Beads epic ID** (if created successfully)
-   - Checklist results
-   - Readiness for the next phase (`/sp:02-clarify` or `/sp:03-plan`)
+10. Report completion with:
+
+- Branch name
+- Spec file path
+- **Beads epic ID** (if created successfully)
+- **Phase tasks created** (list all 6 phase task IDs)
+- **Dependency chain visualization** (from `bd dep tree`)
+- Checklist results
+- **Next step**: Run `/sp:next` to start the workflow, or `/sp:02-clarify` directly
 
 **NOTE:** The script creates and checks out the new branch and initializes the spec file before writing.
 

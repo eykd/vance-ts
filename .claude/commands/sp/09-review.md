@@ -150,8 +150,42 @@ You **MUST** consider the user input before proceeding (if not empty).
    ### Next Steps
 
    - Run `npx bd ready` to see tasks available for work
-   - Run `/sp:06-implement` to start addressing findings
+   - Address any Critical/High priority findings before closing the epic
    ```
+
+9. **Close Phase Task and Optionally Epic**:
+
+   After completing the review, close the phase task.
+
+   a. Find the review phase task:
+
+   ```bash
+   npx bd list --parent <epic-id> --json | jq -r '.[] | select(.title | contains("[sp:09-review]")) | .id'
+   ```
+
+   b. Close the review task with a completion summary:
+
+   ```bash
+   npx bd close <review-task-id> --reason "Review complete: <N> findings, <M> issues created"
+   ```
+
+   c. Check if all phase tasks are now closed:
+
+   ```bash
+   OPEN_PHASES=$(npx bd list --parent <epic-id> --status open --json | jq '[.[] | select(.title | contains("[sp:"))] | length')
+   ```
+
+   d. If all phase tasks are closed AND no Critical/High findings were created:
+   - Ask user: "All phases complete. Close the epic? (yes/no)"
+   - If user confirms:
+
+   ```bash
+   npx bd close <epic-id> --reason "Feature complete: all phases finished"
+   ```
+
+   - If user declines (e.g., to address findings first), leave epic open
+
+   e. Report: "Phase [sp:09-review] complete. Feature workflow finished."
 
 ## Error Handling
 

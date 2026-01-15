@@ -153,21 +153,49 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
 
-10. **Completion validation**:
+10. **Completion validation and Self-Close**:
 
-    a. Check remaining tasks:
+    a. Find the implement phase task ID:
 
     ```bash
-    npx bd list --parent <epic-id> --status open --json
+    IMPLEMENT_TASK_ID=$(npx bd list --parent <epic-id> --json | jq -r '.[] | select(.title | contains("[sp:06-implement]")) | .id')
     ```
 
-    b. If all tasks complete:
-    - Verify implemented features match the original specification
-    - Validate that tests pass and coverage meets requirements
-    - Confirm the implementation follows the technical plan
-    - Report final status with summary of completed work
+    b. Check remaining sub-tasks under the implement phase task:
 
-    c. Display final beads summary:
+    ```bash
+    npx bd list --parent $IMPLEMENT_TASK_ID --status open --json
+    ```
+
+    c. If open sub-tasks remain:
+    - Report remaining work count and next ready task
+    - Suggest next ready task via `bd ready`
+    - Do NOT close the implement phase task
+
+    d. If ALL sub-tasks under implement are closed:
+
+    ```bash
+    # Verify all sub-tasks complete
+    OPEN_COUNT=$(npx bd list --parent $IMPLEMENT_TASK_ID --status open --json | jq 'length')
+    if [ "$OPEN_COUNT" -eq 0 ]; then
+      # Verify implemented features match the original specification
+      # Validate that tests pass and coverage meets requirements
+      # Confirm the implementation follows the technical plan
+
+      # Close the implement phase task
+      npx bd close $IMPLEMENT_TASK_ID --reason "All implementation tasks complete"
+    fi
+    ```
+
+    e. After closing implement task, the [sp:09-review] task becomes ready:
+
+    ```bash
+    npx bd ready --json | jq '.[] | select(.title | contains("[sp:09-review]"))'
+    ```
+
+    f. Report: "Implementation complete. Run `/sp:next` or `/sp:09-review` for code review."
+
+    g. Display final beads summary:
 
     ```bash
     npx bd stats --json

@@ -168,6 +168,52 @@ Execution steps:
    - If any Outstanding or Deferred remain, recommend whether to proceed to `/sp:03-plan` or run `/sp:02-clarify` again later post-plan.
    - Suggested next command.
 
+9. **Close Phase Task in Beads**:
+
+   After completing clarification, close the phase task to unblock the next phase in the workflow.
+
+   a. Read the epic ID from spec.md front matter:
+
+   ```bash
+   grep "Beads Epic" $FEATURE_SPEC | grep -oE 'workspace-[a-z0-9]+|bd-[a-z0-9]+'
+   ```
+
+   b. Find the clarify phase task:
+
+   ```bash
+   npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:02-clarify]")) | .id'
+   ```
+
+   Or retrieve from spec.md front matter if stored under "Beads Phase Tasks".
+
+   c. Mark the task in progress (if not already):
+
+   ```bash
+   npx bd update <clarify-task-id> --status in_progress
+   ```
+
+   d. Close the task with a completion summary:
+
+   ```bash
+   npx bd close <clarify-task-id> --reason "Clarified <N> requirements: <brief summary of key clarifications>"
+   ```
+
+   e. Verify the next phase is now ready:
+
+   ```bash
+   npx bd ready --json | jq '.[] | select(.title | contains("[sp:03-plan]"))'
+   ```
+
+   f. Report: "Phase [sp:02-clarify] complete. Run `/sp:next` or `/sp:03-plan` to continue."
+
+   **Skip scenario**: If user explicitly skips clarification (e.g., "skip", "no clarification needed"):
+
+   ```bash
+   npx bd close <clarify-task-id> --reason "Skipped: User requested direct progression to planning"
+   ```
+
+   Warn: "Clarification skipped. Downstream rework risk increases. The [sp:03-plan] task is now ready."
+
 Behavior rules:
 
 - If no meaningful ambiguities found (or all potential questions would be low-impact), respond: "No critical ambiguities detected worth formal clarification." and suggest proceeding.

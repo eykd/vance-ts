@@ -211,6 +211,36 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Actor/timing
    - Any explicit user-specified must-have items incorporated
 
+8. **Close Phase Task in Beads**:
+
+   After generating the checklist, close the phase task to unblock the next phase.
+
+   a. Read the epic ID from spec.md front matter:
+
+   ```bash
+   grep "Beads Epic" $FEATURE_DIR/spec.md | grep -oE 'workspace-[a-z0-9]+|bd-[a-z0-9]+'
+   ```
+
+   b. Find the checklist phase task:
+
+   ```bash
+   npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:04-checklist]")) | .id'
+   ```
+
+   c. Close the task with a completion summary:
+
+   ```bash
+   npx bd close <checklist-task-id> --reason "Checklist generated: <filename> with <N> items"
+   ```
+
+   d. Report: "Phase [sp:04-checklist] complete. Run `/sp:next` or `/sp:05-tasks` to continue."
+
+   **Skip scenario**: If user skips checklist generation:
+
+   ```bash
+   npx bd close <checklist-task-id> --reason "Skipped: Checklist generation deferred"
+   ```
+
 **Important**: Each `/sp:04-checklist` command invocation creates a checklist file using short, descriptive names unless file already exists. This allows:
 
 - Multiple checklists of different types (e.g., `ux.md`, `test.md`, `security.md`)

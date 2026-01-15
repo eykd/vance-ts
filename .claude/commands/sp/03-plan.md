@@ -35,6 +35,30 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 4. **Stop and report**: Command ends after Phase 2 planning. Report branch, IMPL_PLAN path, and generated artifacts.
 
+5. **Close Phase Task in Beads**:
+
+   After completing the plan, close the phase task to unblock the next phase.
+
+   a. Read the epic ID from spec.md front matter:
+
+   ```bash
+   grep "Beads Epic" $FEATURE_SPEC | grep -oE 'workspace-[a-z0-9]+|bd-[a-z0-9]+'
+   ```
+
+   b. Find the plan phase task:
+
+   ```bash
+   npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:03-plan]")) | .id'
+   ```
+
+   c. Close the task with a completion summary:
+
+   ```bash
+   npx bd close <plan-task-id> --reason "Plan complete: created plan.md, data-model.md, contracts/, research.md"
+   ```
+
+   d. Report: "Phase [sp:03-plan] complete. Run `/sp:next` or `/sp:04-checklist` to continue."
+
 ## Phases
 
 ### Phase 0: Outline & Research
