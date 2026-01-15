@@ -194,6 +194,44 @@ Skills can also be activated automatically by Claude when it detects relevant co
 - **Use when:** Deciding HTMX vs Alpine.js for interactions, selecting hx-trigger strategies, choosing swap strategies
 - **Provides:** Interaction pattern selection, trigger strategies, swap strategies, troubleshooting
 
+### Multi-Tenant Boundaries
+
+**[org-authorization](./org-authorization/SKILL.md)**
+
+- **Use when:** Implementing authorization checks, defining Actor/Action/Resource types, building AuthorizationService
+- **Provides:** Core authorization types, AuthorizationService implementation, ownership/admin/system patterns
+- **Cross-references:** security-review, ddd-domain-modeling, org-isolation, org-membership
+
+**[org-isolation](./org-isolation/SKILL.md)**
+
+- **Use when:** Auditing tenant isolation, implementing query scoping, writing cross-tenant tests
+- **Provides:** TenantScopedDb wrapper, audit checklist, cross-tenant test patterns
+- **Cross-references:** d1-repository-implementation, org-authorization, org-testing
+
+**[org-data-model](./org-data-model/SKILL.md)**
+
+- **Use when:** Choosing data model complexity level, planning schema evolution from single-user to enterprise
+- **Provides:** Four-stage schema evolution (single-user → collaborators → organizations → resource-perms)
+- **Cross-references:** cloudflare-migrations, ddd-domain-modeling, org-membership
+
+**[org-membership](./org-membership/SKILL.md)**
+
+- **Use when:** Implementing membership management, defining role hierarchies, preventing privilege escalation
+- **Provides:** Role hierarchy (owner > admin > member > viewer), privilege escalation prevention, invite/remove/transfer
+- **Cross-references:** org-authorization, security-review, org-data-model
+
+**[org-testing](./org-testing/SKILL.md)**
+
+- **Use when:** Testing authorization logic, writing tenant isolation tests, creating multi-tenant fixtures
+- **Provides:** Policy unit tests, integration tests, acceptance tests for tenant isolation
+- **Cross-references:** typescript-unit-testing, vitest-integration-testing, org-isolation
+
+**[org-migration](./org-migration/SKILL.md)**
+
+- **Use when:** Migrating from single-user to multi-tenant, planning organization rollout strategy
+- **Provides:** Shadow organizations, feature flags for rollout, database backfill scripts
+- **Cross-references:** cloudflare-migrations, kv-session-management, org-data-model
+
 ### Security & Quality
 
 **[security-review](./security-review/SKILL.md)**
@@ -260,6 +298,12 @@ ddd-domain-modeling → cloudflare-use-case-creator → d1-repository-implementa
 
 ```
 vitest-cloudflare-config → typescript-unit-testing → testing-observability → vitest-integration-testing
+```
+
+**Multi-Tenant Chain:**
+
+```
+org-authorization → org-isolation → org-data-model → org-membership → org-testing → org-migration
 ```
 
 ## Progressive Disclosure
