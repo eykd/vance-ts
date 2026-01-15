@@ -95,21 +95,21 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx wrangler deploy
 
-      # Deploy Hugo to Cloudflare Pages (if hugo/ exists)
+      # Deploy Hugo to Cloudflare Pages (if hugo/ exists AND wrangler.toml exists)
       - name: Install Hugo dependencies
-        if: steps.check-hugo.outputs.exists == 'true'
+        if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
         run: |
           cd hugo
           npm ci
 
       - name: Build Hugo site
-        if: steps.check-hugo.outputs.exists == 'true'
+        if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
         run: |
           cd hugo
           npx hugo --minify
 
       - name: Deploy Hugo to Cloudflare Pages
-        if: steps.check-hugo.outputs.exists == 'true'
+        if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
