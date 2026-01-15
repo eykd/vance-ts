@@ -150,11 +150,24 @@ Claude: "Done! Your Worker is deployed and the configuration is saved. Next, let
 
 **Why this order matters**: The CI workflow uses `wrangler deploy`, but Cloudflare needs the Worker project to exist first. By running `wrangler deploy` manually before pushing, we ensure the Worker infrastructure is created. Subsequent CI runs will update the existing project rather than trying to create a new one.
 
-**Note on Cloudflare Pages**: `wrangler deploy` only creates Worker infrastructure (Workers, D1, KV, R2). If the project also has a Hugo site that deploys to Cloudflare Pages, that Pages project will be created automatically by the `cloudflare/pages-action` on the first CI run — but only AFTER GitHub secrets are configured. So the full flow is:
+**Note on Cloudflare Pages**: `wrangler deploy` only creates Worker infrastructure (Workers, D1, KV, R2). If the project also has a Hugo site (`hugo/` directory), you MUST also create the Pages project manually — the `cloudflare/pages-action` does NOT auto-create it. Run:
+
+```bash
+# Build Hugo first
+cd hugo && npm ci && npx hugo --minify && cd ..
+
+# Create and deploy the Pages project (this creates the project if it doesn't exist)
+npx wrangler pages deploy hugo/public --project-name={user-chosen-name}
+```
+
+Watch for the success message showing the Pages URL (e.g., `https://{project-name}.pages.dev`).
+
+So the full flow for projects with both Workers AND Hugo/Pages is:
 
 1. Run `wrangler deploy` → Creates Worker infrastructure
-2. Set up GitHub secrets → Enables CI/CD
-3. First CI run → Creates Pages project and deploys Hugo site
+2. Run `wrangler pages deploy` → Creates Pages project and deploys Hugo site
+3. Set up GitHub secrets → Enables CI/CD
+4. Future CI runs will update both Worker and Pages
 
 ### 3. Handle Problems
 
@@ -219,7 +232,7 @@ When they complete deployment:
 - **Offer escape hatches** — If they're stuck, offer to help troubleshoot or suggest taking a break
 - **Time awareness** — If they mention being short on time, help them find a good stopping point
 - **Explain automation** — When running wrangler commands, explain that it's automatically creating infrastructure so they understand what's happening
-- **ALWAYS run `wrangler deploy` before relying on CI/CD** — The first deployment MUST be done manually to create the Cloudflare project and infrastructure. Only after that will CI/CD work. Never commit/push wrangler.toml changes without first running `wrangler deploy` to create the project.
+- **ALWAYS deploy manually before relying on CI/CD** — The first deployment MUST be done manually to create the Cloudflare projects. Run `wrangler deploy` for Workers AND `wrangler pages deploy` for Hugo/Pages. The GitHub Actions do NOT auto-create these projects — they will fail with "Project not found" if you skip this step.
 
 ## Example Opening
 
