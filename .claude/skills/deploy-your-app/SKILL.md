@@ -82,8 +82,9 @@ You already have a GitHub account (since you're using this repository). You need
 
 1. **Cloudflare account** — Where your Worker runs
 2. **Cloudflare API token** — Set as `CLOUDFLARE_API_TOKEN` environment variable so Claude can deploy on your behalf
+3. **Cloudflare Account ID** — Set as `CLOUDFLARE_ACCOUNT_ID` environment variable (required for Cloudflare Pages deployment)
 
-See `references/prerequisites.md` for detailed account and environment setup instructions.
+**Important**: Set both environment variables at the same time, then restart your session once. See `references/prerequisites.md` for detailed instructions.
 
 ### Phase 2: Choose Your Worker Name (2 minutes)
 

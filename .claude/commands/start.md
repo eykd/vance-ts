@@ -22,6 +22,37 @@ You are helping a non-technical user deploy their own Cloudflare Workers applica
 
 7. **You handle the technical work** — When the user provides credentials, YOU run wrangler commands, deploy the Worker, and configure everything. The user should never need to open a terminal.
 
+## Before Starting: Verify Project Setup
+
+**IMPORTANT**: Before guiding the user through deployment, verify that the project has the required configuration:
+
+1. **Check for wrangler.toml**: Run `ls wrangler.toml` to verify it exists
+   - If it exists: Proceed with deployment
+   - If it does NOT exist: Create one for the user. Use this minimal template:
+
+     ```toml
+     name = "my-worker"  # Will be customized in Phase 2
+     main = "dist/worker.js"
+     compatibility_date = "2024-01-01"
+
+     [[d1_databases]]
+     binding = "DB"
+     database_name = "my-worker-db"
+     database_id = ""  # Will be auto-populated on first deploy
+
+     [[kv_namespaces]]
+     binding = "KV"
+     id = ""  # Will be auto-populated on first deploy
+
+     [[r2_buckets]]
+     binding = "R2"
+     bucket_name = "my-worker-storage"
+     ```
+
+     **Note**: The `name`, `database_name`, and `bucket_name` will be customized in Phase 2 when you ask the user for their project name.
+
+2. **Check for .github/workflows/ci.yml**: The CI workflow handles automated deployments after GitHub secrets are configured
+
 ## Invoke the Skill
 
 Use the `deploy-your-app` skill to access the deployment guide and reference materials.
@@ -34,7 +65,7 @@ Start by welcoming them and understanding where they are. Ask these questions ON
 
 1. First, ask: Do they have a Cloudflare account yet? (They already have GitHub since they're using this repo)
 2. Then ask: Have they deployed a Worker before, or is this their first time?
-3. Then ask: Have they set up their Cloudflare API token as an environment variable yet? (Guide them through environment setup if not — see prerequisites.md)
+3. Then ask: Have they set up their Cloudflare credentials as environment variables yet? (Both `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are needed. Guide them to set BOTH at once so they only need to restart the session once — see prerequisites.md)
 4. Then ask: Do they want email functionality? (Optional but recommended)
 5. If yes to email, ask: Do they have a Resend account?
 6. Then ask: Do they want error tracking? (Optional but recommended for production)
@@ -112,12 +143,46 @@ If they encounter issues:
 - Break down the problem into smaller diagnostic steps
 - Reassure them that errors are normal and fixable
 
-### 4. Celebrate Success
+### 4. Set Up GitHub Secrets for CI/CD
+
+After the initial deployment works, guide the user to set up GitHub repository secrets so that future code changes deploy automatically:
+
+1. **Determine the repository URL**: Look at the git remote with `git remote -v` to find the GitHub repo (e.g., `github.com/username/repo-name`)
+
+2. **Guide them to the secrets page**: Tell them to go directly to:
+   `https://github.com/<username>/<repo-name>/settings/secrets/actions`
+
+   **IMPORTANT**: Give them the EXACT URL with their username and repo name filled in. Do NOT just say "go to Settings" — link them directly to the secrets page.
+
+3. **Add the required secrets** (one at a time):
+
+   **For Cloudflare deployment:**
+   - Click **New repository secret**
+   - **Name**: `CLOUDFLARE_API_TOKEN` / **Value**: Their Cloudflare API token
+   - Click **Add secret**
+   - Click **New repository secret** again
+   - **Name**: `CLOUDFLARE_ACCOUNT_ID` / **Value**: Their Cloudflare Account ID
+   - Click **Add secret**
+
+   **For Claude Code Review (optional but recommended):**
+   The repository includes automated code review on pull requests. To enable it:
+   - Click **New repository secret**
+   - **Name**: `CLAUDE_CODE_OAUTH_TOKEN` / **Value**: A Claude Code OAuth token (get one from claude.ai/claude-code)
+   - Click **Add secret**
+
+   **Alternative**: If they have an Anthropic API key instead, they can use:
+   - **Name**: `ANTHROPIC_API_KEY` / **Value**: Their Anthropic API key
+
+   **Note**: If they don't want automated code reviews, they can skip this step or delete the `.github/workflows/claude-code-review.yml` file. Without this secret, the Claude Review action will fail on PRs (but deployments will still work).
+
+4. **Explain what this enables**: Once secrets are set, any push to the main/master branch will automatically deploy both the Worker and the Hugo site (if present). Pull requests will receive automated code reviews (if Claude token is configured).
+
+### 5. Celebrate Success
 
 When they complete deployment:
 
 - Congratulate them genuinely
-- Summarize what they accomplished
+- Summarize what they accomplished (including CI/CD setup!)
 - Point them to next steps (custom domain, customization, etc.)
 - Remind them they can return for help anytime
 
@@ -125,8 +190,8 @@ When they complete deployment:
 
 - **ASK ONE QUESTION AT A TIME** — This is the MOST IMPORTANT rule. Never bundle questions. Each message should contain exactly one question.
 - **NEVER ask for secrets in chat** — CRITICAL: Never ask users to paste API keys, tokens, passwords, or DSNs in the chat. This includes the Cloudflare API token. Guide them to add ALL secrets through environment variables.
-- **Guide users to set up environment variables** — For Claude Code for the Web users, guide them to create a "cloudflare" environment with `CLOUDFLARE_API_TOKEN`. See the environment setup instructions in prerequisites.md.
-- **You run the commands** — Once the environment is configured with `CLOUDFLARE_API_TOKEN`, YOU run wrangler commands to deploy. The user never opens a terminal.
+- **Guide users to set up environment variables** — For Claude Code for the Web users, guide them to create a "cloudflare" environment with BOTH `CLOUDFLARE_API_TOKEN` AND `CLOUDFLARE_ACCOUNT_ID`. Have them set both at once so they only need to restart the session once. See the environment setup instructions in prerequisites.md.
+- **You run the commands** — Once the environment is configured with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, YOU run wrangler commands to deploy. The user never opens a terminal.
 - **Never assume knowledge** — Terms like "environment variable," "API token," or "Worker" need explanation
 - **Pause for confirmation** — After each major step, ask "Did that work? What do you see?"
 - **Offer escape hatches** — If they're stuck, offer to help troubleshoot or suggest taking a break

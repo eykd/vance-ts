@@ -48,19 +48,28 @@ Claude needs an API token to deploy your Worker and manage infrastructure on you
    - **You won't be able to see it again!**
    - If you lose it, you'll need to create a new one
 
-### Save the token as an environment variable
+### Save credentials as environment variables
 
 **IMPORTANT**: Never paste your API token directly into the chat. Instead, add it as an environment variable so Claude can access it securely.
+
+**Before setting up environment variables**, you'll also need your Account ID. Find it now:
+
+1. In the Cloudflare dashboard, look at the right sidebar
+2. Find **Account ID** under your account name
+3. It looks like: `abc123def456789...`
+4. Copy this — you'll add it as an environment variable along with your API token
+
+**Need help finding it?** See Cloudflare's official guide: https://developers.cloudflare.com/fundamentals/account/find-account-and-zone-ids/
 
 #### For Claude Code for the Web users:
 
 1. In the left sidebar, click the **gear icon** (Settings) or look for **Environments**
 2. Click **Create environment** and name it `cloudflare`
-3. Add a new variable:
-   - **Name**: `CLOUDFLARE_API_TOKEN`
-   - **Value**: Paste your API token here
+3. Add **two** variables:
+   - **Name**: `CLOUDFLARE_API_TOKEN` / **Value**: Paste your API token here
+   - **Name**: `CLOUDFLARE_ACCOUNT_ID` / **Value**: Paste your Account ID here
 4. Click **Save**
-5. **Start a new session** in the `cloudflare` environment (environment variables are loaded at session start, so you need a fresh session to pick up the new token)
+5. **Start a new session** in the `cloudflare` environment (environment variables are loaded at session start, so you need a fresh session to pick up the new values)
 
 #### For local Claude Code users:
 
@@ -68,32 +77,19 @@ Create a `.env` file in your project root (if you don't have one), and add:
 
 ```
 CLOUDFLARE_API_TOKEN=your-token-here
+CLOUDFLARE_ACCOUNT_ID=your-account-id-here
 ```
 
-Or set it in your shell before running Claude:
+Or set them in your shell before running Claude:
 
 ```bash
 export CLOUDFLARE_API_TOKEN=your-token-here
+export CLOUDFLARE_ACCOUNT_ID=your-account-id-here
 ```
 
-**Note**: If Claude is already running, restart the session to pick up the new environment variable.
+**Note**: If Claude is already running, restart the session to pick up the new environment variables.
 
-**Security tip**: Don't share this token in screenshots, emails, chat, or public places. Treat it like a password. Environment variables keep secrets out of conversation logs.
-
----
-
-## 1.3 Find Your Account ID
-
-Your Account ID helps identify which Cloudflare account to deploy to (useful if you have multiple).
-
-### Steps
-
-1. In the Cloudflare dashboard, look at the right sidebar
-2. Find **Account ID** under your account name
-3. It looks like: `abc123def456789...`
-4. **Copy and save this** — Claude may need it
-
-**Need help finding it?** See Cloudflare's official guide: https://developers.cloudflare.com/fundamentals/account/find-account-and-zone-ids/
+**Security tip**: Don't share these values in screenshots, emails, chat, or public places. Treat them like passwords. Environment variables keep secrets out of conversation logs.
 
 ---
 
@@ -103,7 +99,7 @@ Before moving to Phase 2, confirm you have:
 
 - [x] Cloudflare account (logged in)
 - [ ] API token created and saved as environment variable (`CLOUDFLARE_API_TOKEN`)
-- [ ] Account ID saved
+- [ ] Account ID saved as environment variable (`CLOUDFLARE_ACCOUNT_ID`)
 
 **All set? Great!** Return to Claude and let them know your environment is configured. Claude will verify the token works by running a test command.
 
@@ -165,10 +161,11 @@ Yes! You can delete or regenerate your API token anytime:
 3. Click **Roll** to regenerate it or **Delete** to remove it
 4. If you regenerate/delete it, update your environment variable with the new token
 
-### "Claude says it can't find my API token"
+### "Claude says it can't find my API token or Account ID"
 
-This means the environment variable isn't set up correctly:
+This means the environment variables aren't set up correctly:
 
 1. **Claude Code for the Web**: Check that your `cloudflare` environment is enabled for this workspace
-2. **Local users**: Make sure your `.env` file is in the project root, or export the variable in your shell
-3. Verify the variable name is exactly `CLOUDFLARE_API_TOKEN` (case-sensitive)
+2. **Local users**: Make sure your `.env` file is in the project root, or export the variables in your shell
+3. Verify the variable names are exactly `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (case-sensitive)
+4. **Did you restart the session?** Environment variables are only loaded at session start — you need a fresh session after adding them
