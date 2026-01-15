@@ -1,22 +1,9 @@
-{{ define "page-styles" }}
-{{- with .Params.featured_image -}}
-{{- with resources.Get . -}}
-<style>
-  .hero {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('{{ .Permalink }}');
-    background-size: cover;
-    background-position: center;
-  }
-</style>
-{{- end -}}
-{{- end }}
-{{ end }}
-
 {{ define "main" }}
   <article>
     {{- $featured_image := .Params.featured_image -}}
     {{ if $featured_image }}
-    <header class="hero min-h-[50vh] mb-8">
+    {{- with resources.Get $featured_image -}}
+    <header class="hero hero-featured min-h-[50vh] mb-8" style="--hero-bg-image: url('{{ .Permalink }}')">
       <div class="hero-overlay bg-opacity-60"></div>
       <div class="hero-content text-neutral-content text-center">
         <div class="max-w-prose mx-auto">
@@ -30,6 +17,7 @@
         </div>
       </div>
     </header>
+    {{- end -}}
     {{ else }}
     <header class="py-16 bg-base-100">
       <div class="container mx-auto px-4 text-center">

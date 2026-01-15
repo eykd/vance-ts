@@ -17,3 +17,6 @@ copyright: "© 2026 My Hugo Site. All Rights Reserved."
 
 # Google Analytics (optional - leave empty to disable)
 googleAnalytics: ""
+
+# DaisyUI theme (default: lemonade)
+theme: "lemonade"

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="lemonade">
+<html lang="en" data-theme="{{ .Site.Params.theme | default "lemonade" }}">
   <head>
     <!-- Title -->
     {{ if .IsHome }}
@@ -13,6 +13,7 @@
     <!-- Meta -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' www.google-analytics.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" />
 
     {{ $description := "" }}
     {{ if .IsHome }}
@@ -68,8 +69,6 @@
         {{ end }}
       {{ end }}
     {{ end }}
-
-    {{ block "page-styles" . }}{{ end }}
   </head>
   <body class="font-sans bg-base-200">
     <div class="flex min-h-screen flex-col">

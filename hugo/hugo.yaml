@@ -9,19 +9,19 @@ build:
       target: "css"
 
     - source: "(postcss|tailwind)\\.config\\.js"
-      target: 'css'
+      target: "css"
 
 module:
   hugo_version:
-    min: "0.147.8"
+    min: "0.154.5"
 
   mounts:
-    - source: 'hugo_stats.json'
-      target: 'assets/notwatching/hugo_stats.json'
+    - source: "hugo_stats.json"
+      target: "assets/notwatching/hugo_stats.json"
       disableWatch: true
 
-    - source: 'assets'
-      target: 'assets'
+    - source: "assets"
+      target: "assets"
 
 taxonomies:
   series: "series"

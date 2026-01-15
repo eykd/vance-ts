@@ -12,6 +12,13 @@ body {
   @apply antialiased;
 }
 
+/* Featured image hero background */
+.hero-featured {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), var(--hero-bg-image);
+  background-size: cover;
+  background-position: center;
+}
+
 @plugin "daisyui/theme" {
   name: "lemonade";
   default: true;
