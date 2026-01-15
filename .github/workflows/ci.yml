@@ -114,8 +114,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # WARNING: projectName must match your Cloudflare Pages project name exactly.
-          # Consider using a repository variable instead of hardcoding: ${{ vars.CLOUDFLARE_PAGES_PROJECT }}
-          projectName: turtlebased-site
+          # Project name can be configured via repository variable CLOUDFLARE_PAGES_PROJECT
+          # Defaults to 'turtlebased-site' if not set
+          projectName: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'turtlebased-site' }}
           directory: hugo/public
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}

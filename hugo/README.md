@@ -2,6 +2,36 @@
 
 Modern static website built with Hugo, TailwindCSS 4, and DaisyUI 5.
 
+## Deployment Setup
+
+**⚠️ Before First Deployment**: Configure your deployment environment to avoid build failures.
+
+### Required Configuration
+
+1. **GitHub Secrets** - Add to repository settings (Settings → Secrets and variables → Actions):
+   - `CLOUDFLARE_API_TOKEN` - API token with Pages and Workers permissions
+   - `CLOUDFLARE_ACCOUNT_ID` - Your Cloudflare account ID
+
+2. **Repository Variable** (Optional but recommended):
+   - `CLOUDFLARE_PAGES_PROJECT` - Your Cloudflare Pages project name
+   - Defaults to `turtlebased-site` if not set
+
+3. **Cloudflare Pages Project**:
+   - Will be created automatically on first deployment
+   - Or pre-create at [Cloudflare Dashboard → Pages](https://dash.cloudflare.com/pages)
+
+### Deployment Checklist
+
+Before pushing to `main` branch:
+
+- [ ] Cloudflare API token created and added to GitHub secrets
+- [ ] Cloudflare account ID added to GitHub secrets
+- [ ] Repository variable set (or default name is acceptable)
+- [ ] Hugo builds successfully locally: `cd hugo && npx hugo --minify`
+- [ ] All quality checks pass: `npm run check` (from project root)
+
+**📚 Full deployment guide**: See [docs/deployment.md](../docs/deployment.md) for detailed instructions.
+
 ## Quick Start
 
 ### Prerequisites
@@ -138,7 +168,6 @@ draft: false
 featured_image: "/images/hero.jpg"
 tags: ["example", "hugo"]
 ---
-
 Your content here...
 ```
 
@@ -205,6 +234,7 @@ The Hugo site automatically deploys to **Cloudflare Pages** via GitHub Actions o
 The `hugo/public/` directory contains the production-ready static site.
 
 **Cloudflare Pages** (using Wrangler):
+
 ```bash
 cd hugo
 npm install
@@ -213,6 +243,7 @@ npx wrangler pages deploy public --project-name=turtlebased-site
 ```
 
 **Other Platforms**:
+
 - Netlify
 - Vercel
 - GitHub Pages
@@ -228,6 +259,7 @@ The site includes security headers configured via `static/_headers` for Cloudfla
 ### Headers Applied
 
 **Content Security Policy (CSP):**
+
 - Restricts resource loading to same origin by default
 - Allows Google Analytics scripts when configured
 - Permits inline styles/scripts (required by Hugo templates)
@@ -235,6 +267,7 @@ The site includes security headers configured via `static/_headers` for Cloudfla
 - Upgrades HTTP requests to HTTPS
 
 **Additional Security:**
+
 - `X-Frame-Options: DENY` - Prevents clickjacking attacks
 - `X-Content-Type-Options: nosniff` - Blocks MIME-type sniffing
 - `X-XSS-Protection` - Enables browser XSS filtering
@@ -242,6 +275,7 @@ The site includes security headers configured via `static/_headers` for Cloudfla
 - `Permissions-Policy` - Restricts browser features (geolocation, camera, microphone)
 
 **Performance:**
+
 - Static assets cached for 1 year with immutable flag
 - Preview deployments blocked from search indexing
 

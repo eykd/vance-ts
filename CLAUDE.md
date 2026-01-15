@@ -48,9 +48,19 @@ just hugo-clean    # Clean build artifacts
 just hugo-rebuild  # Clean and rebuild
 just hugo-check    # Verify Hugo installation and dependencies
 just hugo-install  # Install Hugo npm dependencies
+
+# Hugo build verification tests
+cd hugo && npm test  # Run build verification (builds site and checks output)
 ```
 
 **Note**: Hugo commands use `npx hugo` to run the npm-installed Hugo v0.154.5 (from `hugo-extended` package). This ensures consistent versions across all environments.
+
+**Hugo Build Tests**: The Hugo site has build verification tests (`hugo/test-build.js`) that:
+
+- Build the site with `npx hugo --minify`
+- Verify required files exist (index.html, CSS files, 404.html)
+- Check build output structure is correct
+- Run via `cd hugo && npm test`
 
 ## Code Quality Standards
 
