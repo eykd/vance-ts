@@ -2,11 +2,11 @@
 description: Execute the implementation planning workflow using the plan template to generate design artifacts.
 handoffs:
   - label: Create Tasks
-    agent: sp:06-tasks
+    agent: sp:05-tasks
     prompt: Break the plan into tasks
     send: true
   - label: Create Checklist
-    agent: sp:05-checklist
+    agent: sp:04-checklist
     prompt: Create a checklist for the following domain...
 ---
 
