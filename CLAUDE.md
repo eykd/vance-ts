@@ -159,6 +159,9 @@ When adding new functionality:
 
 ## Active Technologies
 
+- Markdown (Claude Skill format) + Bash scripts for integration + Git (for diff generation), beads CLI (`@beads/bd`), existing `security-review` skill (009-code-review-skill)
+- N/A (stateless skill, beads handles persistence) (009-code-review-skill)
+
 - Markdown (Claude command format) + Bash scripts + `@beads/bd` npm package (beads CLI) (008-beads-integration)
 - Git-backed `.beads/` directory (JSONL format with SQLite cache) (008-beads-integration)
 

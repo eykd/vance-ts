@@ -234,6 +234,12 @@ Skills can also be activated automatically by Claude when it detects relevant co
 
 ### Security & Quality
 
+**[code-review](./code-review/SKILL.md)**
+
+- **Use when:** Reviewing code before committing, evaluating staged changes, reviewing PR or branch changes, getting feedback on implementation quality, assessing test coverage and quality
+- **Provides:** Structured code review covering what changed, correctness, simplicity, test quality, security, and actionable recommendations
+- **Cross-references:** security-review, typescript-unit-testing
+
 **[security-review](./security-review/SKILL.md)**
 
 - **Use when:** Reviewing code for security issues, auditing authentication/session handling, checking for vulnerabilities
