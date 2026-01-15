@@ -221,6 +221,36 @@ npx wrangler pages deploy public --project-name=turtlebased-site
 **Build Command**: `npx hugo --minify`
 **Output Directory**: `public/`
 
+## Security Headers
+
+The site includes security headers configured via `static/_headers` for Cloudflare Pages deployment.
+
+### Headers Applied
+
+**Content Security Policy (CSP):**
+- Restricts resource loading to same origin by default
+- Allows Google Analytics scripts when configured
+- Permits inline styles/scripts (required by Hugo templates)
+- Blocks embedding in iframes (clickjacking protection)
+- Upgrades HTTP requests to HTTPS
+
+**Additional Security:**
+- `X-Frame-Options: DENY` - Prevents clickjacking attacks
+- `X-Content-Type-Options: nosniff` - Blocks MIME-type sniffing
+- `X-XSS-Protection` - Enables browser XSS filtering
+- `Referrer-Policy: strict-origin-when-cross-origin` - Limits referrer information
+- `Permissions-Policy` - Restricts browser features (geolocation, camera, microphone)
+
+**Performance:**
+- Static assets cached for 1 year with immutable flag
+- Preview deployments blocked from search indexing
+
+### Modifying Headers
+
+Edit `static/_headers` to customize security policies. Changes deploy automatically via CI/CD.
+
+**Note**: Headers apply to static pages only. If you add Pages Functions later, those must set headers programmatically.
+
 ## Performance
 
 - **Build time**: ~300ms for full site
