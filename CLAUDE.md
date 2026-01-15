@@ -88,6 +88,8 @@ Conventional commits enforced via commitlint:
 - **NEVER squash-merge** - Preserve full commit history when merging PRs
 - **NEVER force-push** - Except when explicitly requested by the user
 
+`git` and `gh` commands must be run outside the sandbox due to network restrictions.
+
 ### Warnings and Deprecations
 
 **Address immediately** - Never ignore or defer:
