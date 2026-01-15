@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 ## Project Overview
 
-TypeScript library targeting the Cloudflare Workers environment. All code changes must be implemented with **strict red-green-refactor TDD practice**.
+A static-first Typescript web application targeting the Cloudflare Pages & Workers environment, using Hugo for building the static pages.
+
+All code changes must be implemented with **strict red-green-refactor TDD practice**.
 
 ## Essential Commands
 
@@ -36,6 +38,19 @@ just check         # type-check + lint + test
 just fix           # format + lint-fix
 just ci            # Full CI pipeline locally
 ```
+
+### Hugo Static Site Commands
+
+```bash
+just hugo-dev      # Start Hugo dev server (http://localhost:1313)
+just hugo-build    # Build for production (output in hugo/public/)
+just hugo-clean    # Clean build artifacts
+just hugo-rebuild  # Clean and rebuild
+just hugo-check    # Verify Hugo installation and dependencies
+just hugo-install  # Install Hugo npm dependencies
+```
+
+**Note**: Hugo commands use `npx hugo` to run the npm-installed Hugo v0.154.5 (from `hugo-extended` package). This ensures consistent versions across all environments.
 
 ## Code Quality Standards
 
@@ -133,6 +148,9 @@ When adding new functionality:
 - **API Design**: Defining contracts, validation, error handling strategies
 
 ## Active Technologies
+
+- Hugo 0.147.8+, Go templates, CSS (TailwindCSS 4) + TailwindCSS 4, DaisyUI 5, @tailwindcss/typography (007-hugo-project-setup)
+- N/A (static site generator) (007-hugo-project-setup)
 
 - Markdown (Claude Skill format) + None (documentation artifact) (001-refactoring-skill)
 - N/A (static markdown files) (001-refactoring-skill)

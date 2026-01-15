@@ -1,0 +1,7 @@
+enable: true
+title: "Welcome to My Hugo Site"
+subtitle: "A modern static website built with Hugo, TailwindCSS, and DaisyUI. Fast, beautiful, and easy to customize."
+image: "images/hero-image.png"
+button:
+  label: "Get Started"
+  url: "/posts/"

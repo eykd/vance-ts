@@ -1,0 +1,7 @@
+{{- $label := .label | default "Button" -}}
+{{- $href := .href | default "#" -}}
+{{- $class := .class | default "" -}}
+
+<a href="{{ $href }}" class="btn btn-outline {{ $class }}">
+  {{ $label }}
+</a>

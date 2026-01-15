@@ -1,0 +1,31 @@
+{{- $paginator := .Paginator -}}
+{{- if gt $paginator.TotalPages 1 -}}
+<div class="join">
+  {{- if $paginator.HasPrev -}}
+    <a href="{{ $paginator.Prev.URL }}" class="join-item btn">«</a>
+  {{- else -}}
+    <button class="join-item btn btn-disabled">«</button>
+  {{- end -}}
+
+  {{- $adjacentLinks := 2 -}}
+  {{- $lowerLimit := sub $paginator.PageNumber $adjacentLinks -}}
+  {{- $upperLimit := add $paginator.PageNumber $adjacentLinks -}}
+
+  {{- range $paginator.Pagers -}}
+    {{- $page := .PageNumber -}}
+    {{- if and (ge $page $lowerLimit) (le $page $upperLimit) -}}
+      {{- if eq $page $paginator.PageNumber -}}
+        <button class="join-item btn btn-active">{{ $page }}</button>
+      {{- else -}}
+        <a href="{{ .URL }}" class="join-item btn">{{ $page }}</a>
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+
+  {{- if $paginator.HasNext -}}
+    <a href="{{ $paginator.Next.URL }}" class="join-item btn">»</a>
+  {{- else -}}
+    <button class="join-item btn btn-disabled">»</button>
+  {{- end -}}
+</div>
+{{- end -}}

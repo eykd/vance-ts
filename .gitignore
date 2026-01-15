@@ -37,3 +37,4 @@ thoughts/
 !thoughts/**/.gitkeep
 .history/
 .node_modules_linux/
+tmp/

@@ -1,0 +1,25 @@
+{{ define "page-styles" }}
+{{- with .Site.Data.home.hero -}}
+{{- if .image -}}
+<style>
+  .hero-bg {
+    background-image: url('{{ with resources.Get .image }}{{ .Permalink }}{{ end }}');
+    background-size: cover;
+    background-position: center;
+  }
+</style>
+{{- end -}}
+{{- end }}
+{{ end }}
+
+{{ define "main" }}
+  {{ with .Site.Data.home.hero }}{{ if .enable }}{{ partial "blocks/home/hero.html" . }}{{ end }}{{ end }}
+
+  {{ with .Content }}
+  <div class="container mx-auto px-4 py-16">
+    <div class="prose prose-lg mx-auto">
+      {{ . }}
+    </div>
+  </div>
+  {{ end }}
+{{ end }}

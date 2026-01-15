@@ -1,0 +1,77 @@
+{{- $title := .Title -}}
+{{- $description := .Description | default .Site.Params.description -}}
+{{- $url := .Permalink -}}
+
+{{- $image := "" -}}
+{{- with .Params.images -}}
+  {{- $image = index . 0 -}}
+{{- else -}}
+  {{- with .Site.Params.images -}}
+    {{- $image = index . 0 -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if .IsHome }}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "{{ .Site.Title }}",
+  "url": "{{ .Site.BaseURL }}",
+  "description": "{{ $description }}"
+  {{- with $image }},
+  "image": "{{ . }}"
+  {{- end }}
+}
+</script>
+{{- else }}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "{{ $title }}",
+  "url": "{{ $url }}",
+  "description": "{{ $description }}"
+  {{- with .PublishDate }},
+  "datePublished": "{{ .Format "2006-01-02T15:04:05Z07:00" }}"
+  {{- end }}
+  {{- with .Lastmod }},
+  "dateModified": "{{ .Format "2006-01-02T15:04:05Z07:00" }}"
+  {{- end }}
+  {{- with $image }},
+  "image": "{{ . }}"
+  {{- end }},
+  "publisher": {
+    "@type": "Organization",
+    "name": "{{ .Site.Title }}",
+    "url": "{{ .Site.BaseURL }}"
+  }
+}
+</script>
+{{- end }}
+
+{{- if not .IsHome }}
+{{- $breadcrumbs := slice }}
+{{- $breadcrumbs = $breadcrumbs | append (dict "name" "Home" "url" .Site.BaseURL) }}
+{{- with .Parent }}
+  {{- $breadcrumbs = $breadcrumbs | append (dict "name" .Title "url" .Permalink) }}
+{{- end }}
+{{- $breadcrumbs = $breadcrumbs | append (dict "name" .Title "url" .Permalink) }}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {{- range $i, $crumb := $breadcrumbs }}
+    {{- if $i }},{{ end }}
+    {
+      "@type": "ListItem",
+      "position": {{ add $i 1 }},
+      "name": "{{ $crumb.name }}",
+      "item": "{{ $crumb.url }}"
+    }
+    {{- end }}
+  ]
+}
+</script>
+{{- end }}

@@ -77,3 +77,35 @@ update:
 # Install git hooks
 setup-hooks:
     npm run prepare
+
+# ============================================================================
+# Hugo Static Site Commands
+# ============================================================================
+
+# Install Hugo dependencies
+hugo-install:
+    cd hugo && npm install
+
+# Start Hugo development server (http://localhost:1313)
+hugo-dev:
+    cd hugo && npx hugo server
+
+# Build Hugo site for production (output in hugo/public/)
+hugo-build:
+    cd hugo && npx hugo --minify
+
+# Clean Hugo build artifacts
+hugo-clean:
+    cd hugo && rm -rf public resources
+
+# Rebuild Hugo site (clean + build)
+hugo-rebuild: hugo-clean hugo-build
+    @echo "✅ Hugo site rebuilt!"
+
+# Check Hugo installation and configuration
+hugo-check:
+    @echo "Checking Hugo installation..."
+    @cd hugo && npx hugo version
+    @echo "\nChecking Hugo dependencies..."
+    @cd hugo && npm list --depth=0
+    @echo "\n✅ Hugo setup verified!"
