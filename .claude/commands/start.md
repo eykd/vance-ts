@@ -34,7 +34,7 @@ Start by welcoming them and understanding where they are. Ask these questions ON
 
 1. First, ask: Do they have a Cloudflare account yet? (They already have GitHub since they're using this repo)
 2. Then ask: Have they deployed a Worker before, or is this their first time?
-3. Then ask: Do they have a Cloudflare API token yet?
+3. Then ask: Have they set up their Cloudflare API token as an environment variable yet? (Guide them through environment setup if not — see prerequisites.md)
 4. Then ask: Do they want email functionality? (Optional but recommended)
 5. If yes to email, ask: Do they have a Resend account?
 6. Then ask: Do they want error tracking? (Optional but recommended for production)
@@ -124,8 +124,9 @@ When they complete deployment:
 ## Key Reminders
 
 - **ASK ONE QUESTION AT A TIME** — This is the MOST IMPORTANT rule. Never bundle questions. Each message should contain exactly one question.
-- **NEVER ask for secrets in chat** — CRITICAL: Never ask users to paste API keys, tokens, passwords, or DSNs in the chat. Guide them to add secrets directly in the Cloudflare dashboard or environment settings.
-- **You run the commands** — When the user provides the Cloudflare API token (NOT secrets like Resend API keys), YOU configure wrangler and run deployment commands. The user never opens a terminal.
+- **NEVER ask for secrets in chat** — CRITICAL: Never ask users to paste API keys, tokens, passwords, or DSNs in the chat. This includes the Cloudflare API token. Guide them to add ALL secrets through environment variables.
+- **Guide users to set up environment variables** — For Claude Code for the Web users, guide them to create a "cloudflare" environment with `CLOUDFLARE_API_TOKEN`. See the environment setup instructions in prerequisites.md.
+- **You run the commands** — Once the environment is configured with `CLOUDFLARE_API_TOKEN`, YOU run wrangler commands to deploy. The user never opens a terminal.
 - **Never assume knowledge** — Terms like "environment variable," "API token," or "Worker" need explanation
 - **Pause for confirmation** — After each major step, ask "Did that work? What do you see?"
 - **Offer escape hatches** — If they're stuck, offer to help troubleshoot or suggest taking a break

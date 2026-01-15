@@ -48,11 +48,37 @@ Claude needs an API token to deploy your Worker and manage infrastructure on you
    - **You won't be able to see it again!**
    - If you lose it, you'll need to create a new one
 
-### Save the token securely
+### Save the token as an environment variable
 
-When Claude asks for your API token, you'll paste this value. Keep it private—anyone with this token can deploy to your Cloudflare account.
+**IMPORTANT**: Never paste your API token directly into the chat. Instead, add it as an environment variable so Claude can access it securely.
 
-**Security tip**: Don't share this token in screenshots, emails, or public places. Treat it like a password.
+#### For Claude Code for the Web users:
+
+1. In the left sidebar, click the **gear icon** (Settings) or look for **Environments**
+2. Click **Create environment** and name it `cloudflare`
+3. Add a new variable:
+   - **Name**: `CLOUDFLARE_API_TOKEN`
+   - **Value**: Paste your API token here
+4. Click **Save**
+5. **Start a new session** in the `cloudflare` environment (environment variables are loaded at session start, so you need a fresh session to pick up the new token)
+
+#### For local Claude Code users:
+
+Create a `.env` file in your project root (if you don't have one), and add:
+
+```
+CLOUDFLARE_API_TOKEN=your-token-here
+```
+
+Or set it in your shell before running Claude:
+
+```bash
+export CLOUDFLARE_API_TOKEN=your-token-here
+```
+
+**Note**: If Claude is already running, restart the session to pick up the new environment variable.
+
+**Security tip**: Don't share this token in screenshots, emails, chat, or public places. Treat it like a password. Environment variables keep secrets out of conversation logs.
 
 ---
 
@@ -76,10 +102,10 @@ Your Account ID helps identify which Cloudflare account to deploy to (useful if 
 Before moving to Phase 2, confirm you have:
 
 - [x] Cloudflare account (logged in)
-- [ ] API token created and saved securely
+- [ ] API token created and saved as environment variable (`CLOUDFLARE_API_TOKEN`)
 - [ ] Account ID saved
 
-**All set? Great!** Return to Claude and provide the API token when asked.
+**All set? Great!** Return to Claude and let them know your environment is configured. Claude will verify the token works by running a test command.
 
 ---
 
@@ -137,4 +163,12 @@ Yes! You can delete or regenerate your API token anytime:
 1. Go to **My Profile** → **API Tokens**
 2. Find your token in the list
 3. Click **Roll** to regenerate it or **Delete** to remove it
-4. If you regenerate/delete it, you'll need to provide the new token to Claude
+4. If you regenerate/delete it, update your environment variable with the new token
+
+### "Claude says it can't find my API token"
+
+This means the environment variable isn't set up correctly:
+
+1. **Claude Code for the Web**: Check that your `cloudflare` environment is enabled for this workspace
+2. **Local users**: Make sure your `.env` file is in the project root, or export the variable in your shell
+3. Verify the variable name is exactly `CLOUDFLARE_API_TOKEN` (case-sensitive)

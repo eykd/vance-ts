@@ -15,12 +15,18 @@ When using this skill to guide users, you MUST ask only one question per message
 
 **SECURITY RULE**: You must NEVER ask users to paste secret values (API keys, tokens, passwords, DSNs) in the chat. This is a severe security risk.
 
-- **DO**: Guide users to add secrets directly in the Cloudflare dashboard
-- **DO**: Explain how to use the Cloudflare Workers environment variables interface
-- **DON'T**: Ask users to "provide your Resend API key"
-- **DON'T**: Request any sensitive credentials in conversation
+**For the Cloudflare API token** (needed so Claude can run wrangler commands):
 
-The ONLY credential you may handle is the Cloudflare API token for initial deployment configuration (if absolutely necessary and user understands the security implications).
+- **DO**: Guide users to set `CLOUDFLARE_API_TOKEN` as an environment variable
+- **DO**: For Claude Code for the Web users, guide them to create a "cloudflare" environment
+- **DO**: For local users, guide them to use a `.env` file or shell export
+- See `references/prerequisites.md` for detailed environment setup instructions
+
+**For application secrets** (Resend API key, Sentry DSN, etc.):
+
+- **DO**: Guide users to add secrets directly in the Cloudflare dashboard
+- **DO**: Or have them run `wrangler secret put SECRET_NAME` in their own terminal
+- **DON'T**: Ask users to "provide your Resend API key" or paste any secret in chat
 
 ## What You're Building
 
@@ -66,7 +72,7 @@ You'll need:
 3. **No credit card required** — All services (Cloudflare, Resend, Sentry) offer free tiers without payment info
 4. **Claude Code running** in a cloud environment where Claude can execute commands
 
-**Note**: Since you're using Claude Code, Claude will handle all terminal commands. Your role is to create accounts and provide credentials.
+**Note**: Since you're using Claude Code, Claude will handle all terminal commands. Your role is to create accounts and set up credentials as environment variables (never paste secrets in chat).
 
 ## The Journey
 
@@ -75,9 +81,9 @@ You'll need:
 You already have a GitHub account (since you're using this repository). You need:
 
 1. **Cloudflare account** — Where your Worker runs
-2. **Cloudflare API token** — So Claude can deploy on your behalf
+2. **Cloudflare API token** — Set as `CLOUDFLARE_API_TOKEN` environment variable so Claude can deploy on your behalf
 
-See `references/prerequisites.md` for detailed account setup instructions.
+See `references/prerequisites.md` for detailed account and environment setup instructions.
 
 ### Phase 2: Choose Your Worker Name (2 minutes)
 
