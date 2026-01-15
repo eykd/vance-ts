@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Hugo build output
+public/
+resources/
+
+# Hugo stats (auto-generated)
+hugo_stats.json
+.hugo_build.lock
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*

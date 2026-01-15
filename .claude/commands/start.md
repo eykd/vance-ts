@@ -59,9 +59,9 @@ The key difference from traditional deployments: **Cloudflare's wrangler automat
 
 **When to do this**: Before deploying (ideally after the user has forked the repository)
 
-This is a REQUIRED step because Cloudflare Worker names must be unique within the account, and the subdomain must be globally unique. Follow this workflow:
+This is a REQUIRED step because Cloudflare Worker names and Cloudflare Pages project names must be unique. Follow this workflow:
 
-1. **Ask for project name**: "What would you like to name your Worker? This will be used in your Cloudflare Workers subdomain (e.g., `yourname.your-account.workers.dev`). Please use lowercase letters, numbers, and hyphens only."
+1. **Ask for project name**: "What would you like to name your project? This will be used for both your Cloudflare Worker (e.g., `yourname.your-account.workers.dev`) and your Cloudflare Pages site. Please use lowercase letters, numbers, and hyphens only."
 
 2. **Update wrangler.toml**: Edit the `name` field in wrangler.toml with the user's chosen name:
 
@@ -69,29 +69,38 @@ This is a REQUIRED step because Cloudflare Worker names must be unique within th
    name = "user-chosen-name"
    ```
 
-3. **Validate the name**:
+3. **Update CI workflow**: In `.github/workflows/ci.yml`, find the step named "Deploy Hugo to Cloudflare Pages" and update the `projectName` field under the `with` section with the user's chosen name:
+
+   ```yaml
+   - name: Deploy Hugo to Cloudflare Pages
+     uses: cloudflare/pages-action@v1
+     with:
+       projectName: user-chosen-name # Update this line
+   ```
+
+4. **Validate the name**:
    - 3-30 characters long
    - Lowercase letters, numbers, hyphens only
    - Cannot start or end with hyphen
    - Cannot be exactly 'turtlebased' or 'turtlebased-ts' (template names)
 
-4. **Handle validation errors**: If the name doesn't meet requirements, explain the constraints and ask for a different name.
+5. **Handle validation errors**: If the name doesn't meet requirements, explain the constraints and ask for a different name.
 
-5. **Commit directly to master**:
-   - Use a clear commit message: "feat: customize Worker name to {user-name}"
+6. **Commit directly to master**:
+   - Use a clear commit message: "feat: customize project name to {user-name}"
    - Do NOT create a branch or PR
    - Commit directly to the `master` branch
    - Push to GitHub immediately
 
-6. **Confirm completion**: "Great! I've updated your Worker name to `{user-name}` and pushed the changes to GitHub. Your Worker will be available at `https://{user-name}.{account-subdomain}.workers.dev` once deployed."
+7. **Confirm completion**: "Great! I've updated your project name to `{user-name}` and pushed the changes to GitHub. Your Worker will be available at `https://{user-name}.{account-subdomain}.workers.dev` and your Pages site will be at `https://{user-name}.pages.dev` once deployed."
 
 **Example flow**:
 
 ```
-Claude: "What would you like to name your Worker? This will be used in your Cloudflare Workers subdomain."
+Claude: "What would you like to name your project? This will be used for both your Worker and Pages site."
 User: "mycompany-api"
-Claude: [updates wrangler.toml, commits to master, pushes]
-Claude: "Great! I've updated your Worker name to `mycompany-api` and pushed the changes to GitHub. Your Worker will be available once deployed."
+Claude: [updates wrangler.toml and ci.yml, commits to master, pushes]
+Claude: "Great! I've updated your project name to `mycompany-api` and pushed the changes to GitHub. Once deployed, your Worker will be at `mycompany-api.your-account.workers.dev` and your Pages site at `mycompany-api.pages.dev`."
 ```
 
 ### 3. Handle Problems

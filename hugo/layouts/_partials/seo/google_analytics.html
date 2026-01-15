@@ -1,0 +1,21 @@
+{{/*
+  Google Analytics integration (optional)
+
+  Only loads when params.googleAnalytics is configured in config/_default/params.yaml
+  Set googleAnalytics: "G-XXXXXXXXXX" to enable tracking
+  Leave empty or omit to disable analytics entirely
+
+  CSP Note: Requires script-src 'unsafe-inline' and https://www.googletagmanager.com
+*/}}
+{{- with .Site.Params.googleAnalytics }}
+{{- if ne . "" }}
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ . }}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', '{{ . }}');
+</script>
+{{- end }}
+{{- end }}

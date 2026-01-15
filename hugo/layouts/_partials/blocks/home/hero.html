@@ -1,0 +1,18 @@
+{{- $hero := . -}}
+{{- if $hero.enable }}
+<div class="hero min-h-[70vh] bg-base-100">
+  <div class="hero-content text-center">
+    <div class="max-w-2xl">
+      {{ with $hero.title }}
+        <h1 class="text-5xl font-bold text-primary mb-6">{{ . }}</h1>
+      {{ end }}
+      {{ with $hero.subtitle }}
+        <p class="text-lg text-base-content mb-8 text-balance">{{ . }}</p>
+      {{ end }}
+      {{ with $hero.button }}
+        <a href="{{ .url }}" class="btn btn-primary btn-lg">{{ .label }}</a>
+      {{ end }}
+    </div>
+  </div>
+</div>
+{{- end }}

@@ -1,0 +1,32 @@
+<div class="navbar bg-base-100 shadow-sm">
+  <div class="flex-1">
+    <a href="{{ .Site.BaseURL }}" class="btn btn-ghost">
+      {{- with .Site.Params.logo }}
+        {{- with resources.Get . }}
+          <img src="{{ .Permalink }}" class="size-6 xl:size-12" alt="{{ $.Site.Title }} logo" />
+        {{- end }}
+      {{- end }}
+      <span class="hidden lg:block text-success-content text-balance font-semibold text-sm md:text-xl lg:text-2xl">{{ .Site.Title }}</span>
+    </a>
+  </div>
+  <div class="flex-none">
+    <ul class="menu menu-horizontal">
+      {{ range site.Menus.main }}
+        <li class="text-center">
+          <a class="link link-hover" href="{{ .URL }}">{{ .Name }}</a>
+        </li>
+      {{ end }}
+    </ul>
+    <ul class="menu menu-horizontal">
+      {{ range $i, $e := .Site.Menus.buttons }}
+        <li class="text-center">
+          {{ if (eq $i 0) }}
+            {{ partial "components/button/primary" (dict "label" .Name "href" .URL ) }}
+          {{ else }}
+            {{ partial "components/button/outline" (dict "label" .Name "href" .URL ) }}
+          {{ end }}
+        </li>
+      {{ end }}
+    </ul>
+  </div>
+</div>

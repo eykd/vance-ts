@@ -1,0 +1,23 @@
+main:
+  - name: "Home"
+    url: "/"
+    weight: 1
+  - name: "Posts"
+    url: "/posts/"
+    weight: 2
+  - name: "About"
+    url: "/about/"
+    weight: 3
+
+buttons:
+  - name: "Get Started"
+    url: "/get-started/"
+    weight: 1
+
+footer:
+  - name: "Privacy Policy"
+    url: "/privacy/"
+    weight: 1
+  - name: "Terms of Service"
+    url: "/terms/"
+    weight: 2

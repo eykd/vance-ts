@@ -1,0 +1,21 @@
+{
+  "name": "hugo-site",
+  "private": true,
+  "scripts": {
+    "test": "node test-build.js",
+    "test:watch": "node test-build.js",
+    "build": "npx hugo --minify",
+    "dev": "npx hugo server",
+    "clean": "rm -rf public resources .hugo_build.lock hugo_stats.json"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1",
+    "@tailwindcss/typography": "^0.5.16",
+    "daisyui": "^5.0.43",
+    "hugo-extended": "^0.154.5",
+    "prettier": "^3.0.3",
+    "prettier-plugin-go-template": "^0.0.15",
+    "prettier-plugin-tailwindcss": "^0.5.6",
+    "tailwindcss": "^4.1"
+  }
+}

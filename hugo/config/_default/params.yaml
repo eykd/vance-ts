@@ -1,0 +1,22 @@
+title: "My Hugo Site"
+description: "A modern static website built with Hugo, TailwindCSS, and DaisyUI"
+images:
+  - "images/og-image.png"
+
+logo: "logo.svg"
+
+social:
+  twitter: ""
+  github: ""
+  linkedin: ""
+
+location:
+  - "Built with Hugo + TailwindCSS + DaisyUI"
+
+copyright: "© 2026 My Hugo Site. All Rights Reserved."
+
+# Google Analytics (optional - leave empty to disable)
+googleAnalytics: ""
+
+# DaisyUI theme (default: lemonade)
+theme: "lemonade"

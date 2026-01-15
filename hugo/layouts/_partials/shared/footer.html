@@ -1,0 +1,37 @@
+<footer class="footer sm:footer-horizontal bg-base-300 text-base-content p-10">
+  <aside class="flex flex-col">
+    <p class="text-center leading-tight">
+      <a href="{{ site.BaseURL }}">{{ site.Title }}</a>
+    </p>
+    {{ range .Site.Params.location }}
+    <p>
+      {{ . }}
+    </p>
+    {{ end }}
+    {{ with .Site.Params.copyright }}
+      <p class="">{{ . }}</p>
+    {{ end }}
+  </aside>
+  {{ if .Site.Menus.footer }}
+  <nav>
+    <h6 class="footer-title">Links</h6>
+    {{ range .Site.Menus.footer }}
+      <a class="link link-hover" href="{{ .URL }}">{{ .Name }}</a>
+    {{ end }}
+  </nav>
+  {{ end }}
+  {{ if .Site.Params.social }}
+  <nav>
+    <h6 class="footer-title">Social</h6>
+    {{ with .Site.Params.social.twitter }}
+      <a class="link link-hover" href="https://twitter.com/{{ . }}" target="_blank" rel="noopener">Twitter</a>
+    {{ end }}
+    {{ with .Site.Params.social.github }}
+      <a class="link link-hover" href="https://github.com/{{ . }}" target="_blank" rel="noopener">GitHub</a>
+    {{ end }}
+    {{ with .Site.Params.social.linkedin }}
+      <a class="link link-hover" href="https://linkedin.com/in/{{ . }}" target="_blank" rel="noopener">LinkedIn</a>
+    {{ end }}
+  </nav>
+  {{ end }}
+</footer>

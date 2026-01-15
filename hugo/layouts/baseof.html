@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en" data-theme="{{ .Site.Params.theme | default "lemonade" }}">
+  <head>
+    <!-- Title -->
+    {{ if .IsHome }}
+      <title>{{ .Site.Title }}</title>
+    {{ else if (eq .Title .Site.Title ) }}
+      <title>{{ .Site.Title }}</title>
+    {{ else }}
+      <title>{{ .Title }} | {{ .Site.Title }}</title>
+    {{ end }}
+
+    <!-- Meta -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
+    <!-- CSP is configured via static/_headers for Cloudflare Pages deployment -->
+
+    {{ $description := "" }}
+    {{ if .IsHome }}
+      {{ $description = .Site.Params.description }}
+    {{ else if .Description }}
+      {{ $description = .Description }}
+    {{ else }}
+      {{ $description = .Site.Params.description }}
+    {{ end }}
+    <meta name="description" content="{{ $description }}" />
+
+    <!-- SEO -->
+    {{ partial "seo/google_analytics.html" . }}
+    {{ partial "seo/opengraph.html" . }}
+    {{ partial "seo/schema.html" . }}
+    {{ partial "seo/twitter_cards.html" . }}
+
+    <!-- Favicons (graceful degradation if missing) -->
+    {{ with resources.Get "favicon-96x96.png" -}}
+      <link rel="icon" type="image/png" href="{{ .Permalink }}" sizes="96x96" />
+    {{ end -}}
+    {{ with resources.Get "favicon.svg" -}}
+      <link rel="icon" type="image/svg+xml" href="{{ .Permalink }}" />
+    {{ end -}}
+    {{ with resources.Get "favicon.ico" -}}
+      <link rel="shortcut icon" href="{{ .Permalink }}" />
+    {{ end -}}
+    {{ with resources.Get "apple-touch-icon.png" -}}
+      <link rel="apple-touch-icon" sizes="180x180" href="{{ .Permalink }}" />
+    {{ end -}}
+    {{ with resources.Get "site.webmanifest" -}}
+      <link rel="manifest" href="{{ .Permalink }}" />
+    {{ end -}}
+
+    <!-- RSS -->
+    {{ with .OutputFormats.Get "rss" }}
+      {{ printf `<link rel=%q type=%q href=%q title=%q>` .Rel .MediaType.Type .Permalink site.Title | safeHTML }}
+    {{ end }}
+
+    <!-- Load Tailwind -->
+    {{ with (templates.Defer (dict "key" "global")) }}
+      {{ with resources.Get "css/styles.css" }}
+        {{ with resources.ExecuteAsTemplate "css/styles.css" $ . }}
+          {{ $opts := dict "inlineImports" true "optimize" true "minify" true }}
+          {{ with . | css.TailwindCSS $opts | fingerprint }}
+            <link
+              rel="stylesheet"
+              href="{{ .RelPermalink }}"
+              integrity="{{ .Data.Integrity }}"
+              crossorigin="anonymous"
+            />
+          {{ end }}
+        {{ end }}
+      {{ end }}
+    {{ end }}
+  </head>
+  <body class="font-sans bg-base-200">
+    <div class="flex min-h-screen flex-col">
+      {{ partial "shared/header" . }}
+      <div class="grow">{{ block "main" . }}{{ end }}</div>
+      {{ partial "shared/footer" . }}
+    </div>
+  </body>
+</html>
