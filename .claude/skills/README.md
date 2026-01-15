@@ -244,6 +244,12 @@ Skills can also be activated automatically by Claude when it detects relevant co
 - **Use when:** Defining feature specs, planning implementations, implementing authentication/sessions, security-sensitive features
 - **Provides:** Progressive disclosure of security patterns, architectural best practices, OWASP-compliant implementations
 
+**[prefactoring](./prefactoring/SKILL.md)**
+
+- **Use when:** Designing systems/modules, creating types/abstractions, naming and structuring code, defining interfaces/contracts, planning error handling
+- **Provides:** Ken Pugh's prefactoring principles with TypeScript examples, decision trees for design choices, anti-pattern detection
+- **Cross-references:** ddd-domain-modeling, clean-architecture-validator, typescript-unit-testing
+
 ### Git & Deployment
 
 **[commit](./commit/SKILL.md)**
@@ -277,6 +283,7 @@ Claude automatically detects when skills are relevant:
 - Writing tests → typescript-unit-testing, testing-observability
 - Building UI → htmx-pattern-library, tailwind-daisyui-design
 - Database work → d1-repository-implementation, cloudflare-migrations
+- Design decisions → prefactoring, ddd-domain-modeling, clean-architecture-validator
 
 ### Skill Chains
 

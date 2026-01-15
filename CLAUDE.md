@@ -122,3 +122,10 @@ When adding new functionality:
 
 - `/sp:02-specify` - Feature specification phase
 - `/sp:04-plan` - Planning phase
+
+**ALWAYS use the `/prefactoring` skill** during design and implementation. **Required usage during**:
+
+- **Design Phase**: Creating modules, defining boundaries, choosing architectures
+- **Type Design**: Creating classes/types, wrapping primitives, grouping related data
+- **Implementation**: Naming things, structuring logic, implementing business rules
+- **API Design**: Defining contracts, validation, error handling strategies
