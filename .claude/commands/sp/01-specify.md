@@ -1,11 +1,11 @@
 ---
-description: Create or update the feature specification from a natural language feature description.
+description: Create or update the feature specification from a natural language feature description. Creates a beads epic for task tracking.
 handoffs:
   - label: Build Technical Plan
-    agent: sp:04-plan
+    agent: sp:03-plan
     prompt: Create a plan for the spec. I am building with...
   - label: Clarify Spec Requirements
-    agent: sp:03-clarify
+    agent: sp:02-clarify
     prompt: Clarify specification requirements
     send: true
 ---
@@ -20,11 +20,34 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-The text the user typed after `/sp:02-specify` in the triggering message **is** the feature description. Assume you always have it available in this conversation even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
+The text the user typed after `/sp:01-specify` in the triggering message **is** the feature description. Assume you always have it available in this conversation even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
 
 Given that feature description, do this:
 
-1. **Generate a concise short name** (2-4 words) for the branch:
+1. **Initialize Beads (if needed)**:
+
+   a. Check if beads is already initialized:
+
+   ```bash
+   test -d .beads && echo "initialized" || echo "not_initialized"
+   ```
+
+   b. If not initialized, initialize beads:
+
+   ```bash
+   npx bd init
+   ```
+
+   - This creates the `.beads/` directory for git-backed task tracking
+   - If initialization fails, display error and suggest running `npm install --save-dev @beads/bd` first
+
+   c. Verify initialization succeeded:
+
+   ```bash
+   test -d .beads && echo "beads ready" || echo "ERROR: beads initialization failed"
+   ```
+
+2. **Generate a concise short name** (2-4 words) for the branch:
    - Analyze the feature description and extract the most meaningful keywords
    - Create a 2-4 word short name that captures the essence of the feature
    - Use action-noun format when possible (e.g., "add-user-auth", "fix-payment-bug")
@@ -36,7 +59,7 @@ Given that feature description, do this:
      - "Create a dashboard for analytics" → "analytics-dashboard"
      - "Fix payment processing timeout bug" → "fix-payment-timeout"
 
-2. **Check for existing branches before creating new one**:
+3. **Check for existing branches before creating new one**:
 
    a. First, fetch all remote branches to ensure we have the latest information:
 
@@ -68,9 +91,9 @@ Given that feature description, do this:
    - The JSON output will contain BRANCH_NAME and SPEC_FILE paths
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot")
 
-3. Load `.specify/templates/spec-template.md` to understand required sections.
+4. Load `.specify/templates/spec-template.md` to understand required sections.
 
-4. Follow this execution flow:
+5. Follow this execution flow:
    1. Parse user description from Input
       If empty: ERROR "No feature description provided"
    2. Extract key concepts from description
@@ -95,9 +118,47 @@ Given that feature description, do this:
    7. Identify Key Entities (if data involved)
    8. Return: SUCCESS (spec ready for planning)
 
-5. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
+6. Write the specification to SPEC_FILE using the template structure, replacing placeholders with concrete details derived from the feature description (arguments) while preserving section order and headings.
 
-6. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
+7. **Create Beads Epic for Feature**:
+
+   a. Check if an epic already exists for this feature branch:
+
+   ```bash
+   npx bd list --type epic --status open --json 2>/dev/null | grep -i "<feature-name>" || echo "no_existing_epic"
+   ```
+
+   b. If no existing epic, create one:
+
+   ```bash
+   npx bd create "Feature: <feature-name>" -t epic -p 0 --description "Spec: specs/<branch>/spec.md" --json
+   ```
+
+   - `<feature-name>`: The short name generated in step 2
+   - `<branch>`: The BRANCH_NAME from step 3
+   - Priority 0 = highest (epic level)
+   - Type = epic
+
+   c. Parse the epic ID from the JSON response (format: `workspace-xxxx` or similar)
+
+   d. If epic already exists, retrieve its ID:
+
+   ```bash
+   npx bd list --type epic --status open --json | jq -r '.[] | select(.title | contains("<feature-name>")) | .id'
+   ```
+
+   e. **Store epic ID in spec.md**: Add the epic ID to the spec.md front matter:
+
+   ```markdown
+   **Feature Branch**: `<branch>`
+   **Created**: <date>
+   **Status**: Draft
+   **Beads Epic**: `<epic-id>`
+   ```
+
+   f. If epic creation fails, display error but continue with spec creation (beads integration is enhancement, not blocker)
+
+8. **Specification Quality Validation**: After writing the initial spec, validate it against quality criteria:
 
    a. **Create Spec Quality Checklist**: Generate a checklist file at `FEATURE_DIR/checklists/requirements.md` using the checklist template structure with these validation items:
 
@@ -135,7 +196,7 @@ Given that feature description, do this:
 
    ## Notes
 
-   - Items marked incomplete require spec updates before `/sp:03-clarify` or `/sp:04-plan`
+   - Items marked incomplete require spec updates before `/sp:02-clarify` or `/sp:03-plan`
    ```
 
    b. **Run Validation Check**: Review the spec against each checklist item:
@@ -143,7 +204,7 @@ Given that feature description, do this:
    - Document specific issues found (quote relevant spec sections)
 
    c. **Handle Validation Results**:
-   - **If all items pass**: Mark checklist complete and proceed to step 6
+   - **If all items pass**: Mark checklist complete and proceed to step 9
 
    - **If items fail (excluding [NEEDS CLARIFICATION])**:
      1. List the failing items and specific issues
@@ -188,7 +249,12 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-7. Report completion with branch name, spec file path, checklist results, and readiness for the next phase (`/sp:03-clarify` or `/sp:04-plan`).
+9. Report completion with:
+   - Branch name
+   - Spec file path
+   - **Beads epic ID** (if created successfully)
+   - Checklist results
+   - Readiness for the next phase (`/sp:02-clarify` or `/sp:03-plan`)
 
 **NOTE:** The script creates and checks out the new branch and initializes the spec file before writing.
 
@@ -254,3 +320,13 @@ Success criteria must be:
 - "Database can handle 1000 TPS" (implementation detail, use user-facing metric)
 - "React components render efficiently" (framework-specific)
 - "Redis cache hit rate above 80%" (technology-specific)
+
+## Beads Error Handling
+
+If beads commands fail during execution:
+
+1. **bd init fails**: Display error, suggest `npm install --save-dev @beads/bd`, continue without beads
+2. **Epic creation fails**: Log warning, continue with spec creation, note in completion report
+3. **Epic lookup fails**: Create new epic (may result in duplicate if lookup was false negative)
+
+The specification workflow should complete even if beads integration encounters errors. Beads is an enhancement for task tracking, not a blocker for spec creation.

@@ -147,8 +147,8 @@ When adding new functionality:
 
 **ALWAYS use the `/latent-features` skill** when defining specifications or planning new features. **Required usage during**:
 
-- `/sp:02-specify` - Feature specification phase
-- `/sp:04-plan` - Planning phase
+- `/sp:01-specify` - Feature specification phase
+- `/sp:03-plan` - Planning phase
 
 **ALWAYS use the `/prefactoring` skill** during design and implementation. **Required usage during**:
 
@@ -158,6 +158,9 @@ When adding new functionality:
 - **API Design**: Defining contracts, validation, error handling strategies
 
 ## Active Technologies
+
+- Markdown (Claude command format) + Bash scripts + `@beads/bd` npm package (beads CLI) (008-beads-integration)
+- Git-backed `.beads/` directory (JSONL format with SQLite cache) (008-beads-integration)
 
 - Hugo 0.147.8+, Go templates, CSS (TailwindCSS 4) + TailwindCSS 4, DaisyUI 5, @tailwindcss/typography (007-hugo-project-setup)
 - N/A (static site generator) (007-hugo-project-setup)
