@@ -194,6 +194,9 @@ Skills often reference related skills, creating implementation chains:
 
 ## Active Technologies
 
+- Markdown documentation with TypeScript code examples (ES2022, NodeNext modules) + N/A (skills are documentation, not executable code) (005-multi-tenant-skills)
+- N/A (documentation files) (005-multi-tenant-skills)
+
 - TypeScript (ES2022, NodeNext modules) + Cloudflare Workers runtime, AsyncLocalStorage (nodejs_als), @sentry/cloudflare (003-logging-tracing-skills)
 - N/A (skills are documentation, not code) (003-logging-tracing-skills)
 
