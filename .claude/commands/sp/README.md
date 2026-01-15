@@ -4,17 +4,18 @@ This directory contains the spec-kit workflow commands integrated with [beads](h
 
 ## Command Reference
 
-| Command                | Description                     | Beads Integration        |
-| ---------------------- | ------------------------------- | ------------------------ |
-| `/sp:00-constitution`  | Project constitution management | None                     |
-| `/sp:01-specify`       | Create feature specification    | Creates epic in beads    |
-| `/sp:02-clarify`       | Clarify requirements            | None                     |
-| `/sp:03-plan`          | Create implementation plan      | None                     |
-| `/sp:04-checklist`     | Generate checklists             | None                     |
-| `/sp:05-tasks`         | Generate implementation tasks   | Creates tasks in beads   |
-| `/sp:06-implement`     | Execute implementation          | Tracks progress in beads |
-| `/sp:07-analyze`       | Analyze implementation          | Queries beads status     |
-| `/sp:08-taskstoissues` | Export to GitHub issues         | Exports from beads       |
+| Command                | Description                     | Beads Integration            |
+| ---------------------- | ------------------------------- | ---------------------------- |
+| `/sp:00-constitution`  | Project constitution management | None                         |
+| `/sp:01-specify`       | Create feature specification    | Creates epic in beads        |
+| `/sp:02-clarify`       | Clarify requirements            | None                         |
+| `/sp:03-plan`          | Create implementation plan      | None                         |
+| `/sp:04-checklist`     | Generate checklists             | None                         |
+| `/sp:05-tasks`         | Generate implementation tasks   | Creates tasks in beads       |
+| `/sp:06-implement`     | Execute implementation          | Tracks progress in beads     |
+| `/sp:07-analyze`       | Analyze implementation          | Queries beads status         |
+| `/sp:08-taskstoissues` | Export to GitHub issues         | Exports from beads           |
+| `/sp:09-review`        | Review code and create issues   | Creates issues from findings |
 
 ## Workflow
 
