@@ -129,3 +129,12 @@ When adding new functionality:
 - **Type Design**: Creating classes/types, wrapping primitives, grouping related data
 - **Implementation**: Naming things, structuring logic, implementing business rules
 - **API Design**: Defining contracts, validation, error handling strategies
+
+## Active Technologies
+
+- Markdown (Claude Skill format) + None (documentation artifact) (001-refactoring-skill)
+- N/A (static markdown files) (001-refactoring-skill)
+
+## Recent Changes
+
+- 001-refactoring-skill: Added Markdown (Claude Skill format) + None (documentation artifact)
