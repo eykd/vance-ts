@@ -12,11 +12,9 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Skip Dependabot PRs - secrets are not available to Dependabot-triggered workflows
+    # for security reasons (prevents malicious dependencies from exfiltrating secrets)
+    if: github.actor != 'dependabot[bot]'
 
     runs-on: ubuntu-latest
     permissions:
