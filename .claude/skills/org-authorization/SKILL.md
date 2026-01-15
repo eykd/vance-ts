@@ -66,6 +66,132 @@ export async function handleDeleteProject(
 Request → Extract Actor → Define Resource → Load Context → Evaluate Policy → Allow/Deny
 ```
 
+## Security Considerations
+
+### Error Message Security
+
+Authorization error messages must balance user helpfulness with security. Overly detailed errors can reveal system internals and enable enumeration attacks.
+
+#### Principles
+
+| Principle                     | Description                                                          |
+| ----------------------------- | -------------------------------------------------------------------- |
+| No internal leakage           | Error messages should not reveal database structure, file paths, etc |
+| No resource existence leakage | Don't confirm whether a resource exists in authorization denials     |
+| No permission enumeration     | Don't list what permissions exist or what the user lacks             |
+| Consistent timing             | Authorization checks should take similar time regardless of outcome  |
+
+#### Error Message Examples
+
+```typescript
+// ❌ BAD: Leaks internal system details
+return new Response(
+  `User ${userId} does not have permission 'project:delete' on resource ${projectId}`,
+  { status: 403 }
+);
+
+// ❌ BAD: Reveals resource existence
+return new Response(
+  `Project ${projectId} belongs to organization ${orgId}, not your organization`,
+  { status: 403 }
+);
+
+// ❌ BAD: Reveals permission structure
+return new Response(`Missing required permissions: project:delete, project:archive`, {
+  status: 403,
+});
+
+// ✅ GOOD: Generic denial without details
+return new Response('Access denied', { status: 403 });
+
+// ✅ GOOD: User-friendly without leaking internals
+return new Response('You do not have permission to perform this action', { status: 403 });
+```
+
+#### Resource Existence Hiding
+
+When a user lacks permission, return the same response whether the resource exists or not:
+
+```typescript
+async function handleGetProject(projectId: string, userId: string): Promise<Response> {
+  const authz = new AuthorizationService(env.DB, logger);
+  const result = await authz.can({ type: 'user', id: userId }, 'read', {
+    type: 'project',
+    id: projectId,
+  });
+
+  // Same 403 response whether project doesn't exist or user lacks permission
+  // This prevents attackers from enumerating valid project IDs
+  if (!result.allowed) {
+    return new Response('Access denied', { status: 403 });
+  }
+
+  const project = await getProject(projectId);
+
+  // Only 404 for authenticated, authorized users who can see the resource doesn't exist
+  if (!project) {
+    return new Response('Project not found', { status: 404 });
+  }
+
+  return Response.json(project);
+}
+```
+
+#### Logging vs User Response
+
+Log detailed information for debugging while returning generic messages to users:
+
+```typescript
+const result = await authz.can(actor, action, resource);
+
+if (!result.allowed) {
+  // Detailed logging for internal audit (with PII redaction)
+  logger.warn({
+    event: 'authorization.denied',
+    category: 'application',
+    actor_type: actor.type,
+    actor_id: actor.type === 'user' ? actor.id : undefined,
+    action,
+    resource_type: resource.type,
+    resource_id: resource.id,
+    denial_reason: result.reason, // Internal use only
+  });
+
+  // Generic response to user
+  return new Response('Access denied', { status: 403 });
+}
+```
+
+### Timing Attack Prevention
+
+Ensure authorization checks don't leak information through response timing:
+
+```typescript
+/**
+ * Perform authorization check with consistent timing.
+ * Prevents attackers from inferring resource existence through response time.
+ */
+async function authorizeWithConsistentTiming(
+  authz: AuthorizationService,
+  actor: Actor,
+  action: Action,
+  resource: Resource
+): Promise<AuthorizationResult> {
+  const startTime = Date.now();
+  const minDuration = 50; // Minimum response time in ms
+
+  const result = await authz.can(actor, action, resource);
+
+  // Ensure minimum duration to prevent timing leaks
+  const elapsed = Date.now() - startTime;
+  if (elapsed < minDuration) {
+    await new Promise((resolve) => setTimeout(resolve, minDuration - elapsed));
+  }
+
+  return result;
+}
+```
+
 ## Cross-References
 
 - **[security-review](../security-review/SKILL.md)**: Security audit of authorization implementation

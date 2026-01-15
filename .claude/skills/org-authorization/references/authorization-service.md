@@ -23,13 +23,19 @@ import type {
   AuthorizationResult,
   PolicyContext,
 } from '../../domain/authorization/types';
+import type { SafeLogger } from '../../infrastructure/logging/safeLogger';
 
 /**
  * AuthorizationService is the main entry point for authorization checks.
  * It loads context, evaluates policies, and logs decisions.
+ *
+ * @see [structured-logging skill](../../structured-logging/SKILL.md) for SafeLogger implementation
  */
 export class AuthorizationService {
-  constructor(private db: D1Database) {}
+  constructor(
+    private db: D1Database,
+    private logger: SafeLogger
+  ) {}
 
   /**
    * Check if an actor can perform an action on a resource.
@@ -235,20 +241,29 @@ export class AuthorizationService {
     return { role: row.role as 'admin' | 'editor' | 'viewer' };
   }
 
+  /**
+   * Log authorization decision for audit trail.
+   * Uses SafeLogger for structured logging with PII redaction.
+   * @see [structured-logging skill](../../structured-logging/SKILL.md)
+   */
   private logDecision(
     actor: Actor,
     action: Action,
     resource: Resource,
     result: AuthorizationResult
   ): void {
-    console.log({
-      type: 'authorization_decision',
-      actor,
+    this.logger.info({
+      event: 'authorization.decision',
+      category: 'application',
+      actor_type: actor.type,
+      actor_id: actor.type === 'user' ? actor.id : undefined,
       action,
-      resource,
+      resource_type: resource.type,
+      resource_id: resource.id,
       allowed: result.allowed,
-      reason: result.reason,
-      timestamp: new Date().toISOString(),
+      effective_role: result.effectiveRole,
+      // reason logged only on denials for audit purposes
+      denial_reason: result.allowed ? undefined : result.reason,
     });
   }
 }
@@ -267,19 +282,53 @@ export class AuthorizationError extends Error {
 }
 ```
 
+> [!CAUTION]
+> **SQL Injection Prevention**: ALWAYS use parameterized queries (prepared statements with `.bind()`) as shown above. NEVER concatenate user input directly into SQL strings.
+>
+> ```typescript
+> // ✅ CORRECT: Parameterized query
+> await db.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+>
+> // ❌ DANGEROUS: String concatenation - NEVER DO THIS
+> await db.prepare(`SELECT * FROM users WHERE id = '${userId}'`).first();
+> ```
+>
+> Even if input appears sanitized, always use parameterized queries. This protects against injection attacks where malicious input like `'; DROP TABLE users; --` could compromise your database.
+
 ## Handler Integration
 
 ```typescript
 // In request handler
-const authz = new AuthorizationService(env.DB);
+import { createLogger } from '../../infrastructure/logging';
+
+// Create logger with request context
+const logger = createLogger({
+  service: 'my-api',
+  environment: env.ENVIRONMENT,
+  version: '1.0.0',
+  requestId: request.headers.get('cf-ray') ?? crypto.randomUUID(),
+});
+
+const authz = new AuthorizationService(env.DB, logger);
 
 try {
   await authz.require({ type: 'user', id: userId }, 'delete', { type: 'project', id: projectId });
   // Proceed with deletion
 } catch (error) {
   if (error instanceof AuthorizationError) {
-    return new Response(`Forbidden: ${error.message}`, { status: 403 });
+    // Log authorization failure - don't expose internal details to client
+    logger.warn({
+      event: 'authorization.denied',
+      category: 'application',
+      user_id: userId,
+      attempted_action: 'delete',
+      resource_type: 'project',
+    });
+    return new Response('Access denied', { status: 403 });
   }
   throw error;
 }
 ```
+
+> [!TIP]
+> **Structured Logging Integration**: For complete SafeLogger implementation with PII redaction and request correlation, see the [structured-logging skill](../../structured-logging/SKILL.md).

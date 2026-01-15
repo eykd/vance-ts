@@ -161,6 +161,136 @@ export async function createTestApp(): Promise<TestApp> {
 }
 ```
 
+> [!IMPORTANT]
+> **Session Security After Role Changes**
+>
+> Sessions must be regenerated after role changes to prevent session fixation attacks and ensure the user's permissions are immediately updated:
+>
+> - **Regenerate on role change**: When a user's role is modified, invalidate their current session and issue a new one
+> - **Invalidate on removal**: When users are removed from an organization, all their sessions for that organization must be invalidated immediately
+> - **Propagate privilege reduction**: If a user is demoted, don't wait for session expiry - enforce the new role immediately
+
+### Session Regeneration Test Helper
+
+```typescript
+// tests/helpers/sessionHelpers.ts
+
+/**
+ * Simulate session regeneration after role change.
+ * Returns new session token that reflects updated permissions.
+ */
+async function regenerateSession(app: TestApp, user: TestUser): Promise<TestUser> {
+  // Invalidate old session
+  await app.db.prepare('DELETE FROM sessions WHERE id = ?').bind(user.sessionToken).run();
+
+  // Create new session
+  const newSessionToken = crypto.randomUUID();
+  await app.db
+    .prepare(
+      `
+      INSERT INTO sessions (id, user_id, expires_at)
+      VALUES (?, ?, datetime('now', '+1 day'))
+    `
+    )
+    .bind(newSessionToken, user.id)
+    .run();
+
+  return { ...user, sessionToken: newSessionToken };
+}
+
+/**
+ * Invalidate all sessions for a user in an organization.
+ * Call this when user is removed from org.
+ */
+async function invalidateOrgSessions(
+  app: TestApp,
+  userId: string,
+  organizationId: string
+): Promise<void> {
+  await app.db
+    .prepare(
+      `
+      DELETE FROM sessions
+      WHERE user_id = ?
+      AND id IN (
+        SELECT s.id FROM sessions s
+        JOIN session_org_context soc ON s.id = soc.session_id
+        WHERE soc.organization_id = ?
+      )
+    `
+    )
+    .bind(userId, organizationId)
+    .run();
+}
+```
+
+### Session Security Tests
+
+```typescript
+// tests/acceptance/sessionSecurity.test.ts
+
+describe('Session Security', () => {
+  it('invalidates session when user is removed from organization', async () => {
+    const app = await createTestApp();
+
+    const owner = await app.createUser('owner@test.com');
+    const member = await app.createUser('member@test.com');
+    const org = await app.createOrganization('Test Org', owner.id);
+    await app.addMember(org.id, member.id, 'member');
+
+    // Member can access before removal
+    const beforeResponse = await app.request(`/organizations/${org.id}`, {
+      user: member,
+    });
+    expect(beforeResponse.status).toBe(200);
+
+    // Remove member
+    await app.request(`/organizations/${org.id}/members/${member.id}/remove`, {
+      method: 'POST',
+      user: owner,
+    });
+
+    // Member's session should now be invalid for this org
+    const afterResponse = await app.request(`/organizations/${org.id}`, {
+      user: member,
+    });
+    expect(afterResponse.status).toBe(403);
+  });
+
+  it('enforces role demotion immediately', async () => {
+    const app = await createTestApp();
+
+    const owner = await app.createUser('owner@test.com');
+    const admin = await app.createUser('admin@test.com');
+    const org = await app.createOrganization('Test Org', owner.id);
+    await app.addMember(org.id, admin.id, 'admin');
+
+    // Admin can invite before demotion
+    const beforeResponse = await app.request(`/organizations/${org.id}/members`, {
+      method: 'POST',
+      user: admin,
+      body: { email: 'new@test.com', role: 'viewer' },
+    });
+    expect(beforeResponse.status).toBe(200);
+
+    // Demote admin to viewer
+    await app.request(`/organizations/${org.id}/members/${admin.id}`, {
+      method: 'POST',
+      user: owner,
+      body: { role: 'viewer' },
+    });
+
+    // Demoted user should not be able to invite with same session
+    const afterResponse = await app.request(`/organizations/${org.id}/members`, {
+      method: 'POST',
+      user: admin,
+      body: { email: 'another@test.com', role: 'viewer' },
+    });
+    expect(afterResponse.status).toBe(403);
+  });
+});
+```
+
 ## Tenant Isolation Tests
 
 ```typescript

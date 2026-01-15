@@ -238,6 +238,184 @@ export async function changeMemberRole(
 }
 ```
 
+## Transaction Safety
+
+Role changes must be protected against race conditions where concurrent requests could lead to inconsistent state. D1 doesn't support traditional transactions, but you can use batch operations with optimistic locking.
+
+### Optimistic Locking Pattern
+
+Add a `version` column to detect concurrent modifications:
+
+```typescript
+// src/application/services/MembershipService.ts
+
+interface RoleChangeResult {
+  success: boolean;
+  reason?: string;
+}
+
+/**
+ * Safely change a member's role with optimistic locking.
+ * Returns failure if concurrent modification detected.
+ */
+export async function changeMemberRoleSafe(
+  db: D1Database,
+  actorId: string,
+  organizationId: string,
+  targetUserId: string,
+  newRole: OrgRole,
+  expectedVersion: number
+): Promise<RoleChangeResult> {
+  // Validate permissions (same as before)
+  const [actorMembership, targetMembership] = await Promise.all([
+    getOrgMembership(db, actorId, organizationId),
+    getOrgMembership(db, targetUserId, organizationId),
+  ]);
+
+  if (!actorMembership || !targetMembership) {
+    return { success: false, reason: 'Membership not found' };
+  }
+
+  const validation = validateRoleChange(
+    actorId,
+    actorMembership.role,
+    targetUserId,
+    targetMembership.role,
+    newRole
+  );
+
+  if (!validation.valid) {
+    return { success: false, reason: validation.reason };
+  }
+
+  // Perform update with version check
+  const result = await db
+    .prepare(
+      `
+      UPDATE organization_memberships
+      SET role = ?, version = version + 1, updated_at = datetime('now')
+      WHERE organization_id = ? AND user_id = ? AND version = ?
+    `
+    )
+    .bind(newRole, organizationId, targetUserId, expectedVersion)
+    .run();
+
+  if (result.meta.changes === 0) {
+    return {
+      success: false,
+      reason: 'Concurrent modification detected. Please refresh and try again.',
+    };
+  }
+
+  return { success: true };
+}
+```
+
+### D1 Batch Operations
+
+For operations that must be atomic, use D1's batch API:
+
+```typescript
+/**
+ * Transfer ownership atomically: demote current owner, promote new owner.
+ */
+export async function transferOwnership(
+  db: D1Database,
+  organizationId: string,
+  currentOwnerId: string,
+  newOwnerId: string
+): Promise<void> {
+  const statements = [
+    // Demote current owner to admin
+    db
+      .prepare(
+        `
+        UPDATE organization_memberships
+        SET role = 'admin', updated_at = datetime('now')
+        WHERE organization_id = ? AND user_id = ? AND role = 'owner'
+      `
+      )
+      .bind(organizationId, currentOwnerId),
+
+    // Promote new owner
+    db
+      .prepare(
+        `
+        UPDATE organization_memberships
+        SET role = 'owner', updated_at = datetime('now')
+        WHERE organization_id = ? AND user_id = ?
+      `
+      )
+      .bind(organizationId, newOwnerId),
+
+    // Update organization owner reference
+    db
+      .prepare(
+        `
+        UPDATE organizations
+        SET owner_id = ?, updated_at = datetime('now')
+        WHERE id = ? AND owner_id = ?
+      `
+      )
+      .bind(newOwnerId, organizationId, currentOwnerId),
+  ];
+
+  const results = await db.batch(statements);
+
+  // Verify all statements succeeded
+  const totalChanges = results.reduce((sum, r) => sum + (r.meta.changes || 0), 0);
+  if (totalChanges !== 3) {
+    throw new Error('Ownership transfer failed - some updates did not apply');
+  }
+}
+```
+
+### Handling Concurrent Role Changes
+
+```typescript
+// In request handler
+const MAX_RETRIES = 3;
+
+async function handleRoleChange(
+  db: D1Database,
+  actorId: string,
+  orgId: string,
+  targetId: string,
+  newRole: OrgRole
+): Promise<Response> {
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    // Get current version
+    const membership = await getOrgMembershipWithVersion(db, targetId, orgId);
+    if (!membership) {
+      return new Response('Member not found', { status: 404 });
+    }
+
+    const result = await changeMemberRoleSafe(
+      db,
+      actorId,
+      orgId,
+      targetId,
+      newRole,
+      membership.version
+    );
+
+    if (result.success) {
+      return new Response(null, { status: 204 });
+    }
+
+    if (!result.reason?.includes('Concurrent modification')) {
+      return new Response(result.reason, { status: 403 });
+    }
+
+    // Retry on concurrent modification
+  }
+
+  return new Response('Too many concurrent modifications. Please try again.', {
+    status: 409,
+  });
+}
+```
+
 ## Test Cases
 
 ```typescript

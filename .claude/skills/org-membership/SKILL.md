@@ -24,6 +24,11 @@ Manage organization members with proper role hierarchy and privilege escalation 
 **When**: Building invite, remove, transfer, or role change functionality
 **Go to**: [references/membership-management.md](./references/membership-management.md)
 
+### Need to protect membership endpoints?
+
+**When**: Implementing rate limiting for invitations, role changes, or preventing enumeration attacks
+**Go to**: [references/rate-limiting.md](./references/rate-limiting.md)
+
 ## Quick Example
 
 ```typescript
@@ -88,3 +93,4 @@ viewer ─► Read-only access
 - [references/role-hierarchy.md](./references/role-hierarchy.md): Role definitions and permissions
 - [references/privilege-escalation.md](./references/privilege-escalation.md): Prevention patterns
 - [references/membership-management.md](./references/membership-management.md): Invite, remove, transfer operations
+- [references/rate-limiting.md](./references/rate-limiting.md): Rate limiting for membership endpoints
