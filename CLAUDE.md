@@ -194,6 +194,9 @@ Skills often reference related skills, creating implementation chains:
 
 ## Active Technologies
 
+- Markdown, shell scripts (no application code) + None (skeleton structure only, no runtime deps) (006-self-organizing-skeleton)
+- N/A (file system structure only) (006-self-organizing-skeleton)
+
 - Markdown documentation with TypeScript code examples (ES2022, NodeNext modules) + N/A (skills are documentation, not executable code) (005-multi-tenant-skills)
 - N/A (documentation files) (005-multi-tenant-skills)
 
