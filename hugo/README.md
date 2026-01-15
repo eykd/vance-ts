@@ -190,25 +190,36 @@ npm install
 
 ## Production Deployment
 
-The `hugo/public/` directory contains the production-ready static site. Deploy to:
+### Automatic Deployment (Recommended)
 
-- **Cloudflare Pages**
-- **Netlify**
-- **Vercel**
-- **GitHub Pages**
+The Hugo site automatically deploys to **Cloudflare Pages** via GitHub Actions on every push to `main`:
+
+1. Quality checks pass
+2. Hugo site builds with `npx hugo --minify`
+3. Deploys to Cloudflare Pages
+
+**Setup**: See [Deployment Guide](../docs/deployment.md) for required GitHub secrets.
+
+### Manual Deployment
+
+The `hugo/public/` directory contains the production-ready static site.
+
+**Cloudflare Pages** (using Wrangler):
+```bash
+cd hugo
+npm install
+npx hugo --minify
+npx wrangler pages deploy public --project-name=turtlebased-site
+```
+
+**Other Platforms**:
+- Netlify
+- Vercel
+- GitHub Pages
 - Any static hosting service
 
-### Build Command
-
-```bash
-npx hugo --minify
-```
-
-### Output Directory
-
-```
-public/
-```
+**Build Command**: `npx hugo --minify`
+**Output Directory**: `public/`
 
 ## Performance
 
