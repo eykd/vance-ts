@@ -59,7 +59,7 @@ fix: format lint-fix
     @echo "✅ Auto-fixes applied!"
 
 # Run the full CI pipeline locally
-ci: clean install type-check lint format-check test-coverage build
+ci: clean install type-check lint format-check test-coverage build hugo-install hugo-test
     @echo "✅ CI pipeline completed successfully!"
 
 # Watch mode for development
@@ -93,6 +93,10 @@ hugo-dev:
 # Build Hugo site for production (output in hugo/public/)
 hugo-build:
     cd hugo && npx hugo --minify
+
+# Run Hugo build smoke test
+hugo-test:
+    cd hugo && npm test
 
 # Clean Hugo build artifacts
 hugo-clean:

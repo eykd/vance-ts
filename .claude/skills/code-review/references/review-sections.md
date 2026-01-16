@@ -69,6 +69,20 @@ The bad examples focus on technical implementation rather than user value.
 - Performance concerns (N+1 queries, blocking operations)
 - Missing logging for debugging
 
+### Test Exemptions
+
+The following file types are exempt from unit test requirements. They are covered by build smoke tests or other validation:
+
+| File Pattern                          | Reason                                             |
+| ------------------------------------- | -------------------------------------------------- |
+| `hugo/**/*.html`                      | Hugo templates - covered by Hugo build smoke test  |
+| `hugo/**/*.css`                       | Hugo styles - covered by TailwindCSS build process |
+| `*.md`                                | Documentation - no executable code                 |
+| `.github/workflows/*.yml`             | CI configs - covered by actionlint validation      |
+| Config files (`.json`, `.toml`, etc.) | Configuration - validated by consuming tools       |
+
+Do NOT flag missing tests for these file types. Instead, verify the appropriate validation exists (e.g., Hugo build passes, actionlint runs).
+
 ---
 
 ## 3. Simplicity & Maintainability

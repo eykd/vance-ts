@@ -43,6 +43,9 @@
       "bash -c 'tsc --noEmit'",
       "jest --bail --findRelatedTests --passWithNoTests"
     ],
+    "hugo/**/*.html": [
+      "bash -c 'cd hugo && npm test'"
+    ],
     ".github/workflows/*.{yml,yaml}": [
       "prettier --write",
       "npm run actionlint"

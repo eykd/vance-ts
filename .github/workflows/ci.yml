@@ -47,6 +47,23 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check for Hugo site
+        id: check-hugo-quality
+        run: |
+          if [ -d "hugo" ] && [ -f "hugo/package.json" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Hugo dependencies
+        if: steps.check-hugo-quality.outputs.exists == 'true'
+        run: cd hugo && npm ci
+
+      - name: Hugo build smoke test
+        if: steps.check-hugo-quality.outputs.exists == 'true'
+        run: cd hugo && npm test
+
   deploy:
     # Deploy on push (production) and PRs (preview URLs)
     needs: quality
