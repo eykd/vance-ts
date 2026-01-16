@@ -8,6 +8,12 @@ A static-first Typescript web application targeting the Cloudflare Pages & Worke
 
 All code changes must be implemented with **strict red-green-refactor TDD practice**.
 
+## Getting Started
+
+New users deploying this project for the first time should type `start` to begin the guided deployment process.
+
+**Note**: When a user types just `start` (without a slash), treat it as equivalent to `/start` and invoke the start skill. This workaround addresses a known issue with slash commands in Claude Code for the Web.
+
 ## Essential Commands
 
 ### Development Workflow
