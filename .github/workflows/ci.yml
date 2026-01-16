@@ -80,21 +80,6 @@ jobs:
           node-version: 24.x
           cache: 'npm'
 
-      # Deploy Cloudflare Workers (if wrangler.toml exists)
-      - name: Install Workers dependencies
-        if: steps.check-wrangler.outputs.exists == 'true'
-        run: npm ci
-
-      - name: Build Workers
-        if: steps.check-wrangler.outputs.exists == 'true'
-        run: npm run build
-
-      - name: Deploy to Cloudflare Workers
-        if: steps.check-wrangler.outputs.exists == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy
-
       # Deploy Hugo to Cloudflare Pages (if hugo/ exists AND wrangler.toml exists)
       - name: Install Hugo dependencies
         if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
