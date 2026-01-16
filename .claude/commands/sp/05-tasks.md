@@ -2,11 +2,11 @@
 description: Generate beads tasks for the feature based on available design artifacts. Creates tasks in beads hierarchy instead of markdown checkboxes.
 handoffs:
   - label: Analyze For Consistency
-    agent: sp:07-analyze
+    agent: sp:06-analyze
     prompt: Run a project analysis for consistency
     send: true
   - label: Implement Project
-    agent: sp:06-implement
+    agent: sp:07-implement
     prompt: Start the implementation in phases
     send: true
 ---
@@ -66,35 +66,58 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Create parallel execution examples per user story
    - Validate task completeness (each user story has all needed tasks, independently testable)
 
-5. **Create Beads Tasks** (as children of the [sp:06-implement] phase task):
+5. **Create Beads Tasks** (as children of the [sp:07-implement] phase task):
 
    **First, find the implement phase task** (created by `/sp:01-specify`):
 
    ```bash
-   IMPLEMENT_TASK_ID=$(npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:06-implement]")) | .id')
+   IMPLEMENT_TASK_ID=$(npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
    ```
 
    Store this ID - all user story tasks will be created as children of this task.
 
+   **Skill Mapping Reference** - Use these skills based on task type:
+
+   | Task Pattern                                | Skills                                                         |
+   | ------------------------------------------- | -------------------------------------------------------------- |
+   | `Create.*entity`, `.*domain model`          | `/ddd-domain-modeling`, `/typescript-unit-testing`             |
+   | `Implement.*repository`, `.*D1.*`           | `/d1-repository-implementation`, `/vitest-integration-testing` |
+   | `Create.*handler`, `.*route handler`        | `/worker-request-handler`                                      |
+   | `Create.*template`, `.*HTML.*`, `.*partial` | `/htmx-alpine-templates`                                       |
+   | `Write.*test`, `.*spec.*`                   | `/typescript-unit-testing`                                     |
+   | `Setup.*`, `Configure.*`                    | `/vitest-cloudflare-config`                                    |
+   | `.*HTMX.*`, `.*interactive`                 | `/htmx-pattern-library`                                        |
+   | `.*security.*`, `.*auth.*`                  | `/org-authorization`                                           |
+
    For each user story from spec.md:
 
-   a. Create a task for the user story **as a child of the implement task**:
+   a. Create a task for the user story **as a child of the implement task** with description:
 
    ```bash
-   npx bd create "US<N>: <user-story-title>" -p <priority> --parent $IMPLEMENT_TASK_ID --json
+   npx bd create "US<N>: <user-story-title>" -p <priority> --parent $IMPLEMENT_TASK_ID \
+     --description "**Spec**: specs/$BRANCH/spec.md §US-<N>
+   **Goal**: <user-story-goal-from-spec>
+   **Acceptance**: <acceptance-criteria-summary>" --json
    ```
 
    - `<N>`: User story number (1, 2, 3...)
    - `<priority>`: Map P1→1, P2→2, P3→3, etc.
    - `--parent $IMPLEMENT_TASK_ID`: Link to the **implement phase task** (NOT the epic)
 
-   b. For each implementation step within the user story, create a sub-task:
+   b. For each implementation step within the user story, create a sub-task with description:
 
    ```bash
-   npx bd create "<step-description>" -p <priority> --parent <user-story-task-id> --json
+   npx bd create "<step-description>" -p <priority> --parent <user-story-task-id> \
+     --description "**Spec**: specs/$BRANCH/spec.md §US-<N>, plan.md §<section>
+   **Skills**: <skill-list-from-mapping>
+   **Files**: <target-file-paths>
+   **Acceptance**: <specific-criteria>" --json
    ```
 
    - `<user-story-task-id>`: The user story task ID from step (a)
+   - `<skill-list-from-mapping>`: Skills from the mapping table above
+   - `<target-file-paths>`: Specific files to create/modify
+   - `<specific-criteria>`: Measurable acceptance criteria
 
    c. Establish dependencies between sequential tasks:
 
@@ -118,21 +141,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Verify the hierarchy: Epic → User Story Tasks → Implementation Sub-tasks
    - Check for any circular dependencies: `npx bd dep cycles`
 
-7. **Generate tasks.md** (for human reference): Use `.specify/templates/tasks-template.md` as structure, fill with:
-   - Correct feature name from plan.md
-   - Phase 1: Setup tasks (project initialization)
-   - Phase 2: Foundational tasks (blocking prerequisites for all user stories)
-   - Phase 3+: One phase per user story (in priority order from spec.md)
-   - Each phase includes: story goal, independent test criteria, tests (if requested), implementation tasks
-   - Final Phase: Polish & cross-cutting concerns
-   - All tasks must follow the strict checklist format (see Task Generation Rules below)
-   - Clear file paths for each task
-   - Dependencies section showing story completion order
-   - Parallel execution examples per story
-   - Implementation strategy section (MVP first, incremental delivery)
-   - **Include beads task IDs** next to each task for reference
-
-8. **Close Phase Task in Beads**:
+7. **Close Phase Task in Beads**:
 
    After creating all implementation tasks, close the 05-tasks phase task to unblock the implement phase.
 
@@ -145,22 +154,21 @@ You **MUST** consider the user input before proceeding (if not empty).
    b. Close the task with a completion summary:
 
    ```bash
-   npx bd close <tasks-task-id> --reason "Created <N> tasks across <M> user stories under [sp:06-implement]"
+   npx bd close <tasks-task-id> --reason "Created <N> tasks across <M> user stories under [sp:07-implement]"
    ```
 
-   c. The [sp:06-implement] phase task is now ready (its dependency on 05-tasks is satisfied).
+   c. The [sp:06-analyze] phase task is now ready (its dependency on 05-tasks is satisfied).
 
-   d. Report: "Phase [sp:05-tasks] complete. Run `/sp:next` or `/sp:06-implement` to begin implementation."
+   d. Report: "Phase [sp:05-tasks] complete. Run `/sp:next` or `/sp:06-analyze` to validate artifacts."
 
-9. **Report**: Output summary including:
-   - Path to generated tasks.md (human-readable reference)
+8. **Report**: Output summary including:
    - **Beads epic ID** and total tasks created in beads
    - **Implement task ID** (`$IMPLEMENT_TASK_ID`) containing all user story tasks
-   - Task count per user story
+   - Task count per user story (with task IDs)
    - Parallel opportunities identified
    - Independent test criteria for each story
    - Suggested MVP scope (typically just User Story 1)
-   - **Next step**: Run `/sp:next` or `/sp:06-implement` to begin implementation
+   - **Next step**: Run `/sp:next` or `/sp:06-analyze` to validate cross-artifact consistency
    - **How to view ready tasks**: `npx bd ready --json`
 
 Context for task generation: $ARGUMENTS
@@ -250,4 +258,4 @@ If beads commands fail during task creation:
 3. **Dependency cycle detected**: Remove the problematic dependency, log warning
 4. **bd command not found**: Suggest `npm install --save-dev @beads/bd`
 
-Always generate the markdown tasks.md as a fallback reference even if beads commands fail.
+If beads commands fail completely, report failures and suggest troubleshooting steps.

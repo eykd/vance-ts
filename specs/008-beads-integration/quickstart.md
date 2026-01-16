@@ -111,7 +111,7 @@ Output (ready tasks):
 ### Step 5: Implement Feature
 
 ```bash
-/sp:06-implement
+/sp:07-implement
 ```
 
 **What happens**:
@@ -136,7 +136,7 @@ npx bd ready
 ### Step 6: Analyze Implementation
 
 ```bash
-/sp:07-analyze
+/sp:06-analyze
 ```
 
 **What happens**: Cross-checks implementation against spec. No beads changes.
@@ -185,8 +185,8 @@ bd-f7a2c1 Feature: User Authentication
 | `/sp:03-plan`          | Create plan            | None                                |
 | `/sp:04-checklist`     | Generate checklists    | None                                |
 | `/sp:05-tasks`         | Generate tasks         | `bd create`, `bd dep add`           |
-| `/sp:06-implement`     | Execute tasks          | `bd ready`, `bd update`, `bd close` |
-| `/sp:07-analyze`       | Analyze implementation | `bd list`, `bd stats`               |
+| `/sp:07-implement`     | Execute tasks          | `bd ready`, `bd update`, `bd close` |
+| `/sp:06-analyze`       | Analyze implementation | `bd list`, `bd stats`               |
 | `/sp:08-taskstoissues` | Export to GitHub       | `bd list`                           |
 
 ## Comparison: Old vs New Workflow

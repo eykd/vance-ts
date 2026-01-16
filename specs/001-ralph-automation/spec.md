@@ -59,7 +59,7 @@ Each iteration of the Ralph loop preserves context through git commits, beads ta
 
 2. **Given** the loop was interrupted (user Ctrl+C or system crash), **When** `ralph.sh` is restarted, **Then** it resumes from the last successfully closed beads task.
 
-3. **Given** multiple implementation tasks exist under `sp:06-implement`, **When** Claude completes each task, **Then** progress is tracked granularly via beads rather than losing context.
+3. **Given** multiple implementation tasks exist under `sp:07-implement`, **When** Claude completes each task, **Then** progress is tracked granularly via beads rather than losing context.
 
 ---
 

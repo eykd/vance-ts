@@ -6,6 +6,8 @@ description: Generate a custom checklist for the current feature based on user r
 
 **CRITICAL CONCEPT**: Checklists are **UNIT TESTS FOR REQUIREMENTS WRITING** - they validate the quality, clarity, and completeness of requirements in a given domain.
 
+**Note**: Checklists are documentation artifacts for requirements quality validation. The closing of the `[sp:04-checklist]` phase task indicates validation is complete. Checklist files remain as reference documentation but are not parsed during implementation.
+
 **NOT for verification/testing**:
 
 - ❌ NOT "Verify the button clicks correctly"

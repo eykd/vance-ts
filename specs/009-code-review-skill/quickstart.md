@@ -195,7 +195,7 @@ For changesets over 1000 lines, the skill:
 
 - `/security-review` - Deep security analysis (invoked automatically)
 - `/commit` - Create conventional commits after review
-- `/sp:06-implement` - Implement fixes from beads issues
+- `/sp:07-implement` - Implement fixes from beads issues
 
 ---
 

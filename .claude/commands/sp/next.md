@@ -60,10 +60,10 @@ Filter results to only include tasks that:
 
 If no phase tasks are ready:
 
-a. Check for implementation sub-tasks (tasks under `[sp:06-implement]`):
+a. Check for implementation sub-tasks (tasks under `[sp:07-implement]`):
 
 ```bash
-IMPLEMENT_TASK=$(npx bd list --parent <epic-id> --json | jq -r '.[] | select(.title | contains("[sp:06-implement]"))')
+IMPLEMENT_TASK=$(npx bd list --parent <epic-id> --json | jq -r '.[] | select(.title | contains("[sp:07-implement]"))')
 if [ -n "$IMPLEMENT_TASK" ]; then
   IMPLEMENT_ID=$(echo $IMPLEMENT_TASK | jq -r '.id')
   IMPL_STATUS=$(echo $IMPLEMENT_TASK | jq -r '.status')
@@ -77,7 +77,7 @@ fi
 b. If implementation sub-tasks are ready:
 
 - Report: "Implementation in progress. Ready sub-tasks: [list]"
-- Suggest: Run `/sp:06-implement` to continue implementation
+- Suggest: Run `/sp:07-implement` to continue implementation
 
 c. If no tasks at all are ready:
 
@@ -102,7 +102,8 @@ If `--status` flag is present:
 | [sp:03-plan]      | [id]    | [open/in_progress/closed] |
 | [sp:04-checklist] | [id]    | [open/in_progress/closed] |
 | [sp:05-tasks]     | [id]    | [open/in_progress/closed] |
-| [sp:06-implement] | [id]    | [open/in_progress/closed] |
+| [sp:06-analyze]   | [id]    | [open/in_progress/closed] |
+| [sp:07-implement] | [id]    | [open/in_progress/closed] |
 | [sp:09-review]    | [id]    | [open/in_progress/closed] |
 
 **Next Ready Phase**: [phase-name] or "None (workflow complete)"
@@ -190,7 +191,8 @@ Invoke the corresponding skill:
 - `[sp:03-plan]` → `/sp:03-plan`
 - `[sp:04-checklist]` → `/sp:04-checklist`
 - `[sp:05-tasks]` → `/sp:05-tasks`
-- `[sp:06-implement]` → `/sp:06-implement`
+- `[sp:06-analyze]` → `/sp:06-analyze`
+- `[sp:07-implement]` → `/sp:07-implement`
 - `[sp:09-review]` → `/sp:09-review`
 
 ## Skill Mapping
@@ -201,7 +203,8 @@ Invoke the corresponding skill:
 | `[sp:03-plan]`      | `/sp:03-plan`      |
 | `[sp:04-checklist]` | `/sp:04-checklist` |
 | `[sp:05-tasks]`     | `/sp:05-tasks`     |
-| `[sp:06-implement]` | `/sp:06-implement` |
+| `[sp:06-analyze]`   | `/sp:06-analyze`   |
+| `[sp:07-implement]` | `/sp:07-implement` |
 | `[sp:09-review]`    | `/sp:09-review`    |
 
 ## Error Handling

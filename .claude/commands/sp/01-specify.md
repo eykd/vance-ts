@@ -162,35 +162,61 @@ Given that feature description, do this:
 
    After creating the epic, create ALL phase tasks upfront with dependencies. This enables `/sp:next` to orchestrate the workflow.
 
-   a. Create all six phase tasks under the epic with descriptions:
+   a. Create all seven phase tasks under the epic with structured descriptions:
 
    ```bash
    # Extract feature name from branch (e.g., "010-user-auth" -> "user-auth")
    FEATURE_NAME="<short-name-from-step-2>"
+   BRANCH="<branch-name-from-step-3>"
 
    # Create phase tasks (store IDs from JSON responses)
    npx bd create "[sp:02-clarify] Clarify requirements for $FEATURE_NAME" -p 1 --parent <epic-id> \
-     --description "Identify ambiguities in spec.md and resolve through user clarification questions" --json
+     --description "**Spec**: specs/$BRANCH/spec.md
+   **Skills**: None
+   **Context**: Interactive clarification - identify ambiguities and resolve through user questions
+   **Acceptance**: No [NEEDS CLARIFICATION] markers remain in spec.md" --json
    # Store returned ID as CLARIFY_ID
 
    npx bd create "[sp:03-plan] Create implementation plan for $FEATURE_NAME" -p 1 --parent <epic-id> \
-     --description "Design technical architecture and create plan.md with implementation approach" --json
+     --description "**Spec**: specs/$BRANCH/spec.md
+   **Skills**: /prefactoring, /latent-features
+   **Context**: Generate plan.md with technical architecture, data-model.md if needed
+   **Acceptance**: All technical decisions documented, file structure defined" --json
    # Store returned ID as PLAN_ID
 
    npx bd create "[sp:04-checklist] Generate requirements checklist for $FEATURE_NAME" -p 2 --parent <epic-id> \
-     --description "Generate verification checklist from spec requirements for implementation validation" --json
+     --description "**Spec**: specs/$BRANCH/spec.md, plan.md
+   **Skills**: None
+   **Context**: Generate requirements quality checklists (unit tests for English)
+   **Acceptance**: Checklist files created in checklists/ directory" --json
    # Store returned ID as CHECKLIST_ID
 
    npx bd create "[sp:05-tasks] Generate implementation tasks for $FEATURE_NAME" -p 1 --parent <epic-id> \
-     --description "Break down plan.md into granular beads tasks with dependencies for TDD implementation" --json
+     --description "**Spec**: specs/$BRANCH/spec.md, plan.md
+   **Skills**: /prefactoring
+   **Context**: Create beads tasks with skill references and acceptance criteria
+   **Acceptance**: All user stories have beads tasks with descriptions" --json
    # Store returned ID as TASKS_ID
 
-   npx bd create "[sp:06-implement] Execute implementation for $FEATURE_NAME" -p 1 --parent <epic-id> \
-     --description "Implement all tasks using strict red-green-refactor TDD, closing each task on completion" --json
+   npx bd create "[sp:06-analyze] Analyze artifacts for $FEATURE_NAME" -p 2 --parent <epic-id> \
+     --description "**Spec**: specs/$BRANCH/spec.md, plan.md, beads tasks
+   **Skills**: None (read-only analysis)
+   **Context**: Validate cross-artifact consistency, coverage gaps, constitution alignment
+   **Acceptance**: No CRITICAL issues; coverage report shows all requirements mapped" --json
+   # Store returned ID as ANALYZE_ID
+
+   npx bd create "[sp:07-implement] Execute implementation for $FEATURE_NAME" -p 1 --parent <epic-id> \
+     --description "**Spec**: specs/$BRANCH/spec.md, plan.md
+   **Skills**: Per-task (see task descriptions)
+   **Context**: TDD implementation - strict red-green-refactor for all tasks
+   **Acceptance**: All tasks closed, tests pass, 100% coverage maintained" --json
    # Store returned ID as IMPLEMENT_ID
 
    npx bd create "[sp:09-review] Code review for $FEATURE_NAME" -p 2 --parent <epic-id> \
-     --description "Review implemented code for quality, security, and adherence to spec requirements" --json
+     --description "**Spec**: specs/$BRANCH/spec.md, plan.md
+   **Skills**: /code-review, /security-review
+   **Context**: Review implemented code against spec requirements
+   **Acceptance**: No blocking issues, ready for merge" --json
    # Store returned ID as REVIEW_ID
    ```
 
@@ -200,7 +226,8 @@ Given that feature description, do this:
    npx bd dep add <PLAN_ID> <CLARIFY_ID>
    npx bd dep add <CHECKLIST_ID> <PLAN_ID>
    npx bd dep add <TASKS_ID> <CHECKLIST_ID>
-   npx bd dep add <IMPLEMENT_ID> <TASKS_ID>
+   npx bd dep add <ANALYZE_ID> <TASKS_ID>
+   npx bd dep add <IMPLEMENT_ID> <ANALYZE_ID>
    npx bd dep add <REVIEW_ID> <IMPLEMENT_ID>
    ```
 
@@ -213,6 +240,7 @@ Given that feature description, do this:
    - plan: `<PLAN_ID>`
    - checklist: `<CHECKLIST_ID>`
    - tasks: `<TASKS_ID>`
+   - analyze: `<ANALYZE_ID>`
    - implement: `<IMPLEMENT_ID>`
    - review: `<REVIEW_ID>`
    ```
@@ -223,7 +251,7 @@ Given that feature description, do this:
    npx bd dep tree <epic-id>
    ```
 
-   Expected output shows the chain: clarify → plan → checklist → tasks → implement → review
+   Expected output shows the chain: clarify → plan → checklist → tasks → analyze → implement → review
 
    e. If phase task creation fails, log the error and continue. The workflow can still function with manual skill invocation.
 
@@ -323,7 +351,7 @@ Given that feature description, do this:
 - Branch name
 - Spec file path
 - **Beads epic ID** (if created successfully)
-- **Phase tasks created** (list all 6 phase task IDs)
+- **Phase tasks created** (list all 7 phase task IDs)
 - **Dependency chain visualization** (from `bd dep tree`)
 - Checklist results
 - **Next step**: Run `/sp:next` to start the workflow, or `/sp:02-clarify` directly

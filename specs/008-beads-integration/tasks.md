@@ -169,7 +169,7 @@
 
 - [x] T043 [P] Update specs/008-beads-integration/quickstart.md with final command syntax
 - [x] T044 [P] Update .claude/commands/sp/README.md to document beads integration
-- [x] T045 Run full workflow validation: /sp:01-specify → /sp:03-plan → /sp:05-tasks → /sp:06-implement
+- [x] T045 Run full workflow validation: /sp:01-specify → /sp:03-plan → /sp:05-tasks → /sp:07-implement
 - [x] T046 Clean up any temporary files or backup directories
 
 ---
