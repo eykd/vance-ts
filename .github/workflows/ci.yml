@@ -58,7 +58,7 @@ jobs:
 
       - name: Install Hugo dependencies
         if: steps.check-hugo-quality.outputs.exists == 'true'
-        run: cd hugo && npm ci
+        run: cd hugo && npm install
 
       - name: Hugo build smoke test
         if: steps.check-hugo-quality.outputs.exists == 'true'
@@ -101,7 +101,7 @@ jobs:
         if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
         run: |
           cd hugo
-          npm ci
+          npm install
 
       - name: Build Hugo site
         if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
