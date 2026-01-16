@@ -30,16 +30,6 @@
           }
         ]
       }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/user-prompt-submit.sh"
-          }
-        ]
-      }
     ]
   },
   "statusLine": {
