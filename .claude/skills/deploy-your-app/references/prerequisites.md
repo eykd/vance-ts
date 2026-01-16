@@ -82,6 +82,7 @@ Claude Code for the Web runs in a sandboxed environment that blocks network acce
 4. Add these domains to the allowlist:
    - `api.cloudflare.com`
    - `cloudflare.com`
+   - `github.com` (required for downloading Hugo binary during npm install)
 5. Click **Save**
 
 **Step 3: Start a new session**
@@ -200,6 +201,7 @@ This means network access to Cloudflare's APIs is blocked. Claude Code for the W
 4. Add these domains to the allowlist:
    - `api.cloudflare.com`
    - `cloudflare.com`
+   - `github.com` (required for downloading Hugo binary during npm install)
 5. Click **Save**
 6. **Start a new session** — network settings are loaded at session start
 
