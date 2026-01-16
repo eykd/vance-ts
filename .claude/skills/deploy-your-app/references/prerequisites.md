@@ -208,3 +208,34 @@ This means network access to Cloudflare's APIs is blocked. Claude Code for the W
 6. **Start a new session** — network settings are loaded at session start
 
 **Note**: This only affects Claude Code for the Web users. Local Claude Code users don't need this step.
+
+### "Hugo installation failed" during npm install (Claude Code for the Web)
+
+If `npm ci` fails with a network error when downloading Hugo (even with domains allowlisted), this is a known sandbox limitation where Node.js fetch doesn't work but curl does.
+
+**Workaround**: Skip the automatic download and install Hugo manually with curl:
+
+1. Add `HUGO_SKIP_DOWNLOAD=1` to your environment variables (same place as your Cloudflare credentials)
+2. Start a new session to pick up the environment variable
+3. Run `npm ci` in the hugo directory — it will skip the Hugo download
+4. Ask Claude to manually install Hugo using curl
+
+Claude will run commands similar to:
+
+```bash
+# Get Hugo version from package.json
+HUGO_VERSION=$(node -p "require('./hugo/node_modules/hugo-extended/package.json').version")
+
+# Download with curl (which works in the sandbox)
+curl -L "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz" -o /tmp/hugo.tar.gz
+
+# Extract to the expected location
+mkdir -p hugo/node_modules/hugo-extended/bin
+tar -xzf /tmp/hugo.tar.gz -C hugo/node_modules/hugo-extended/bin hugo
+rm /tmp/hugo.tar.gz
+
+# Verify it works
+hugo/node_modules/hugo-extended/bin/hugo version
+```
+
+**Note**: You can keep `HUGO_SKIP_DOWNLOAD=1` set permanently — it just means Claude will need to run the curl commands after each `npm ci`.
