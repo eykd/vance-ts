@@ -95,12 +95,9 @@ jobs:
 
       - name: Deploy Hugo to Cloudflare Pages
         if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Project name can be configured via repository variable CLOUDFLARE_PAGES_PROJECT
-          # Defaults to 'turtlebased-site' if not set
-          projectName: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'turtlebased-site' }}
-          directory: hugo/public
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          # Project name and output dir are read from wrangler.toml
+          command: pages deploy hugo/public
