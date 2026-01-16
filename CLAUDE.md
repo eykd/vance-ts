@@ -121,6 +121,11 @@ Conventional commits enforced via commitlint:
 
 `git` and `gh` commands must be run outside the sandbox due to network restrictions.
 
+### Beads Task Management
+
+- **ALWAYS include `--description`** when creating beads tasks with `npx bd create`
+- Descriptions should explain the task's purpose, not just repeat the title
+
 ### Warnings and Deprecations
 
 **Address immediately** - Never ignore or defer:
@@ -164,6 +169,9 @@ When adding new functionality:
 - **API Design**: Defining contracts, validation, error handling strategies
 
 ## Active Technologies
+
+- Bash 5.x (GNU bash) + Claude CLI (`claude`), Beads CLI (`bd` v0.47+), Git, standard POSIX utilities (001-ralph-automation)
+- N/A (stateless script; beads handles persistence) (001-ralph-automation)
 
 - Markdown (Claude Skill format) + Bash scripts for integration + Git (for diff generation), beads CLI (`@beads/bd`), existing `security-review` skill (009-code-review-skill)
 - N/A (stateless skill, beads handles persistence) (009-code-review-skill)

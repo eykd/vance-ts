@@ -162,29 +162,35 @@ Given that feature description, do this:
 
    After creating the epic, create ALL phase tasks upfront with dependencies. This enables `/sp:next` to orchestrate the workflow.
 
-   a. Create all six phase tasks under the epic:
+   a. Create all six phase tasks under the epic with descriptions:
 
    ```bash
    # Extract feature name from branch (e.g., "010-user-auth" -> "user-auth")
    FEATURE_NAME="<short-name-from-step-2>"
 
    # Create phase tasks (store IDs from JSON responses)
-   npx bd create "[sp:02-clarify] Clarify requirements for $FEATURE_NAME" -p 1 --parent <epic-id> --json
+   npx bd create "[sp:02-clarify] Clarify requirements for $FEATURE_NAME" -p 1 --parent <epic-id> \
+     --description "Identify ambiguities in spec.md and resolve through user clarification questions" --json
    # Store returned ID as CLARIFY_ID
 
-   npx bd create "[sp:03-plan] Create implementation plan for $FEATURE_NAME" -p 1 --parent <epic-id> --json
+   npx bd create "[sp:03-plan] Create implementation plan for $FEATURE_NAME" -p 1 --parent <epic-id> \
+     --description "Design technical architecture and create plan.md with implementation approach" --json
    # Store returned ID as PLAN_ID
 
-   npx bd create "[sp:04-checklist] Generate requirements checklist for $FEATURE_NAME" -p 2 --parent <epic-id> --json
+   npx bd create "[sp:04-checklist] Generate requirements checklist for $FEATURE_NAME" -p 2 --parent <epic-id> \
+     --description "Generate verification checklist from spec requirements for implementation validation" --json
    # Store returned ID as CHECKLIST_ID
 
-   npx bd create "[sp:05-tasks] Generate implementation tasks for $FEATURE_NAME" -p 1 --parent <epic-id> --json
+   npx bd create "[sp:05-tasks] Generate implementation tasks for $FEATURE_NAME" -p 1 --parent <epic-id> \
+     --description "Break down plan.md into granular beads tasks with dependencies for TDD implementation" --json
    # Store returned ID as TASKS_ID
 
-   npx bd create "[sp:06-implement] Execute implementation for $FEATURE_NAME" -p 1 --parent <epic-id> --json
+   npx bd create "[sp:06-implement] Execute implementation for $FEATURE_NAME" -p 1 --parent <epic-id> \
+     --description "Implement all tasks using strict red-green-refactor TDD, closing each task on completion" --json
    # Store returned ID as IMPLEMENT_ID
 
-   npx bd create "[sp:09-review] Code review for $FEATURE_NAME" -p 2 --parent <epic-id> --json
+   npx bd create "[sp:09-review] Code review for $FEATURE_NAME" -p 2 --parent <epic-id> \
+     --description "Review implemented code for quality, security, and adherence to spec requirements" --json
    # Store returned ID as REVIEW_ID
    ```
 
