@@ -39,10 +39,10 @@ You **MUST** consider the user input before proceeding (if not empty).
    - All file paths must be absolute.
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
-2. **Clarify intent (dynamic)**: Derive up to THREE initial contextual clarifying questions (no pre-baked catalog). They MUST:
+2. **Clarify intent (dynamic)**: Derive and ask contextual clarifying questions ONE AT A TIME (no pre-baked catalog). Each question MUST:
    - Be generated from the user's phrasing + extracted signals from spec/plan/tasks
    - Only ask about information that materially changes checklist content
-   - Be skipped individually if already unambiguous in `$ARGUMENTS`
+   - Be skipped if already unambiguous in `$ARGUMENTS` or previous answers
    - Prefer precision over breadth
 
    Generation algorithm:
@@ -69,7 +69,14 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Audience: Reviewer (PR) if code-related; Author otherwise
    - Focus: Top 2 relevance clusters
 
-   Output the questions (label Q1/Q2/Q3). After answers: if ≥2 scenario classes (Alternate / Exception / Recovery / Non-Functional domain) remain unclear, you MAY ask up to TWO more targeted follow‑ups (Q4/Q5) with a one-line justification each (e.g., "Unresolved recovery path risk"). Do not exceed five total questions. Skip escalation if user explicitly declines more.
+   **CRITICAL: Ask questions SEQUENTIALLY, one at a time**:
+   - Generate Q1 and ask it using AskUserQuestion
+   - After receiving the answer, determine if another question is needed
+   - If needed, generate Q2 based on Q1's answer and ask it
+   - Continue this pattern for up to 3 initial questions
+   - After initial questions: if ≥2 scenario classes (Alternate / Exception / Recovery / Non-Functional domain) remain unclear, you MAY ask up to TWO more targeted follow‑ups (Q4/Q5) with a one-line justification each (e.g., "Unresolved recovery path risk")
+   - Do not exceed five total questions
+   - Skip further questions if user explicitly declines or if sufficient information is gathered
 
 3. **Understand user request**: Combine `$ARGUMENTS` + clarifying answers:
    - Derive checklist theme (e.g., security, review, deploy, ux)
