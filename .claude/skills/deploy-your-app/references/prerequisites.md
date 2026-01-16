@@ -83,6 +83,7 @@ Claude Code for the Web runs in a sandboxed environment that blocks network acce
    - `api.cloudflare.com`
    - `cloudflare.com`
    - `github.com` (required for downloading Hugo binary during npm install)
+   - `release-assets.githubusercontent.com` (GitHub redirects binary downloads here)
 5. Click **Save**
 
 **Step 3: Start a new session**
@@ -202,6 +203,7 @@ This means network access to Cloudflare's APIs is blocked. Claude Code for the W
    - `api.cloudflare.com`
    - `cloudflare.com`
    - `github.com` (required for downloading Hugo binary during npm install)
+   - `release-assets.githubusercontent.com` (GitHub redirects binary downloads here)
 5. Click **Save**
 6. **Start a new session** — network settings are loaded at session start
 
