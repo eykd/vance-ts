@@ -1,3 +1,6 @@
+# Site parameters - branding, SEO defaults, social links, and theme settings.
+# Referenced in templates via .Site.Params (e.g., .Site.Params.description)
+
 title: "My Hugo Site"
 description: "A modern static website built with Hugo, TailwindCSS, and DaisyUI"
 images:

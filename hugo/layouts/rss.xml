@@ -1,3 +1,7 @@
+{{/*
+  RSS feed template - generates RSS 2.0 XML for syndication.
+  Respects RSS limit from site config; includes Atom self-link.
+*/}}
 {{- $pctx := . -}}
 {{- if .IsHome -}}{{ $pctx = .Site }}{{- end -}}
 {{- $pages := slice -}}

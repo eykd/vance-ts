@@ -1,3 +1,6 @@
+# Hugo core configuration - build settings, modules, taxonomies, and outputs.
+# Site-specific settings are in config/_default/params.yaml.
+
 languageCode: "en-us"
 
 build:

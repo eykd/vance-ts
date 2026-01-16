@@ -1,3 +1,6 @@
+# Hero section data - configures the home page hero block.
+# Used by layouts/_partials/blocks/home/hero.html
+
 enable: true
 title: "Welcome to My Hugo Site"
 subtitle: "A modern static website built with Hugo, TailwindCSS, and DaisyUI. Fast, beautiful, and easy to customize."

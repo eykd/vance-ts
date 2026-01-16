@@ -1,3 +1,6 @@
+# Navigation menus - defines links for header and footer.
+# main: header nav links | buttons: header CTAs | footer: footer links
+
 main:
   - name: "Home"
     url: "/"

@@ -1,3 +1,7 @@
+{{/*
+  Pagination controls - prev/next buttons with page numbers.
+  Shows adjacent pages (±2) around current page; uses DaisyUI join component.
+*/}}
 {{- $paginator := .Paginator -}}
 {{- if gt $paginator.TotalPages 1 -}}
 <div class="join">

@@ -1,3 +1,7 @@
+{{/*
+  Home page layout - renders the landing page with hero section and content.
+  Uses data from data/home/ for configurable blocks.
+*/}}
 {{ define "page-styles" }}
 {{- with .Site.Data.home.hero -}}
 {{- if .image -}}
