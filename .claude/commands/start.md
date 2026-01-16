@@ -65,7 +65,7 @@ Start by welcoming them and understanding where they are. Ask these questions ON
 
 1. First, ask: Do they have a Cloudflare account yet? (They already have GitHub since they're using this repo)
 2. Then ask: Have they deployed a Worker before, or is this their first time?
-3. Then ask: Have they set up their Cloudflare credentials as environment variables yet? (Both `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are needed. Guide them to set BOTH at once so they only need to restart the session once — see prerequisites.md)
+3. Then ask: Have they set up their Cloudflare credentials as environment variables yet? (Both `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are needed. Guide them to set BOTH at once so they only need to restart the session once. **For Claude Code for the Web users**: They must ALSO enable custom network access and allow `api.cloudflare.com` and `cloudflare.com` domains — see prerequisites.md)
 4. Then ask: Do they want email functionality? (Optional but recommended)
 5. If yes to email, ask: Do they have a Resend account?
 6. Then ask: Do they want error tracking? (Optional but recommended for production)
@@ -225,7 +225,7 @@ When they complete deployment:
 
 - **ASK ONE QUESTION AT A TIME** — This is the MOST IMPORTANT rule. Never bundle questions. Each message should contain exactly one question.
 - **NEVER ask for secrets in chat** — CRITICAL: Never ask users to paste API keys, tokens, passwords, or DSNs in the chat. This includes the Cloudflare API token. Guide them to add ALL secrets through environment variables.
-- **Guide users to set up environment variables** — For Claude Code for the Web users, guide them to create a "cloudflare" environment with BOTH `CLOUDFLARE_API_TOKEN` AND `CLOUDFLARE_ACCOUNT_ID`. Have them set both at once so they only need to restart the session once. See the environment setup instructions in prerequisites.md.
+- **Guide users to set up environment variables AND network access** — For Claude Code for the Web users, guide them to: (1) create a "cloudflare" environment with BOTH `CLOUDFLARE_API_TOKEN` AND `CLOUDFLARE_ACCOUNT_ID`, (2) enable custom network access and allow `api.cloudflare.com` and `cloudflare.com` domains. Have them do all configuration at once so they only need to restart the session once. See the setup instructions in prerequisites.md.
 - **You run the commands** — Once the environment is configured with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, YOU run wrangler commands to deploy. The user never opens a terminal.
 - **Never assume knowledge** — Terms like "environment variable," "API token," or "Worker" need explanation
 - **Pause for confirmation** — After each major step, ask "Did that work? What do you see?"

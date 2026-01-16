@@ -63,13 +63,33 @@ Claude needs an API token to deploy your Worker and manage infrastructure on you
 
 #### For Claude Code for the Web users:
 
+**Step 1: Set up environment variables**
+
 1. In the left sidebar, click the **gear icon** (Settings) or look for **Environments**
 2. Click **Create environment** and name it `cloudflare`
 3. Add **two** variables:
    - **Name**: `CLOUDFLARE_API_TOKEN` / **Value**: Paste your API token here
    - **Name**: `CLOUDFLARE_ACCOUNT_ID` / **Value**: Paste your Account ID here
 4. Click **Save**
-5. **Start a new session** in the `cloudflare` environment (environment variables are loaded at session start, so you need a fresh session to pick up the new values)
+
+**Step 2: Enable network access to Cloudflare APIs**
+
+Claude Code for the Web runs in a sandboxed environment that blocks network access by default. You need to allow access to Cloudflare's APIs so the wrangler tool can deploy your application.
+
+1. In the left sidebar, click the **gear icon** (Settings)
+2. Find **Network access** (or similar setting)
+3. Select **Custom** network access
+4. Add these domains to the allowlist:
+   - `api.cloudflare.com`
+   - `cloudflare.com`
+5. Click **Save**
+
+**Step 3: Start a new session**
+
+Environment variables and network settings are loaded at session start, so you need a fresh session to pick up the new values:
+
+1. Start a new session in the `cloudflare` environment
+2. Return to this guide and let Claude know you're ready
 
 #### For local Claude Code users:
 
@@ -169,3 +189,18 @@ This means the environment variables aren't set up correctly:
 2. **Local users**: Make sure your `.env` file is in the project root, or export the variables in your shell
 3. Verify the variable names are exactly `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` (case-sensitive)
 4. **Did you restart the session?** Environment variables are only loaded at session start — you need a fresh session after adding them
+
+### "Wrangler can't connect to Cloudflare" or "Network error" (Claude Code for the Web)
+
+This means network access to Cloudflare's APIs is blocked. Claude Code for the Web runs in a sandbox that restricts network access by default.
+
+1. Go to **Settings** (gear icon in the left sidebar)
+2. Find **Network access** settings
+3. Select **Custom** network access
+4. Add these domains to the allowlist:
+   - `api.cloudflare.com`
+   - `cloudflare.com`
+5. Click **Save**
+6. **Start a new session** — network settings are loaded at session start
+
+**Note**: This only affects Claude Code for the Web users. Local Claude Code users don't need this step.
