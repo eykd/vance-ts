@@ -82,12 +82,31 @@ You **MUST** consider the user input before proceeding (if not empty).
    ```
 
    b. **Execute the task implementation**:
-   - Follow TDD approach if tests are included
-   - Create/modify files as specified in task description
+
+   **For TypeScript code changes** - Apply strict red-green-refactor TDD:
+   - **RED**: Write a failing test FIRST (create `.spec.ts` file if needed)
+   - **GREEN**: Write MINIMAL code to make the test pass
+   - **REFACTOR**: Improve code while maintaining green tests
+   - Use `npx jest --watch` during development
+   - Run `npm run check` before marking task complete
+
+   **For Hugo template/content changes** (files in `hugo/` directory):
+   - Make the change to layouts/, content/, or assets/
+   - Run `cd hugo && npm test` to verify build succeeds
+   - Fix any build errors before proceeding
+   - Do NOT write Jest tests for Hugo templates
+
    - Use skills referenced in task description for guidance
    - Validate the implementation works
 
-   c. **Mark task complete**:
+   c. **Commit changes before closing task**:
+   - Stage all changes: `git add -A`
+   - Create conventional commit with descriptive message
+   - Pre-commit hooks MUST run and MUST pass
+   - If hooks fail, fix issues and retry the commit
+   - Never use `--no-verify` to skip hooks
+
+   d. **Mark task complete**:
 
    ```bash
    npx bd close <task-id> --reason "<brief-completion-summary>" --json
@@ -95,7 +114,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    - Provide a brief summary of what was done
 
-   d. **Check for newly ready tasks**:
+   e. **Check for newly ready tasks**:
 
    ```bash
    npx bd ready --json

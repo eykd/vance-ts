@@ -157,6 +157,39 @@ check_clarify_complete() {
     return 0
 }
 
+# Check if task suite has been generated for the epic
+check_tasks_generated() {
+    local epic_id="$1"
+    local tasks_task status
+
+    # Find the tasks phase task for this epic (title contains [sp:05-tasks])
+    tasks_task=$(npx bd list --parent "$epic_id" --json 2>/dev/null | \
+        jq -r '.[] | select(.title | contains("[sp:05-tasks]")) | {id, status}' | head -n1)
+
+    if [[ -z "$tasks_task" ]]; then
+        echo "Error: No tasks phase found for epic $epic_id" >&2
+        echo "" >&2
+        echo "The task suite has not been generated yet. Run these phases first:" >&2
+        echo "  1. '/sp:03-plan' to create the implementation plan" >&2
+        echo "  2. '/sp:04-checklist' to generate the checklist" >&2
+        echo "  3. '/sp:05-tasks' to generate beads tasks" >&2
+        echo "" >&2
+        echo "Once tasks are generated, ralph.sh can automate implementation." >&2
+        return 1
+    fi
+
+    status=$(echo "$tasks_task" | jq -r '.status')
+
+    if [[ "$status" != "closed" ]]; then
+        echo "Error: Task generation not complete (status: $status)" >&2
+        echo "" >&2
+        echo "Run '/sp:05-tasks' to generate the task suite before running ralph." >&2
+        return 1
+    fi
+
+    return 0
+}
+
 # Run all prerequisite checks
 validate_prerequisites() {
     local epic_id="$1"
@@ -166,6 +199,7 @@ validate_prerequisites() {
     check_claude_cli || return 1
     check_beads_init || return 1
     check_clarify_complete "$epic_id" || return 1
+    check_tasks_generated "$epic_id" || return 1
 
     echo "[ralph] All prerequisites satisfied"
     return 0
@@ -347,19 +381,84 @@ get_next_task() {
 }
 
 ##############################################################################
+# Task type detection and prompt generation
+##############################################################################
+
+# Check if task involves Hugo templates/content (vs TypeScript code)
+is_hugo_task() {
+    local task_json="$1"
+    local title description
+
+    title=$(echo "$task_json" | jq -r '.title // ""')
+    description=$(echo "$task_json" | jq -r '.description // ""')
+
+    # Hugo indicators: directory paths, skills, keywords
+    [[ "$title" =~ (hugo|Hugo|template|layout|partial|\.html) ]] || \
+    [[ "$description" =~ (hugo/|layouts/|htmx-alpine-templates|hugo-templates|hugo-project-setup) ]]
+}
+
+# Generate focused prompt based on task type
+generate_focused_prompt() {
+    local task_json="$1"
+    local task_title
+
+    task_title=$(echo "$task_json" | jq -r '.title // "unknown"')
+
+    # Start with base prompt
+    cat <<EOF
+/sp:next
+
+## Task Focus
+Complete ONLY this task: $task_title
+Do NOT explore unrelated code or work on other tasks.
+EOF
+
+    # Add testing instructions based on task type
+    if is_hugo_task "$task_json"; then
+        cat <<EOF
+
+## Hugo Build Testing
+After changes to hugo/ files:
+1. Run: cd hugo && npm test
+2. Fix any build errors before proceeding
+EOF
+    else
+        cat <<EOF
+
+## TDD Practice
+Apply strict red-green-refactor:
+1. RED: Write failing test first
+2. GREEN: Minimal code to pass
+3. REFACTOR: Improve while green
+Run: npx jest --watch
+EOF
+    fi
+
+    # Always add commit instructions
+    cat <<EOF
+
+## After Task Completion
+Commit all changes:
+1. Stage changes: git add -A
+2. Commit with conventional message
+3. Pre-commit hooks MUST run and pass
+4. If hooks fail, fix issues and retry commit
+EOF
+}
+
+##############################################################################
 # Claude CLI invocation
 ##############################################################################
 
-# Invoke Claude CLI with /sp:next prompt
+# Invoke Claude CLI with focused prompt
 # Returns the exit code from Claude
 invoke_claude() {
+    local prompt="$1"
     local exit_code
 
-    echo "[ralph] Invoking: claude -p '/sp:next'"
+    echo "[ralph] Invoking Claude with focused prompt"
 
-    # Use -p flag to provide the prompt directly
-    # Output goes to stdout for visibility
-    if claude -p "/sp:next"; then
+    if claude -p "$prompt"; then
         exit_code=0
     else
         exit_code=$?
@@ -393,13 +492,14 @@ calculate_delay() {
 # Invoke Claude with exponential backoff retry
 # Returns 0 on success, 1 if all retries exhausted
 invoke_claude_with_retry() {
+    local prompt="$1"
     local attempt=0
     local delay
 
     while (( attempt < MAX_RETRIES )); do
         attempt=$((attempt + 1))
 
-        if invoke_claude; then
+        if invoke_claude "$prompt"; then
             return 0
         fi
 
@@ -423,8 +523,8 @@ invoke_claude_with_retry() {
 run_loop() {
     local epic_id="$1"
     local iteration=0
-    local next_task task_id task_title
-    local claude_exit_code
+    local next_task task_id task_title task_type
+    local focused_prompt
 
     echo "[ralph] Starting automation loop (max $MAX_ITERATIONS iterations)"
 
@@ -443,17 +543,28 @@ run_loop() {
         task_id=$(echo "$next_task" | jq -r '.id // "unknown"')
         task_title=$(echo "$next_task" | jq -r '.title // "unknown"')
 
-        echo "[ralph] Iteration $iteration/$MAX_ITERATIONS: $task_title ($task_id)"
+        # Detect task type for logging
+        if is_hugo_task "$next_task"; then
+            task_type="Hugo"
+        else
+            task_type="TypeScript"
+        fi
+
+        echo "[ralph] Iteration $iteration/$MAX_ITERATIONS: $task_title ($task_id) [$task_type]"
+
+        # Generate focused prompt
+        focused_prompt=$(generate_focused_prompt "$next_task")
 
         if [[ "$DRY_RUN" == "true" ]]; then
-            echo "[ralph] DRY RUN: Would invoke 'claude -p /sp:next'"
-            # In dry-run mode, just show what would happen and exit
-            echo "[ralph] DRY RUN: Exiting after showing first iteration"
+            echo "[ralph] DRY RUN: Would invoke Claude with prompt:"
+            echo "---"
+            echo "$focused_prompt"
+            echo "---"
             return "$EXIT_SUCCESS"
         fi
 
         # Invoke Claude CLI with retry logic
-        if invoke_claude_with_retry; then
+        if invoke_claude_with_retry "$focused_prompt"; then
             echo "[ralph] Claude completed successfully"
         else
             echo "[ralph] Claude failed after $MAX_RETRIES retries"
