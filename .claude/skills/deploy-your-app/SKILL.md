@@ -181,8 +181,32 @@ Once deployed:
 After deployment, you can:
 
 1. **Ask Claude to help you** make changes via Claude Code
-2. **Claude redeploys** by running `wrangler deploy` (takes <30 seconds)
+2. **Claude redeploys** by running `wrangler pages deploy` (takes <30 seconds)
 3. **Edit code directly on GitHub** then tell Claude to redeploy
+
+### "What are preview deployments?"
+
+When deploying from a branch other than master, Cloudflare creates a **preview deployment**:
+
+- **Production URL** (`yourproject.pages.dev`) — Only works after deploying from master
+- **Branch alias URL** (`my-branch.yourproject.pages.dev`) — Works immediately, always points to latest deployment from that branch
+- **Deployment-specific URL** (`abc123.yourproject.pages.dev`) — Works immediately, permanent link to this specific deployment
+
+Preview deployments are fully functional — they include all Pages Functions and infrastructure. TLS certificates may take 1-3 minutes to provision on new URLs.
+
+### "How do I clean up old preview deployments?"
+
+Preview deployments persist indefinitely. Claude can help clean them up:
+
+```bash
+# List all deployments
+npx wrangler pages deployment list --project-name=<name>
+
+# Delete a specific deployment
+npx wrangler pages deployment delete <id> --project-name=<name>
+```
+
+Claude will offer to clean up old preview deployments after merging branches or periodically during maintenance.
 
 ### "How do I add a custom domain?"
 

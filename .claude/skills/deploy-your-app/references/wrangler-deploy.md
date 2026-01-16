@@ -315,6 +315,90 @@ wrangler rollback <deployment-id>
 
 ---
 
+## 3.7 Preview Deployments vs. Production Deployments
+
+Cloudflare Pages distinguishes between **production** and **preview** deployments based on the branch.
+
+### How It Works
+
+When you create a Pages project, you specify a **production branch** (typically `master` or `main`). This determines which branch serves the main URL.
+
+| Deployment Source          | URL Type                | Example                                         |
+| -------------------------- | ----------------------- | ----------------------------------------------- |
+| Production branch (master) | Main production URL     | `https://myproject.pages.dev`                   |
+| Any other branch           | Branch alias URL        | `https://my-feature-branch.myproject.pages.dev` |
+| Any deployment             | Deployment-specific URL | `https://abc123def.myproject.pages.dev`         |
+
+### Important Implications
+
+1. **Main URL won't work until deployed from production branch**: If you deploy from a feature branch, the main URL (e.g., `myproject.pages.dev`) will show an error until you deploy from master.
+
+2. **Preview deployments are fully functional**: Branch deployments include all Pages Functions, D1 bindings, KV, R2 — everything works. They're perfect for testing.
+
+3. **Preview URLs persist indefinitely**: The hash-based deployment URLs continue working as long as the deployment exists. There's no auto-cleanup.
+
+4. **TLS certificate provisioning takes a few minutes**: When a new preview URL is created, Cloudflare needs to provision a TLS certificate. During this time (typically 1-3 minutes), you may see TLS/SSL errors when visiting the URL. This is normal — wait a few minutes and try again.
+
+### When Deploying from a Branch
+
+Always inform the user:
+
+- Which URL works NOW (the deployment-specific or branch alias URL)
+- That the main URL won't work until merging to the production branch
+- Offer to merge and deploy to production if they want the main URL active
+
+---
+
+## 3.8 Cleaning Up Preview Deployments
+
+Preview deployments accumulate over time. While Cloudflare doesn't charge for storage, cleaning up old deployments is good hygiene.
+
+### Listing Deployments
+
+```bash
+# List all deployments for a project
+npx wrangler pages deployment list --project-name=<project-name>
+```
+
+### Deleting Old Deployments
+
+```bash
+# Delete a specific deployment by ID
+npx wrangler pages deployment delete <deployment-id> --project-name=<project-name>
+```
+
+### When to Offer Cleanup
+
+**Always offer to clean up preview deployments** in these situations:
+
+1. **After merging a feature branch to production** — The preview deployment for that branch is no longer needed
+2. **When listing deployments shows many old entries** — Suggest cleaning up deployments older than a certain date
+3. **After deleting a feature branch** — The associated preview deployments can be removed
+4. **Periodically during maintenance** — Offer to review and clean up stale deployments
+
+### Example Cleanup Flow
+
+```
+Claude: "I see you have 12 preview deployments from old branches. Would you like me to clean up deployments older than 30 days? I'll keep the production deployment and any recent branch previews."
+
+User: "Yes please"
+
+Claude: [Lists deployments, identifies old ones, deletes them one by one]
+Claude: "Done! I removed 8 old preview deployments. Your current production deployment and 3 recent previews are still active."
+```
+
+### Limits to Be Aware Of
+
+| Resource                   | Limit                      |
+| -------------------------- | -------------------------- |
+| Builds per month (Free)    | 500 (account-wide)         |
+| Active preview deployments | Unlimited                  |
+| Deployment retention       | Indefinite (until deleted) |
+
+The main constraint is the 500 builds/month limit, not storage of old deployments.
+
+---
+
 ## Next Steps
 
 **If you want email functionality**: Continue to `email-setup.md` to configure Resend.

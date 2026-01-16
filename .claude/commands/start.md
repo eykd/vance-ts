@@ -169,6 +169,32 @@ So the full flow for projects with both Workers AND Hugo/Pages is:
 3. Set up GitHub secrets → Enables CI/CD
 4. Future CI runs will update both Worker and Pages
 
+### IMPORTANT: Preview Deployments vs. Production Deployments
+
+**When deploying from a branch (not master)**, Cloudflare creates a **preview deployment**:
+
+- **Production URL** (e.g., `https://{project-name}.pages.dev`) — **Will NOT work** until you deploy from the production branch (master). This URL only serves content deployed from master.
+- **Deployment-specific URL** (e.g., `https://abc123def.{project-name}.pages.dev`) — **Works immediately**. This hash-based URL points to this specific deployment.
+- **Branch alias URL** (e.g., `https://my-branch-name.{project-name}.pages.dev`) — **Works immediately**. This URL always points to the latest deployment from that branch.
+
+**When reporting deployment success to the user:**
+
+1. Tell them the **deployment-specific URL** (the hash URL) is live and working NOW
+2. Explain that the **main production URL** won't work until the branch is merged to master and deployed
+3. If they want the production URL working immediately, offer to merge the branch to master
+
+**TLS Certificate Provisioning**: New preview URLs may show TLS/SSL errors for 1-3 minutes while Cloudflare provisions the certificate. Warn the user this is normal and to wait a few minutes before trying again.
+
+**Example message:**
+
+> "Your site is deployed! You can preview it now at `https://abc123.yourproject.pages.dev`.
+>
+> Note: It may take 1-3 minutes for the TLS certificate to be provisioned — if you see a security error, wait a moment and refresh.
+>
+> The main URL (`https://yourproject.pages.dev`) won't be active until we merge this branch to master. Would you like me to merge and deploy to production now?"
+
+Preview deployments include all Pages Functions and infrastructure — they're complete, isolated environments perfect for testing before going to production.
+
 ### 3. Handle Problems
 
 If they encounter issues:
