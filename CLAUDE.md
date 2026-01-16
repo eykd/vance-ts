@@ -165,6 +165,9 @@ When adding new functionality:
 
 ## Active Technologies
 
+- Bash 5.x (GNU bash) + Claude CLI (`claude`), Beads CLI (`bd` v0.47+), Git, standard POSIX utilities (001-ralph-automation)
+- N/A (stateless script; beads handles persistence) (001-ralph-automation)
+
 - Markdown (Claude Skill format) + Bash scripts for integration + Git (for diff generation), beads CLI (`@beads/bd`), existing `security-review` skill (009-code-review-skill)
 - N/A (stateless skill, beads handles persistence) (009-code-review-skill)
 
