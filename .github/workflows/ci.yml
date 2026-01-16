@@ -48,8 +48,7 @@ jobs:
         run: npm run build
 
   deploy:
-    # Only deploy on push to master branch (after PR merge)
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    # Deploy on push (production) and PRs (preview URLs)
     needs: quality
     runs-on: ubuntu-latest
 
@@ -99,5 +98,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           # Project name and output dir are read from wrangler.toml
           command: pages deploy hugo/public
