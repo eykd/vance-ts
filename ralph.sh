@@ -175,41 +175,60 @@ validate_prerequisites() {
 # Lock file management
 ##############################################################################
 
-# Check if a process with given PID is running
-is_process_running() {
+# Check if a process with given PID is a running ralph.sh instance
+# Validates both PID existence and process identity to handle PID reuse
+is_ralph_running() {
     local pid="$1"
-    kill -0 "$pid" 2>/dev/null
-}
+    local cmd
 
-# Acquire exclusive lock for this branch
-acquire_lock() {
-    local branch="$1"
-
-    if [[ -f "$LOCK_FILE" ]]; then
-        local existing_pid existing_branch
-        existing_pid=$(head -n1 "$LOCK_FILE" 2>/dev/null || echo "")
-        existing_branch=$(sed -n '3p' "$LOCK_FILE" 2>/dev/null || echo "")
-
-        if [[ -n "$existing_pid" ]] && is_process_running "$existing_pid"; then
-            echo "Error: ralph.sh is already running on branch '$existing_branch' (PID: $existing_pid)" >&2
-            echo "If this is stale, remove $LOCK_FILE manually." >&2
-            return 1
-        fi
-
-        # Stale lock file - remove it
-        echo "[ralph] Removing stale lock file (PID $existing_pid not running)"
-        rm -f "$LOCK_FILE"
+    # First check if the process exists
+    if ! kill -0 "$pid" 2>/dev/null; then
+        return 1
     fi
 
-    # Create lock file with PID, timestamp, and branch
-    {
-        echo "$$"
-        date -Iseconds
-        echo "$branch"
-    } > "$LOCK_FILE"
+    # Verify it's actually a ralph.sh process (handles PID reuse)
+    cmd=$(ps -p "$pid" -o comm= 2>/dev/null) || return 1
+    [[ "$cmd" == "ralph.sh" || "$cmd" == "bash" ]]
+}
 
-    echo "[ralph] Acquired lock (PID: $$)"
-    return 0
+# Acquire exclusive lock for this branch using atomic file creation
+acquire_lock() {
+    local branch="$1"
+    local lock_content existing_pid existing_branch
+
+    # Prepare lock content: PID, timestamp, branch
+    lock_content="$$
+$(date -Iseconds)
+$branch"
+
+    # Try atomic lock creation first (prevents TOCTOU race condition)
+    if ( set -o noclobber; echo "$lock_content" > "$LOCK_FILE" ) 2>/dev/null; then
+        echo "[ralph] Acquired lock (PID: $$)"
+        return 0
+    fi
+
+    # Lock file exists - check if it's stale
+    existing_pid=$(head -n1 "$LOCK_FILE" 2>/dev/null || echo "")
+    existing_branch=$(sed -n '3p' "$LOCK_FILE" 2>/dev/null || echo "")
+
+    if [[ -n "$existing_pid" ]] && is_ralph_running "$existing_pid"; then
+        echo "Error: ralph.sh is already running on branch '$existing_branch' (PID: $existing_pid)" >&2
+        echo "If this is stale, remove $LOCK_FILE manually." >&2
+        return 1
+    fi
+
+    # Stale lock file - remove and retry atomically
+    echo "[ralph] Removing stale lock file (PID $existing_pid not running)"
+    rm -f "$LOCK_FILE"
+
+    if ( set -o noclobber; echo "$lock_content" > "$LOCK_FILE" ) 2>/dev/null; then
+        echo "[ralph] Acquired lock (PID: $$)"
+        return 0
+    fi
+
+    # Another process acquired the lock between rm and create
+    echo "Error: Another ralph.sh instance acquired the lock" >&2
+    return 1
 }
 
 # Release the lock file
