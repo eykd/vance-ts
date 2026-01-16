@@ -94,14 +94,24 @@ Claude will help you choose a unique Worker name and update `wrangler.toml` auto
 
 Claude handles this by editing wrangler.toml, committing, and pushing to GitHub.
 
-### Phase 3: Deploy Your Worker (3 minutes)
+### Phase 3: Deploy Your Application (3 minutes)
 
-Claude runs `wrangler deploy` which automatically:
+**This boilerplate uses Cloudflare Pages** (Hugo static site + Pages Functions for dynamic endpoints).
+
+**CRITICAL: Always use `wrangler pages deploy`, NOT `wrangler deploy`!**
+
+```bash
+wrangler pages deploy dist --project-name=<project-name>
+```
+
+Using `wrangler deploy` will fail with: **"Missing entry-point to Worker script"**
+
+Claude deploys which automatically:
 
 - Creates your D1 database
 - Creates your R2 storage bucket
 - Creates your KV namespace
-- Deploys your Worker code globally
+- Deploys your code globally
 
 See `references/wrangler-deploy.md` for what happens during deployment.
 

@@ -1,10 +1,25 @@
-# Phase 3: Deploy Your Worker
+# Phase 3: Deploy Your Application
 
-Now comes the exciting part—Claude will deploy your Worker to Cloudflare's global network!
+Now comes the exciting part—Claude will deploy your application to Cloudflare's global network!
+
+## CRITICAL: This Boilerplate Uses Cloudflare Pages
+
+This boilerplate is a **Hugo + Cloudflare Pages** hybrid:
+
+- **Hugo** generates static HTML → served from Cloudflare's CDN
+- **Pages Functions** (`functions/` directory) → handle dynamic endpoints like `/app/_/*`
+
+**Always use `wrangler pages deploy`, NOT `wrangler deploy`!**
+
+```bash
+wrangler pages deploy dist --project-name=<project-name>
+```
+
+Using `wrangler deploy` will fail with: **"Missing entry-point to Worker script"**
 
 ## What Happens During Deployment
 
-When Claude runs `wrangler deploy`, a lot happens automatically behind the scenes. Here's what you need to know:
+When Claude runs the appropriate deploy command, a lot happens automatically behind the scenes. Here's what you need to know:
 
 ### 3.1 Automatic Infrastructure Creation
 
@@ -13,13 +28,13 @@ Wrangler reads your `wrangler.toml` configuration file and automatically creates
 1. **D1 Database** — A SQL database for storing data (user accounts, application data, etc.)
 2. **R2 Storage Bucket** — File storage for uploads, images, and documents
 3. **KV Namespace** — Fast key-value storage for caching frequently accessed data
-4. **Worker Script** — Your application code deployed globally
+4. **Pages Functions** — Your dynamic endpoint code deployed globally (from `functions/` directory)
 
 **The magic**: You don't create these manually. Wrangler sees the configuration and provisions everything for you.
 
 ### 3.2 Global Deployment
 
-Your Worker code is deployed to **hundreds of Cloudflare data centers** simultaneously:
+Your application is deployed to **hundreds of Cloudflare data centers** simultaneously:
 
 - North America: 100+ locations
 - Europe: 80+ locations
@@ -45,26 +60,27 @@ Claude sets up wrangler to use your API token:
 
 ```bash
 export CLOUDFLARE_API_TOKEN="your-token-here"
+export CLOUDFLARE_ACCOUNT_ID="your-account-id-here"
 ```
 
 This tells wrangler to deploy to your Cloudflare account.
 
 ### Step 2: Build the Project
 
-Claude builds your TypeScript code:
+Claude builds your project:
 
 ```bash
 npm run build
 ```
 
-This compiles your TypeScript into JavaScript that Workers can run.
+This builds Hugo and compiles CSS into the `dist/` directory.
 
-### Step 3: Deploy to Cloudflare
+### Step 3: Deploy to Cloudflare Pages
 
-Claude runs the deployment:
+Claude reads the project name from wrangler.toml and runs:
 
 ```bash
-wrangler deploy
+wrangler pages deploy dist --project-name=your-project-name
 ```
 
 You'll see output like:
@@ -72,20 +88,14 @@ You'll see output like:
 ```
 ⛅️ wrangler 3.x.x
 -------------------
-Total Upload: 45.2 KiB / gzip: 12.3 KiB
-Uploaded your-worker-name (1.23 sec)
-Published your-worker-name (0.45 sec)
-  https://your-worker-name.your-account.workers.dev
-Current Deployment ID: abc123def-456-789
-
-Note: Deployment ID has been logged to ".wrangler/tmp/bundle-id.txt"
+✨ Deployment complete! Take a peek over at https://abc123.your-project-name.pages.dev
 ```
 
 **What this means:**
 
-- Your code is uploaded (45.2 KB in this example)
+- Your static files and Pages Functions are uploaded
 - It's published globally (takes ~2 seconds)
-- You get a URL where your Worker is live
+- You get a URL where your application is live
 - A deployment ID lets you track this specific version
 
 ---
@@ -167,16 +177,44 @@ When Claude runs `wrangler deploy`, here's what each part means:
 
 After deployment completes:
 
-- [ ] Claude shows you the Worker URL (https://your-name.account.workers.dev)
+- [ ] Claude shows you the Pages URL (https://abc123.your-project-name.pages.dev)
 - [ ] No error messages in the deployment output
-- [ ] Cloudflare dashboard shows your Worker as "Active"
-- [ ] D1, R2, and KV resources appear in the dashboard
+- [ ] Cloudflare dashboard shows your Pages project under "Workers & Pages"
+- [ ] D1, R2, and KV resources appear in the dashboard (if configured)
 
-**Everything looks good?** Continue to Phase 4 (Email Setup) if you want email functionality, or skip to Phase 7 (Verify Deployment) to test your Worker.
+**Everything looks good?** Continue to Phase 4 (Email Setup) if you want email functionality, or skip to Phase 7 (Verify Deployment) to test your application.
 
 ---
 
 ## Troubleshooting
+
+### "Missing entry-point to Worker script"
+
+**This is the most common error!** It means you used `wrangler deploy` instead of `wrangler pages deploy`.
+
+**The fix:**
+
+Use the correct command for this Cloudflare Pages project:
+
+```bash
+wrangler pages deploy dist --project-name=<project-name>
+```
+
+**For GitHub Actions CI/CD:**
+
+Make sure your workflow uses `pages deploy`:
+
+```yaml
+# WRONG:
+- run: npx wrangler deploy
+
+# CORRECT:
+- uses: cloudflare/wrangler-action@v3
+  with:
+    apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    command: pages deploy dist --project-name=your-project-name
+```
 
 ### "Authentication failed"
 
