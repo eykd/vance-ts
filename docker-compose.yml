@@ -27,6 +27,7 @@ services:
       - ./.node_modules_linux:/workspace/node_modules:rw
       - ./.node_modules_linux_apps_worker:/workspace/apps/worker/node_modules:rw
       - ./.node_modules_linux_packages_core:/workspace/packages/core/node_modules:rw
+      - ./.node_modules_linux_hugo:/workspace/hugo/node_modules:rw
     ports: []
     tmpfs:
       - /tmp # avoid writing to container FS

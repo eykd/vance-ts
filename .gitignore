@@ -37,5 +37,8 @@ thoughts/
 !thoughts/**/.gitkeep
 .history/
 .node_modules_linux/
+.node_modules_linux_apps_worker/
+.node_modules_linux_packages_core/
+.node_modules_linux_hugo/
 tmp/
 .claude/cache/
