@@ -38,3 +38,4 @@ thoughts/
 .history/
 .node_modules_linux/
 tmp/
+.claude/cache/
