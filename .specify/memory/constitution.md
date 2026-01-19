@@ -2,14 +2,11 @@
 
 <!--
 Sync Impact Report:
-- Version: 1.0.0 → 1.1.0 (MINOR - Added Preamble and Zeroth Principle)
-- Modified principles: None (Principles I-VII unchanged)
-- Added sections:
-  - Preamble: Alignment and Purpose (Truth/Good/Beauty framework)
-  - Zeroth Principle: Fidelity to Reality and Stewardship
-- Removed sections:
-  - Development Workflow (Essential Commands, Implementation Pattern, Code Review Checklist)
-    Rationale: Moved to CLAUDE.md for runtime guidance per Governance section
+- Version: 1.1.0 → 1.1.1 (PATCH - Added prefactoring skill cross-reference)
+- Modified principles:
+  - VII. Simplicity and Maintainability: Added cross-reference to prefactoring skill
+- Added sections: None
+- Removed sections: None
 - Templates requiring updates:
   ✅ plan-template.md - Constitution Check section aligns with principles (no change needed)
   ✅ spec-template.md - User story prioritization aligns with Test-First principle (no change needed)
@@ -193,6 +190,14 @@ Start simple, build only what's needed, maintain clarity over cleverness.
 
 **Rationale**: Simple code is easier to understand, maintain, test, and debug. Premature optimization and feature speculation create unnecessary complexity and technical debt.
 
+**Reference**: The `/prefactoring` skill provides detailed guidance on applying these principles during design and implementation, including:
+
+- Architecture and system design patterns (separation of concerns, hierarchy, modularity)
+- Domain type creation (value objects, constants, data grouping)
+- Naming conventions and self-documenting code
+- Policy/implementation separation
+- Error handling strategies
+
 ---
 
 ## Governance
@@ -223,4 +228,4 @@ Constitution follows semantic versioning:
 - Violations require either fix or constitutional amendment
 - Use CLAUDE.md for runtime development guidance to Claude Code
 
-**Version**: 1.1.0 | **Ratified**: 2026-01-13 | **Last Amended**: 2026-01-19
+**Version**: 1.1.1 | **Ratified**: 2026-01-13 | **Last Amended**: 2026-01-19
