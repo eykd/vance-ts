@@ -133,7 +133,8 @@ check_clarify_complete() {
     local clarify_task status
 
     # Find the clarify task for this epic (title contains [sp:02-clarify])
-    clarify_task=$(npx bd list --parent "$epic_id" --json 2>/dev/null | \
+    # Must use --status closed since we're checking for completed phase tasks
+    clarify_task=$(npx bd list --parent "$epic_id" --status closed --json 2>/dev/null | \
         jq -r '.[] | select(.title | contains("[sp:02-clarify]")) | {id, status}' | head -n1)
 
     if [[ -z "$clarify_task" ]]; then
@@ -163,7 +164,8 @@ check_tasks_generated() {
     local tasks_task status
 
     # Find the tasks phase task for this epic (title contains [sp:05-tasks])
-    tasks_task=$(npx bd list --parent "$epic_id" --json 2>/dev/null | \
+    # Must use --status closed since we're checking for completed phase tasks
+    tasks_task=$(npx bd list --parent "$epic_id" --status closed --json 2>/dev/null | \
         jq -r '.[] | select(.title | contains("[sp:05-tasks]")) | {id, status}' | head -n1)
 
     if [[ -z "$tasks_task" ]]; then
