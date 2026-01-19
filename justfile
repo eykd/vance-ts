@@ -113,3 +113,15 @@ hugo-check:
     @echo "\nChecking Hugo dependencies..."
     @cd hugo && npm list --depth=0
     @echo "\n✅ Hugo setup verified!"
+
+# ============================================================================
+# Template Builder Commands
+# ============================================================================
+
+# Build tmplr template from repository
+build-template:
+    ./scripts/build-template.sh
+
+# Install tmplr binary for template instantiation
+install-tmplr:
+    ./scripts/install-tmplr.sh
