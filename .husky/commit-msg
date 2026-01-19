@@ -1,2 +1,1 @@
-npx bd hooks run commit-msg
 npx --no -- commitlint --edit ${1}
