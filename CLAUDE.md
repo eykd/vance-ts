@@ -170,6 +170,9 @@ When adding new functionality:
 
 ## Active Technologies
 
+- Bash 5.x (GNU bash), portable POSIX shell constructs + tmplr binary (GitHub releases), sha256sum/shasum for checksum verification, tar/find for file operations (001-template-builder)
+- N/A (file-based output to `dist/template.tmplr`) (001-template-builder)
+
 - Bash 5.x (GNU bash) + Claude CLI (`claude`), Beads CLI (`bd` v0.47+), Git, standard POSIX utilities (001-ralph-automation)
 - N/A (stateless script; beads handles persistence) (001-ralph-automation)
 
