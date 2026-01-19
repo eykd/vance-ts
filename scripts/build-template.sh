@@ -123,6 +123,12 @@ pages_build_output_dir = "hugo/public"
 EOF
 }
 
+# Required scaffold directories (excluded from git but needed for tests)
+readonly SCAFFOLD_DIRS=(
+    "thoughts/handoffs"
+    "thoughts/ledgers"
+)
+
 # Write a file section to the template (FR-011)
 write_file_section() {
     local path="$1"
@@ -153,6 +159,12 @@ EOF
     wrangler_content="$(generate_wrangler_toml)"
     write_file_section "wrangler.toml" "$wrangler_content" >> "$OUTPUT_FILE"
     ((files_processed++)) || true
+
+    # Add scaffold directories with .gitkeep (excluded dirs that need to exist)
+    for dir in "${SCAFFOLD_DIRS[@]}"; do
+        write_file_section "${dir}/.gitkeep" "" >> "$OUTPUT_FILE"
+        ((files_processed++)) || true
+    done
 
     # Process each file from the repository
     while IFS= read -r file; do
