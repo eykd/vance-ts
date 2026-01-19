@@ -5,6 +5,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Python cache
+__pycache__/
+
 # Test coverage
 coverage/
 
