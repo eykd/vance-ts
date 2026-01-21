@@ -167,6 +167,12 @@ Skills can also be activated automatically by Claude when it detects relevant co
 - **Provides:** Build scripts for index generation, D1 schema with FTS5, search handler patterns, deployment commands
 - **Cross-references:** d1-repository-implementation, cloudflare-migrations, typescript-html-templates
 
+**[hugo-copywriting](./hugo-copywriting/SKILL.md)**
+
+- **Use when:** Analyzing existing Hugo content for style compliance, writing new Hugo content with style guidance, choosing/documenting style guides, evaluating configuration copy, analyzing readability metrics, providing suggestions to match copywriter voice presets
+- **Provides:** Readability analysis (Flesch-Kincaid), reading time estimation, 10 copywriter style presets, 6 style guide references, advisory mode guidance, hugo/CLAUDE.md integration
+- **Cross-references:** hugo-templates, frontend-design, tailwind-daisyui-design, daisyui-design-system-generator
+
 ### Frontend & UI
 
 **[htmx-pattern-library](./htmx-pattern-library/SKILL.md)**

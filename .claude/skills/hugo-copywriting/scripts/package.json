@@ -1,0 +1,6 @@
+{
+  "name": "hugo-copywriting-scripts",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Readability analysis and reading time estimation for Hugo copywriting skill"
+}
