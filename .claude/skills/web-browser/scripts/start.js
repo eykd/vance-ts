@@ -29,9 +29,18 @@ if (unknownArgs.length > 0) {
 
 /**
  * Find Chrome/Chromium executable path for the current platform
+ * Prioritizes Playwright Chromium for consistency across environments
  * @returns {string | null} Path to Chrome executable or null if not found
  */
 function findChromePath() {
+  const home = process.env['HOME'] ?? '';
+
+  // Check Playwright Chromium first (all platforms)
+  const playwrightChrome = `${home}/.cache/ms-playwright/chromium-1200/chrome-linux64/chrome`;
+  if (existsSync(playwrightChrome)) {
+    return playwrightChrome;
+  }
+
   if (platform === 'darwin') {
     const macPath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
     if (existsSync(macPath)) {
@@ -40,7 +49,7 @@ function findChromePath() {
     return null;
   }
 
-  // Linux paths in order of preference
+  // Linux: system Chrome/Chromium fallbacks
   const linuxPaths = [
     '/usr/bin/google-chrome',
     '/usr/bin/google-chrome-stable',
@@ -113,10 +122,16 @@ function shouldRunHeadless() {
 const chromePath = findChromePath();
 if (!chromePath) {
   console.error('✗ Chrome/Chromium not found');
+  console.error('');
+  console.error('Recommended: Install Playwright Chromium (works everywhere)');
+  console.error('  npm install -g playwright');
+  console.error('  npx playwright install chromium --with-deps');
+  console.error('');
   if (platform === 'darwin') {
-    console.error('  Install Chrome from https://www.google.com/chrome/');
+    console.error('Alternative: Install Chrome from https://www.google.com/chrome/');
   } else {
-    console.error('  Install with: apt install google-chrome-stable');
+    console.error('Alternative: Install system Chrome');
+    console.error('  apt install google-chrome-stable');
     console.error('  Or: apt install chromium-browser');
   }
   process.exit(1);
