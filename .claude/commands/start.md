@@ -238,7 +238,48 @@ After the initial deployment works, guide the user to set up GitHub repository s
 
 4. **Explain what this enables**: Once secrets are set, any push to the main/master branch will automatically deploy both the Worker and the Hugo site (if present). Pull requests will receive automated code reviews (if Claude token is configured).
 
-### 5. Celebrate Success
+### 5. Configure Site Settings (STARTUPFIXME)
+
+After deployment is working, help the user customize their site by addressing STARTUPFIXME placeholders:
+
+1. **Search for STARTUPFIXME comments**: Run `grep -r "STARTUPFIXME" --include="*.yaml" --include="*.toml" --include="*.html" hugo/` to find all configuration items that need user input.
+
+2. **Address each item ONE AT A TIME**: For each STARTUPFIXME found:
+   - Explain what the setting does in plain language
+   - Ask the user for their value
+   - Update the file with their answer
+   - Move to the next item
+
+3. **Common STARTUPFIXME items**:
+   - `baseURL` (hugo/hugo.yaml) — Their production domain (e.g., "https://example.com/")
+   - `title` (hugo/config/\_default/params.yaml) — Their site name
+   - `description` (hugo/config/\_default/params.yaml) — Site tagline for SEO
+   - `social.twitter` (hugo/config/\_default/params.yaml) — Their Twitter/X handle
+   - `author.name` (hugo/config/\_default/params.yaml) — Default author name
+   - `copyright` (hugo/config/\_default/params.yaml) — Copyright notice
+
+4. **Skip optional items**: If the user doesn't have a value (e.g., no Twitter account), leave the field empty and move on.
+
+5. **After all items are addressed**: Rebuild and redeploy to apply changes:
+   ```bash
+   cd hugo && npm ci && npx hugo --minify && cd ..
+   npx wrangler pages deploy hugo/public --project-name=<project-name>
+   ```
+
+**Example flow**:
+
+```
+Claude: "Now let's customize your site. I found several settings that need your input."
+Claude: "First: What's your site's title? This appears in the browser tab and search results."
+User: "Acme Corp Blog"
+Claude: [updates params.yaml]
+Claude: "Great! Next: What's a short description of your site? This appears in search results."
+User: "Tips and tutorials for small business owners"
+Claude: [updates params.yaml]
+...continues until all STARTUPFIXME items are addressed...
+```
+
+### 6. Celebrate Success
 
 When they complete deployment:
 

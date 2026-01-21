@@ -29,6 +29,12 @@
     {{ end }}
     <meta name="description" content="{{ $description }}" />
 
+    <!-- Canonical URL -->
+    <link rel="canonical" href="{{ .Permalink }}" />
+
+    <!-- Robots -->
+    <meta name="robots" content="index, follow" />
+
     <!-- SEO -->
     {{ partial "seo/google_analytics.html" . }}
     {{ partial "seo/opengraph.html" . }}

@@ -7,11 +7,21 @@
 {{- $url := .Permalink -}}
 
 {{- $image := "" -}}
+{{- $imageURL := "" -}}
 {{- with .Params.images -}}
   {{- $image = index . 0 -}}
 {{- else -}}
   {{- with .Site.Params.images -}}
     {{- $image = index . 0 -}}
+  {{- end -}}
+{{- end -}}
+{{- with $image -}}
+  {{- if strings.HasPrefix . "http" -}}
+    {{- $imageURL = . -}}
+  {{- else -}}
+    {{- with resources.Get . -}}
+      {{- $imageURL = .Permalink -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 
@@ -23,7 +33,7 @@
   "name": "{{ .Site.Title }}",
   "url": "{{ .Site.BaseURL }}",
   "description": "{{ $description }}"
-  {{- with $image }},
+  {{- with $imageURL }},
   "image": "{{ . }}"
   {{- end }}
 }
@@ -35,20 +45,36 @@
   "@type": "Article",
   "headline": "{{ $title }}",
   "url": "{{ $url }}",
-  "description": "{{ $description }}"
+  "description": "{{ $description }}",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "{{ $url }}"
+  }
   {{- with .PublishDate }},
   "datePublished": "{{ .Format "2006-01-02T15:04:05Z07:00" }}"
   {{- end }}
   {{- with .Lastmod }},
   "dateModified": "{{ .Format "2006-01-02T15:04:05Z07:00" }}"
   {{- end }}
-  {{- with $image }},
+  {{- with $imageURL }},
   "image": "{{ . }}"
+  {{- end }}
+  {{- with .Params.author | default .Site.Params.author.name }},
+  "author": {
+    "@type": "Person",
+    "name": "{{ . }}"
+  }
   {{- end }},
   "publisher": {
     "@type": "Organization",
     "name": "{{ .Site.Title }}",
     "url": "{{ .Site.BaseURL }}"
+    {{- with $imageURL }},
+    "logo": {
+      "@type": "ImageObject",
+      "url": "{{ . }}"
+    }
+    {{- end }}
   }
 }
 </script>

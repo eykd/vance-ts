@@ -1,6 +1,9 @@
 # Hugo core configuration - build settings, modules, taxonomies, and outputs.
 # Site-specific settings are in config/_default/params.yaml.
 
+# STARTUPFIXME: Set your production URL (e.g., "https://example.com/")
+baseURL: "https://example.com/"
+
 languageCode: "en-us"
 
 build:
