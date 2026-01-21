@@ -69,6 +69,34 @@ Chrome starts on `:9222`. Browser stays open for reuse—no need to restart betw
 pkill -f "chrome.*9222" && ./scripts/start.js
 ```
 
+## Working with Hugo Sites
+
+When testing Hugo static sites, **always use the Hugo dev server** instead of serving built files:
+
+```bash
+# From project root
+just hugo-dev
+# WATCH OUTPUT: "Web Server is available at http://localhost:XXXX/"
+# Hugo uses a different port if 1313 is already in use!
+
+# Navigate to the ACTUAL port shown in output
+./scripts/nav.js http://localhost:XXXX
+
+# Verify you're on the right site
+./scripts/eval.js 'document.title'
+```
+
+**Why use Hugo dev server:**
+
+- Live reload on content changes
+- Proper URL routing and redirects
+- Asset processing with Hugo Pipes
+- Serves drafts with `--buildDrafts` flag
+
+**Critical:** If you have multiple Hugo servers running (different projects), Hugo will auto-select an available port (1313, 1314, 1315, etc.). Always check the output and verify with `document.title` that you're testing the right site.
+
+**Don't** serve the `public/` directory with Python/static servers - Hugo's dev server provides the complete development experience.
+
 ## Tips
 
 - Browser persists between operations for efficiency
