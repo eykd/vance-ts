@@ -486,11 +486,16 @@ EOF
     cat <<EOF
 
 ## After Task Completion
-Commit all changes:
-1. Stage changes: git add -A
-2. Commit with conventional message
-3. Pre-commit hooks MUST run and pass
-4. If hooks fail, fix issues and retry commit
+Use the /commit skill to commit and push changes:
+1. Run: /commit (or invoke the commit skill)
+2. The commit skill will:
+   - Stage all changes
+   - Create a conventional commit message
+   - Run pre-commit hooks
+   - Push to remote
+3. If hooks fail, fix issues and run /commit again
+
+REQUIRED: You MUST commit and push before closing the bead.
 EOF
 }
 
