@@ -8,6 +8,7 @@ interface StatusLineInput {
   context_window?: {
     used_percentage?: number;
     total_input_tokens?: number;
+    context_window_size?: number;
     current_usage?: {
       input_tokens?: number;
     };
@@ -72,7 +73,8 @@ async function main(): Promise<void> {
     inputText.length > 0 ? (JSON.parse(inputText) as StatusLineInput) : {};
 
   const percent = input.context_window?.used_percentage ?? 0;
-  const tokens = input.context_window?.total_input_tokens ?? 0;
+  const contextSize = input.context_window?.context_window_size ?? 200000;
+  const tokens = Math.round((contextSize * percent) / 100);
   const currentDir = input.workspace?.current_dir ?? process.cwd();
   const folderName = currentDir.split('/').pop() ?? 'unknown';
   const gitBranch = getGitBranch();
