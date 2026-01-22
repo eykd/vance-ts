@@ -110,7 +110,7 @@ get_highest_from_branches() {
     if [ -n "$branches" ]; then
         while IFS= read -r branch; do
             # Clean branch name: remove leading markers and remote prefixes
-            clean_branch=$(echo "$branch" | sed 's/^[* ]*//; s|^remotes/[^/]*/||')
+            clean_branch=$(echo "$branch" | sed 's/^[*+ ]*//; s|^remotes/[^/]*/||')
             
             # Extract feature number if branch matches pattern ###-*
             if echo "$clean_branch" | grep -q '^[0-9]\{3\}-'; then
