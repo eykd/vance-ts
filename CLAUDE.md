@@ -170,29 +170,8 @@ When adding new functionality:
 
 ## Active Technologies
 
-- Bash 5.x (GNU bash), portable POSIX shell constructs + tmplr binary (GitHub releases), sha256sum/shasum for checksum verification, tar/find for file operations (001-template-builder)
-- N/A (file-based output to `dist/template.tmplr`) (001-template-builder)
-
-- Bash 5.x (GNU bash) + Claude CLI (`claude`), Beads CLI (`bd` v0.47+), Git, standard POSIX utilities (001-ralph-automation)
-- N/A (stateless script; beads handles persistence) (001-ralph-automation)
-
-- Markdown (Claude Skill format) + Bash scripts for integration + Git (for diff generation), beads CLI (`@beads/bd`), existing `security-review` skill (009-code-review-skill)
-- N/A (stateless skill, beads handles persistence) (009-code-review-skill)
-
-- Markdown (Claude command format) + Bash scripts + `@beads/bd` npm package (beads CLI) (008-beads-integration)
-- Git-backed `.beads/` directory (JSONL format with SQLite cache) (008-beads-integration)
-
-- Hugo 0.147.8+, Go templates, CSS (TailwindCSS 4) + TailwindCSS 4, DaisyUI 5, @tailwindcss/typography (007-hugo-project-setup)
-- N/A (static site generator) (007-hugo-project-setup)
-
-- Markdown (Claude Skill format) + None (documentation artifact) (001-refactoring-skill)
-- N/A (static markdown files) (001-refactoring-skill)
+Do not track active technologies in CLAUDE.md.
 
 ## Recent Changes
 
-- **Skills Library Token Efficiency Refactoring (January 2026)**:
-  - **Multi-Tenant SaaS**: Consolidated 6 org-\* skills (org-authorization, org-data-model, org-isolation, org-membership, org-migration, org-testing) into single latent-feature pattern at `.claude/skills/latent-features/reference/multi-tenant-saas/`. Achieved 50-60% token reduction for focused workflows.
-  - **Progressive Disclosure**: Refactored hugo-copywriting (460→157 lines, 66% reduction) and portable-datetime (457→133 lines, 71% reduction) to route users to detailed reference files.
-  - **HTMX Deduplication**: Eliminated 62 lines of duplication across hypermedia-pattern-advisor, htmx-pattern-library, and htmx-alpine-templates with clear cross-references.
-  - **Migration Guide**: See `.claude/skills/MIGRATION.md` for content location mappings from old org-\* skills to new multi-tenant-saas pattern.
-- 001-refactoring-skill: Added Markdown (Claude Skill format) + None (documentation artifact)
+Do not track recent changes in CLAUDE.md.
