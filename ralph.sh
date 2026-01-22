@@ -486,16 +486,17 @@ EOF
     cat <<EOF
 
 ## After Task Completion
-Use the /commit skill to commit and push changes:
-1. Run: /commit (or invoke the commit skill)
-2. The commit skill will:
-   - Stage all changes
-   - Create a conventional commit message
-   - Run pre-commit hooks
-   - Push to remote
-3. If hooks fail, fix issues and run /commit again
+Follow this EXACT sequence:
+1. Commit: Run /commit skill to stage and commit changes
+   - Creates conventional commit message
+   - Runs pre-commit hooks
+   - If hooks fail, fix and retry /commit
+   - DO NOT push yet
+2. Close bead: npx bd close $task_id
+3. Push: git push (pushes both commit and .beads state)
 
-REQUIRED: You MUST commit and push before closing the bead.
+CRITICAL: Close bead AFTER commit but BEFORE push.
+This ensures if push fails, bead stays open for retry.
 EOF
 }
 
