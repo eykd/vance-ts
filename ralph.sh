@@ -402,17 +402,32 @@ is_hugo_task() {
 # Generate focused prompt based on task type
 generate_focused_prompt() {
     local task_json="$1"
-    local task_title
+    local task_title task_id
 
     task_title=$(echo "$task_json" | jq -r '.title // "unknown"')
+    task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
 
     # Start with base prompt
     cat <<EOF
 /sp:next
 
+## Non-Interactive Mode
+You are running in ralph's automation loop (non-interactive).
+You CANNOT ask questions or wait for user input.
+Communicate status ONLY through beads task management.
+
 ## Task Focus
-Complete ONLY this task: $task_title
+Complete ONLY this task: $task_title (ID: $task_id)
 Do NOT explore unrelated code or work on other tasks.
+
+## Bead Lifecycle Management (REQUIRED)
+1. Start task: npx bd start $task_id
+2. Track progress: npx bd comment $task_id "status update message"
+3. Complete task: npx bd close $task_id
+4. If blocked: npx bd comment $task_id "BLOCKED: reason" (do NOT close)
+
+CRITICAL: You MUST close the bead when the task is complete.
+If you do not close it, ralph will run this task again.
 EOF
 
     # Add testing instructions based on task type
