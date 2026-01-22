@@ -402,10 +402,22 @@ is_hugo_task() {
 # Generate focused prompt based on task type
 generate_focused_prompt() {
     local task_json="$1"
-    local task_title task_id
+    local task_title task_id task_description task_details comments_json comments_text
 
     task_title=$(echo "$task_json" | jq -r '.title // "unknown"')
     task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
+    task_description=$(echo "$task_json" | jq -r '.description // ""')
+
+    # Fetch full task details including comments
+    task_details=$(npx bd show "$task_id" --json 2>/dev/null) || task_details=""
+
+    # Extract and format comments if they exist
+    if [[ -n "$task_details" ]]; then
+        comments_json=$(echo "$task_details" | jq -r '.comments // []')
+        comments_text=$(echo "$comments_json" | jq -r '.[] | "- \(.timestamp // "unknown"): \(.text // "")"' 2>/dev/null)
+    else
+        comments_text=""
+    fi
 
     # Start with base prompt
     cat <<EOF
@@ -416,8 +428,27 @@ You are running in ralph's automation loop (non-interactive).
 You CANNOT ask questions or wait for user input.
 Communicate status ONLY through beads task management.
 
+## Task Details
+Title: $task_title
+ID: $task_id
+
+Description:
+$task_description
+EOF
+
+    # Add comments section if there are any
+    if [[ -n "$comments_text" ]]; then
+        cat <<EOF
+
+Previous Comments:
+$comments_text
+EOF
+    fi
+
+    cat <<EOF
+
 ## Task Focus
-Complete ONLY this task: $task_title (ID: $task_id)
+Complete ONLY this task described above.
 Do NOT explore unrelated code or work on other tasks.
 
 ## Bead Lifecycle Management (REQUIRED)
