@@ -190,4 +190,9 @@ When adding new functionality:
 
 ## Recent Changes
 
+- **Skills Library Token Efficiency Refactoring (January 2026)**:
+  - **Multi-Tenant SaaS**: Consolidated 6 org-\* skills (org-authorization, org-data-model, org-isolation, org-membership, org-migration, org-testing) into single latent-feature pattern at `.claude/skills/latent-features/reference/multi-tenant-saas/`. Achieved 50-60% token reduction for focused workflows.
+  - **Progressive Disclosure**: Refactored hugo-copywriting (460→157 lines, 66% reduction) and portable-datetime (457→133 lines, 71% reduction) to route users to detailed reference files.
+  - **HTMX Deduplication**: Eliminated 62 lines of duplication across hypermedia-pattern-advisor, htmx-pattern-library, and htmx-alpine-templates with clear cross-references.
+  - **Migration Guide**: See `.claude/skills/MIGRATION.md` for content location mappings from old org-\* skills to new multi-tenant-saas pattern.
 - 001-refactoring-skill: Added Markdown (Claude Skill format) + None (documentation artifact)

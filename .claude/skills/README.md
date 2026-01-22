@@ -325,6 +325,38 @@ vitest-cloudflare-config → typescript-unit-testing → testing-observability �
 org-authorization → org-isolation → org-data-model → org-membership → org-testing → org-migration
 ```
 
+## Recent Refactorings
+
+### January 2026: Skills Library Token Efficiency Improvements
+
+**Multi-Tenant SaaS Consolidation:**
+
+- Consolidated 6 org-\* skills (org-authorization, org-data-model, org-isolation, org-membership, org-migration, org-testing) into a single latent-feature pattern
+- New location: `latent-features/reference/multi-tenant-saas/`
+- Result: 50-60% token reduction for focused implementation workflows
+- Pattern includes: Authorization (Actor/Action/Resource), data model evolution (4 stages), tenant isolation, membership management, testing strategies
+
+**Progressive Disclosure Refactorings:**
+
+- **hugo-copywriting**: Reduced from 460 → 157 lines (66% reduction)
+- **portable-datetime**: Reduced from 457 → 133 lines (71% reduction)
+- Both skills now route users to detailed reference files based on their task
+
+**HTMX Skills Duplication Reduction:**
+
+- Eliminated duplicate content across hypermedia-pattern-advisor, htmx-pattern-library, and htmx-alpine-templates
+- Established single sources of truth for each topic
+- Added clear cross-reference workflow between skills
+- Total reduction: 62 lines across 3 skills
+
+**Migration Notes:**
+
+- See `.claude/skills/MIGRATION.md` for guidance on finding content from old org-\* skills
+- All content preserved in new locations with improved organization
+- Multi-tenant chain updated: latent-features/multi-tenant-saas pattern replaces 6 org-\* skills
+
+---
+
 ## Progressive Disclosure
 
 Skills use progressive disclosure to prevent token overload:

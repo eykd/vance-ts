@@ -1,15 +1,8 @@
-# Isolation Audit Checklist
+# isolation-audit.md
+
+# Isolation Audit
 
 **Purpose**: Systematic checklist for auditing tenant isolation in multi-tenant applications.
-
-## When to Use
-
-Use this reference when:
-
-- Performing security reviews of multi-tenant code
-- Onboarding new team members to isolation requirements
-- Creating PR review checklists
-- Preparing for security audits or compliance reviews
 
 ## Database Query Audit
 
@@ -75,7 +68,7 @@ Use this reference when:
 | ❌  | Logging sensitive data             | PII from other tenants in logs    |
 | ❌  | Error messages with other org data | Information disclosure            |
 
-## Code Review Checklist
+## Code Review Patterns
 
 ### Repository Layer
 
@@ -130,8 +123,6 @@ export async function handleGetProject(c: Context): Promise<Response> {
 
 ## Security Test Cases
 
-Each of these should be verified with automated tests:
-
 | Test                                  | Assertion                        |
 | ------------------------------------- | -------------------------------- |
 | User A can read their own project     | 200 OK                           |
@@ -151,3 +142,8 @@ When you find an isolation gap:
 3. **Test**: Add regression test for the specific case
 4. **Review**: Check for similar patterns elsewhere
 5. **Document**: Add to team's security checklist
+
+## Cross-References
+
+- **tenant-isolation.md**: Implementation patterns
+- **testing-strategy.md**: Automated test coverage

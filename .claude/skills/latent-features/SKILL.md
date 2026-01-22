@@ -150,6 +150,46 @@ reference/stripe-payments/
 
 ---
 
+### 4. Multi-Tenant SaaS
+
+**Triggers**: multi-tenant, organization, authorization, tenant-isolation, org, membership, rbac, role-based, saas
+
+**Covers**: Complete multi-tenant SaaS implementation with authorization, data isolation, and membership management
+
+**Quick start**: Read `reference/multi-tenant-saas/PATTERN.md`
+
+**Progressive disclosure**:
+
+- Specification phase → `architecture/database-schema.md` (~620 lines) - Choose data model stage
+- Planning phase → `architecture/overview.md` + `implementation/data-model-evolution.md` (~470 lines)
+- Implementation → Choose from implementation/\*.md files (~150-350 lines each)
+
+**Reference structure**:
+
+```
+reference/multi-tenant-saas/
+├── PATTERN.md                          # Pattern guide with decision tree
+├── architecture/
+│   ├── overview.md                     # Multi-tenancy architecture, authorization model
+│   └── database-schema.md              # Schema across 4 evolution stages
+└── implementation/
+    ├── authorization-service.md        # AuthorizationService, Actor/Action/Resource
+    ├── roles-and-permissions.md        # Permission matrix, role hierarchy
+    ├── privilege-escalation-prevention.md  # Security patterns
+    ├── tenant-isolation.md             # TenantScopedDb wrapper, query scoping
+    ├── membership-management.md        # Invitation flow, member removal
+    ├── data-model-evolution.md         # 4 stages, selection guide
+    ├── migration-strategy.md           # Shadow organizations, backfill
+    ├── isolation-audit.md              # Audit checklist, code review
+    ├── testing-strategy.md             # Unit/integration/acceptance tests
+    ├── rate-limiting.md                # Invitation limits, abuse prevention
+    └── error-messages.md               # Security-safe error handling
+```
+
+**Replaces**: org-authorization, org-data-model, org-isolation, org-membership, org-migration, org-testing skills (consolidated for token efficiency)
+
+---
+
 ## Usage Pattern
 
 ### 1. Read Pattern Guide First

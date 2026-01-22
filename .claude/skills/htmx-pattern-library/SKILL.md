@@ -25,26 +25,9 @@ Copy-paste patterns for HTMX + Alpine.js. Server returns HTML fragments, not JSO
 
 ## Core Concepts
 
-### HTMX: Server Communication
+**HTMX** handles server communication and DOM updates. **Alpine.js** manages client-only UI state.
 
-```html
-<button hx-get="/app/_/data" hx-target="#result" hx-swap="innerHTML">Load</button>
-```
-
-### Alpine.js: UI State
-
-```html
-<div x-data="{ open: false }">
-  <button @click="open = !open">Toggle</button>
-  <div x-show="open" x-transition>Content</div>
-</div>
-```
-
-### Combining Both
-
-- HTMX handles server requests and DOM swaps
-- Alpine manages client-only UI state (open/close, loading flags)
-- Use `@htmx:before-request` and `@htmx:after-request` to sync states
+For choosing between HTMX vs Alpine, see **hypermedia-pattern-advisor**.
 
 ## Server Response Format
 
@@ -95,3 +78,17 @@ return new Response(html, {
 | `@keydown.escape`   | Keyboard shortcuts      |
 | `:class`            | Dynamic classes         |
 | `:disabled`         | Dynamic disabled        |
+
+## Related HTMX Skills
+
+**Workflow**: Use hypermedia-pattern-advisor for decisions → Use this skill for implementations → Use htmx-alpine-templates for complete examples
+
+1. **hypermedia-pattern-advisor** - Decision guidance (HTMX vs Alpine, swap/trigger strategies)
+   - Quick decision tables
+   - When to use each tool
+   - Combination strategies
+
+2. **htmx-alpine-templates** - Complete template examples (full pages, complex scenarios)
+   - TypeScript template literal patterns
+   - Page layouts and partials
+   - DaisyUI 5 integration

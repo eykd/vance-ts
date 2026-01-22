@@ -1,19 +1,8 @@
 # Membership Management
 
-**Purpose**: Implement invitation, removal, and ownership transfer operations.
+**Purpose**: Complete implementation patterns for invitation workflows, member removal, and ownership transfer operations.
 
-## When to Use
-
-Use this reference when:
-
-- Building member invitation workflows
-- Implementing member removal functionality
-- Creating ownership transfer features
-- Handling member self-removal (leaving organization)
-
-## Invitation Flow
-
-### Schema for Invitations
+## Invitation Schema
 
 ```sql
 CREATE TABLE organization_invitations (
@@ -34,7 +23,7 @@ CREATE INDEX idx_invitations_org ON organization_invitations(organization_id);
 CREATE INDEX idx_invitations_token ON organization_invitations(token);
 ```
 
-### Create Invitation
+## Create Invitation
 
 ```typescript
 // src/application/services/InvitationService.ts
@@ -70,7 +59,7 @@ export async function createInvitation(
 }
 ```
 
-### Accept Invitation
+## Accept Invitation
 
 ```typescript
 export async function acceptInvitation(
@@ -150,8 +139,6 @@ export async function acceptInvitation(
 
 ## Member Removal
 
-### Remove by Admin
-
 ```typescript
 export async function removeMember(
   db: D1Database,
@@ -200,7 +187,7 @@ export async function removeMember(
 }
 ```
 
-### Self-Removal (Leave)
+## Self-Removal (Leave)
 
 ```typescript
 export async function leaveOrganization(
@@ -369,8 +356,6 @@ export async function handleTransferOwnership(c: Context): Promise<Response> {
 
 ## Audit Events
 
-Log all membership changes for audit trail:
-
 ```typescript
 type MembershipEvent =
   | { type: 'member_invited'; email: string; role: OrgRole; invitedBy: string }
@@ -398,3 +383,9 @@ async function logMembershipEvent(
   );
 }
 ```
+
+## Cross-References
+
+- **roles-and-permissions.md**: Role hierarchy and permissions
+- **privilege-escalation-prevention.md**: Security patterns for role changes
+- **rate-limiting.md**: Rate limits for invitation operations

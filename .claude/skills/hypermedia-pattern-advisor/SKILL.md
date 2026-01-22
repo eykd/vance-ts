@@ -55,39 +55,36 @@ For detailed examples and edge cases, see [references/swap-patterns.md](referenc
 
 ## Out-of-Band Updates
 
-Use OOB when single action affects multiple page regions.
+Use OOB when single action affects multiple page regions (counter updates, status indicators, related content updates, toast notifications).
 
-**Pattern:** Include `hx-swap-oob="true"` on elements in response:
+**Decision guidance:**
 
-```html
-<!-- Primary target gets swapped normally -->
-<div id="task-list">Updated list</div>
-<!-- OOB elements swap by ID automatically -->
-<div id="task-count" hx-swap-oob="true">5 tasks</div>
-<div id="notifications" hx-swap-oob="beforeend">New item!</div>
-```
+- Single region update → Standard `hx-target`
+- Multiple regions from one response → OOB with `hx-swap-oob="true"`
+- Unrelated notifications → OOB with `beforeend` to notification container
 
-**When to use OOB:**
+For complete implementation patterns and examples, see:
 
-- Counter updates (cart count, notification badge)
-- Status indicators across page
-- Related content updates (sidebar reflects main content change)
-- Toast/notification injection
-
-For complete OOB patterns, see [references/oob-patterns.md](references/oob-patterns.md).
+- **htmx-pattern-library**: [references/oob.md](../htmx-pattern-library/references/oob.md) - Implementation patterns
 
 ## Combining HTMX + Alpine
 
 **State preservation:** Use `hx-swap="morph"` with `hx-ext="alpine-morph"` to preserve Alpine state across HTMX swaps.
 
-**Event bridge:** Listen to HTMX events in Alpine:
-
-```html
-<div
-  x-data="{ loading: false }"
-  @htmx:before-request.window="loading = true"
-  @htmx:after-request.window="loading = false"
-></div>
-```
+**Event bridge:** Listen to HTMX events in Alpine for coordinated behavior.
 
 For detailed combination patterns, see [references/combination-patterns.md](references/combination-patterns.md).
+
+## Related HTMX Skills
+
+**Workflow**: Use this skill for decisions → Use pattern-library for implementations → Use templates for complete examples
+
+1. **htmx-pattern-library** - Implementation patterns (forms, loading, search, OOB, UI components)
+   - Complete code examples for each pattern
+   - Server response formats
+   - Reference files for deep dives
+
+2. **htmx-alpine-templates** - Complete template examples (full pages, complex scenarios)
+   - TypeScript template literal patterns
+   - Page layouts and partials
+   - DaisyUI 5 integration

@@ -74,80 +74,29 @@ export function taskItem(task: Task): string {
 }
 ```
 
-## HTMX vs Alpine.js Decision
+## Key Patterns
 
-| Scenario                  | Use    | Why                               |
-| ------------------------- | ------ | --------------------------------- |
-| Form submission           | HTMX   | Server validates, returns HTML    |
-| Data list updates         | HTMX   | Server is source of truth         |
-| Search/filtering (server) | HTMX   | Server queries database           |
-| Dropdown open/close       | Alpine | Pure UI state                     |
-| Modal toggle              | Alpine | No server needed                  |
-| Client-side validation    | Alpine | Immediate feedback                |
-| Tabs (client-only)        | Alpine | No data fetch                     |
-| Optimistic UI + confirm   | Both   | Alpine for instant, HTMX confirms |
-| Load then filter          | Both   | HTMX loads, Alpine filters        |
+For HTMX vs Alpine decisions, see **hypermedia-pattern-advisor**.
 
-## Quick Reference
+For specific implementation patterns (forms, search, loading, OOB, UI components), see **htmx-pattern-library**.
 
-### HTMX Essentials
-
-```html
-<!-- GET request, swap target's innerHTML -->
-<button hx-get="/app/_/items" hx-target="#list">Load</button>
-
-<!-- POST form, append to list -->
-<form hx-post="/app/_/items" hx-target="#list" hx-swap="beforeend">
-  <!-- DELETE with confirmation -->
-  <button
-    hx-delete="/app/_/items/1"
-    hx-confirm="Sure?"
-    hx-target="closest .item"
-    hx-swap="outerHTML"
-  >
-    <!-- Debounced search -->
-    <input
-      hx-get="/app/_/search"
-      hx-trigger="keyup changed delay:300ms"
-      hx-target="#results"
-      name="q"
-    />
-  </button>
-</form>
-```
-
-### Alpine.js Essentials
-
-```html
-<!-- Toggle visibility -->
-<div x-data="{ open: false }">
-  <button @click="open = !open">Toggle</button>
-  <div x-show="open" x-transition>Content</div>
-</div>
-
-<!-- Two-way binding -->
-<input x-model="search" type="text" />
-<span x-text="search"></span>
-
-<!-- Loop -->
-<template x-for="item in items" :key="item.id">
-  <div x-text="item.name"></div>
-</template>
-```
-
-### DaisyUI 5 Components
-
-```html
-<button class="btn btn-primary">Button</button>
-<input class="input input-bordered w-full" type="text" />
-<div class="card bg-base-100 shadow"><div class="card-body">Content</div></div>
-<div class="alert alert-info"><span>Message</span></div>
-<span class="loading loading-spinner"></span>
-```
-
-## Detailed References
+## Template References
 
 - **HTMX patterns**: See [references/htmx-patterns.md](references/htmx-patterns.md) for swap strategies, triggers, loading states, OOB updates
 - **Alpine.js patterns**: See [references/alpine-patterns.md](references/alpine-patterns.md) for components, events, transitions
 - **Combined patterns**: See [references/combined-patterns.md](references/combined-patterns.md) for HTMX+Alpine integration
 - **DaisyUI components**: See [references/daisyui-components.md](references/daisyui-components.md) for TailwindCSS 4 + DaisyUI 5 reference
+
+## Related HTMX Skills
+
+**Workflow**: Use hypermedia-pattern-advisor for decisions → Use htmx-pattern-library for implementations → Use this skill for complete examples
+
+1. **hypermedia-pattern-advisor** - Decision guidance (HTMX vs Alpine, swap/trigger strategies)
+   - Quick decision tables
+   - When to use each tool
+   - Combination strategies
+
+2. **htmx-pattern-library** - Implementation patterns (forms, loading, search, OOB, UI components)
+   - Complete code examples for each pattern
+   - Server response formats
+   - Reference files for deep dives

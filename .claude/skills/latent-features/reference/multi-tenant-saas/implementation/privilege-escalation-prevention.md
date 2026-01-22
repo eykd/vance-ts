@@ -1,15 +1,6 @@
 # Privilege Escalation Prevention
 
-**Purpose**: Patterns to prevent users from gaining unauthorized elevated access.
-
-## When to Use
-
-Use this reference when:
-
-- Implementing role assignment functionality
-- Building invitation flows
-- Creating self-service role management
-- Auditing authorization code for vulnerabilities
+**Purpose**: Comprehensive security patterns to prevent users from gaining unauthorized elevated access in multi-tenant SaaS applications.
 
 ## Core Principles
 
@@ -36,7 +27,7 @@ if (!canModifyMembership(actorId, targetUserId)) {
 
 ### 2. Grant Only Lower Roles
 
-Users can only grant roles lower than or equal to their own.
+Users can only grant roles lower than their own level.
 
 ```typescript
 /**
@@ -59,12 +50,6 @@ export function canGrantRole(grantorRole: OrgRole, targetRole: OrgRole): boolean
   // Others can only grant roles strictly below their own
   return roleHierarchy[grantorRole] > roleHierarchy[targetRole];
 }
-
-// Examples:
-// canGrantRole('owner', 'admin')  → true
-// canGrantRole('admin', 'admin')  → false (cannot grant equal)
-// canGrantRole('admin', 'member') → true
-// canGrantRole('member', 'viewer') → false (members can't grant)
 ```
 
 ### 3. Manage Only Lower Roles
@@ -144,47 +129,6 @@ export function validateRoleChange(
 }
 ```
 
-## Invitation Flow
-
-```typescript
-// src/application/services/InvitationService.ts
-
-export async function inviteMember(
-  db: D1Database,
-  inviterId: string,
-  organizationId: string,
-  inviteeEmail: string,
-  role: OrgRole
-): Promise<Invitation> {
-  // Get inviter's membership
-  const inviterMembership = await getOrgMembership(db, inviterId, organizationId);
-
-  if (!inviterMembership) {
-    throw new AuthorizationError('Not a member of this organization');
-  }
-
-  // Check if inviter can invite
-  if (!canPerformAction(inviterMembership.role, 'invite')) {
-    throw new AuthorizationError('Your role cannot invite members');
-  }
-
-  // Check if inviter can grant requested role
-  if (!canGrantRole(inviterMembership.role, role)) {
-    throw new AuthorizationError(
-      `Cannot invite as ${role}. You can only invite as: ${getGrantableRoles(inviterMembership.role).join(', ')}`
-    );
-  }
-
-  // Proceed with invitation
-  return createInvitation(db, {
-    organizationId,
-    email: inviteeEmail,
-    role,
-    invitedBy: inviterId,
-  });
-}
-```
-
 ## Role Change Flow
 
 ```typescript
@@ -240,15 +184,11 @@ export async function changeMemberRole(
 
 ## Transaction Safety
 
-Role changes must be protected against race conditions where concurrent requests could lead to inconsistent state. D1 doesn't support traditional transactions, but you can use batch operations with optimistic locking.
+Role changes must be protected against race conditions. D1 doesn't support traditional transactions, but you can use batch operations with optimistic locking.
 
 ### Optimistic Locking Pattern
 
-Add a `version` column to detect concurrent modifications:
-
 ```typescript
-// src/application/services/MembershipService.ts
-
 interface RoleChangeResult {
   success: boolean;
   reason?: string;
@@ -313,8 +253,6 @@ export async function changeMemberRoleSafe(
 
 ### D1 Batch Operations
 
-For operations that must be atomic, use D1's batch API:
-
 ```typescript
 /**
  * Transfer ownership atomically: demote current owner, promote new owner.
@@ -370,52 +308,6 @@ export async function transferOwnership(
 }
 ```
 
-### Handling Concurrent Role Changes
-
-```typescript
-// In request handler
-const MAX_RETRIES = 3;
-
-async function handleRoleChange(
-  db: D1Database,
-  actorId: string,
-  orgId: string,
-  targetId: string,
-  newRole: OrgRole
-): Promise<Response> {
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    // Get current version
-    const membership = await getOrgMembershipWithVersion(db, targetId, orgId);
-    if (!membership) {
-      return new Response('Member not found', { status: 404 });
-    }
-
-    const result = await changeMemberRoleSafe(
-      db,
-      actorId,
-      orgId,
-      targetId,
-      newRole,
-      membership.version
-    );
-
-    if (result.success) {
-      return new Response(null, { status: 204 });
-    }
-
-    if (!result.reason?.includes('Concurrent modification')) {
-      return new Response(result.reason, { status: 403 });
-    }
-
-    // Retry on concurrent modification
-  }
-
-  return new Response('Too many concurrent modifications. Please try again.', {
-    status: 409,
-  });
-}
-```
-
 ## Test Cases
 
 ```typescript
@@ -459,11 +351,13 @@ describe('Privilege Escalation Prevention', () => {
 
 ## Security Checklist
 
-| ✓                                                | Check |
-| ------------------------------------------------ | ----- |
-| [ ] No endpoint allows self-role modification    |
-| [ ] Role grants validated against grantor's role |
-| [ ] Owner role changes require current owner     |
-| [ ] Admin cannot create other admins             |
-| [ ] All role changes are audited                 |
-| [ ] Tests cover all escalation scenarios         |
+| Check                                            | Done |
+| ------------------------------------------------ | ---- |
+| [ ] No endpoint allows self-role modification    |      |
+| [ ] Role grants validated against grantor's role |      |
+| [ ] Owner role changes require current owner     |      |
+| [ ] Admin cannot create other admins             |      |
+| [ ] All role changes are audited                 |      |
+| [ ] Tests cover all escalation scenarios         |      |
+| [ ] Optimistic locking prevents race conditions  |      |
+| [ ] Ownership transfer is atomic                 |      |

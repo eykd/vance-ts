@@ -1,17 +1,8 @@
-# Tenant-Scoped Database
+# Tenant Isolation
 
-**Purpose**: Implement the TenantScopedDb wrapper that enforces organization boundaries on all queries.
+**Purpose**: Implement database access patterns and middleware that enforce organization boundaries on all queries for multi-tenant SaaS applications.
 
-## When to Use
-
-Use this reference when:
-
-- Creating database access patterns for multi-tenant data
-- Building repository implementations with tenant isolation
-- Preventing accidental cross-tenant queries
-- Implementing middleware that injects tenant context
-
-## Pattern
+## TenantScopedDb Pattern
 
 ```typescript
 // src/infrastructure/middleware/tenantIsolation.ts
@@ -194,9 +185,57 @@ export async function handleGetProject(c: Context): Promise<Response> {
 }
 ```
 
-## Raw Query Protection
+## Query Scoping Patterns
 
-For cases where raw queries are needed:
+### Basic WHERE Clause Scoping
+
+```typescript
+// Always include organization_id in WHERE clause
+SELECT * FROM projects WHERE organization_id = ?
+
+// For updates
+UPDATE projects
+SET name = ?, updated_at = datetime('now')
+WHERE id = ? AND organization_id = ?
+
+// For deletes
+DELETE FROM projects WHERE id = ? AND organization_id = ?
+```
+
+### JOIN Scoping
+
+```typescript
+// Ensure JOINs maintain organization scope
+SELECT d.* FROM documents d
+JOIN projects p ON d.project_id = p.id
+WHERE d.id = ? AND p.organization_id = ?
+
+// Multiple table joins
+SELECT t.* FROM tasks t
+JOIN projects p ON t.project_id = p.id
+JOIN organizations o ON p.organization_id = o.id
+WHERE t.id = ? AND o.id = ?
+```
+
+### Subquery Scoping
+
+```typescript
+// Scope subqueries properly
+SELECT * FROM documents
+WHERE project_id IN (
+  SELECT id FROM projects WHERE organization_id = ?
+)
+
+// Use EXISTS for existence checks
+SELECT * FROM projects p
+WHERE organization_id = ?
+AND EXISTS (
+  SELECT 1 FROM documents d
+  WHERE d.project_id = p.id
+)
+```
+
+## Raw Query Protection
 
 ```typescript
 // Enforce organization scope on raw queries
@@ -229,3 +268,9 @@ async function safeRawQuery<T>(
 2. **Use typed accessors**: Provide type-safe methods instead of raw SQL
 3. **Fail loudly**: Throw errors if isolation is violated, don't silently continue
 4. **Defense in depth**: Even if authorization passes, isolation provides second layer
+
+## Cross-References
+
+- **isolation-audit.md**: Checklist for auditing tenant isolation
+- **authorization-service.md**: Authorization layer that complements isolation
+- **data-model-evolution.md**: Schema design for multi-tenant data

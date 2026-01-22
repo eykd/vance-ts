@@ -1,17 +1,8 @@
-# Role Hierarchy
+# Roles and Permissions
 
-**Purpose**: Define organizational role levels and their associated permissions.
+**Purpose**: Define organizational role levels, permission matrices, and grantable roles logic for multi-tenant SaaS applications.
 
-## When to Use
-
-Use this reference when:
-
-- Implementing role-based access checks
-- Designing permission levels for new features
-- Understanding what each role can and cannot do
-- Documenting access control for stakeholders
-
-## Role Levels
+## Role Hierarchy
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -171,6 +162,80 @@ export function canModifyRole(actorRole: OrgRole, targetRole: OrgRole): boolean 
 }
 ```
 
+## Grantable Roles Logic
+
+### Can Grant Role Check
+
+```typescript
+/**
+ * Check if grantor can assign a specific role.
+ * Owners can grant any role, others only lower roles.
+ */
+export function canGrantRole(grantorRole: OrgRole, targetRole: OrgRole): boolean {
+  const roleHierarchy: Record<OrgRole, number> = {
+    owner: 4,
+    admin: 3,
+    member: 2,
+    viewer: 1,
+  };
+
+  // Owners can grant any role
+  if (grantorRole === 'owner') {
+    return true;
+  }
+
+  // Others can only grant roles strictly below their own
+  return roleHierarchy[grantorRole] > roleHierarchy[targetRole];
+}
+
+// Examples:
+// canGrantRole('owner', 'admin')  → true
+// canGrantRole('admin', 'admin')  → false (cannot grant equal)
+// canGrantRole('admin', 'member') → true
+// canGrantRole('member', 'viewer') → false (members can't grant)
+```
+
+### Invitation Validation
+
+```typescript
+// src/application/services/InvitationService.ts
+
+export async function inviteMember(
+  db: D1Database,
+  inviterId: string,
+  organizationId: string,
+  inviteeEmail: string,
+  role: OrgRole
+): Promise<Invitation> {
+  // Get inviter's membership
+  const inviterMembership = await getOrgMembership(db, inviterId, organizationId);
+
+  if (!inviterMembership) {
+    throw new AuthorizationError('Not a member of this organization');
+  }
+
+  // Check if inviter can invite
+  if (!canPerformAction(inviterMembership.role, 'invite')) {
+    throw new AuthorizationError('Your role cannot invite members');
+  }
+
+  // Check if inviter can grant requested role
+  if (!canGrantRole(inviterMembership.role, role)) {
+    throw new AuthorizationError(
+      `Cannot invite as ${role}. You can only invite as: ${getGrantableRoles(inviterMembership.role).join(', ')}`
+    );
+  }
+
+  // Proceed with invitation
+  return createInvitation(db, {
+    organizationId,
+    email: inviteeEmail,
+    role,
+    invitedBy: inviterId,
+  });
+}
+```
+
 ## Usage Examples
 
 ### Checking Permission
@@ -216,3 +281,40 @@ async function getManageableMembers(
     .then((r) => r.results);
 }
 ```
+
+## Permission Matrix for Stage 2 (Collaborators)
+
+For applications using resource-level sharing instead of organizations:
+
+```typescript
+type ProjectRole = 'owner' | 'admin' | 'editor' | 'viewer';
+
+const PROJECT_PERMISSIONS: Record<ProjectRole, string[]> = {
+  owner: ['read', 'create', 'update', 'delete', 'invite', 'remove', 'transfer'],
+  admin: ['read', 'create', 'update', 'delete', 'invite', 'remove'],
+  editor: ['read', 'create', 'update'],
+  viewer: ['read'],
+};
+```
+
+## Permission Matrix for Stage 4 (Resource-Level Permissions)
+
+For applications with fine-grained per-resource permissions:
+
+| Org Role | Project Role | Effective Access  |
+| -------- | ------------ | ----------------- |
+| owner    | -            | Full admin        |
+| admin    | -            | Full admin        |
+| member   | admin        | Project admin     |
+| member   | editor       | Project editor    |
+| member   | viewer       | Project viewer    |
+| member   | -            | Read + create own |
+| viewer   | admin        | Project admin     |
+| viewer   | editor       | Project editor    |
+| viewer   | -            | Read only         |
+
+## Cross-References
+
+- **authorization-service.md**: Implementation of authorization checks
+- **privilege-escalation-prevention.md**: Security patterns for role changes
+- **membership-management.md**: Invitation and role change workflows

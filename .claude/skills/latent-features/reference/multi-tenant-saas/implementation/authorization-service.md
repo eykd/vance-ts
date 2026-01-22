@@ -1,17 +1,126 @@
 # Authorization Service
 
-**Purpose**: Implement the AuthorizationService that loads context, evaluates policies, and logs decisions.
+**Purpose**: Comprehensive guide to implementing AuthorizationService for multi-tenant SaaS applications, including type definitions, core patterns, and security considerations.
 
-## When to Use
+## Core Type Definitions
 
-Use this reference when:
+### Actor, Action, and Resource Types
 
-- Building the main authorization entry point
-- Implementing policy evaluation logic
-- Adding audit logging for authorization decisions
-- Integrating authorization into request handlers
+```typescript
+// src/domain/authorization/types.ts
 
-## Pattern
+/**
+ * An Actor is the entity attempting to perform an action.
+ * Actors can be users, system processes, or API keys.
+ */
+export type Actor =
+  | { type: 'user'; id: string }
+  | { type: 'system'; reason: string }
+  | { type: 'api_key'; id: string; scopes: string[] };
+
+/**
+ * Actions that can be performed on resources.
+ */
+export type Action =
+  | 'create'
+  | 'read'
+  | 'update'
+  | 'delete'
+  | 'invite'
+  | 'remove'
+  | 'transfer'
+  | 'admin';
+
+/**
+ * Resource types in the system.
+ */
+export type ResourceType = 'organization' | 'project' | 'document' | 'membership';
+
+/**
+ * A Resource identifies what the action targets.
+ * The format is "type:id" with optional parent for nested resources.
+ */
+export interface Resource {
+  type: ResourceType;
+  id: string;
+  /** Optional parent context for nested resources */
+  parent?: Resource;
+}
+
+/**
+ * The result of an authorization check.
+ * Always includes a reason for debugging and audit logging.
+ */
+export interface AuthorizationResult {
+  allowed: boolean;
+  reason: string;
+  /** The effective role that granted (or would have granted) access */
+  effectiveRole?: string;
+}
+
+/**
+ * Context provides the data needed to evaluate policies.
+ * This is loaded once per request and passed to all policy checks.
+ */
+export interface PolicyContext {
+  /** Organization membership for the actor (if user) */
+  organizationMembership?: {
+    organizationId: string;
+    role: 'owner' | 'admin' | 'member' | 'viewer';
+  };
+  /** Who owns the resource being accessed */
+  resourceOwner?: string;
+  /** Which organization the resource belongs to */
+  resourceOrganizationId?: string;
+  /** Project-specific membership (if checking project access) */
+  projectMembership?: {
+    role: 'admin' | 'editor' | 'viewer';
+  };
+}
+```
+
+### Type Guards and Extensions
+
+```typescript
+/**
+ * Type guard for user actors.
+ */
+export function isUserActor(actor: Actor): actor is { type: 'user'; id: string } {
+  return actor.type === 'user';
+}
+
+/**
+ * Type guard for system actors.
+ */
+export function isSystemActor(actor: Actor): actor is { type: 'system'; reason: string } {
+  return actor.type === 'system';
+}
+
+// Extending types for new actors
+export type Actor =
+  | { type: 'user'; id: string }
+  | { type: 'system'; reason: string }
+  | { type: 'api_key'; id: string; scopes: string[] }
+  | { type: 'service_account'; id: string; service: string }; // New
+
+// Extending resource types
+export type ResourceType = 'organization' | 'project' | 'document' | 'membership' | 'billing'; // New
+
+// Extending actions
+export type Action =
+  | 'create'
+  | 'read'
+  | 'update'
+  | 'delete'
+  | 'invite'
+  | 'remove'
+  | 'transfer'
+  | 'admin'
+  | 'archive'
+  | 'restore'; // New actions
+```
+
+## Authorization Service Implementation
 
 ```typescript
 // src/application/services/AuthorizationService.ts
@@ -295,6 +404,203 @@ export class AuthorizationError extends Error {
 >
 > Even if input appears sanitized, always use parameterized queries. This protects against injection attacks where malicious input like `'; DROP TABLE users; --` could compromise your database.
 
+## Authorization Patterns
+
+### Pattern 1: Resource Ownership
+
+```typescript
+// src/domain/authorization/patterns/ownership.ts
+
+/**
+ * Check if user is the owner of a resource.
+ */
+export async function isResourceOwner(
+  db: D1Database,
+  userId: string,
+  resourceType: string,
+  resourceId: string
+): Promise<boolean> {
+  const table = getTableForResourceType(resourceType);
+  const ownerColumn = getOwnerColumnForResourceType(resourceType);
+
+  const row = await db
+    .prepare(`SELECT ${ownerColumn} FROM ${table} WHERE id = ?`)
+    .bind(resourceId)
+    .first<Record<string, string>>();
+
+  return row?.[ownerColumn] === userId;
+}
+
+/**
+ * Ownership transfer - only current owner can transfer.
+ */
+export async function transferOwnership(
+  db: D1Database,
+  currentOwnerId: string,
+  newOwnerId: string,
+  resourceType: string,
+  resourceId: string
+): Promise<void> {
+  const isOwner = await isResourceOwner(db, currentOwnerId, resourceType, resourceId);
+
+  if (!isOwner) {
+    throw new AuthorizationError('Only the owner can transfer ownership', {
+      actor: { type: 'user', id: currentOwnerId },
+      action: 'transfer',
+      resource: { type: resourceType as ResourceType, id: resourceId },
+    });
+  }
+
+  const table = getTableForResourceType(resourceType);
+  const ownerColumn = getOwnerColumnForResourceType(resourceType);
+
+  await db
+    .prepare(`UPDATE ${table} SET ${ownerColumn} = ?, updated_at = datetime('now') WHERE id = ?`)
+    .bind(newOwnerId, resourceId)
+    .run();
+}
+```
+
+### Pattern 2: Admin Override
+
+```typescript
+// src/domain/authorization/patterns/adminOverride.ts
+
+export type AdminLevel = 'owner' | 'admin' | 'none';
+
+/**
+ * Check if user has admin privileges in an organization.
+ */
+export async function getAdminLevel(
+  db: D1Database,
+  userId: string,
+  organizationId: string
+): Promise<AdminLevel> {
+  // Check if user is org owner
+  const org = await db
+    .prepare('SELECT owner_id FROM organizations WHERE id = ?')
+    .bind(organizationId)
+    .first<{ owner_id: string }>();
+
+  if (org?.owner_id === userId) {
+    return 'owner';
+  }
+
+  // Check membership role
+  const membership = await db
+    .prepare('SELECT role FROM organization_memberships WHERE organization_id = ? AND user_id = ?')
+    .bind(organizationId, userId)
+    .first<{ role: string }>();
+
+  if (membership?.role === 'admin' || membership?.role === 'owner') {
+    return 'admin';
+  }
+
+  return 'none';
+}
+
+/**
+ * Admin override for modifying any resource in the org.
+ */
+export async function canAdminOverride(
+  db: D1Database,
+  userId: string,
+  organizationId: string,
+  action: Action
+): Promise<AuthorizationResult> {
+  const adminLevel = await getAdminLevel(db, userId, organizationId);
+
+  // Owners can do anything
+  if (adminLevel === 'owner') {
+    return {
+      allowed: true,
+      reason: 'Organization owner override',
+      effectiveRole: 'owner',
+    };
+  }
+
+  // Admins can do most things except ownership-related actions
+  if (adminLevel === 'admin') {
+    const ownerOnlyActions: Action[] = ['transfer'];
+
+    if (ownerOnlyActions.includes(action)) {
+      return {
+        allowed: false,
+        reason: 'Only organization owner can perform this action',
+      };
+    }
+
+    return {
+      allowed: true,
+      reason: 'Organization admin override',
+      effectiveRole: 'admin',
+    };
+  }
+
+  return {
+    allowed: false,
+    reason: 'Not an admin of this organization',
+  };
+}
+```
+
+### Pattern 3: System Actions
+
+```typescript
+// src/domain/authorization/patterns/systemActions.ts
+
+/**
+ * Create a system actor for internal operations.
+ * Always include a reason for audit trail.
+ */
+export function createSystemActor(reason: string): Actor {
+  return {
+    type: 'system',
+    reason,
+  };
+}
+
+/**
+ * Example: Background job that needs to update all projects.
+ */
+export async function runProjectMaintenanceJob(db: D1Database): Promise<void> {
+  const systemActor = createSystemActor('Scheduled project maintenance');
+  const authz = new AuthorizationService(db);
+
+  const projects = await db
+    .prepare('SELECT id, organization_id FROM projects')
+    .all<{ id: string; organization_id: string }>();
+
+  for (const project of projects.results) {
+    // Still log the authorization check for audit trail
+    const result = await authz.can(systemActor, 'update', { type: 'project', id: project.id });
+
+    if (result.allowed) {
+      await performMaintenance(db, project.id);
+    }
+  }
+}
+
+/**
+ * Validate system request headers.
+ */
+export function validateSystemRequest(request: Request, env: Env): Actor | null {
+  const token = request.headers.get('X-System-Token');
+  const reason = request.headers.get('X-System-Reason');
+
+  if (!token || !reason) {
+    return null;
+  }
+
+  // Use timing-safe comparison in production
+  if (!timingSafeEqual(token, env.SYSTEM_TOKEN)) {
+    return null;
+  }
+
+  return createSystemActor(reason);
+}
+```
+
 ## Handler Integration
 
 ```typescript
@@ -332,3 +638,11 @@ try {
 
 > [!TIP]
 > **Structured Logging Integration**: For complete SafeLogger implementation with PII redaction and request correlation, see the [structured-logging skill](../../structured-logging/SKILL.md).
+
+## Pattern Selection Guide
+
+| Pattern        | Use When                                         |
+| -------------- | ------------------------------------------------ |
+| Ownership      | Resources have a single owner with full control  |
+| Admin Override | Org admins need to manage all resources          |
+| System Actions | Background jobs or internal services need access |
