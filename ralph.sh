@@ -135,7 +135,7 @@ check_clarify_complete() {
     # Find the clarify task for this epic (title contains [sp:02-clarify])
     # Must use --status closed since we're checking for completed phase tasks
     clarify_task=$(npx bd list --parent "$epic_id" --status closed --json 2>/dev/null | \
-        jq -r '.[] | select(.title | contains("[sp:02-clarify]")) | {id, status}' | head -n1)
+        jq -c 'first(.[] | select(.title | contains("[sp:02-clarify]"))) | {id, status}')
 
     if [[ -z "$clarify_task" ]]; then
         echo "Warning: No clarify task found for epic $epic_id. Proceeding..." >&2
@@ -166,7 +166,7 @@ check_tasks_generated() {
     # Find the tasks phase task for this epic (title contains [sp:05-tasks])
     # Must use --status closed since we're checking for completed phase tasks
     tasks_task=$(npx bd list --parent "$epic_id" --status closed --json 2>/dev/null | \
-        jq -r '.[] | select(.title | contains("[sp:05-tasks]")) | {id, status}' | head -n1)
+        jq -c 'first(.[] | select(.title | contains("[sp:05-tasks]"))) | {id, status}')
 
     if [[ -z "$tasks_task" ]]; then
         echo "Error: No tasks phase found for epic $epic_id" >&2
