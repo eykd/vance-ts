@@ -216,6 +216,21 @@ Usage in hero:
 </div>
 ```
 
+### Motion Design Philosophy
+
+**Prioritize orchestrated impact over scattered effects:**
+
+- One well-timed page load sequence > many random micro-interactions
+- Use `animation-delay` to create deliberate, staggered reveals
+- Focus motion budget on hero sections and key entry points
+- Keep utility interactions subtle (hover states, transitions)
+
+**CSS-first approach:**
+
+- Default to pure CSS animations for all static HTML
+- Use Alpine.js `x-transition` only when state-driven transitions are needed
+- Reserve JavaScript for complex, interactive animations beyond CSS/Alpine capabilities
+
 ### Card Hover Effects
 
 ```html
@@ -227,6 +242,17 @@ Usage in hero:
 ```
 
 ## Visual Atmosphere
+
+### Background Design Philosophy
+
+**Create atmosphere and depth, not solid colors:**
+
+- Layer CSS gradients with varying opacities
+- Use geometric patterns (dots, grids, subtle textures)
+- Add contextual effects that match the overall aesthetic
+- Backgrounds should enhance, not distract—aim for subtle richness
+
+**Examples below demonstrate layering techniques:**
 
 ### Gradient Mesh Background
 

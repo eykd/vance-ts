@@ -16,6 +16,17 @@ Design distinctive, accessible Hugo sites. This skill interviews the user to est
 4. IMPLEMENT    → Create Hugo templates (this skill)
 ```
 
+### Anti-Patterns to Avoid
+
+**CRITICAL:** Avoid converging toward generic "AI slop" aesthetics:
+
+- **Typography**: Never default to Inter, Roboto, Arial, system fonts, or Space Grotesk. Choose distinctive, beautiful fonts that elevate the design.
+- **Colors**: Avoid purple gradients on white backgrounds and other clichéd schemes. Commit to cohesive, bold palettes—dominant colors with sharp accents outperform timid, evenly-distributed palettes.
+- **Layouts**: Resist predictable component patterns. Make unexpected choices that feel genuinely designed for the context.
+- **Variation**: Think outside the box for EACH project. Vary between light/dark themes, different font families, different aesthetics. Never reuse the same aesthetic twice.
+
+**Design Philosophy:** Create frontends that surprise and delight. Draw from IDE themes, cultural aesthetics, and contextual inspiration rather than generic templates.
+
 ## Phase 1: Design Interview
 
 On invocation, review any context the user provides, then interview to fill gaps. Ask **one question at a time**. Stop when direction is clear.
@@ -28,7 +39,7 @@ On invocation, review any context the user provides, then interview to fill gaps
 2. **Tone**: "Pick a word: professional, playful, minimal, bold, elegant, technical, or describe your own."
 3. **Reference**: "Any sites or styles you admire? Even a vague 'like Apple' or 'like a newspaper' helps."
 4. **Colors**: "Do you have brand colors, or should I propose a palette based on the tone?"
-5. **Typography**: "Preference for serif, sans-serif, monospace, or mixed? Any specific fonts?"
+5. **Typography**: "What feeling should the typography convey—elegant, technical, bold, friendly, unconventional? I'll choose distinctive fonts that elevate the design (avoiding generic defaults like Inter or Roboto)."
 
 **Interview rules:**
 
@@ -45,9 +56,12 @@ After interview, produce a brief **Design Direction Summary**:
 Site type: [blog/portfolio/product/docs/other]
 Aesthetic: [1-3 descriptive words]
 Color approach: [brand colors / proposed palette / defer to theme skill]
-Typography: [font strategy]
-Key differentiator: [what makes this memorable]
+Typography: [font strategy - specify UNIQUE fonts, not defaults]
+Key differentiator: [what makes this memorable and unlike other sites]
+Creativity checkpoint: [how will this avoid looking generic?]
 ```
+
+**Before finalizing:** Verify you're not reusing fonts/aesthetics from previous projects. Ensure bold, distinctive choices.
 
 ## Phase 2: Coordinate Theme Generation
 
@@ -74,6 +88,16 @@ See [references/hugo-templates.md](references/hugo-templates.md) for:
 - baseof.html structure
 - Layout template patterns
 - Partial organization
+
+### Motion Hierarchy
+
+Prioritize in this order:
+
+1. **CSS animations** - Default choice for all motion on HTML
+2. **Alpine.js transitions** - When CSS isn't sufficient for interactivity
+3. **Vanilla JavaScript** - Only when Alpine.js capabilities are exceeded
+
+Focus on high-impact moments: one well-orchestrated page load with staggered reveals creates more delight than scattered micro-interactions.
 
 See [references/design-patterns.md](references/design-patterns.md) for:
 
