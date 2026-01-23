@@ -17,11 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash",
-            "args": [
-              "-c",
-              "if echo \"$CLAUDE_TOOL_INPUT\" | grep -qE 'git.*(--no-verify|--no-gpg-sign)|git\\s+push.*(--force([^-]|$)|-f\\s|--force-with-lease)'; then echo 'BLOCKED: Hook bypass or force flags detected.\n\nProhibited flags: --no-verify, --no-gpg-sign, --force, -f, --force-with-lease\n\nInstead of bypassing safety checks:\n- If pre-commit hook fails: Fix the linting/formatting/type errors it found\n- If commit-msg fails: Write a proper conventional commit message\n- If pre-push fails: Fix the issues preventing push\n- If force push needed: This usually indicates a workflow problem\n\nFix the root problem rather than bypassing the safety mechanism.\nOnly use these flags when explicitly requested by the user.' >&2; exit 1; fi"
-            ]
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use-bash.sh"
           }
         ]
       }
