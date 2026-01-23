@@ -44,12 +44,6 @@ git log --oneline -n 3
 
 ## Important Rules
 
-**NEVER add co-author information:**
-
-- ❌ No "Generated with Claude Code" messages
-- ❌ No "Co-Authored-By: Claude" lines
-- ✅ Write commit messages as if the user wrote them
-
 **Stage files explicitly:**
 
 - ❌ Never use `git add -A` or `git add .`
