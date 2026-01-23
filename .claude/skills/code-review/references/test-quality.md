@@ -198,6 +198,43 @@ For rapid evaluation, check these essentials:
 
 ---
 
+## Coverage Verification
+
+When reviewing test changes, ALWAYS verify coverage:
+
+```bash
+npx jest --coverage --findRelatedTests [changed-files]
+```
+
+**Check for 100% threshold**:
+
+- Branches: Must be 100%
+- Functions: Must be 100%
+- Lines: Must be 100%
+- Statements: Must be 100%
+
+**Finding format for insufficient coverage**:
+
+```markdown
+### Finding: Test coverage below 100%
+
+- **Severity**: High
+- **Category**: test
+- **File**: path/to/file.ts
+- **Description**: Coverage is at X% (branches: X%, functions: X%, lines: X%, statements: X%). Project requires 100% coverage threshold.
+- **Risk**: Pre-commit hooks will fail. Untested code paths may contain bugs.
+- **Fix**: Add tests for uncovered lines. Run `npx jest --coverage` to see gaps. Use istanbul ignore ONLY for truly untestable code (defensive type guards, platform-specific edge cases).
+```
+
+**If 95-99% coverage**:
+
+- Flag as HIGH severity finding
+- List specific uncovered lines from coverage report
+- Suggest specific test cases for each gap
+- Only suggest istanbul ignore if truly justified
+
+---
+
 ## Examples
 
 ### Good Test Pattern

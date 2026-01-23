@@ -8,7 +8,11 @@ A static-first Typescript web application targeting the Cloudflare Pages & Worke
 
 All code changes must be tested:
 
-- **TypeScript/JavaScript**: Strict red-green-refactor TDD practice (100% coverage)
+- **TypeScript/JavaScript**: Strict red-green-refactor TDD practice (**100% coverage - non-negotiable**)
+  - Jest enforces 100% threshold for branches, functions, lines, statements
+  - Pre-commit hooks will fail on less than 100% coverage
+  - Use istanbul ignore comments ONLY for truly untestable edge cases (see typescript-unit-testing skill)
+  - Run `npx jest --coverage` to verify before committing
 - **Hugo static site**: Build verification tests (zero errors, zero warnings)
 
 ## Getting Started
@@ -159,6 +163,10 @@ When adding new functionality:
 3. Run `npx jest --watch` or `just test-watch`
 4. Implement code to pass tests
 5. Ensure 100% coverage maintained
+   - Run `npx jest --coverage` to verify
+   - All four metrics must show 100%: branches, functions, lines, statements
+   - If stuck below 100%, ask: "Can I mock the dependency?" before using istanbul ignore
+   - See `/typescript-unit-testing` skill for guidance on achieving 100%
 
 ### Hugo Static Site
 

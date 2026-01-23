@@ -2,25 +2,21 @@
 
 <!--
 Sync Impact Report:
-- Version: 1.1.1 → 1.2.0 (MINOR - Clarified testing requirements for Hugo static content)
+- Version: 1.2.0 → 1.2.1 (PATCH - Clarified 100% coverage achievement strategies)
 - Modified principles:
-  - I. Test-First Development: Distinguished Application Code (TypeScript/JavaScript with TDD) from Static Site Code (Hugo with build verification)
-  - Added subsections for code type-specific testing strategies
-  - Added zero-warning requirement for Hugo builds (enforced in hugo/test-build.js)
-  - Added Development Workflow section for multi-type changes
-- Added sections:
-  - I.A Application Code (TypeScript/JavaScript)
-  - I.B Static Site Code (Hugo)
-  - I.C Development Workflow
+  - I.A Application Code: Added guidance for achieving 100% test coverage
+  - Added acceptable/unacceptable uses of istanbul ignore comments
+  - Added escalation strategy: mock → refactor → istanbul ignore (as last resort)
+- Added sections: None
 - Removed sections: None
 - Templates requiring updates:
-  ✅ plan-template.md - Constitution Check section aligns with principles (no change needed)
-  ✅ spec-template.md - User story prioritization aligns with Test-First principle (no change needed)
-  ⚠️ tasks-template.md - Referenced but file does not exist
+  ✅ plan-template.md - No changes needed
+  ✅ spec-template.md - No changes needed
 - Implementation changes:
-  - hugo/test-build.js: Enhanced to detect and fail on build warnings
-- Follow-up TODOs:
-  - Consider creating tasks-template.md or removing reference from future reports
+  - .claude/skills/typescript-unit-testing/SKILL.md: Added "100% Coverage Requirement" section
+  - .claude/skills/code-review/references/test-quality.md: Added "Coverage Verification" section
+  - CLAUDE.md: Strengthened coverage requirement language and added verification steps
+- Follow-up TODOs: None
 -->
 
 # TURTLEBASED-TS Constitution
@@ -116,6 +112,12 @@ Test-Driven Development is MANDATORY for all application code. No exceptions.
 - 100% test coverage threshold MUST be maintained (branches, functions, lines, statements)
 - Tests use `.spec.ts` or `.test.ts` suffix
 - Watch mode (`npx jest --watch`) MUST be used during development
+- When achieving 100% coverage is difficult:
+  - First, try mocking external dependencies
+  - Second, try restructuring code to make it testable
+  - Only as last resort, use istanbul ignore comments with clear justification
+  - Acceptable uses: unreachable type guards, platform-specific errors, third-party library internals
+  - Unacceptable uses: normal code paths, error handlers you can mock, edge cases you can simulate
 
 **Scope**: All TypeScript/JavaScript source code in `src/`, `.claude/`, and similar application directories.
 
@@ -273,4 +275,4 @@ Constitution follows semantic versioning:
 - Violations require either fix or constitutional amendment
 - Use CLAUDE.md for runtime development guidance to Claude Code
 
-**Version**: 1.2.0 | **Ratified**: 2026-01-13 | **Last Amended**: 2026-01-23
+**Version**: 1.2.1 | **Ratified**: 2026-01-13 | **Last Amended**: 2026-01-23
