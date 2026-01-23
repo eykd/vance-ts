@@ -413,7 +413,8 @@ generate_focused_prompt() {
 
     # Extract and format comments if they exist
     if [[ -n "$task_details" ]]; then
-        comments_json=$(echo "$task_details" | jq -r '.comments // []')
+        # Normalize to object (handle both array and object responses from bd show)
+        comments_json=$(echo "$task_details" | jq -r '(if type == "array" then .[0] else . end) | .comments // []')
         comments_text=$(echo "$comments_json" | jq -r '.[] | "- \(.timestamp // "unknown"): \(.text // "")"' 2>/dev/null)
     else
         comments_text=""
