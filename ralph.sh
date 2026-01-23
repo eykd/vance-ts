@@ -19,6 +19,9 @@ readonly LOG_MAX_SIZE=$((10 * 1024 * 1024))  # 10MB max log size
 readonly MAX_RETRIES=10
 readonly MAX_RETRY_DELAY=300  # 5 minutes cap
 
+# Claude CLI timeout
+readonly CLAUDE_TIMEOUT=1800  # 30 minutes max per invocation
+
 # Exit codes
 readonly EXIT_SUCCESS=0
 readonly EXIT_FAILURE=1
@@ -625,12 +628,17 @@ invoke_claude() {
     local temp_output
     temp_output=$(mktemp)
 
-    if claude -p "$prompt" 2>&1 | tee "$temp_output"; then
+    # Use timeout to prevent indefinite hangs (exit code 124 = timeout)
+    if timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" 2>&1 | tee "$temp_output"; then
         exit_code=0
         log INFO "Claude completed successfully"
     else
         exit_code=$?
-        log ERROR "Claude failed with exit code: $exit_code"
+        if [[ "$exit_code" -eq 124 ]]; then
+            log ERROR "Claude timed out after ${CLAUDE_TIMEOUT}s"
+        else
+            log ERROR "Claude failed with exit code: $exit_code"
+        fi
     fi
 
     # Log the output
