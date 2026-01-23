@@ -451,6 +451,41 @@ detect_epic() {
 # Task checking
 ##############################################################################
 
+# Get in-progress tasks for the epic (returns JSON array)
+get_in_progress_tasks() {
+    local epic_id="$1"
+    local in_progress_json
+
+    in_progress_json=$(npx bd list --status in-progress --json 2>/dev/null) || {
+        echo "Error: Failed to query beads for in-progress tasks" >&2
+        return 1
+    }
+
+    # Filter tasks that belong to this epic (ID starts with epic_id)
+    echo "$in_progress_json" | jq --arg epic "$epic_id" \
+        '[.[] | select(.id | startswith($epic))]'
+}
+
+# Check if there are in-progress tasks
+has_in_progress_tasks() {
+    local epic_id="$1"
+    local in_progress_tasks count
+
+    in_progress_tasks=$(get_in_progress_tasks "$epic_id") || return 1
+    count=$(echo "$in_progress_tasks" | jq 'length')
+
+    [[ "$count" -gt 0 ]]
+}
+
+# Get the first in-progress task info
+get_in_progress_task() {
+    local epic_id="$1"
+    local in_progress_tasks
+
+    in_progress_tasks=$(get_in_progress_tasks "$epic_id") || return 1
+    echo "$in_progress_tasks" | jq -r '.[0] // empty'
+}
+
 # Get ready tasks for the epic (returns JSON array)
 get_ready_tasks() {
     local epic_id="$1"
@@ -506,11 +541,12 @@ is_hugo_task() {
 # Generate focused prompt based on task type
 generate_focused_prompt() {
     local task_json="$1"
-    local task_title task_id task_description task_details comments_json comments_text
+    local task_title task_id task_description task_details comments_json comments_text task_status
 
     task_title=$(echo "$task_json" | jq -r '.title // "unknown"')
     task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
     task_description=$(echo "$task_json" | jq -r '.description // ""')
+    task_status=$(echo "$task_json" | jq -r '.status // "unknown"')
 
     # Fetch full task details including comments
     task_details=$(npx bd show "$task_id" --json 2>/dev/null) || task_details=""
@@ -536,6 +572,21 @@ Communicate status ONLY through beads task management.
 ## Task Details
 Title: $task_title
 ID: $task_id
+Status: $task_status
+EOF
+
+    # Add resumption notice if task is in-progress
+    if [[ "$task_status" == "in-progress" ]]; then
+        cat <<EOF
+
+**RESUMING INTERRUPTED TASK**
+This task was previously started but not completed.
+Review previous comments below for context on what was done.
+Continue from where you left off.
+EOF
+    fi
+
+    cat <<EOF
 
 Description:
 $task_description
@@ -710,6 +761,7 @@ run_loop() {
     local iteration=0
     local next_task task_id task_title task_description task_type
     local focused_prompt
+    local is_resuming=false
 
     log INFO "Starting automation loop (max $MAX_ITERATIONS iterations)"
     log_section "AUTOMATION LOOP START"
@@ -720,15 +772,24 @@ run_loop() {
 
         log_section "ITERATION $iteration/$MAX_ITERATIONS"
 
-        # Check for ready tasks
-        log DEBUG "Checking for ready tasks..."
-        if ! has_ready_tasks "$epic_id"; then
-            log INFO "No more ready tasks. Feature complete!"
-            return "$EXIT_SUCCESS"
+        # Check for in-progress tasks first (resume interrupted work)
+        log DEBUG "Checking for in-progress tasks..."
+        if has_in_progress_tasks "$epic_id"; then
+            is_resuming=true
+            next_task=$(get_in_progress_task "$epic_id")
+            log INFO "Resuming interrupted task"
+        else
+            # No in-progress tasks, check for ready tasks
+            is_resuming=false
+            log DEBUG "Checking for ready tasks..."
+            if ! has_ready_tasks "$epic_id"; then
+                log INFO "No more ready tasks. Feature complete!"
+                return "$EXIT_SUCCESS"
+            fi
+            next_task=$(get_next_task "$epic_id")
         fi
 
-        # Get next task info for logging
-        next_task=$(get_next_task "$epic_id")
+        # Extract task info for logging
         task_id=$(echo "$next_task" | jq -r '.id // "unknown"')
         task_title=$(echo "$next_task" | jq -r '.title // "unknown"')
         task_description=$(echo "$next_task" | jq -r '.description // "no description"')
@@ -740,10 +801,16 @@ run_loop() {
             task_type="TypeScript"
         fi
 
-        log INFO "Iteration $iteration/$MAX_ITERATIONS: $task_title ($task_id) [$task_type]"
+        if [[ "$is_resuming" == "true" ]]; then
+            log INFO "Iteration $iteration/$MAX_ITERATIONS: [RESUMING] $task_title ($task_id) [$task_type]"
+        else
+            log INFO "Iteration $iteration/$MAX_ITERATIONS: $task_title ($task_id) [$task_type]"
+        fi
+
         log_block "Task Details" "ID: $task_id
 Title: $task_title
 Type: $task_type
+Status: $(if [[ "$is_resuming" == "true" ]]; then echo "RESUMING IN-PROGRESS"; else echo "STARTING NEW"; fi)
 
 Description:
 $task_description"
