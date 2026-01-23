@@ -11,15 +11,29 @@ on:
     #   - "src/**/*.jsx"
 
 jobs:
-  claude-review:
+  # Quality gate - wait for CI quality checks to pass before running reviews
+  await-quality:
     # Skip Dependabot PRs - secrets are not available to Dependabot-triggered workflows
     # for security reasons (prevents malicious dependencies from exfiltrating secrets)
     if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for quality checks
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          check-name: 'quality'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
 
+  # Security-focused review - OWASP Top 10, auth, data security
+  security-review:
+    needs: await-quality
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       issues: read
       id-token: write
 
@@ -27,10 +41,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
-      - name: Run Claude Code Review
-        id: claude-review
+      - name: Run Security Review
+        id: security-review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -38,14 +52,107 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
-            Use the /code-review skill to review this pull request.
+            Use the /security-review skill to review this pull request for security vulnerabilities.
 
             Review scope: Branch changes from ${{ github.event.pull_request.base.ref }} to HEAD.
 
-            After generating the review, use `gh pr comment` to post the full review as a comment on PR #${{ github.event.pull_request.number }}.
+            After generating the review, use `gh pr comment` to post the review as a comment on PR #${{ github.event.pull_request.number }}.
+
+            Start your comment with:
+            ## Security Review
 
             Use the repository's CLAUDE.md for context on project standards.
 
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+
+  # Architecture-focused review - Clean Architecture compliance
+  architecture-review:
+    needs: await-quality
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run Architecture Review
+        id: architecture-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Use the /clean-architecture-validator skill to review this pull request for architectural compliance.
+
+            Review scope: Branch changes from ${{ github.event.pull_request.base.ref }} to HEAD.
+
+            After generating the review, use `gh pr comment` to post the review as a comment on PR #${{ github.event.pull_request.number }}.
+
+            Start your comment with:
+            ## Architecture Review
+
+            Use the repository's CLAUDE.md for context on project standards.
+
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+
+  # Code quality and test review - Correctness, maintainability, test quality
+  quality-review:
+    needs: await-quality
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run Code Quality Review
+        id: quality-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request for code quality, correctness, and test quality.
+
+            Review scope: Branch changes from ${{ github.event.pull_request.base.ref }} to HEAD.
+
+            Focus areas:
+            1. **What Changed** - Plain English summary of the changes
+            2. **Does It Work** - Correctness and production-readiness
+            3. **Test Quality** - Using Kent Beck's Test Desiderata (isolated, composable, fast, inspiring, writable, readable, behavioral, structure-insensitive, automated, specific, deterministic, predictive)
+            4. **Simplicity** - Is the code simple and maintainable?
+            5. **Code Quality** - Does it follow project standards in CLAUDE.md?
+
+            DO NOT review security or architecture - those are covered by other review jobs.
+
+            After generating the review, use `gh pr comment` to post the review as a comment on PR #${{ github.event.pull_request.number }}.
+
+            Start your comment with:
+            ## Code Quality Review
+
+            Organize findings by priority:
+            - **Must Fix** - Blocks merge (correctness issues, failing tests, project standard violations)
+            - **Should Fix** - Important but not blocking (test quality, simplicity improvements)
+            - **Consider** - Optional suggestions (style preferences, future enhancements)
+
+            Use the repository's CLAUDE.md for context on project standards.
+
           claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
