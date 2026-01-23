@@ -33,6 +33,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Ralph automation
+.ralph.lock
+
 # Claude cache and session artifacts
 .claude/tsc-cache/
 .claude/settings.local.json

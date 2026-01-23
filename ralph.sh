@@ -12,6 +12,8 @@ readonly VERSION="1.0.0"
 # Default configuration
 readonly DEFAULT_MAX_ITERATIONS=50
 readonly LOCK_FILE=".ralph.lock"
+readonly LOG_FILE=".ralph.log"
+readonly LOG_MAX_SIZE=$((10 * 1024 * 1024))  # 10MB max log size
 
 # Retry configuration
 readonly MAX_RETRIES=10
@@ -30,6 +32,86 @@ MAX_ITERATIONS="$DEFAULT_MAX_ITERATIONS"
 # Runtime state (used for signal handlers and summary)
 CURRENT_ITERATION=0
 START_TIME=0
+
+##############################################################################
+# Logging infrastructure
+##############################################################################
+
+# Rotate log file if it exceeds MAX_SIZE
+rotate_log() {
+    if [[ -f "$LOG_FILE" ]] && [[ $(stat -f%z "$LOG_FILE" 2>/dev/null || stat -c%s "$LOG_FILE" 2>/dev/null || echo 0) -gt "$LOG_MAX_SIZE" ]]; then
+        local timestamp
+        timestamp=$(date +%Y%m%d-%H%M%S)
+        mv "$LOG_FILE" "${LOG_FILE}.${timestamp}"
+        echo "[ralph] Rotated log file to ${LOG_FILE}.${timestamp}"
+    fi
+}
+
+# Initialize log file with session header
+init_log() {
+    rotate_log
+    {
+        echo "========================================================================"
+        echo "Ralph Automation Session"
+        echo "Started: $(date -Iseconds)"
+        echo "Version: $VERSION"
+        echo "Configuration: dry_run=$DRY_RUN, max_iterations=$MAX_ITERATIONS"
+        echo "========================================================================"
+        echo ""
+    } >> "$LOG_FILE"
+}
+
+# Log a message with timestamp and level
+# Usage: log LEVEL MESSAGE
+# Levels: INFO, WARN, ERROR, DEBUG
+log() {
+    local level="$1"
+    shift
+    local message="$*"
+    local timestamp
+    timestamp=$(date -Iseconds)
+
+    # Write to log file
+    echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
+
+    # Also write to console for INFO/WARN/ERROR (always to stderr to avoid capture in command substitution)
+    case "$level" in
+        INFO)
+            echo "[ralph] $message" >&2
+            ;;
+        WARN)
+            echo "[ralph] WARNING: $message" >&2
+            ;;
+        ERROR)
+            echo "[ralph] ERROR: $message" >&2
+            ;;
+    esac
+}
+
+# Log a separator for major sections
+log_section() {
+    local title="$1"
+    {
+        echo ""
+        echo "========================================================================"
+        echo "$title"
+        echo "========================================================================"
+        echo ""
+    } >> "$LOG_FILE"
+}
+
+# Log the full content of a prompt or output
+log_block() {
+    local label="$1"
+    local content="$2"
+    {
+        echo ""
+        echo "-------- $label --------"
+        echo "$content"
+        echo "-------- End $label --------"
+        echo ""
+    } >> "$LOG_FILE"
+}
 
 ##############################################################################
 # Usage and help
@@ -111,19 +193,23 @@ parse_args() {
 
 # Check if Claude CLI is available
 check_claude_cli() {
+    log DEBUG "Checking for Claude CLI..."
     if ! command -v claude &>/dev/null; then
-        echo "Error: Claude CLI not found. Please install and authenticate claude CLI." >&2
+        log ERROR "Claude CLI not found. Please install and authenticate claude CLI."
         return 1
     fi
+    log DEBUG "Claude CLI found"
     return 0
 }
 
 # Check if beads is initialized
 check_beads_init() {
+    log DEBUG "Checking for beads initialization..."
     if [[ ! -d ".beads" ]]; then
-        echo "Error: Beads not initialized. Run 'npx bd init' to initialize beads." >&2
+        log ERROR "Beads not initialized. Run 'npx bd init' to initialize beads."
         return 1
     fi
+    log DEBUG "Beads initialized"
     return 0
 }
 
@@ -132,20 +218,23 @@ check_clarify_complete() {
     local epic_id="$1"
     local clarify_task status
 
+    log DEBUG "Checking clarify phase completion for epic $epic_id..."
+
     # Find the clarify task for this epic (title contains [sp:02-clarify])
     # Must use --status closed since we're checking for completed phase tasks
     clarify_task=$(npx bd list --parent "$epic_id" --status closed --json 2>/dev/null | \
         jq -c 'first(.[] | select(.title | contains("[sp:02-clarify]"))) | {id, status}')
 
     if [[ -z "$clarify_task" ]]; then
-        echo "Warning: No clarify task found for epic $epic_id. Proceeding..." >&2
+        log WARN "No clarify task found for epic $epic_id. Proceeding..."
         return 0
     fi
 
     status=$(echo "$clarify_task" | jq -r '.status')
+    log DEBUG "Clarify task status: $status"
 
     if [[ "$status" != "closed" ]]; then
-        echo "Error: Clarify phase not complete (status: $status)" >&2
+        log ERROR "Clarify phase not complete (status: $status)"
         echo "" >&2
         echo "Ralph automates phases 03-09 only. Before running ralph.sh:" >&2
         echo "  1. Run '/sp:01-specify' to create the feature specification" >&2
@@ -155,6 +244,7 @@ check_clarify_complete() {
         return 1
     fi
 
+    log DEBUG "Clarify phase complete"
     return 0
 }
 
@@ -163,13 +253,15 @@ check_tasks_generated() {
     local epic_id="$1"
     local tasks_task status
 
+    log DEBUG "Checking task generation for epic $epic_id..."
+
     # Find the tasks phase task for this epic (title contains [sp:05-tasks])
     # Must use --status closed since we're checking for completed phase tasks
     tasks_task=$(npx bd list --parent "$epic_id" --status closed --json 2>/dev/null | \
         jq -c 'first(.[] | select(.title | contains("[sp:05-tasks]"))) | {id, status}')
 
     if [[ -z "$tasks_task" ]]; then
-        echo "Error: No tasks phase found for epic $epic_id" >&2
+        log ERROR "No tasks phase found for epic $epic_id"
         echo "" >&2
         echo "The task suite has not been generated yet. Run these phases first:" >&2
         echo "  1. '/sp:03-plan' to create the implementation plan" >&2
@@ -181,14 +273,16 @@ check_tasks_generated() {
     fi
 
     status=$(echo "$tasks_task" | jq -r '.status')
+    log DEBUG "Tasks phase status: $status"
 
     if [[ "$status" != "closed" ]]; then
-        echo "Error: Task generation not complete (status: $status)" >&2
+        log ERROR "Task generation not complete (status: $status)"
         echo "" >&2
         echo "Run '/sp:05-tasks' to generate the task suite before running ralph." >&2
         return 1
     fi
 
+    log DEBUG "Task generation complete"
     return 0
 }
 
@@ -196,14 +290,15 @@ check_tasks_generated() {
 validate_prerequisites() {
     local epic_id="$1"
 
-    echo "[ralph] Validating prerequisites..."
+    log INFO "Validating prerequisites..."
+    log_section "PREREQUISITE VALIDATION"
 
     check_claude_cli || return 1
     check_beads_init || return 1
     check_clarify_complete "$epic_id" || return 1
     check_tasks_generated "$epic_id" || return 1
 
-    echo "[ralph] All prerequisites satisfied"
+    log INFO "All prerequisites satisfied"
     return 0
 }
 
@@ -232,6 +327,8 @@ acquire_lock() {
     local branch="$1"
     local lock_content existing_pid existing_branch
 
+    log DEBUG "Attempting to acquire lock for branch: $branch"
+
     # Prepare lock content: PID, timestamp, branch
     lock_content="$$
 $(date -Iseconds)
@@ -239,7 +336,7 @@ $branch"
 
     # Try atomic lock creation first (prevents TOCTOU race condition)
     if ( set -o noclobber; echo "$lock_content" > "$LOCK_FILE" ) 2>/dev/null; then
-        echo "[ralph] Acquired lock (PID: $$)"
+        log INFO "Acquired lock (PID: $$)"
         return 0
     fi
 
@@ -247,23 +344,25 @@ $branch"
     existing_pid=$(head -n1 "$LOCK_FILE" 2>/dev/null || echo "")
     existing_branch=$(sed -n '3p' "$LOCK_FILE" 2>/dev/null || echo "")
 
+    log DEBUG "Lock file exists: PID=$existing_pid, branch=$existing_branch"
+
     if [[ -n "$existing_pid" ]] && is_ralph_running "$existing_pid"; then
-        echo "Error: ralph.sh is already running on branch '$existing_branch' (PID: $existing_pid)" >&2
+        log ERROR "ralph.sh is already running on branch '$existing_branch' (PID: $existing_pid)"
         echo "If this is stale, remove $LOCK_FILE manually." >&2
         return 1
     fi
 
     # Stale lock file - remove and retry atomically
-    echo "[ralph] Removing stale lock file (PID $existing_pid not running)"
+    log INFO "Removing stale lock file (PID $existing_pid not running)"
     rm -f "$LOCK_FILE"
 
     if ( set -o noclobber; echo "$lock_content" > "$LOCK_FILE" ) 2>/dev/null; then
-        echo "[ralph] Acquired lock (PID: $$)"
+        log INFO "Acquired lock (PID: $$)"
         return 0
     fi
 
     # Another process acquired the lock between rm and create
-    echo "Error: Another ralph.sh instance acquired the lock" >&2
+    log ERROR "Another ralph.sh instance acquired the lock"
     return 1
 }
 
@@ -276,7 +375,7 @@ release_lock() {
         # Only release if we own the lock
         if [[ "$lock_pid" == "$$" ]]; then
             rm -f "$LOCK_FILE"
-            echo "[ralph] Released lock"
+            log INFO "Released lock"
         fi
     fi
 }
@@ -327,18 +426,20 @@ find_epic_id() {
 detect_epic() {
     local branch feature_name epic_id
 
+    log DEBUG "Detecting epic from current branch..."
+
     branch=$(get_current_branch) || return 1
 
     if [[ -z "$branch" ]]; then
-        echo "Error: Could not determine current branch" >&2
+        log ERROR "Could not determine current branch"
         return 1
     fi
 
     feature_name=$(extract_feature_name "$branch")
-    echo "[ralph] Branch: $branch, Feature: $feature_name" >&2
+    log INFO "Branch: $branch, Feature: $feature_name"
 
     epic_id=$(find_epic_id "$feature_name") || return 1
-    echo "[ralph] Epic ID: $epic_id" >&2
+    log INFO "Epic ID: $epic_id"
 
     echo "$epic_id"
 }
@@ -514,16 +615,29 @@ EOF
 invoke_claude() {
     local prompt="$1"
     local exit_code
+    local claude_output
 
-    echo "[ralph] Invoking Claude with focused prompt"
+    log INFO "Invoking Claude with focused prompt"
+    log_section "CLAUDE INVOCATION - $(date -Iseconds)"
+    log_block "Prompt" "$prompt"
 
-    if claude -p "$prompt"; then
+    # Capture Claude output to a temp file for logging
+    local temp_output
+    temp_output=$(mktemp)
+
+    if claude -p "$prompt" 2>&1 | tee "$temp_output"; then
         exit_code=0
+        log INFO "Claude completed successfully"
     else
         exit_code=$?
+        log ERROR "Claude failed with exit code: $exit_code"
     fi
 
-    echo "[ralph] Claude exited with code: $exit_code"
+    # Log the output
+    claude_output=$(cat "$temp_output")
+    log_block "Claude Output" "$claude_output"
+    rm -f "$temp_output"
+
     return "$exit_code"
 }
 
@@ -557,18 +671,22 @@ invoke_claude_with_retry() {
 
     while (( attempt < MAX_RETRIES )); do
         attempt=$((attempt + 1))
+        log DEBUG "Claude invocation attempt $attempt/$MAX_RETRIES"
 
         if invoke_claude "$prompt"; then
+            if (( attempt > 1 )); then
+                log INFO "Claude succeeded after $attempt attempts"
+            fi
             return 0
         fi
 
         if (( attempt >= MAX_RETRIES )); then
-            echo "[ralph] All $MAX_RETRIES retry attempts exhausted" >&2
+            log ERROR "All $MAX_RETRIES retry attempts exhausted"
             return 1
         fi
 
         delay=$(calculate_delay "$attempt")
-        echo "[ralph] Retry $attempt/$MAX_RETRIES failed. Waiting ${delay}s before next attempt..."
+        log WARN "Retry $attempt/$MAX_RETRIES failed. Waiting ${delay}s before next attempt..."
         sleep "$delay"
     done
 
@@ -582,18 +700,22 @@ invoke_claude_with_retry() {
 run_loop() {
     local epic_id="$1"
     local iteration=0
-    local next_task task_id task_title task_type
+    local next_task task_id task_title task_description task_type
     local focused_prompt
 
-    echo "[ralph] Starting automation loop (max $MAX_ITERATIONS iterations)"
+    log INFO "Starting automation loop (max $MAX_ITERATIONS iterations)"
+    log_section "AUTOMATION LOOP START"
 
     while (( iteration < MAX_ITERATIONS )); do
         iteration=$((iteration + 1))
         CURRENT_ITERATION="$iteration"  # Update global for SIGINT handler
 
+        log_section "ITERATION $iteration/$MAX_ITERATIONS"
+
         # Check for ready tasks
+        log DEBUG "Checking for ready tasks..."
         if ! has_ready_tasks "$epic_id"; then
-            echo "[ralph] No more ready tasks. Feature complete!"
+            log INFO "No more ready tasks. Feature complete!"
             return "$EXIT_SUCCESS"
         fi
 
@@ -601,6 +723,7 @@ run_loop() {
         next_task=$(get_next_task "$epic_id")
         task_id=$(echo "$next_task" | jq -r '.id // "unknown"')
         task_title=$(echo "$next_task" | jq -r '.title // "unknown"')
+        task_description=$(echo "$next_task" | jq -r '.description // "no description"')
 
         # Detect task type for logging
         if is_hugo_task "$next_task"; then
@@ -609,13 +732,21 @@ run_loop() {
             task_type="TypeScript"
         fi
 
-        echo "[ralph] Iteration $iteration/$MAX_ITERATIONS: $task_title ($task_id) [$task_type]"
+        log INFO "Iteration $iteration/$MAX_ITERATIONS: $task_title ($task_id) [$task_type]"
+        log_block "Task Details" "ID: $task_id
+Title: $task_title
+Type: $task_type
+
+Description:
+$task_description"
 
         # Generate focused prompt
+        log DEBUG "Generating focused prompt..."
         focused_prompt=$(generate_focused_prompt "$next_task")
 
         if [[ "$DRY_RUN" == "true" ]]; then
-            echo "[ralph] DRY RUN: Would invoke Claude with prompt:"
+            log INFO "DRY RUN: Would invoke Claude with prompt"
+            log_block "Dry Run Prompt" "$focused_prompt"
             echo "---"
             echo "$focused_prompt"
             echo "---"
@@ -624,15 +755,15 @@ run_loop() {
 
         # Invoke Claude CLI with retry logic
         if invoke_claude_with_retry "$focused_prompt"; then
-            echo "[ralph] Claude completed successfully"
+            log INFO "Task processing completed successfully"
         else
-            echo "[ralph] Claude failed after $MAX_RETRIES retries"
+            log ERROR "Task processing failed after $MAX_RETRIES retries"
             return "$EXIT_FAILURE"
         fi
     done
 
     if (( iteration >= MAX_ITERATIONS )); then
-        echo "[ralph] Maximum iterations ($MAX_ITERATIONS) reached"
+        log WARN "Maximum iterations ($MAX_ITERATIONS) reached"
         return "$EXIT_LIMIT_REACHED"
     fi
 
@@ -669,11 +800,22 @@ show_summary() {
         elapsed_formatted="N/A"
     fi
 
+    # Log to file
+    log_section "SESSION SUMMARY"
+    {
+        echo "Exit reason: $exit_reason"
+        echo "Iterations completed: $CURRENT_ITERATION"
+        echo "Elapsed time: $elapsed_formatted"
+        echo "Ended: $(date -Iseconds)"
+    } >> "$LOG_FILE"
+
+    # Display to console
     echo ""
     echo "[ralph] ========================================="
     echo "[ralph] Summary: $exit_reason"
     echo "[ralph] Iterations: $CURRENT_ITERATION"
     echo "[ralph] Elapsed time: $elapsed_formatted"
+    echo "[ralph] Log file: $LOG_FILE"
     echo "[ralph] ========================================="
 }
 
@@ -701,7 +843,11 @@ cleanup() {
 main() {
     parse_args "$@"
 
-    echo "[ralph] Configuration: dry_run=$DRY_RUN, max_iterations=$MAX_ITERATIONS"
+    # Initialize logging infrastructure
+    init_log
+
+    log INFO "Configuration: dry_run=$DRY_RUN, max_iterations=$MAX_ITERATIONS"
+    log INFO "Log file: $LOG_FILE"
 
     # Record start time for summary
     START_TIME=$(date +%s)
@@ -711,7 +857,7 @@ main() {
     branch=$(get_current_branch) || exit "$EXIT_FAILURE"
     epic_id=$(detect_epic) || exit "$EXIT_FAILURE"
 
-    echo "[ralph] Working on epic: $epic_id"
+    log INFO "Working on epic: $epic_id"
 
     # Skip lock and prerequisites in dry-run mode for testing
     if [[ "$DRY_RUN" != "true" ]]; then
