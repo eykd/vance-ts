@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Hook: PreToolUse:Bash
-# Validates git commands to prevent bypassing safety hooks
+# DEPRECATED: This script has been replaced by pre-tool-use-bash.ts
+# The TypeScript version is more robust and avoids JSON parsing issues
+# See .claude/settings.json for the current hook configuration
+#
+# Legacy script kept for reference - validates git commands to prevent bypassing safety hooks
 
 # Read the hook input JSON from stdin
 HOOK_INPUT=$(cat)
