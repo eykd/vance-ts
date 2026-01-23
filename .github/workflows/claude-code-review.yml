@@ -43,6 +43,36 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Query beads for known issues
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          # Extract epic ID from branch name (e.g., feature/workspace-123-description)
+          EPIC_ID=$(echo "$HEAD_REF" | grep -oP 'workspace-\w+' || echo "")
+
+          if [ -n "$EPIC_ID" ]; then
+            echo "Found epic ID: $EPIC_ID"
+            echo "EPIC_ID=$EPIC_ID" >> $GITHUB_ENV
+
+            # Query open and ready tasks for this epic
+            npx bd list --parent "$EPIC_ID" --status open --format json > known-issues.json || echo "[]" > known-issues.json
+            npx bd list --parent "$EPIC_ID" --status ready --format json >> known-issues.json || true
+
+            echo "Known issues queried from beads"
+          else
+            echo "No epic ID found in branch name"
+            echo "[]" > known-issues.json
+          fi
+
       - name: Run Security Review
         id: security-review
         uses: anthropics/claude-code-action@v1
@@ -55,6 +85,12 @@ jobs:
             Use the /security-review skill to review this pull request for security vulnerabilities.
 
             Review scope: Branch changes from ${{ github.event.pull_request.base.ref }} to HEAD.
+
+            IMPORTANT - Known Issues Context:
+            Before reporting issues, check the file known-issues.json for tasks already tracked in beads.
+            These issues are already documented and should not be re-reported.
+            If a finding relates to a known issue, reference it like: "Related to beads task workspace-123"
+            Only report NEW security findings not already in known-issues.json.
 
             After generating the review, use `gh pr comment` to post the review as a comment on PR #${{ github.event.pull_request.number }}.
 
@@ -82,6 +118,36 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Query beads for known issues
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          # Extract epic ID from branch name (e.g., feature/workspace-123-description)
+          EPIC_ID=$(echo "$HEAD_REF" | grep -oP 'workspace-\w+' || echo "")
+
+          if [ -n "$EPIC_ID" ]; then
+            echo "Found epic ID: $EPIC_ID"
+            echo "EPIC_ID=$EPIC_ID" >> $GITHUB_ENV
+
+            # Query open and ready tasks for this epic
+            npx bd list --parent "$EPIC_ID" --status open --format json > known-issues.json || echo "[]" > known-issues.json
+            npx bd list --parent "$EPIC_ID" --status ready --format json >> known-issues.json || true
+
+            echo "Known issues queried from beads"
+          else
+            echo "No epic ID found in branch name"
+            echo "[]" > known-issues.json
+          fi
+
       - name: Run Architecture Review
         id: architecture-review
         uses: anthropics/claude-code-action@v1
@@ -94,6 +160,12 @@ jobs:
             Use the /clean-architecture-validator skill to review this pull request for architectural compliance.
 
             Review scope: Branch changes from ${{ github.event.pull_request.base.ref }} to HEAD.
+
+            IMPORTANT - Known Issues Context:
+            Before reporting issues, check the file known-issues.json for tasks already tracked in beads.
+            These issues are already documented and should not be re-reported.
+            If a finding relates to a known issue, reference it like: "Related to beads task workspace-123"
+            Only report NEW architecture findings not already in known-issues.json.
 
             After generating the review, use `gh pr comment` to post the review as a comment on PR #${{ github.event.pull_request.number }}.
 
@@ -121,6 +193,36 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Query beads for known issues
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          # Extract epic ID from branch name (e.g., feature/workspace-123-description)
+          EPIC_ID=$(echo "$HEAD_REF" | grep -oP 'workspace-\w+' || echo "")
+
+          if [ -n "$EPIC_ID" ]; then
+            echo "Found epic ID: $EPIC_ID"
+            echo "EPIC_ID=$EPIC_ID" >> $GITHUB_ENV
+
+            # Query open and ready tasks for this epic
+            npx bd list --parent "$EPIC_ID" --status open --format json > known-issues.json || echo "[]" > known-issues.json
+            npx bd list --parent "$EPIC_ID" --status ready --format json >> known-issues.json || true
+
+            echo "Known issues queried from beads"
+          else
+            echo "No epic ID found in branch name"
+            echo "[]" > known-issues.json
+          fi
+
       - name: Run Code Quality Review
         id: quality-review
         uses: anthropics/claude-code-action@v1
@@ -142,6 +244,12 @@ jobs:
             5. **Code Quality** - Does it follow project standards in CLAUDE.md?
 
             DO NOT review security or architecture - those are covered by other review jobs.
+
+            IMPORTANT - Known Issues Context:
+            Before reporting issues, check the file known-issues.json for tasks already tracked in beads.
+            These issues are already documented and should not be re-reported.
+            If a finding relates to a known issue, reference it like: "Related to beads task workspace-123"
+            Only report NEW quality findings not already in known-issues.json.
 
             After generating the review, use `gh pr comment` to post the review as a comment on PR #${{ github.event.pull_request.number }}.
 
