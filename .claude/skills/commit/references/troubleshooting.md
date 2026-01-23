@@ -31,10 +31,34 @@ npm test
 
 ## Commit Message Validation Failures
 
+### Common Commitlint Errors
+
+**Error: `body-max-line-length`**
+
+One or more body lines exceed 100 characters.
+
+Fix: Manually wrap long lines at natural break points:
+
+```bash
+# Before (fails)
+git commit -m "feat: add feature
+
+This is a very long line that exceeds one hundred characters and will cause the commit to fail."
+
+# After (passes)
+git commit -m "feat: add feature
+
+This is a very long line that exceeds one hundred characters and
+will cause the commit to fail."
+```
+
+**Other validation rules:**
+
 - Ensure commit message follows conventional commit format
 - Check that type is valid (feat, fix, docs, etc.)
 - Subject line should be lowercase
 - No period at end of subject line
+- Subject line max 100 characters
 
 ## TypeScript Project Commit Scenarios
 

@@ -42,6 +42,65 @@ git log --oneline -n 3
 
 **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 
+## Line Length Rules (CRITICAL)
+
+Commitlint enforces **100-character maximum** for ALL lines:
+
+- **Subject line**: Max 100 characters (including type and colon)
+- **Body lines**: Max 100 characters **per line**
+
+**Common mistake**: Writing long sentences that exceed 100 characters.
+
+**Solution**: Wrap lines manually at natural break points.
+
+### Examples
+
+❌ **Bad** (line too long):
+
+```bash
+git commit -m "docs: amend constitution to v1.2.1 (strengthen 100% coverage enforcement)
+
+Add comprehensive guidance for achieving 100% test coverage across multiple documentation layers."
+# Error: body-max-line-length
+```
+
+✅ **Good** (lines wrapped):
+
+```bash
+git commit -m "docs: amend constitution to v1.2.1 (strengthen coverage)
+
+Add comprehensive guidance for achieving 100% test coverage across
+multiple documentation layers."
+```
+
+### Formatting Lists
+
+When including lists or multiple points, keep each line under 100 chars:
+
+```bash
+git commit -m "$(cat <<'EOF'
+feat: add authentication system
+
+Implement user authentication with the following features:
+- JWT token generation and validation
+- Secure password hashing with bcrypt
+- Session management with Redis
+- Rate limiting for login attempts
+
+All features include comprehensive test coverage.
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+EOF
+)"
+```
+
+### Tips for Staying Under 100 Characters
+
+1. **Break at conjunctions**: "and", "but", "or", "with"
+2. **Break after punctuation**: Periods, commas, colons
+3. **Use HEREDOC** for complex messages (see example above)
+4. **Check line length** if commit fails with `body-max-line-length`
+
 ## Important Rules
 
 **Stage files explicitly:**
