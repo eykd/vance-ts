@@ -45,16 +45,44 @@ try {
 
   // Test 1: Run Hugo build
   logInfo('Test 1: Running Hugo build...');
+  let buildOutput = '';
   try {
-    execSync('npx hugo --minify', {
+    buildOutput = execSync('npx hugo --minify', {
       cwd: __dirname,
       stdio: 'pipe',
       encoding: 'utf-8',
     });
     logSuccess('Hugo build completed successfully');
+
+    // Check for warnings in build output
+    const warningPatterns = [
+      /WARN/i,
+      /WARNING/i,
+      /deprecation/i,
+      /deprecated/i,
+    ];
+
+    const lines = buildOutput.split('\n');
+    const warnings = lines.filter(line =>
+      warningPatterns.some(pattern => pattern.test(line))
+    );
+
+    if (warnings.length > 0) {
+      logError(`Hugo build produced ${warnings.length} warning(s):`);
+      warnings.forEach(warning => {
+        log(`  ${warning}`, colors.yellow);
+      });
+      logError('Build warnings are not allowed (max-warnings: 0 policy)');
+      exitCode = 1;
+    } else {
+      logSuccess('No build warnings detected');
+    }
   } catch (error) {
     logError(`Hugo build failed: ${error.message}`);
-    if (error.stdout) console.log(error.stdout);
+    if (error.stdout) {
+      console.log(error.stdout);
+      buildOutput = error.stdout;
+    }
     if (error.stderr) console.error(error.stderr);
     exitCode = 1;
   }

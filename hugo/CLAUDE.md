@@ -109,3 +109,4 @@ To review the visual design, contrast, or styling of the Hugo site:
 - Uses `npx hugo` for consistent version (v0.154.5)
 - TailwindCSS built via Hugo Pipes with PostCSS
 - Build tests verify output structure before deploy
+- **Zero-warning policy**: Build tests fail if Hugo produces any warnings (matches TypeScript strictness)

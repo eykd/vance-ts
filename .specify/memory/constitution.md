@@ -2,15 +2,23 @@
 
 <!--
 Sync Impact Report:
-- Version: 1.1.0 → 1.1.1 (PATCH - Added prefactoring skill cross-reference)
+- Version: 1.1.1 → 1.2.0 (MINOR - Clarified testing requirements for Hugo static content)
 - Modified principles:
-  - VII. Simplicity and Maintainability: Added cross-reference to prefactoring skill
-- Added sections: None
+  - I. Test-First Development: Distinguished Application Code (TypeScript/JavaScript with TDD) from Static Site Code (Hugo with build verification)
+  - Added subsections for code type-specific testing strategies
+  - Added zero-warning requirement for Hugo builds (enforced in hugo/test-build.js)
+  - Added Development Workflow section for multi-type changes
+- Added sections:
+  - I.A Application Code (TypeScript/JavaScript)
+  - I.B Static Site Code (Hugo)
+  - I.C Development Workflow
 - Removed sections: None
 - Templates requiring updates:
   ✅ plan-template.md - Constitution Check section aligns with principles (no change needed)
   ✅ spec-template.md - User story prioritization aligns with Test-First principle (no change needed)
   ⚠️ tasks-template.md - Referenced but file does not exist
+- Implementation changes:
+  - hugo/test-build.js: Enhanced to detect and fail on build warnings
 - Follow-up TODOs:
   - Consider creating tasks-template.md or removing reference from future reports
 -->
@@ -93,7 +101,11 @@ It is the condition under which all other principles remain valid.
 
 ### I. Test-First Development (NON-NEGOTIABLE)
 
-Test-Driven Development is MANDATORY for all code changes. No exceptions.
+All code changes MUST be tested before implementation. The testing strategy depends on the code type:
+
+#### Application Code (TypeScript/JavaScript)
+
+Test-Driven Development is MANDATORY for all application code. No exceptions.
 
 - Tests MUST be written BEFORE implementation code
 - Red-Green-Refactor cycle MUST be strictly followed:
@@ -105,7 +117,40 @@ Test-Driven Development is MANDATORY for all code changes. No exceptions.
 - Tests use `.spec.ts` or `.test.ts` suffix
 - Watch mode (`npx jest --watch`) MUST be used during development
 
+**Scope**: All TypeScript/JavaScript source code in `src/`, `.claude/`, and similar application directories.
+
 **Rationale**: Pre-written tests ensure code correctness, prevent regressions, and serve as living documentation. The strict red-green-refactor discipline prevents implementation drift and maintains high quality standards.
+
+#### Static Site Code (Hugo)
+
+Build verification testing is MANDATORY for all Hugo static site changes.
+
+- Hugo MUST build successfully with zero errors and zero warnings
+- Build verification tests (`cd hugo && npm test`) MUST pass:
+  - Validates build completes with no errors or warnings
+  - Verifies required output files exist (index.html, CSS, 404.html)
+  - Confirms output directory structure is correct
+- Changes to templates, content, or configuration MUST be validated by successful build
+- Build tests are enforced in pre-commit hooks and CI
+
+**Scope**: All Hugo files in `hugo/` directory including:
+
+- Content files (`content/**/*.md`)
+- Templates and layouts (`layouts/**/*.html`)
+- Configuration (`config/**/*.yaml`, `hugo.yaml`)
+- Data files (`data/**/*.yaml`)
+- Styling (`assets/css/**/*.css`)
+
+**Rationale**: Hugo content and templates are declarative rather than imperative. Build verification is the appropriate testing strategy - if the site builds successfully and produces the expected output structure, the code is correct. Traditional TDD with unit tests is not applicable to markup, content, and configuration files. Zero-warning policy mirrors TypeScript's strictness and prevents quality degradation.
+
+#### Development Workflow
+
+When adding functionality that spans both application and static site code:
+
+1. For TypeScript/JavaScript: Follow strict TDD (red-green-refactor)
+2. For Hugo changes: Validate with build tests
+3. Both test suites MUST pass before committing
+4. Pre-commit hooks enforce both validation strategies automatically
 
 ### II. Type Safety and Static Analysis
 
@@ -228,4 +273,4 @@ Constitution follows semantic versioning:
 - Violations require either fix or constitutional amendment
 - Use CLAUDE.md for runtime development guidance to Claude Code
 
-**Version**: 1.1.1 | **Ratified**: 2026-01-13 | **Last Amended**: 2026-01-19
+**Version**: 1.2.0 | **Ratified**: 2026-01-13 | **Last Amended**: 2026-01-23

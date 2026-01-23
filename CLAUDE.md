@@ -6,7 +6,10 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 A static-first Typescript web application targeting the Cloudflare Pages & Workers environment, using Hugo for building the static pages.
 
-All code changes must be implemented with **strict red-green-refactor TDD practice**.
+All code changes must be tested:
+
+- **TypeScript/JavaScript**: Strict red-green-refactor TDD practice (100% coverage)
+- **Hugo static site**: Build verification tests (zero errors, zero warnings)
 
 ## Getting Started
 
@@ -64,6 +67,7 @@ cd hugo && npm test  # Run build verification (builds site and checks output)
 **Hugo Build Tests**: The Hugo site has build verification tests (`hugo/test-build.js`) that:
 
 - Build the site with `npx hugo --minify`
+- Fail on build warnings (zero-warning policy, matching TypeScript strictness)
 - Verify required files exist (index.html, CSS files, 404.html)
 - Check build output structure is correct
 - Run via `cd hugo && npm test`
@@ -139,7 +143,9 @@ When you encounter a warning or deprecation, fix it before proceeding with other
 
 ## TDD Workflow
 
-This project **requires strict red-green-refactor TDD**:
+### TypeScript/JavaScript Code
+
+This project **requires strict red-green-refactor TDD** for all TypeScript/JavaScript code:
 
 1. **Red**: Write failing test first
 2. **Green**: Write minimal code to pass
@@ -153,6 +159,15 @@ When adding new functionality:
 3. Run `npx jest --watch` or `just test-watch`
 4. Implement code to pass tests
 5. Ensure 100% coverage maintained
+
+### Hugo Static Site
+
+Build verification is required for all Hugo changes:
+
+1. Make changes to templates, content, or configuration
+2. Run `cd hugo && npm test` to verify build succeeds
+3. Build must complete with zero errors and zero warnings
+4. Required output files must exist with correct structure
 
 ### Required Skill Usage
 
