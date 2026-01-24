@@ -497,8 +497,9 @@ get_ready_tasks() {
     }
 
     # Filter tasks that belong to this epic (ID starts with epic_id)
+    # Exclude the epic itself and event tasks
     echo "$ready_json" | jq --arg epic "$epic_id" \
-        '[.[] | select(.id | startswith($epic))]'
+        '[.[] | select(.id | startswith($epic)) | select(.id != $epic and .issue_type != "event")]'
 }
 
 # Check if there are ready tasks remaining
@@ -532,8 +533,9 @@ get_open_tasks() {
     }
 
     # Filter tasks that belong to this epic (ID starts with epic_id)
+    # Exclude the epic itself and event tasks
     echo "$open_json" | jq --arg epic "$epic_id" \
-        '[.[] | select(.id | startswith($epic))]'
+        '[.[] | select(.id | startswith($epic)) | select(.id != $epic and .issue_type != "event")]'
 }
 
 # Check if there are any open tasks remaining
