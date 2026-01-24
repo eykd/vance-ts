@@ -2102,7 +2102,28 @@ export class JobAuditLogger {
 
 ## Platform-Specific Implementations
 
+### Important: Workers vs Pages
+
+**Cloudflare has two distinct platforms** with different cron capabilities:
+
+| Platform               | Cron Support                         | Configuration Method                           |
+| ---------------------- | ------------------------------------ | ---------------------------------------------- |
+| **Cloudflare Workers** | Native `triggers` in `wrangler.toml` | See "Cloudflare Workers (Cron Triggers)" below |
+| **Cloudflare Pages**   | **NOT supported via `triggers`**     | See "Cloudflare Pages (Scheduled Tasks)" below |
+
+⚠️ **CRITICAL**: If you add `triggers` to a Cloudflare Pages project's `wrangler.toml`, deployment will fail with:
+
+```
+Configuration file for Pages projects does not support "triggers"
+```
+
+This boilerplate is a **Cloudflare Pages** project (Hugo + Pages Functions). If you need scheduled tasks, see the "Cloudflare Pages" section below.
+
+---
+
 ### Cloudflare Workers (Cron Triggers)
+
+**FOR TRADITIONAL CLOUDFLARE WORKERS ONLY** (not Pages projects).
 
 Cloudflare Workers support native cron triggers through the `scheduled` event:
 
@@ -2146,7 +2167,7 @@ export default {
   }
 };
 
-// wrangler.jsonc configuration
+// wrangler.toml configuration (WORKERS ONLY - NOT Pages)
 /*
 {
   "name": "scheduled-jobs",
@@ -2160,6 +2181,148 @@ export default {
 }
 */
 ```
+
+---
+
+### Cloudflare Pages (Scheduled Tasks)
+
+**FOR CLOUDFLARE PAGES PROJECTS** (Hugo + Pages Functions, like this boilerplate).
+
+Cloudflare Pages **does not support** the `triggers` configuration. Instead, you have three options:
+
+#### Option 1: Separate Worker with HTTP Calls (Recommended)
+
+Create a **separate Cloudflare Worker** with cron triggers that calls your Pages Functions via HTTP:
+
+**Step 1: Create a Worker project** (in a separate directory):
+
+```typescript
+// worker-scheduler/src/index.ts
+export default {
+  async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
+    const tasks = [
+      { url: 'https://your-site.pages.dev/api/cron/daily-report', cron: '0 6 * * *' },
+      { url: 'https://your-site.pages.dev/api/cron/cleanup', cron: '0 3 * * *' },
+    ];
+
+    const now = new Date(event.scheduledTime);
+
+    for (const task of tasks) {
+      if (matchesCron(task.cron, now)) {
+        await fetch(task.url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${env.CRON_SECRET}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ scheduledTime: event.scheduledTime }),
+        });
+      }
+    }
+  },
+};
+
+// worker-scheduler/wrangler.toml
+/*
+name = "your-site-scheduler"
+triggers = {
+  crons = ["0 6 * * *", "0 3 * * *"]
+}
+
+[vars]
+CRON_SECRET = "use-a-strong-secret-here"
+*/
+```
+
+**Step 2: Create Pages Functions** to handle the HTTP calls:
+
+```typescript
+// functions/api/cron/daily-report.ts
+export const onRequestPost: PagesFunction<Env> = async (context) => {
+  // Verify request is from your scheduler Worker
+  const authHeader = context.request.headers.get('Authorization');
+  if (authHeader !== `Bearer ${context.env.CRON_SECRET}`) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  // Run your scheduled task
+  const result = await generateDailyReport(context.env.DB);
+
+  return new Response(JSON.stringify({ success: true, result }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+```
+
+**Benefits**:
+
+- Keeps scheduler logic separate from application code
+- Easy to add/remove scheduled tasks without redeploying Pages
+- Can trigger multiple Pages sites from one Worker
+- Proper authentication via shared secret
+
+#### Option 2: Cloudflare Dashboard (Cron Triggers for Pages)
+
+**Note**: As of January 2025, Cloudflare is testing cron triggers for Pages Functions via the dashboard. Check the [Cloudflare Pages documentation](https://developers.cloudflare.com/pages/) for the latest availability.
+
+If available in your account:
+
+1. Go to **Cloudflare Dashboard** → **Workers & Pages**
+2. Select your Pages project
+3. Go to **Settings** → **Functions** → **Cron Triggers**
+4. Add cron expressions and specify which Pages Function path to invoke
+
+This creates a scheduled trigger that directly invokes your Pages Function without needing a separate Worker.
+
+#### Option 3: Durable Objects Alarms
+
+Use Durable Objects (which work with Pages) to schedule tasks programmatically:
+
+```typescript
+// functions/api/schedule-task.ts
+export class TaskScheduler implements DurableObject {
+  async fetch(request: Request): Promise<Response> {
+    // Schedule an alarm for future execution
+    const delayMs = 24 * 60 * 60 * 1000; // 24 hours
+    await this.state.storage.setAlarm(Date.now() + delayMs);
+    return new Response('Task scheduled');
+  }
+
+  async alarm(): Promise<void> {
+    // This runs when the alarm fires
+    await this.runScheduledTask();
+
+    // Reschedule for next execution
+    const delayMs = 24 * 60 * 60 * 1000; // 24 hours
+    await this.state.storage.setAlarm(Date.now() + delayMs);
+  }
+
+  private async runScheduledTask(): Promise<void> {
+    // Your scheduled logic here
+  }
+}
+
+// wrangler.toml (add Durable Object binding)
+/*
+[[durable_objects.bindings]]
+name = "TASK_SCHEDULER"
+class_name = "TaskScheduler"
+*/
+```
+
+**Benefits**:
+
+- Works within Pages project (no separate Worker needed)
+- Programmatic scheduling (can adjust intervals dynamically)
+- Per-object state (different schedules per user, tenant, etc.)
+
+**Limitations**:
+
+- Requires Durable Objects (paid plan)
+- More complex setup than simple cron
+- Alarms can drift slightly (typically within seconds)
+
+---
 
 ### Node.js with node-cron
 
