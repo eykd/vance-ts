@@ -110,6 +110,8 @@ You can view these tasks with:
 npx bd list --parent [epic-id]
 ```
 
+> **Note**: If the epic was closed, the note "Epic `[epic-id]` was reopened to track these findings" will appear at the top of this section.
+
 ---
 
 ## Findings

@@ -90,9 +90,29 @@ Before creating beads tasks, detect the current epic:
 
 1. Get current git branch: `git branch --show-current`
 2. Extract feature name: Remove numeric prefix (e.g., "001-feature-name" → "feature-name")
-3. Find matching epic: `npx bd list --type epic --status open --json | jq -r '.[] | select(.title | ascii_downcase | contains("feature-name")) | .id'`
+3. Find matching epic (search both open AND closed):
+   ```bash
+   npx bd list --type epic --json | \
+     jq -r --arg name "$feature" \
+     '.[] | select(.title | ascii_downcase | contains($name | ascii_downcase)) | .id' | head -n1
+   ```
+
+**Note**: Search both open and closed epics because code review may happen after epic closure.
 
 If no epic is found, skip beads task creation and only generate the review report.
+
+## Epic Reopening
+
+If the detected epic is closed AND findings exist:
+
+1. Reopen the epic before creating tasks:
+   ```bash
+   npx bd reopen "$epic_id"
+   ```
+2. Note in the report that the epic was reopened
+3. Create tasks under the reopened epic
+
+**Rationale**: Code review may reveal issues after the epic was initially closed. Reopening allows tracking fixes as tasks.
 
 ## Integration with Review Subagents
 
@@ -196,9 +216,14 @@ branch=$(git branch --show-current)
 # Extract feature name (remove numeric prefix)
 feature=$(echo "$branch" | sed 's/^[0-9]*-//')
 
-# Find matching epic
-epic_id=$(npx bd list --type epic --status open --json | \
+# Find matching epic (search both open and closed)
+epic_id=$(npx bd list --type epic --json | \
   jq -r --arg name "$feature" '.[] | select(.title | ascii_downcase | contains($name | ascii_downcase)) | .id' | head -n1)
+
+# Check if epic is closed
+if [ -n "$epic_id" ]; then
+  epic_status=$(npx bd show "$epic_id" --json | jq -r '.[0].status')
+fi
 ```
 
 ### Step 3: Invoke Review Subagents in Parallel
@@ -219,7 +244,19 @@ Parse findings from each subagent's output:
 - Deduplicate findings across reviews
 - Sort by severity (Critical → High → Medium → Low)
 
-### Step 5: Create Beads Tasks
+### Step 5: Reopen Epic (if needed)
+
+Before creating tasks, check if epic needs reopening:
+
+```bash
+# If epic is closed and we have findings, reopen it
+if [ "$epic_status" = "closed" ] && [ "${#findings[@]}" -gt 0 ]; then
+  npx bd reopen "$epic_id"
+  echo "Reopened epic $epic_id to track new findings"
+fi
+```
+
+### Step 6: Create Beads Tasks
 
 For each finding, create a beads task:
 
@@ -237,7 +274,7 @@ npx bd create "Fix: [Title]" \
 - No findings to report
 - User explicitly opts out
 
-### Step 6: Generate Consolidated Report
+### Step 7: Generate Consolidated Report
 
 Create a single report combining:
 
@@ -252,6 +289,7 @@ Create a single report combining:
 - **No changes**: Report "No changes detected" and exit gracefully
 - **Outside git repo**: Report error explaining git repository requirement
 - **No epic found**: Skip beads creation, generate report only
+- **Epic is closed**: Reopen epic before creating tasks (if findings exist)
 - **Binary files**: Note but don't analyze; focus on text-based source files
 - **Very large changesets**: Switch to summary mode with warning
 - **Beads not initialized**: Skip beads creation, generate report only
@@ -299,13 +337,18 @@ User: /code-review --scope staged
    branch = "001-user-authentication"
    feature = "user-authentication"
    epic_id = "workspace-abc123"
+   epic_status = "closed"  # Epic was already closed
 
 3. Launch parallel reviews (single message, 3 Task calls):
    - Task(quality-review) → findings: 2 test issues, 1 code quality issue
    - Task(security-review) → findings: 1 SQL injection, 1 XSS vulnerability
    - Task(clean-architecture-validator) → findings: 1 layer violation
 
-4. Create beads tasks:
+4. Reopen epic (because it's closed and we have findings):
+   npx bd reopen workspace-abc123
+   → Epic reopened to track new findings from code review
+
+5. Create beads tasks:
    - workspace-abc123-t1: Fix SQL injection (P0)
    - workspace-abc123-t2: Fix XSS vulnerability (P0)
    - workspace-abc123-t3: Fix layer violation (P1)
@@ -313,14 +356,16 @@ User: /code-review --scope staged
    - workspace-abc123-t5: Simplify complex function (P2)
    - workspace-abc123-t6: Improve variable naming (P3)
 
-5. Generate report:
+6. Generate report:
    - Summary for non-technical readers
    - All findings organized by severity
+   - Note that epic was reopened
    - Beads tasks created section
    - Copy-paste prompt to fix all issues
 
 Output to user:
    - Consolidated review report
+   - Note: "Epic workspace-abc123 was reopened to track findings"
    - 6 beads tasks created
    - Ready-to-paste prompt
 ```
@@ -352,3 +397,12 @@ If no epic matches the current branch:
 - Skip beads task creation entirely
 - Include note in report: "No epic found for current branch - skipping beads task creation"
 - Still generate complete review with findings and copy-paste prompt
+
+### When Epic Reopening Fails
+
+If `npx bd reopen` fails:
+
+- Log the error but continue with task creation attempt
+- Beads may prevent reopening for valid reasons (e.g., epic in special state)
+- If task creation also fails, include error in report
+- Suggest manual intervention: "Epic could not be reopened. Please reopen manually: `npx bd reopen [epic-id]`"
