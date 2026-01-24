@@ -17,6 +17,9 @@ jobs:
     # for security reasons (prevents malicious dependencies from exfiltrating secrets)
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
     steps:
       - name: Wait for quality checks
         uses: lewagon/wait-on-check-action@v1.3.1
