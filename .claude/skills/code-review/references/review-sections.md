@@ -2,6 +2,19 @@
 
 Detailed guidance for each section of the code review output.
 
+## Review Orchestration
+
+The code-review skill acts as an **orchestrator** that:
+
+1. Gets code changes based on scope
+2. Detects the current epic from the git branch
+3. Invokes three specialized review subagents **in parallel**
+4. Collects and deduplicates findings
+5. Creates beads tasks for each finding
+6. Generates a consolidated report
+
+The skill does NOT perform reviews directly - it delegates to specialized subagents.
+
 ---
 
 ## 1. What Changed
@@ -181,47 +194,92 @@ See [test-quality.md](test-quality.md) for detailed evaluation criteria.
 
 ---
 
-## 5. Security Review
+## 5. Consolidated Findings from All Reviews
 
-**Purpose**: Identify security vulnerabilities and risks.
+**Purpose**: Present all findings from the three review subagents in one organized section.
 
-This section invokes the `/security-review` skill automatically.
+This section aggregates findings from:
 
-### Integration
+- quality-review subagent
+- security-review subagent
+- clean-architecture-validator subagent
+
+Findings are sorted by severity (Critical → High → Medium → Low) regardless of which review found them.
+
+### Output Format
 
 ```markdown
-## Security Review
-
-[Results from /security-review skill invocation]
+## Findings
 
 ### Critical Issues
 
-[List or "None found"]
+1. [security] SQL Injection in search handler - src/search/handler.ts:45
+2. [security] XSS vulnerability in user input - src/ui/form.ts:102
 
 ### High Priority
 
-[List or "None found"]
+1. [architecture] Layer violation: UI depends on infrastructure - src/pages/login.ts:23
+2. [quality] Missing tests for error handling - src/auth/validate.spec.ts:0
 
 ### Medium Priority
 
-[List or "None found"]
+1. [quality] Complex function needs refactoring - src/utils/parser.ts:88
+2. [test] Over-mocking reduces test value - src/services/api.spec.ts:45
 
 ### Low Priority
 
-[List or "None found"]
+1. [quality] Inconsistent variable naming - src/models/user.ts:12
 ```
 
-### Common Vulnerability Categories
+### Finding Categories (from all three reviews)
 
-- **Injection**: SQL injection, command injection, XSS
-- **Authentication**: Weak password handling, session issues
-- **Authorization**: Missing access control, privilege escalation
-- **Data Exposure**: Sensitive data in logs, insecure storage
-- **Configuration**: Hardcoded secrets, insecure defaults
+| Category       | Source Review                | Examples                              |
+| -------------- | ---------------------------- | ------------------------------------- |
+| `security`     | security-review              | SQL injection, XSS, CSRF, auth issues |
+| `architecture` | clean-architecture-validator | Layer violations, dependency issues   |
+| `quality`      | quality-review               | Code smells, correctness issues       |
+| `test`         | quality-review               | Test quality, coverage gaps           |
+| `performance`  | Any review                   | N+1 queries, memory leaks             |
 
 ---
 
-## 6. Recommendations
+## 6. Beads Tasks Created
+
+**Purpose**: Show which beads tasks were created for tracking fixes.
+
+**IMPORTANT**: This section only appears when:
+
+- An epic was found for the current branch
+- Beads is initialized in the repository
+- At least one finding exists
+
+### Output Format
+
+```markdown
+## Beads Tasks Created
+
+Created 6 tasks under epic `workspace-abc123`:
+
+- `workspace-abc123-t1`: Fix: SQL injection in search handler (P0)
+- `workspace-abc123-t2`: Fix: XSS vulnerability in user input (P0)
+- `workspace-abc123-t3`: Fix: Layer violation in login page (P1)
+- `workspace-abc123-t4`: Add tests for error handling (P1)
+- `workspace-abc123-t5`: Refactor complex parser function (P2)
+- `workspace-abc123-t6`: Improve variable naming consistency (P3)
+
+View tasks: `npx bd list --parent workspace-abc123`
+```
+
+### When to Skip This Section
+
+- No epic found for current branch
+- Beads not initialized (no .beads/ directory)
+- No findings to report
+- Beads task creation failed (note error in report)
+
+---
+
+## 7. Recommendations
 
 **Purpose**: Provide prioritized, actionable items for improvement.
 
@@ -252,7 +310,7 @@ This section invokes the `/security-review` skill automatically.
 
 ---
 
-## 7. Copy-Paste Prompt for Claude Code
+## 8. Copy-Paste Prompt for Claude Code
 
 **Purpose**: Provide a ready-to-use prompt for implementing recommendations.
 
@@ -296,17 +354,17 @@ Start with the security issue first.
 
 ## Section Order
 
-The review should follow this order:
+The consolidated review should follow this order:
 
 1. Summary (1-3 sentences)
 2. What Changed
-3. Does It Work
-4. Simplicity & Maintainability
-5. Test Quality (if applicable)
-6. Security Review
-7. Findings (structured for parsing)
+3. Does It Work (synthesized from quality-review)
+4. Simplicity & Maintainability (from quality-review)
+5. Test Quality (from quality-review, if applicable)
+6. Findings (aggregated from all three reviews, sorted by severity)
+7. Beads Tasks Created (if applicable)
 8. Recommendations
-9. Copy-Paste Prompt (if recommendations exist)
+9. Copy-Paste Prompt (always include when findings exist)
 10. Review Metadata
 
 ---

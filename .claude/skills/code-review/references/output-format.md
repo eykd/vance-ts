@@ -10,6 +10,8 @@ Structured output format for the code-review skill. This format is designed to b
 
 1. **Audience**: Write the ENTIRE review for non-technical managers using plain English
 2. **Copy-Paste Prompt**: ALWAYS include a ready-to-use prompt when findings exist
+3. **Beads Tasks**: Create beads tasks for all findings under the current epic
+4. **Parallel Reviews**: Invoke quality-review, security-review, and clean-architecture-validator in parallel
 
 ---
 
@@ -92,9 +94,27 @@ Structured output format for the code-review skill. This format is designed to b
 
 ---
 
+## Beads Tasks Created
+
+> This section appears when beads tasks were created from findings.
+
+The following tasks have been created under epic `[epic-id]`:
+
+- `[task-id-1]`: Fix: [Finding 1 Title] (Priority: P0)
+- `[task-id-2]`: Fix: [Finding 2 Title] (Priority: P1)
+- `[task-id-3]`: Fix: [Finding 3 Title] (Priority: P2)
+
+You can view these tasks with:
+
+```bash
+npx bd list --parent [epic-id]
+```
+
+---
+
 ## Findings
 
-> Structured findings for automated processing.
+> Structured findings for automated processing and beads task creation.
 
 ### Finding: [Title]
 
