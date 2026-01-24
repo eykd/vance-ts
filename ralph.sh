@@ -669,17 +669,18 @@ EOF
 
 ## After Task Completion
 Follow this EXACT sequence:
-1. Commit: Run /commit skill to stage and commit changes
+1. Close bead: npx bd close $task_id
+   - This updates .beads state which needs to be committed
+2. Commit: Run /commit skill to stage and commit changes
    - Creates conventional commit message
+   - Includes .beads state changes from step 1
    - Runs pre-commit hooks (NEVER skip with --no-verify)
    - If hooks fail, you MUST fix the issues (format, lint, tests)
    - Retry /commit after fixing
-   - DO NOT push yet
-2. Close bead: npx bd close $task_id
-3. Push: git push (pushes both commit and .beads state)
 
-CRITICAL: Close bead AFTER commit but BEFORE push.
-This ensures if push fails, bead stays open for retry.
+CRITICAL: Close bead BEFORE commit to include .beads state.
+Ralph will create a series of commits across iterations.
+User will push manually when ready.
 
 FORBIDDEN: NEVER use --no-verify, --no-hooks, or similar flags.
 Pre-commit hooks enforce code quality and MUST pass.
