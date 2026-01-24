@@ -139,6 +139,17 @@ See [references/priority-levels.md](references/priority-levels.md) for definitio
 - Alternative approaches
 - Minor optimizations
 
+## Audience: Non-Technical Managers
+
+**CRITICAL**: Write the ENTIRE review for non-technical managers, not developers.
+
+- Technical jargon is OK when explained briefly and concisely
+- Always follow technical terms with plain English explanation (e.g., "mocking - simulating external systems in tests")
+- Explain impacts in business terms (risk, cost, user experience)
+- Focus on "what" and "why", not implementation details
+- Keep explanations concise - don't over-explain
+- Keep all sections accessible to non-technical readers
+
 ## Output Format
 
 Post as PR comment with this structure:
@@ -190,6 +201,18 @@ Post as PR comment with this structure:
 ## Summary
 
 [Overall assessment - ready to merge, needs fixes, etc.]
+
+---
+
+## Copy-Paste Prompt for Claude Code
+
+**REQUIRED when findings exist**: Provide a ready-to-use prompt in a code block.
+```
+
+[Specific, actionable prompt with file paths and line numbers that addresses all Must Fix and Should Fix items]
+
+```
+
 ```
 
 ## Integration Notes

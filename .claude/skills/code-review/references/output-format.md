@@ -2,9 +2,14 @@
 
 Structured output format for the code-review skill. This format is designed to be:
 
-1. Human-readable as a standalone review
+1. Human-readable as a standalone review **for non-technical managers**
 2. Parseable by the `/sp:review` command for beads issue creation
 3. Consistent across all invocation environments
+
+## CRITICAL Requirements
+
+1. **Audience**: Write the ENTIRE review for non-technical managers using plain English
+2. **Copy-Paste Prompt**: ALWAYS include a ready-to-use prompt when findings exist
 
 ---
 
@@ -120,11 +125,22 @@ Structured output format for the code-review skill. This format is designed to b
 
 ## Copy-Paste Prompt for Claude Code
 
-> Ready-to-use prompt for implementing recommended changes.
+**REQUIRED when any findings exist** - this section MUST be included.
+
+> Ready-to-use prompt that the customer can paste directly into Claude Code.
 
 ```
-[Specific, actionable prompt with file paths and line numbers]
+[Specific, actionable prompt with file paths and line numbers addressing all Must Fix and Should Fix items]
 ```
+
+### Guidelines for Copy-Paste Prompts
+
+- Be specific with exact file paths and line numbers
+- Prioritize fixes in order of severity (Critical → High → Medium)
+- Include enough context from the review for Claude to understand
+- Make it truly copy-paste ready - no placeholders or [brackets]
+- Focus on the concrete actions needed, not the problems
+- Keep it concise but complete
 
 ---
 
@@ -209,15 +225,15 @@ Clean implementation of user preferences API endpoint following existing pattern
 
 ## Does It Work
 
-- **Tests**: Present (unit and integration)
-- **Safety**: Good error handling
-- **Production Ready**: Yes
+- **Tests**: Yes - includes automated tests that verify the feature works correctly
+- **Safety**: Good - handles errors gracefully and shows helpful messages
+- **Production Ready**: Yes - ready to deploy
 
 ## Simplicity & Maintainability
 
-- **Complexity**: Low
-- **Patterns**: Follows existing repository patterns
-- **Concerns**: None
+- **Complexity**: Low - straightforward code that's easy to understand
+- **Patterns**: Follows the same patterns used throughout the codebase
+- **Concerns**: None - should be easy to maintain and modify
 
 ## Security Review
 
@@ -264,15 +280,15 @@ Search implementation with security and test coverage concerns that must be addr
 
 ## Does It Work
 
-- **Tests**: Partial - missing edge case coverage
-- **Safety**: Security concern with query handling
-- **Production Ready**: No - security issues
+- **Tests**: Partial - some tests exist but don't cover all scenarios
+- **Safety**: Security concern - the system could be vulnerable to attacks
+- **Production Ready**: No - security issues must be fixed first
 
 ## Simplicity & Maintainability
 
-- **Complexity**: Medium
-- **Patterns**: Generally follows patterns
-- **Concerns**: Query construction could be cleaner
+- **Complexity**: Medium - reasonably straightforward but could be simpler
+- **Patterns**: Generally follows the same approach as other features
+- **Concerns**: The search logic could be organized more clearly for easier future changes
 
 ## Security Review
 
@@ -292,9 +308,9 @@ None found.
 - **Category**: security
 - **File**: src/search/handler.ts
 - **Line**: 45
-- **Description**: Search term is concatenated into SQL query without sanitization.
-- **Risk**: Attackers could execute arbitrary SQL, exposing or modifying data.
-- **Fix**: Use parameterized queries with proper binding.
+- **Description**: The search feature directly inserts user input into database queries without proper validation. This is like allowing a visitor to write their own instructions for accessing your filing cabinets.
+- **Risk**: Attackers could access, modify, or delete customer data, financial records, or other sensitive information. This could lead to data breaches, regulatory fines, and loss of customer trust.
+- **Fix**: Use parameterized queries that safely separate user input from database commands.
 
 ```typescript
 // Use parameterized query
@@ -308,9 +324,9 @@ const results = db.prepare('SELECT * FROM items WHERE name LIKE ?').bind(`%${sea
 - **Category**: test
 - **File**: src/search/handler.spec.ts
 - **Line**: 0
-- **Description**: No test case for when search returns empty results.
-- **Risk**: Edge case behavior is undefined and could regress.
-- **Fix**: Add test case for empty result handling.
+- **Description**: The tests don't check what happens when a search finds nothing. This is like not testing what happens when a search box returns "no results found."
+- **Risk**: The system might crash or show confusing messages when users search for items that don't exist. This could frustrate users and hurt the user experience.
+- **Fix**: Add a test that verifies the system handles empty search results gracefully.
 
 ## Recommendations
 

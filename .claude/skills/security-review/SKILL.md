@@ -7,6 +7,17 @@ description: Review code for security vulnerabilities and best practices. Use wh
 
 Systematic security review following OWASP guidelines and defense-in-depth principles.
 
+## Audience: Non-Technical Managers
+
+**CRITICAL**: Write the ENTIRE review for non-technical managers, not developers.
+
+- Technical jargon is OK when explained briefly and concisely
+- Always follow technical terms with plain English explanation (e.g., "XSS (cross-site scripting) - injecting malicious code into web pages")
+- Explain security risks in business terms (data breach, financial loss, reputation damage)
+- Focus on impacts and consequences, not implementation details
+- Keep explanations concise - don't over-explain
+- Keep all sections accessible to non-technical readers
+
 ## Review Process
 
 1. **Identify security surface**: Authentication, data handling, user input, external APIs
@@ -114,9 +125,9 @@ function constantTimeEqual(a: string, b: string): boolean {
 ### Critical Issues
 
 1. **[Issue]** - [File:Line]
-   - Problem: [Description]
-   - Risk: [Impact]
-   - Fix: [Code example]
+   - Problem: [Description in plain English]
+   - Risk: [Business impact - data breach, financial loss, etc.]
+   - Fix: [What needs to be done]
 
 ### High Priority
 
@@ -125,6 +136,18 @@ function constantTimeEqual(a: string, b: string): boolean {
 ### Recommendations
 
 ...
+
+---
+
+## Copy-Paste Prompt for Claude Code
+
+**REQUIRED when findings exist**: Provide a ready-to-use prompt in a code block.
+```
+
+[Specific, actionable prompt with file paths and line numbers that addresses all Critical and High Priority items]
+
+```
+
 ```
 
 ## Framework-Specific

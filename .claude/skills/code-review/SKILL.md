@@ -110,6 +110,17 @@ When test files are detected (`*.spec.ts`, `*.test.ts`, `test_*.py`, `*_test.py`
 
 ## Review Guidelines
 
+### Audience: Non-Technical Managers
+
+**CRITICAL**: Write the ENTIRE review for non-technical managers, not developers.
+
+- Technical jargon is OK when explained briefly and concisely
+- Always follow technical terms with plain English explanation (e.g., "SQL injection - inserting malicious database commands")
+- Explain impacts in business terms (risk, cost, user experience)
+- Focus on "what" and "why", not implementation details
+- Keep explanations concise - don't over-explain
+- Keep all sections accessible to non-technical readers
+
 ### Prioritize Findings
 
 1. **Critical**: Security vulnerabilities, data loss risks - block merge
@@ -123,3 +134,7 @@ When test files are detected (`*.spec.ts`, `*.test.ts`, `test_*.py`, `*_test.py`
 - Explain the "why" not just the "what"
 - Provide actionable recommendations
 - Include specific file and line references
+
+### Always Include Copy-Paste Prompt
+
+**REQUIRED**: Every review with findings MUST end with a copy-paste prompt in a code block that the customer can paste directly into Claude Code to implement the recommended fixes.

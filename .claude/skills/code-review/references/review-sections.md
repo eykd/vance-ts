@@ -43,6 +43,8 @@ The bad examples focus on technical implementation rather than user value.
 
 **Purpose**: Assess correctness, testing, and production-readiness.
 
+**Audience**: Non-technical managers - explain in business terms.
+
 ### Evaluation Criteria
 
 | Aspect               | Questions to Answer                                                 |
@@ -51,14 +53,34 @@ The bad examples focus on technical implementation rather than user value.
 | **Safety**           | Error handling present? Validation of inputs? Graceful degradation? |
 | **Production Ready** | Logging in place? Performance acceptable? Dependencies secure?      |
 
-### Output Format
+### Output Format (Non-Technical Language)
 
 ```markdown
 ## Does It Work
 
-- **Tests**: Present - 3 unit tests, 1 integration test covering main flows
-- **Safety**: Good error handling with user-friendly messages
-- **Production Ready**: Yes, logging in place, no blocking operations
+- **Tests**: The changes include automated tests that verify the new functionality works correctly in different scenarios
+- **Safety**: The code handles errors gracefully and shows helpful messages when things go wrong
+- **Production Ready**: Yes, includes proper logging for troubleshooting and won't slow down the system
+```
+
+### Good Examples (Plain English)
+
+```markdown
+## Does It Work
+
+- **Tests**: Yes - includes tests that verify login works, handles wrong passwords, and prevents lockouts
+- **Safety**: Good - validates all user inputs and shows clear error messages when data is invalid
+- **Production Ready**: Yes - ready to deploy with monitoring in place
+```
+
+### Bad Examples (Too Technical)
+
+```markdown
+## Does It Work
+
+- **Tests**: Unit and integration test coverage at 95%, mocks external dependencies
+- **Safety**: Try-catch blocks around async operations with proper error propagation
+- **Production Ready**: Implements circuit breaker pattern with exponential backoff
 ```
 
 ### Flags to Raise
@@ -89,6 +111,8 @@ Do NOT flag missing tests for these file types. Instead, verify the appropriate 
 
 **Purpose**: Evaluate code clarity and long-term maintenance burden.
 
+**Audience**: Non-technical managers - focus on business impact of complexity.
+
 ### Evaluation Criteria
 
 | Aspect         | What to Look For                                         |
@@ -97,14 +121,34 @@ Do NOT flag missing tests for these file types. Instead, verify the appropriate 
 | **Patterns**   | Follows project conventions? DRY? Single responsibility? |
 | **Concerns**   | Magic numbers? Hardcoded values? Missing abstractions?   |
 
-### Output Format
+### Output Format (Non-Technical Language)
 
 ```markdown
 ## Simplicity & Maintainability
 
-- **Complexity**: Low - functions are short and focused
-- **Patterns**: Follows existing repository patterns
-- **Concerns**: None - straightforward implementation
+- **Complexity**: Low - the code is straightforward and easy for developers to understand
+- **Patterns**: Follows the same patterns as the rest of the codebase
+- **Concerns**: None - should be easy to modify and extend in the future
+```
+
+### Good Examples (Plain English)
+
+```markdown
+## Simplicity & Maintainability
+
+- **Complexity**: Low - clear and easy to understand, which reduces future maintenance costs
+- **Patterns**: Consistent with existing code, making it easier for the team to work with
+- **Concerns**: None - well-organized and should be easy to modify when requirements change
+```
+
+### Bad Examples (Too Technical)
+
+```markdown
+## Simplicity & Maintainability
+
+- **Complexity**: Cyclomatic complexity of 8, acceptable within threshold
+- **Patterns**: Follows SOLID principles and repository pattern
+- **Concerns**: Some code duplication but within acceptable DRY tolerance
 ```
 
 ### Common Issues to Flag
@@ -212,9 +256,11 @@ This section invokes the `/security-review` skill automatically.
 
 **Purpose**: Provide a ready-to-use prompt for implementing recommendations.
 
+**REQUIRED**: This section MUST be included when there are any findings (Must Fix, Should Fix, or Consider).
+
 ### When to Include
 
-Include this section when there are **Must Fix** or **Should Fix** recommendations.
+**ALWAYS** include this section when there are findings of any priority level.
 
 ### Format
 
@@ -265,20 +311,47 @@ The review should follow this order:
 
 ---
 
-## Writing Style
+## Writing Style for Non-Technical Managers
+
+**CRITICAL**: The entire review is written for non-technical managers, not developers.
 
 ### Do
 
-- Use clear, direct language
-- Focus on impact and risk
-- Provide specific examples
-- Reference file paths and line numbers
-- Explain the "why" behind concerns
+- Use technical jargon when it's precise, but always explain it briefly
+- Follow technical terms with concise explanations (e.g., "API endpoint - a way for systems to communicate")
+- Keep explanations brief - one short phrase or sentence
+- Focus on business impact and risk (cost, security, user experience)
+- Use analogies sparingly when they clarify complex concepts
+- Provide specific examples in accessible language
+- Reference file paths and line numbers for developer handoff
+- Explain the "why" behind concerns in business terms
 
 ### Don't
 
-- Use unnecessary jargon
+- Use technical terms without explaining them
+- Over-explain or be verbose - keep it concise
 - Be overly critical or harsh
 - Make vague suggestions
 - Focus on style over substance
 - Forget to acknowledge what's done well
+- Assume technical knowledge
+
+### Examples of Technical Terms with Explanations
+
+**Good** (jargon + brief explanation):
+
+- "SQL injection - inserting malicious database commands - could allow attackers to access customer data"
+- "Race condition - when timing issues cause unpredictable behavior - could cause the system to fail when processing large orders"
+- "Tight coupling - components depend too heavily on each other - makes the system harder to maintain, increasing future costs"
+
+**Bad** (unexplained jargon):
+
+- "SQL injection vulnerability in prepared statement"
+- "Race condition in async handler"
+- "Tight coupling violates dependency inversion principle"
+
+**Also Bad** (overly simple without precision):
+
+- "Database security issue"
+- "Timing problem"
+- "Code organization issue"
