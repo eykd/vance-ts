@@ -491,7 +491,7 @@ get_ready_tasks() {
     local epic_id="$1"
     local ready_json
 
-    ready_json=$(npx bd ready --json 2>/dev/null) || {
+    ready_json=$(npx bd ready --parent "$epic_id" --limit 1000 --json 2>/dev/null) || {
         echo "Error: Failed to query beads for ready tasks" >&2
         return 1
     }
