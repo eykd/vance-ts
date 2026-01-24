@@ -235,34 +235,18 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
-            Review this pull request for code quality, correctness, and test quality.
+            Use the /quality-review skill to review this pull request.
 
             Review scope: Branch changes from ${{ github.event.pull_request.base.ref }} to HEAD.
 
-            Focus areas:
-            1. **What Changed** - Plain English summary of the changes
-            2. **Does It Work** - Correctness and production-readiness
-            3. **Test Quality** - Using Kent Beck's Test Desiderata (isolated, composable, fast, inspiring, writable, readable, behavioral, structure-insensitive, automated, specific, deterministic, predictive)
-            4. **Simplicity** - Is the code simple and maintainable?
-            5. **Code Quality** - Does it follow project standards in CLAUDE.md?
-
-            DO NOT review security or architecture - those are covered by other review jobs.
-
             IMPORTANT - Known Issues Context:
-            Before reporting issues, check the file known-issues.json for tasks already tracked in beads.
-            These issues are already documented and should not be re-reported.
-            If a finding relates to a known issue, reference it like: "Related to beads task workspace-123"
-            Only report NEW quality findings not already in known-issues.json.
+            The file known-issues.json contains tasks already tracked in beads.
+            Only report NEW findings not already in known-issues.json.
 
             After generating the review, use `gh pr comment` to post the review as a comment on PR #${{ github.event.pull_request.number }}.
 
             Start your comment with:
             ## Code Quality Review
-
-            Organize findings by priority:
-            - **Must Fix** - Blocks merge (correctness issues, failing tests, project standard violations)
-            - **Should Fix** - Important but not blocking (test quality, simplicity improvements)
-            - **Consider** - Optional suggestions (style preferences, future enhancements)
 
             Use the repository's CLAUDE.md for context on project standards.
 
