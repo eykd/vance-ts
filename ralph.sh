@@ -521,6 +521,32 @@ get_next_task() {
     echo "$ready_tasks" | jq -r '.[0] // empty'
 }
 
+# Get all open tasks for the epic (returns JSON array)
+get_open_tasks() {
+    local epic_id="$1"
+    local open_json
+
+    open_json=$(npx bd list --status open --json 2>/dev/null) || {
+        echo "Error: Failed to query beads for open tasks" >&2
+        return 1
+    }
+
+    # Filter tasks that belong to this epic (ID starts with epic_id)
+    echo "$open_json" | jq --arg epic "$epic_id" \
+        '[.[] | select(.id | startswith($epic))]'
+}
+
+# Check if there are any open tasks remaining
+has_open_tasks() {
+    local epic_id="$1"
+    local open_tasks count
+
+    open_tasks=$(get_open_tasks "$epic_id") || return 1
+    count=$(echo "$open_tasks" | jq 'length')
+
+    [[ "$count" -gt 0 ]]
+}
+
 ##############################################################################
 # Task type detection and prompt generation
 ##############################################################################
@@ -783,7 +809,31 @@ run_loop() {
             is_resuming=false
             log DEBUG "Checking for ready tasks..."
             if ! has_ready_tasks "$epic_id"; then
-                log INFO "No more ready tasks. Feature complete!"
+                # No ready tasks, but check if there are still open tasks (e.g., P3 tasks)
+                log DEBUG "No ready tasks found. Checking for remaining open tasks..."
+                if has_open_tasks "$epic_id"; then
+                    local open_tasks open_count
+                    open_tasks=$(get_open_tasks "$epic_id")
+                    open_count=$(echo "$open_tasks" | jq 'length')
+                    log WARN "No ready tasks, but $open_count open task(s) remain (possibly P3 or blocked tasks)"
+                    log_block "Remaining Open Tasks" "$(echo "$open_tasks" | jq -r '.[] | "\(.id): \(.title) [priority: \(.priority // "none")]"')"
+                    log ERROR "Cannot complete epic with open tasks remaining"
+                    echo "" >&2
+                    echo "[ralph] ERROR: Epic has $open_count open task(s) that are not ready:" >&2
+                    echo "$open_tasks" | jq -r '.[] | "  - \(.id): \(.title) [priority: \(.priority // "none"), status: \(.status)]"' >&2
+                    echo "" >&2
+                    echo "These tasks may be:" >&2
+                    echo "  - Low priority (P3) tasks waiting to be started" >&2
+                    echo "  - Tasks blocked by dependencies" >&2
+                    echo "  - Tasks that need manual intervention" >&2
+                    echo "" >&2
+                    echo "Please review these tasks and either:" >&2
+                    echo "  - Close them if they're no longer needed" >&2
+                    echo "  - Unblock them and let ralph continue" >&2
+                    echo "  - Complete them manually" >&2
+                    return "$EXIT_FAILURE"
+                fi
+                log INFO "No more ready tasks and no open tasks. Feature complete!"
                 return "$EXIT_SUCCESS"
             fi
             next_task=$(get_next_task "$epic_id")
