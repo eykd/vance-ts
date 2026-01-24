@@ -853,9 +853,11 @@ run_loop() {
         fi
 
         if [[ "$is_resuming" == "true" ]]; then
-            log INFO "Iteration $iteration/$MAX_ITERATIONS: [RESUMING] $task_title ($task_id) [$task_type]"
+            log INFO "Iteration $iteration/$MAX_ITERATIONS"
+            log INFO "Epic: $epic_id | Task: $task_id | [RESUMING] $task_title"
         else
-            log INFO "Iteration $iteration/$MAX_ITERATIONS: $task_title ($task_id) [$task_type]"
+            log INFO "Iteration $iteration/$MAX_ITERATIONS"
+            log INFO "Epic: $epic_id | Task: $task_id | $task_title"
         fi
 
         log_block "Task Details" "ID: $task_id
