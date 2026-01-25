@@ -70,6 +70,38 @@ pages_build_output_dir = "dist"
   ENVIRONMENT = "development"
 ```
 
+## Wrangler Worker Configuration (Optional)
+
+**wrangler.worker.toml** (for scheduled tasks only):
+
+```toml
+# Separate Worker for cron triggers
+# Pages does NOT support [triggers] - use this file for scheduled tasks
+
+name = "my-hugo-app-cron"
+main = "functions/cron/example-task.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cron triggers
+[triggers]
+crons = ["0 6 * * *"]  # Daily at 6 AM UTC
+
+# Share bindings with Pages deployment
+[[d1_databases]]
+binding = "DB"
+database_name = "my-hugo-app-db"
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # Same as Pages
+```
+
+**Deploy separately:**
+
+```bash
+wrangler deploy --config wrangler.worker.toml
+```
+
+See `docs/cron-scheduled-tasks-guide.md` for complete patterns.
+
 ## TypeScript Configuration
 
 **tsconfig.json:**

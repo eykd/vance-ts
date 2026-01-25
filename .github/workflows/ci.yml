@@ -145,3 +145,21 @@ jobs:
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           # Project name and output dir are read from wrangler.toml
           command: pages deploy hugo/public
+
+      # Deploy Worker for scheduled tasks (if wrangler.worker.toml exists)
+      - name: Check for wrangler.worker.toml
+        id: check-worker
+        run: |
+          if [ -f "wrangler.worker.toml" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy Cron Worker
+        if: steps.check-worker.outputs.exists == 'true' && github.ref == 'refs/heads/master'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config wrangler.worker.toml

@@ -399,6 +399,34 @@ The main constraint is the 500 builds/month limit, not storage of old deployment
 
 ---
 
+## 3.9 Deploying Scheduled Workers (Optional)
+
+If your project includes scheduled tasks (cron triggers), you'll deploy TWO separate entities:
+
+1. **Pages deployment** (main application):
+
+   ```bash
+   wrangler pages deploy dist --project-name=<project-name>
+   ```
+
+2. **Worker deployment** (scheduled tasks):
+   ```bash
+   wrangler deploy --config wrangler.worker.toml
+   ```
+
+**Why separate?** Cloudflare Pages does not support `[triggers]` configuration. Scheduled tasks require a standalone Worker.
+
+**When to use:** Only if you need:
+
+- Periodic reports (daily, weekly)
+- Scheduled cleanup tasks
+- Time-based notifications
+- Regular data synchronization
+
+See `wrangler.worker.toml` for configuration and `docs/cron-scheduled-tasks-guide.md` for complete implementation patterns.
+
+---
+
 ## Next Steps
 
 **If you want email functionality**: Continue to `email-setup.md` to configure Resend.
