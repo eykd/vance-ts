@@ -1,3 +1,10 @@
+---
+build:
+  list: never
+  render: never
+  publishResources: false
+---
+
 # Content
 
 Markdown content files organized by section. Hugo generates pages from these files using layouts.
