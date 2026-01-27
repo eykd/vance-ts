@@ -44,6 +44,7 @@ readonly VALID_SKILLS=(
 DRY_RUN=false
 SKILLS=("${VALID_SKILLS[@]}")  # Default to all skills
 FILES_TO_REVIEW=()
+CLAUDE_FLAGS=()  # Additional flags to pass to claude command
 
 # Runtime state
 START_TIME=0
@@ -145,6 +146,8 @@ OPTIONS:
                               Valid: ${VALID_SKILLS[*]}
                               Default: all skills
     --files FILE1 FILE2 ...   Review specific files instead of auto-discovery
+    --claude-flags "FLAGS"    Additional flags to pass to claude command
+                              Example: --claude-flags "--model haiku --no-session-persistence"
     --help                    Show this help message and exit
     --version                 Show version and exit
 
@@ -154,6 +157,8 @@ EXAMPLES:
     review.sh --skills security-review           # Only security review
     review.sh --skills security-review,quality-review  # Two skills
     review.sh --files src/index.ts               # Review specific file
+    review.sh --claude-flags '--model haiku'     # Use haiku model for faster reviews
+    review.sh --claude-flags '--no-session-persistence'  # Disable session persistence
 
 EXIT CODES:
     0   Review completed successfully
@@ -203,6 +208,16 @@ parse_args() {
             --files)
                 collecting_files=true
                 shift
+                ;;
+            --claude-flags)
+                if [[ -z "${2:-}" ]]; then
+                    echo "Error: --claude-flags requires a value" >&2
+                    exit "$EXIT_FAILURE"
+                fi
+                # shellcheck disable=SC2206
+                CLAUDE_FLAGS=($2)
+                collecting_files=false
+                shift 2
                 ;;
             --help)
                 usage
@@ -441,6 +456,35 @@ generate_review_prompt() {
     local skill="$2"
     local open_tasks_json="$3"
 
+    # Check if file exists and is readable
+    if [[ ! -f "$file" ]]; then
+        log ERROR "File not found: $file"
+        return 1
+    fi
+
+    if [[ ! -r "$file" ]]; then
+        log ERROR "File not readable: $file"
+        return 1
+    fi
+
+    # Check file size (warn if > 10KB, skip if > 100KB)
+    local file_size
+    file_size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null || echo 0)
+
+    if (( file_size > 102400 )); then
+        log WARN "File too large to review (${file_size} bytes): $file"
+        return 1
+    elif (( file_size > 10240 )); then
+        log WARN "Large file (${file_size} bytes): $file"
+    fi
+
+    # Read file content
+    local file_content
+    if ! file_content=$(cat "$file" 2>/dev/null); then
+        log ERROR "Failed to read file: $file"
+        return 1
+    fi
+
     cat <<EOF
 /$skill
 
@@ -449,7 +493,7 @@ generate_review_prompt() {
 
 ## File Content
 \`\`\`typescript
-$(cat "$file")
+$file_content
 \`\`\`
 
 ## Deduplication Instructions
@@ -482,22 +526,46 @@ invoke_claude_skill() {
     local exit_code
     local claude_output
     local temp_output
+    local temp_stderr
 
     temp_output=$(mktemp)
+    temp_stderr=$(mktemp)
 
-    if timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" 2>&1 | tee "$temp_output"; then
+    # Log prompt size for debugging
+    local prompt_size=${#prompt}
+    log DEBUG "Prompt size: $prompt_size characters"
+
+    if [[ ${#CLAUDE_FLAGS[@]} -gt 0 ]]; then
+        log DEBUG "Claude flags: ${CLAUDE_FLAGS[*]}"
+    fi
+
+    # Check if claude command is available
+    if ! command -v claude &>/dev/null; then
+        log ERROR "claude command not found in PATH"
+        rm -f "$temp_output" "$temp_stderr"
+        return 1
+    fi
+
+    # Invoke claude with proper error capture
+    # shellcheck disable=SC2086
+    if timeout "$CLAUDE_TIMEOUT" claude "${CLAUDE_FLAGS[@]}" -p "$prompt" >"$temp_output" 2>"$temp_stderr"; then
         exit_code=0
     else
         exit_code=$?
         if [[ "$exit_code" -eq 124 ]]; then
             log ERROR "Claude timed out after ${CLAUDE_TIMEOUT}s"
+        elif [[ "$exit_code" -eq 130 ]]; then
+            log ERROR "Claude was interrupted (SIGINT)"
+            log_block "Claude stderr" "$(cat "$temp_stderr")"
+            log ERROR "Possible causes: authentication issue, workspace permissions, or system signal"
         else
             log ERROR "Claude failed with exit code: $exit_code"
+            log_block "Claude stderr" "$(cat "$temp_stderr")"
         fi
     fi
 
     claude_output=$(cat "$temp_output")
-    rm -f "$temp_output"
+    rm -f "$temp_output" "$temp_stderr"
 
     echo "$claude_output"
     return "$exit_code"
@@ -508,6 +576,7 @@ invoke_claude_with_retry() {
     local attempt=0
     local delay
     local output
+    local last_exit_code
 
     while (( attempt < MAX_RETRIES )); do
         attempt=$((attempt + 1))
@@ -519,6 +588,15 @@ invoke_claude_with_retry() {
             fi
             echo "$output"
             return 0
+        fi
+
+        last_exit_code=$?
+
+        # Don't retry on SIGINT (user interrupt) or authentication failures
+        if [[ "$last_exit_code" -eq 130 ]]; then
+            log ERROR "SIGINT detected - not retrying (exit code 130)"
+            log ERROR "This usually indicates: authentication failure, workspace restrictions, or system interrupt"
+            return "$last_exit_code"
         fi
 
         if (( attempt >= MAX_RETRIES )); then
