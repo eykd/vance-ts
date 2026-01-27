@@ -103,6 +103,15 @@ Check compliance with CLAUDE.md project standards:
 - Conventional commit format
 - Zero warnings policy
 
+**Cloudflare Workers Runtime** (if applicable):
+
+- No Node.js imports (`fs`, `path`, `process`, `crypto`, `http`, `https`, `net`, `dns`, `stream`, `buffer`)
+- No `process.env` (use `env` parameter)
+- No `__dirname`, `__filename`, `require()`
+- Uses `@cloudflare/workers-types`, not `@types/node`
+- Environment variables via `env: Env` parameter in fetch handler
+- Web Standard APIs only (`fetch`, `Request`, `Response`, `crypto.subtle`, Web Streams)
+
 ## Known Issues Handling
 
 See [references/known-issues.md](references/known-issues.md) for details.

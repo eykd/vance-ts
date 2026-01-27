@@ -5,6 +5,23 @@ description: Create and manage D1 database migrations for Cloudflare Workers pro
 
 # Cloudflare D1 Migrations
 
+## Runtime Constraints
+
+**CRITICAL**: Cloudflare Workers use Web Standard APIs, NOT Node.js.
+
+**Forbidden:**
+
+- Node.js imports: `fs`, `path`, `process`, `crypto`, `http`, `https`, `net`, `dns`, `stream`, `buffer`
+- Globals: `process.env`, `__dirname`, `__filename`, `require()`, `Buffer`
+- Types: `@types/node` (use `@cloudflare/workers-types` instead)
+
+**Required:**
+
+- Environment: `env` parameter in `fetch(request: Request, env: Env, ctx: ExecutionContext)`
+- Storage: D1 (SQL), KV (key-value), R2 (objects), Durable Objects (stateful)
+- APIs: Web Standards only - `fetch`, `Request`, `Response`, `Headers`, `URL`, `crypto.subtle`, Web Streams
+- Types: `@cloudflare/workers-types` with `lib: ["ES2022", "WebWorker"]`
+
 ## Migration Location & Naming
 
 Place migrations in `migrations/` at project root:

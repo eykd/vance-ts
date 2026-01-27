@@ -6,6 +6,24 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 A static-first Typescript web application targeting the Cloudflare Pages & Workers environment, using Hugo for building the static pages.
 
+## Runtime Environment
+
+**Cloudflare Workers** - NOT Node.js. Web Standard APIs only.
+
+**Forbidden:**
+
+- Node.js imports (`fs`, `path`, `process`, `crypto`, `http`, `buffer`, `stream`, etc.)
+- `process.env` → Use `env` parameter in fetch handler
+- `__dirname`, `__filename`, `require()` → No file system
+- `@types/node` types → Use `@cloudflare/workers-types`
+
+**Required:**
+
+- Environment: `env` parameter in `fetch(request, env, ctx)`
+- APIs: `fetch`, `Request`, `Response`, `Headers`, `URL`, `crypto.subtle`
+- Storage: D1 (SQL), KV (key-value), R2 (objects), Durable Objects (stateful)
+- Types: `@cloudflare/workers-types` with `lib: ["ES2022", "WebWorker"]`
+
 All code changes must be tested:
 
 - **TypeScript/JavaScript**: Strict red-green-refactor TDD practice (**100% coverage - non-negotiable**)

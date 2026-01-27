@@ -7,6 +7,23 @@ description: 'Use when: (1) creating use cases in application layer, (2) definin
 
 Generate application layer use cases following Clean Architecture and Single Responsibility Principle.
 
+## Runtime Constraints
+
+**CRITICAL**: Cloudflare Workers use Web Standard APIs, NOT Node.js.
+
+**Forbidden:**
+
+- Node.js imports: `fs`, `path`, `process`, `crypto`, `http`, `https`, `net`, `dns`, `stream`, `buffer`
+- Globals: `process.env`, `__dirname`, `__filename`, `require()`, `Buffer`
+- Types: `@types/node` (use `@cloudflare/workers-types` instead)
+
+**Required:**
+
+- Environment: `env` parameter in `fetch(request: Request, env: Env, ctx: ExecutionContext)`
+- Storage: D1 (SQL), KV (key-value), R2 (objects), Durable Objects (stateful)
+- APIs: Web Standards only - `fetch`, `Request`, `Response`, `Headers`, `URL`, `crypto.subtle`, Web Streams
+- Types: `@cloudflare/workers-types` with `lib: ["ES2022", "WebWorker"]`
+
 ## Quick Reference
 
 ```

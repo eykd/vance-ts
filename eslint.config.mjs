@@ -16,15 +16,8 @@ export default [
     files: ['**/*.ts'],
     languageOptions: {
       globals: {
-        // Node.js globals
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        exports: 'writable',
-        module: 'writable',
-        require: 'readonly',
-        process: 'readonly',
+        // Web Standard APIs available in Workers
         console: 'readonly',
-        Buffer: 'readonly',
         setTimeout: 'readonly',
         setInterval: 'readonly',
         clearTimeout: 'readonly',
@@ -198,6 +191,114 @@ export default [
       'prefer-const': 'error',
       'no-var': 'error',
 
+      // Cloudflare Workers runtime constraints - ban Node.js imports
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'fs',
+              message:
+                'Node.js fs module not available in Cloudflare Workers. Use R2 for object storage.',
+            },
+            {
+              name: 'path',
+              message:
+                'Node.js path module not available in Cloudflare Workers. Use URL API for path manipulation.',
+            },
+            {
+              name: 'os',
+              message: 'Node.js os module not available in Cloudflare Workers.',
+            },
+            {
+              name: 'crypto',
+              message:
+                'Node.js crypto module not available in Cloudflare Workers. Use Web Crypto API (crypto.subtle).',
+            },
+            {
+              name: 'child_process',
+              message:
+                'Node.js child_process module not available in Cloudflare Workers.',
+            },
+            {
+              name: 'http',
+              message:
+                'Node.js http module not available in Cloudflare Workers. Use fetch API.',
+            },
+            {
+              name: 'https',
+              message:
+                'Node.js https module not available in Cloudflare Workers. Use fetch API.',
+            },
+            {
+              name: 'net',
+              message:
+                'Node.js net module not available in Cloudflare Workers. Use TCP Sockets API or connect().',
+            },
+            {
+              name: 'dns',
+              message:
+                'Node.js dns module not available in Cloudflare Workers.',
+            },
+            {
+              name: 'stream',
+              message:
+                'Node.js stream module not available in Cloudflare Workers. Use Web Streams API.',
+            },
+            {
+              name: 'buffer',
+              message:
+                'Node.js buffer module not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
+            },
+            {
+              name: 'util',
+              message:
+                'Node.js util module not available in Cloudflare Workers.',
+            },
+            {
+              name: 'events',
+              message:
+                'Node.js events module not available in Cloudflare Workers. Use EventTarget.',
+            },
+            {
+              name: 'process',
+              message:
+                'Node.js process module not available in Cloudflare Workers. Use env parameter in fetch handler.',
+            },
+          ],
+        },
+      ],
+
+      // Ban Node.js globals
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'process',
+          message:
+            'process not available in Cloudflare Workers. Use env parameter in fetch(request, env, ctx).',
+        },
+        {
+          name: '__dirname',
+          message:
+            '__dirname not available in Cloudflare Workers (no file system).',
+        },
+        {
+          name: '__filename',
+          message:
+            '__filename not available in Cloudflare Workers (no file system).',
+        },
+        {
+          name: 'Buffer',
+          message:
+            'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
+        },
+        {
+          name: 'require',
+          message:
+            'require() not available in Cloudflare Workers. Use ES modules (import/export).',
+        },
+      ],
+
       // Prettier config (disable conflicting rules)
       ...prettierConfig.rules,
     },
@@ -208,15 +309,8 @@ export default [
     files: ['**/*.spec.ts', '**/*.test.ts'],
     languageOptions: {
       globals: {
-        // Node.js globals
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        exports: 'writable',
-        module: 'writable',
-        require: 'readonly',
-        process: 'readonly',
+        // Web Standard APIs available in Workers
         console: 'readonly',
-        Buffer: 'readonly',
         setTimeout: 'readonly',
         setInterval: 'readonly',
         clearTimeout: 'readonly',
@@ -400,8 +494,150 @@ export default [
       'prefer-const': 'error',
       'no-var': 'error',
 
+      // Cloudflare Workers runtime constraints - ban Node.js imports
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'fs',
+              message:
+                'Node.js fs module not available in Cloudflare Workers. Use R2 for object storage.',
+            },
+            {
+              name: 'path',
+              message:
+                'Node.js path module not available in Cloudflare Workers. Use URL API for path manipulation.',
+            },
+            {
+              name: 'os',
+              message: 'Node.js os module not available in Cloudflare Workers.',
+            },
+            {
+              name: 'crypto',
+              message:
+                'Node.js crypto module not available in Cloudflare Workers. Use Web Crypto API (crypto.subtle).',
+            },
+            {
+              name: 'child_process',
+              message:
+                'Node.js child_process module not available in Cloudflare Workers.',
+            },
+            {
+              name: 'http',
+              message:
+                'Node.js http module not available in Cloudflare Workers. Use fetch API.',
+            },
+            {
+              name: 'https',
+              message:
+                'Node.js https module not available in Cloudflare Workers. Use fetch API.',
+            },
+            {
+              name: 'net',
+              message:
+                'Node.js net module not available in Cloudflare Workers. Use TCP Sockets API or connect().',
+            },
+            {
+              name: 'dns',
+              message:
+                'Node.js dns module not available in Cloudflare Workers.',
+            },
+            {
+              name: 'stream',
+              message:
+                'Node.js stream module not available in Cloudflare Workers. Use Web Streams API.',
+            },
+            {
+              name: 'buffer',
+              message:
+                'Node.js buffer module not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
+            },
+            {
+              name: 'util',
+              message:
+                'Node.js util module not available in Cloudflare Workers.',
+            },
+            {
+              name: 'events',
+              message:
+                'Node.js events module not available in Cloudflare Workers. Use EventTarget.',
+            },
+            {
+              name: 'process',
+              message:
+                'Node.js process module not available in Cloudflare Workers. Use env parameter in fetch handler.',
+            },
+          ],
+        },
+      ],
+
+      // Ban Node.js globals
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'process',
+          message:
+            'process not available in Cloudflare Workers. Use env parameter in fetch(request, env, ctx).',
+        },
+        {
+          name: '__dirname',
+          message:
+            '__dirname not available in Cloudflare Workers (no file system).',
+        },
+        {
+          name: '__filename',
+          message:
+            '__filename not available in Cloudflare Workers (no file system).',
+        },
+        {
+          name: 'Buffer',
+          message:
+            'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
+        },
+        {
+          name: 'require',
+          message:
+            'require() not available in Cloudflare Workers. Use ES modules (import/export).',
+        },
+      ],
+
       // Prettier config (disable conflicting rules)
       ...prettierConfig.rules,
+    },
+  },
+
+  // Development tooling in .claude/ directory can use Node.js APIs
+  {
+    files: ['.claude/**/*.ts'],
+    languageOptions: {
+      globals: {
+        // Node.js globals needed for hooks and memory management
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        // Jest globals for test files
+        describe: 'readonly',
+        test: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        jest: 'readonly',
+      },
+    },
+    rules: {
+      // Allow Node.js imports in development tooling
+      'no-restricted-imports': 'off',
+      'no-restricted-globals': 'off',
     },
   },
 ];
