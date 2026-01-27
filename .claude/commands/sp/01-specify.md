@@ -1,5 +1,5 @@
 ---
-description: Create or update the feature specification from a natural language feature description. Creates a beads epic for task tracking.
+description: Create or update the feature specification from a natural language description, using an explicit one-question-at-a-time user interview. Creates a beads epic for task tracking.
 handoffs:
   - label: Build Technical Plan
     agent: sp:03-plan
@@ -19,6 +19,22 @@ $ARGUMENTS
 You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
+
+## Interview Protocol (One Question at a Time)
+
+This command is **explicitly interactive**.
+
+- If this is the **first** run for this feature, `$ARGUMENTS` is the initial feature description.
+- If a spec already exists for the active feature **and** the spec contains an open interview question, then treat `$ARGUMENTS` as the user's answer to the **most recently asked** question (unless `$ARGUMENTS` is empty).
+- You MUST ask **exactly one** question per run, then stop and wait for the user's answer in the next message (or next `/sp:01-specify` invocation).
+- Persist the interview state **inside the spec** (so the workflow is robust across sessions):
+  - Add/maintain an `## Interview` section in `spec.md` with:
+    - `### Open Questions` (ordered list)
+    - `### Answer Log` (Q → A pairs with dates)
+    - A clear marker for the **next** question to ask (e.g. `**NEXT QUESTION:** #3`).
+- The interview ends only when there are **no open questions** and there are **no** `[NEEDS CLARIFICATION]` markers in `spec.md`.
+
+After the interview is complete, proceed to (or hand off into) `/sp:03-plan`.
 
 The text the user typed after `/sp:01-specify` in the triggering message **is** the feature description. Assume you always have it available in this conversation even if `$ARGUMENTS` appears literally below. Do not ask the user to repeat it unless they provided an empty command.
 
@@ -153,7 +169,7 @@ Given that feature description, do this:
 
    After creating the epic, create ALL phase tasks upfront with dependencies. This enables `/sp:next` to orchestrate the workflow.
 
-   a. Create all seven phase tasks under the epic with structured descriptions:
+   a. Create all nine phase tasks under the epic with structured descriptions:
 
    ```bash
    # Extract feature name from branch (e.g., "010-user-auth" -> "user-auth")
@@ -203,12 +219,26 @@ Given that feature description, do this:
    **Acceptance**: All tasks closed, tests pass, 100% coverage maintained" --json
    # Store returned ID as IMPLEMENT_ID
 
-   npx bd create "[sp:09-review] Code review for $FEATURE_NAME" -p 2 --parent <epic-id> \
+   npx bd create "[sp:08-security-review] Security review for $FEATURE_NAME" -p 2 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md, plan.md
-   **Skills**: /code-review, /security-review
-   **Context**: Review implemented code against spec requirements
-   **Acceptance**: No blocking issues, ready for merge" --json
-   # Store returned ID as REVIEW_ID
+   **Skills**: /security-review
+   **Context**: Review branch diff (<base>..HEAD) for security vulnerabilities; create remediation tasks as needed
+   **Acceptance**: No CRITICAL security findings; remediation tasks filed for any remaining issues" --json
+   # Store returned ID as SECURITY_REVIEW_ID
+
+   npx bd create "[sp:09-architecture-review] Architecture review for $FEATURE_NAME" -p 2 --parent <epic-id> \
+     --description "**Spec**: specs/$BRANCH/spec.md, plan.md
+   **Skills**: /clean-architecture-validator
+   **Context**: Review branch diff (<base>..HEAD) for architectural compliance; create remediation tasks as needed
+   **Acceptance**: No blocking architecture violations; remediation tasks filed for any remaining issues" --json
+   # Store returned ID as ARCH_REVIEW_ID
+
+   npx bd create "[sp:10-code-quality-review] Code quality review for $FEATURE_NAME" -p 2 --parent <epic-id> \
+     --description "**Spec**: specs/$BRANCH/spec.md, plan.md
+   **Skills**: /quality-review
+   **Context**: Review branch diff (<base>..HEAD) for general code quality; create remediation tasks as needed
+   **Acceptance**: No blocking quality issues; remediation tasks filed for any remaining issues" --json
+   # Store returned ID as QUALITY_REVIEW_ID
    ```
 
    b. Create the dependency chain (each phase depends on the previous):
@@ -219,7 +249,9 @@ Given that feature description, do this:
    npx bd dep add <TASKS_ID> <CHECKLIST_ID>
    npx bd dep add <ANALYZE_ID> <TASKS_ID>
    npx bd dep add <IMPLEMENT_ID> <ANALYZE_ID>
-   npx bd dep add <REVIEW_ID> <IMPLEMENT_ID>
+   npx bd dep add <SECURITY_REVIEW_ID> <IMPLEMENT_ID>
+   npx bd dep add <ARCH_REVIEW_ID> <SECURITY_REVIEW_ID>
+   npx bd dep add <QUALITY_REVIEW_ID> <ARCH_REVIEW_ID>
    ```
 
    c. Store phase task IDs in spec.md front matter for reference:

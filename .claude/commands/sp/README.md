@@ -4,19 +4,20 @@ This directory contains the spec-kit workflow commands integrated with [beads](h
 
 ## Command Reference
 
-| Command                | Description                     | Beads Integration                           |
-| ---------------------- | ------------------------------- | ------------------------------------------- |
-| `/sp:00-constitution`  | Project constitution management | None                                        |
-| `/sp:01-specify`       | Create feature specification    | Creates epic + all phase tasks              |
-| `/sp:02-clarify`       | Clarify requirements            | Closes phase task when done                 |
-| `/sp:03-plan`          | Create implementation plan      | Closes phase task when done                 |
-| `/sp:04-checklist`     | Generate checklists             | Closes phase task when done                 |
-| `/sp:05-tasks`         | Generate implementation tasks   | Creates US tasks under implement phase      |
-| `/sp:06-analyze`       | Analyze artifacts               | Queries beads status, validates consistency |
-| `/sp:07-implement`     | Execute implementation          | Closes self when all sub-tasks done         |
-| `/sp:08-taskstoissues` | Export to GitHub issues         | Exports from beads                          |
-| `/sp:09-review`        | Review code and create issues   | Closes phase task, optionally epic          |
-| `/sp:next`             | **Orchestrate workflow**        | Queries `bd ready`, invokes next skill      |
+| Command                      | Description                      | Beads Integration                           |
+| ---------------------------- | -------------------------------- | ------------------------------------------- |
+| `/sp:00-constitution`        | Project constitution management  | None                                        |
+| `/sp:01-specify`             | Create feature specification     | Creates epic + all phase tasks              |
+| `/sp:02-clarify`             | Clarify requirements             | Closes phase task when done                 |
+| `/sp:03-plan`                | Create implementation plan       | Closes phase task when done                 |
+| `/sp:04-checklist`           | Generate checklists              | Closes phase task when done                 |
+| `/sp:05-tasks`               | Generate implementation tasks    | Creates US tasks under implement phase      |
+| `/sp:06-analyze`             | Analyze artifacts                | Queries beads status, validates consistency |
+| `/sp:07-implement`           | Execute implementation           | Closes self when all sub-tasks done         |
+| `/sp:08-security-review`     | Security review (base..HEAD)     | Creates remediation tasks in beads          |
+| `/sp:09-architecture-review` | Architecture review (base..HEAD) | Creates remediation tasks in beads          |
+| `/sp:10-code-quality-review` | Code quality review (base..HEAD) | Creates remediation tasks in beads          |
+| `/sp:next`                   | **Orchestrate workflow**         | Queries `bd ready`, invokes next skill      |
 
 ## Workflow: Beads Dependency Chain
 
@@ -45,7 +46,11 @@ The entire workflow is driven by beads task dependencies. `/sp:01-specify` creat
            │         ├── US2: User story 2 (sub-task)
            │         └── ...
            │
-           └── [sp:09-review] Code review  ←── depends on 07
+           ├── [sp:08-security-review] Security review  ←── depends on 07
+           │         │
+           ├── [sp:09-architecture-review] Architecture review  ←── depends on 08
+           │         │
+           └── [sp:10-code-quality-review] Code quality review  ←── depends on 09
 
 Progress: Run `/sp:next` to query `bd ready` and invoke the next phase
 ```
@@ -54,15 +59,18 @@ Progress: Run `/sp:next` to query `bd ready` and invoke the next phase
 
 Phase tasks use the `[sp:NN-name]` prefix for automatic skill invocation:
 
-| Phase Task              | Skill Invoked      |
-| ----------------------- | ------------------ |
-| `[sp:02-clarify] ...`   | `/sp:02-clarify`   |
-| `[sp:03-plan] ...`      | `/sp:03-plan`      |
-| `[sp:04-checklist] ...` | `/sp:04-checklist` |
-| `[sp:05-tasks] ...`     | `/sp:05-tasks`     |
-| `[sp:06-analyze] ...`   | `/sp:06-analyze`   |
-| `[sp:07-implement] ...` | `/sp:07-implement` |
-| `[sp:09-review] ...`    | `/sp:09-review`    |
+| Phase Task                        | Skill Invoked                    |
+| --------------------------------- | -------------------------------- | ---------------------------------- |
+| `[sp:02-clarify] ...`             | `/sp:02-clarify`                 |
+| `[sp:03-plan] ...`                | `/sp:03-plan`                    |
+| `[sp:04-checklist] ...`           | `/sp:04-checklist`               |
+| `[sp:05-tasks] ...`               | `/sp:05-tasks`                   |
+| `[sp:06-analyze] ...`             | `/sp:06-analyze`                 |
+| `[sp:07-implement] ...`           | `/sp:07-implement`               |
+| `[sp:08-security-review] ...`     | `/sp:08-security-review`         |
+| `[sp:09-architecture-review] ...` | `/sp:09-architecture-review`     |
+| `[sp:10-code-quality-review] ...` | `/sp:10-code-quality-review`     |
+| `/sp:10-code-quality-review`      | Code quality review (base..HEAD) | Creates remediation tasks in beads |
 
 ## Using /sp:next
 
@@ -111,7 +119,9 @@ These commands use beads for task management:
 /sp:next              # Invokes /sp:06-analyze
 /sp:next              # Invokes /sp:07-implement
 # ... repeat /sp:next for each implementation task ...
-/sp:next              # Invokes /sp:09-review
+/sp:next              # Invokes /sp:08-security-review
+/sp:next              # Invokes /sp:09-architecture-review
+/sp:next              # Invokes /sp:10-code-quality-review
 
 # Or invoke phases directly
 /sp:02-clarify

@@ -172,13 +172,13 @@ You **MUST** consider the user input before proceeding (if not empty).
    fi
    ```
 
-   e. After closing implement task, the [sp:09-review] task becomes ready:
+   e. After closing implement task, the [sp:08-security-review] task becomes ready:
 
    ```bash
-   npx bd ready --json | jq '.[] | select(.title | contains("[sp:09-review]"))'
+   npx bd ready --json | jq '.[] | select(.title | contains("[sp:08-security-review]"))'
    ```
 
-   f. Report: "Implementation complete. Run `/sp:next` or `/sp:09-review` for code review."
+   f. Report: "Implementation complete. Run `/sp:next` (security → architecture → quality review) for code review."
 
    g. Display final beads summary:
 

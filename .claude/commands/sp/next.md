@@ -96,15 +96,17 @@ If `--status` flag is present:
 
 **Epic**: [epic-id]
 
-| Phase             | Task ID | Status                    |
-| ----------------- | ------- | ------------------------- |
-| [sp:02-clarify]   | [id]    | [open/in_progress/closed] |
-| [sp:03-plan]      | [id]    | [open/in_progress/closed] |
-| [sp:04-checklist] | [id]    | [open/in_progress/closed] |
-| [sp:05-tasks]     | [id]    | [open/in_progress/closed] |
-| [sp:06-analyze]   | [id]    | [open/in_progress/closed] |
-| [sp:07-implement] | [id]    | [open/in_progress/closed] |
-| [sp:09-review]    | [id]    | [open/in_progress/closed] |
+| Phase                       | Task ID | Status                    |
+| --------------------------- | ------- | ------------------------- |
+| [sp:02-clarify]             | [id]    | [open/in_progress/closed] |
+| [sp:03-plan]                | [id]    | [open/in_progress/closed] |
+| [sp:04-checklist]           | [id]    | [open/in_progress/closed] |
+| [sp:05-tasks]               | [id]    | [open/in_progress/closed] |
+| [sp:06-analyze]             | [id]    | [open/in_progress/closed] |
+| [sp:07-implement]           | [id]    | [open/in_progress/closed] |
+| [sp:08-security-review]     | [id]    | [open/in_progress/closed] |
+| [sp:09-architecture-review] | [id]    | [open/in_progress/closed] |
+| [sp:10-code-quality-review] | [id]    | [open/in_progress/closed] |
 
 **Next Ready Phase**: [phase-name] or "None (workflow complete)"
 ```
@@ -193,19 +195,21 @@ Invoke the corresponding skill:
 - `[sp:05-tasks]` → `/sp:05-tasks`
 - `[sp:06-analyze]` → `/sp:06-analyze`
 - `[sp:07-implement]` → `/sp:07-implement`
-- `[sp:09-review]` → `/sp:09-review`
+- `[sp:08-security-review] / [sp:09-architecture-review] / [sp:10-code-quality-review]` → `/sp:08-security-review` (or 09/10 depending on prefix)
 
 ## Skill Mapping
 
-| Pattern             | Skill to Invoke    |
-| ------------------- | ------------------ |
-| `[sp:02-clarify]`   | `/sp:02-clarify`   |
-| `[sp:03-plan]`      | `/sp:03-plan`      |
-| `[sp:04-checklist]` | `/sp:04-checklist` |
-| `[sp:05-tasks]`     | `/sp:05-tasks`     |
-| `[sp:06-analyze]`   | `/sp:06-analyze`   |
-| `[sp:07-implement]` | `/sp:07-implement` |
-| `[sp:09-review]`    | `/sp:09-review`    |
+| Pattern                       | Skill to Invoke              |
+| ----------------------------- | ---------------------------- |
+| `[sp:02-clarify]`             | `/sp:02-clarify`             |
+| `[sp:03-plan]`                | `/sp:03-plan`                |
+| `[sp:04-checklist]`           | `/sp:04-checklist`           |
+| `[sp:05-tasks]`               | `/sp:05-tasks`               |
+| `[sp:06-analyze]`             | `/sp:06-analyze`             |
+| `[sp:07-implement]`           | `/sp:07-implement`           |
+| `[sp:08-security-review]`     | `/sp:08-security-review`     |
+| `[sp:09-architecture-review]` | `/sp:09-architecture-review` |
+| `[sp:10-code-quality-review]` | `/sp:10-code-quality-review` |
 
 ## Error Handling
 

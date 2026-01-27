@@ -1,5 +1,5 @@
 ---
-description: Identify underspecified areas in the current feature spec by asking up to 5 highly targeted clarification questions and encoding answers back into the spec.
+description: Interview the user one question at a time to clarify any underspecified areas in the current feature spec, with no fixed cap on questions. Writes answers back into the spec.
 handoffs:
   - label: Build Technical Plan
     agent: sp:03-plan
@@ -15,6 +15,22 @@ $ARGUMENTS
 You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
+
+## Interview Protocol (One Question at a Time)
+
+This command is an **interactive interview loop**.
+
+- You MUST ask **exactly one** clarification question per run, then stop and wait for the user's answer.
+- On subsequent runs, if `$ARGUMENTS` is non-empty, treat it as the answer to the **most recently asked** open question and immediately write it into `spec.md` before generating the next question.
+- There is **no cap** on the number of questions. Continue until:
+  - No `[NEEDS CLARIFICATION]` markers remain, **and**
+  - No `Open Questions` remain in the `## Interview` section of `spec.md`.
+
+Persist interview state in `spec.md` under `## Interview`:
+
+- `### Open Questions` (ordered)
+- `### Answer Log` (Q → A pairs, timestamped)
+- `**NEXT QUESTION:** #N` marker
 
 Goal: Detect and reduce ambiguity or missing decision points in the active feature specification and record the clarifications directly in the spec file.
 

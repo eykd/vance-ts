@@ -1,5 +1,5 @@
 ---
-description: Perform a non-destructive cross-artifact consistency and quality analysis across spec.md, plan.md, and beads tasks after task generation. Includes beads task status reporting.
+description: Cross-artifact consistency and quality analysis across spec.md, plan.md, and beads tasks after task generation. Automatically creates remediation beads tasks under the current epic for any issues found.
 ---
 
 ## User Input
@@ -18,7 +18,20 @@ Identify inconsistencies, duplications, ambiguities, and underspecified items ac
 
 ## Operating Constraints
 
-**STRICTLY READ-ONLY**: Do **not** modify any files or beads tasks. Output a structured analysis report. Offer an optional remediation plan (user must explicitly approve before any follow-up editing commands would be invoked manually).
+**WRITE REMEDIATION TASKS**: Do **not** edit source files directly in this command, but you **MUST** create remediation beads tasks under the current epic for any issues you find. Do not require explicit user approval to add beads remediation tasks.
+
+Task creation rules:
+
+- For each finding, first search existing beads tasks under the epic (open + in_progress) to avoid duplicates.
+- Only create a new task if no existing task clearly covers the same issue.
+- Each created task MUST:
+  - Be parented to the current epic
+  - Include a concise title starting with `Remediate:`
+  - Include a description that cites: impacted artifact(s), severity, and a concrete fix suggestion
+  - Include acceptance criteria
+- Assign priority by severity (CRITICAL → p1, MAJOR → p2, MINOR → p3).
+
+You MUST still output a structured analysis report, and include a section listing the remediation tasks you created (IDs + titles).
 
 **Constitution Authority**: The project constitution (`.specify/memory/constitution.md`) is **non-negotiable** within this analysis scope. Constitution conflicts are automatically CRITICAL and require adjustment of the spec, plan, or tasks—not dilution, reinterpretation, or silent ignoring of the principle. If a principle itself needs to change, that must occur in a separate, explicit constitution update outside `/sp:06-analyze`.
 
