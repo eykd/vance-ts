@@ -49,8 +49,6 @@ CLAUDE_FLAGS=()  # Additional flags to pass to claude command
 # Runtime state
 START_TIME=0
 EPIC_ID=""
-CREATED_TASKS=()
-CREATED_TASKS_JSON="[]"
 
 ##############################################################################
 # Logging infrastructure (from ralph.sh)
@@ -507,17 +505,61 @@ Compare your findings to existing task titles and descriptions.
 Only report NEW findings not already tracked.
 Use judgment to avoid duplicate work.
 
-## Output Format
-For each NEW finding:
+## Instructions
+1. Review the file for issues
+2. Check against existing open tasks (provided above) to avoid duplicates
+3. For each NEW finding, immediately create a beads task using:
 
-### Finding: [Short Title]
-- **Severity:** [Critical|High|Medium|Low]
-- **File:** $file
-- **Line:** [line number or range]
-- **Problem:** [Description]
-- **Fix:** [Remediation steps]
+   npx bd create "[$skill] Title" \\
+     --description "File: $file
+Line: [line]
+Severity: [severity]
+Skill: $skill
 
-If no new findings: "No new findings for $file"
+Problem:
+[problem description]
+
+Fix:
+[fix steps]" \\
+     --priority [0-3] \\
+     --parent $EPIC_ID
+
+4. After creating tasks, output: "Created task: [task-id] - [title]"
+5. If no new findings: "No new findings for $file"
+
+## Priority Mapping Reference
+
+| Severity | Priority | Description |
+|----------|----------|-------------|
+| Critical | 0        | Security vulnerability, data loss risk, production blocker |
+| High     | 1        | Significant bug, test gap, important pattern violation |
+| Medium   | 2        | Code smell, minor bug, improvement opportunity |
+| Low      | 3        | Style issue, optional enhancement, documentation |
+
+## Important
+- Use the exact npx bd create command format shown above
+- Always include --description with full context
+- Always include --priority based on severity (Critical=0, High=1, Medium=2, Low=3)
+- Always include --parent $EPIC_ID to attach to this epic
+- The description should be multi-line with Problem: and Fix: sections
+
+## Example
+If you find a security issue, run:
+npx bd create "[security-review] SQL Injection in search" \\
+  --description "File: src/search.ts
+Line: 45
+Severity: Critical
+Skill: security-review
+
+Problem:
+User input concatenated into SQL query without sanitization.
+
+Fix:
+Use parameterized queries with proper binding." \\
+  --priority 0 \\
+  --parent $EPIC_ID
+
+Then output: "Created task: workspace-jat-123 - [security-review] SQL Injection in search"
 EOF
 }
 
@@ -613,143 +655,25 @@ invoke_claude_with_retry() {
 }
 
 ##############################################################################
-# Output parsing
+# Output logging
 ##############################################################################
 
-parse_skill_output() {
+log_skill_output() {
     local output="$1"
     local file="$2"
     local skill="$3"
 
-    # Check for "No new findings"
-    if echo "$output" | grep -qi "no new findings"; then
-        log DEBUG "No new findings for $file from $skill"
-        return 0
-    fi
+    # Just log the output - Claude creates tasks directly
+    log_block "Output for $file ($skill)" "$output"
 
-    # Extract findings - look for "### Finding:" headers
-    local findings
-    findings=$(echo "$output" | awk '
-        /^### Finding:/ {
-            if (finding) print finding
-            finding = $0 "\n"
-            next
-        }
-        finding {
-            finding = finding $0 "\n"
-        }
-        END {
-            if (finding) print finding
-        }
-    ')
+    # Count tasks created (optional, for logging)
+    local task_count
+    task_count=$(echo "$output" | grep -c "Created task:" || echo 0)
 
-    if [[ -z "$findings" ]]; then
-        log DEBUG "No parseable findings in output for $file from $skill"
-        return 0
-    fi
-
-    # Process each finding
-    echo "$findings" | awk -v RS= '{print; print "---FINDING_SEPARATOR---"}' | while IFS= read -r finding; do
-        [[ "$finding" == "---FINDING_SEPARATOR---" ]] && continue
-        [[ -z "$finding" ]] && continue
-
-        # Extract title from "### Finding: Title"
-        local title
-        title=$(echo "$finding" | grep "^### Finding:" | sed 's/^### Finding: *//')
-
-        # Extract severity
-        local severity
-        severity=$(echo "$finding" | grep -i "^\*\*Severity:\*\*" | sed 's/.*: *//' | tr -d '*' | xargs)
-
-        # Extract line
-        local line
-        line=$(echo "$finding" | grep -i "^\*\*Line:\*\*" | sed 's/.*: *//' | tr -d '*' | xargs)
-
-        # Extract problem
-        local problem
-        problem=$(echo "$finding" | grep -i "^\*\*Problem:\*\*" | sed 's/.*: *//' | tr -d '*')
-
-        # Extract fix
-        local fix
-        fix=$(echo "$finding" | grep -i "^\*\*Fix:\*\*" | sed 's/.*: *//' | tr -d '*')
-
-        if [[ -n "$title" ]]; then
-            create_finding_task "$title" "$severity" "$problem" "$fix" "$file" "$line" "$skill"
-        fi
-    done
-}
-
-##############################################################################
-# Task creation
-##############################################################################
-
-severity_to_priority() {
-    local severity="$1"
-
-    case "${severity,,}" in
-        critical) echo 0 ;;
-        high) echo 1 ;;
-        medium) echo 2 ;;
-        low) echo 3 ;;
-        *) echo 2 ;;
-    esac
-}
-
-create_finding_task() {
-    local title="$1"
-    local severity="$2"
-    local problem="$3"
-    local fix="$4"
-    local file="$5"
-    local line="$6"
-    local skill="$7"
-
-    local priority
-    priority=$(severity_to_priority "$severity")
-
-    local full_title="[$skill] $title"
-
-    log INFO "Creating task: $full_title (severity: $severity, priority: $priority)"
-
-    local description="File: $file
-Line: $line
-Severity: $severity
-Skill: $skill
-
-Problem:
-$problem
-
-Fix:
-$fix"
-
-    local task_id
-    if task_id=$(npx bd create "$full_title" \
-        --description "$description" \
-        --priority "$priority" \
-        --parent "$EPIC_ID" \
-        --json 2>/dev/null | jq -r '.id'); then
-
-        log INFO "Created task: $task_id"
-
-        # Track created task
-        CREATED_TASKS+=("$task_id")
-
-        # Add to JSON array for summary
-        local task_json
-        task_json=$(jq -n \
-            --arg id "$task_id" \
-            --arg title "$full_title" \
-            --arg severity "$severity" \
-            --argjson priority "$priority" \
-            --arg file "$file" \
-            --arg line "$line" \
-            --arg problem "$problem" \
-            --arg fix "$fix" \
-            '{id: $id, title: $title, severity: $severity, priority: $priority, priority_label: (if $priority == 0 then "Critical" elif $priority == 1 then "High" elif $priority == 2 then "Medium" else "Low" end), file: $file, line: $line, problem: $problem, fix: $fix}')
-
-        CREATED_TASKS_JSON=$(echo "$CREATED_TASKS_JSON" | jq --argjson task "$task_json" '. + [$task]')
+    if [[ $task_count -gt 0 ]]; then
+        log INFO "Created $task_count task(s) for $file from $skill"
     else
-        log ERROR "Failed to create task: $full_title"
+        log DEBUG "No tasks created for $file from $skill"
     fi
 }
 
@@ -780,8 +704,7 @@ process_file_with_skill() {
 
     local output
     if output=$(invoke_claude_with_retry "$prompt"); then
-        log_block "Output for $file ($skill)" "$output"
-        parse_skill_output "$output" "$file" "$skill"
+        log_skill_output "$output" "$file" "$skill"
     else
         log ERROR "Failed to process $file with $skill after retries"
         return 1
@@ -857,7 +780,12 @@ format_duration() {
 }
 
 generate_summary_prompt() {
-    local task_count=${#CREATED_TASKS[@]}
+    # Query tasks under the epic
+    local tasks_json
+    tasks_json=$(npx bd list --parent "$EPIC_ID" --status open --json 2>/dev/null || echo "[]")
+
+    local task_count
+    task_count=$(echo "$tasks_json" | jq length)
 
     if [[ $task_count -eq 0 ]]; then
         return 0
@@ -867,18 +795,12 @@ generate_summary_prompt() {
 
 ## Code Review Summary
 
-Review.sh found $task_count issue(s) across the codebase and created beads tasks.
+Review.sh found $task_count issue(s) across the codebase.
 
 ### Tasks Created
 
-$(echo "$CREATED_TASKS_JSON" | jq -r '.[] | "- **[\(.priority_label)] \(.title)** (\(.id))
-  File: \(.file):\(.line)
-  Severity: \(.severity)
-
-  \(.problem)
-
-  Fix: \(.fix)
-"')
+$(echo "$tasks_json" | jq -r '.[] | "- **\(.title)** (\(.id))
+  Created: \(.created_at)"')
 
 ### Next Steps
 
@@ -894,18 +816,7 @@ You can address these issues by:
    npx bd ready --parent $EPIC_ID
    \`\`\`
 
-3. **Or ask Claude to fix all Critical and High priority issues:**
-
-$(if [[ $(echo "$CREATED_TASKS_JSON" | jq '[.[] | select(.priority <= 1)] | length') -gt 0 ]]; then
-    echo "   \`\`\`"
-    echo "   Please fix all Critical and High priority code review findings:"
-    echo ""
-    echo "$CREATED_TASKS_JSON" | jq -r '.[] | select(.priority <= 1) | "   - [\(.severity)] \(.title) in \(.file):\(.line)
-     Fix: \(.fix)"'
-    echo "   \`\`\`"
-else
-    echo "   (No Critical or High priority issues found)"
-fi)
+3. **Or ask Claude to fix specific issues**
 
 EOF
 }
@@ -922,7 +833,13 @@ show_summary() {
         elapsed_formatted="N/A"
     fi
 
-    local task_count=${#CREATED_TASKS[@]}
+    # Query beads for task count
+    local task_count=0
+    if [[ "$DRY_RUN" != "true" && -n "$EPIC_ID" ]]; then
+        local tasks_json
+        tasks_json=$(npx bd list --parent "$EPIC_ID" --status open --json 2>/dev/null || echo "[]")
+        task_count=$(echo "$tasks_json" | jq length)
+    fi
 
     # Log to file
     log_section "SESSION SUMMARY"
