@@ -216,6 +216,41 @@ check_beads_init() {
     return 0
 }
 
+# Detect whether epic uses spec-kit workflow or generic task workflow
+# Returns "spec-kit" if any [sp:NN-*] phase tasks exist, "generic" otherwise
+detect_task_source() {
+    local epic_id="$1"
+    local all_tasks phase_tasks phase_count
+
+    log DEBUG "Detecting task source mode for epic $epic_id..."
+
+    # Query all tasks under the epic
+    all_tasks=$(npx bd list --parent "$epic_id" --json 2>/dev/null) || {
+        log DEBUG "Failed to query tasks, defaulting to generic mode"
+        echo "generic"
+        return 0
+    }
+
+    # Search for sp:NN- pattern in task titles
+    phase_tasks=$(echo "$all_tasks" | jq '[.[] | select(.title | test("\\[sp:[0-9]{2}-"))]' 2>/dev/null) || {
+        log DEBUG "Failed to parse tasks, defaulting to generic mode"
+        echo "generic"
+        return 0
+    }
+
+    phase_count=$(echo "$phase_tasks" | jq 'length' 2>/dev/null || echo "0")
+
+    if [[ "$phase_count" -gt 0 ]]; then
+        log INFO "Detected spec-kit workflow mode ($phase_count phase task(s) found)"
+        echo "spec-kit"
+    else
+        log INFO "Detected generic task workflow mode (no sp:* phase tasks found)"
+        echo "generic"
+    fi
+
+    return 0
+}
+
 # Check if clarify phase is complete for the epic
 check_clarify_complete() {
     local epic_id="$1"
@@ -229,8 +264,8 @@ check_clarify_complete() {
         jq -c 'first(.[] | select(.title | contains("[sp:02-clarify]"))) | {id, status}')
 
     if [[ -z "$clarify_task" ]]; then
-        log WARN "No clarify task found for epic $epic_id. Proceeding..."
-        return 0
+        log DEBUG "No clarify task found for epic $epic_id"
+        return 2
     fi
 
     status=$(echo "$clarify_task" | jq -r '.status')
@@ -264,15 +299,8 @@ check_tasks_generated() {
         jq -c 'first(.[] | select(.title | contains("[sp:05-tasks]"))) | {id, status}')
 
     if [[ -z "$tasks_task" ]]; then
-        log ERROR "No tasks phase found for epic $epic_id"
-        echo "" >&2
-        echo "The task suite has not been generated yet. Run these phases first:" >&2
-        echo "  1. '/sp:03-plan' to create the implementation plan" >&2
-        echo "  2. '/sp:04-checklist' to generate the checklist" >&2
-        echo "  3. '/sp:05-tasks' to generate beads tasks" >&2
-        echo "" >&2
-        echo "Once tasks are generated, ralph.sh can automate implementation." >&2
-        return 1
+        log DEBUG "No tasks phase found for epic $epic_id"
+        return 2
     fi
 
     status=$(echo "$tasks_task" | jq -r '.status')
@@ -292,14 +320,76 @@ check_tasks_generated() {
 # Run all prerequisite checks
 validate_prerequisites() {
     local epic_id="$1"
+    local task_source clarify_result tasks_result all_tasks task_count
 
     log INFO "Validating prerequisites..."
     log_section "PREREQUISITE VALIDATION"
 
+    # Always check infrastructure
     check_claude_cli || return 1
     check_beads_init || return 1
-    check_clarify_complete "$epic_id" || return 1
-    check_tasks_generated "$epic_id" || return 1
+
+    # Detect task source mode
+    task_source=$(detect_task_source "$epic_id")
+
+    if [[ "$task_source" == "spec-kit" ]]; then
+        log INFO "Validating spec-kit workflow prerequisites..."
+
+        # Check clarify phase
+        clarify_result=0
+        check_clarify_complete "$epic_id" || clarify_result=$?
+
+        if [[ "$clarify_result" -eq 1 ]]; then
+            log ERROR "Clarify phase not complete"
+            echo "" >&2
+            echo "Ralph automates phases 03-09 only. Before running ralph.sh:" >&2
+            echo "  1. Run '/sp:01-specify' to create the feature specification" >&2
+            echo "  2. Run '/sp:02-clarify' to clarify requirements" >&2
+            echo "" >&2
+            echo "Once clarify is complete, ralph.sh can automate the rest." >&2
+            return 1
+        fi
+
+        # Check tasks generation phase
+        tasks_result=0
+        check_tasks_generated "$epic_id" || tasks_result=$?
+
+        if [[ "$tasks_result" -eq 1 ]]; then
+            log ERROR "Task generation not complete"
+            echo "" >&2
+            echo "The task suite has not been generated yet. Run these phases first:" >&2
+            echo "  1. '/sp:03-plan' to create the implementation plan" >&2
+            echo "  2. '/sp:04-checklist' to generate the checklist" >&2
+            echo "  3. '/sp:05-tasks' to generate beads tasks" >&2
+            echo "" >&2
+            echo "Once tasks are generated, ralph.sh can automate implementation." >&2
+            return 1
+        fi
+
+        log INFO "Spec-kit workflow prerequisites satisfied"
+    else
+        log INFO "Validating generic task workflow prerequisites..."
+
+        # For generic mode, just verify epic has at least one task
+        all_tasks=$(npx bd list --parent "$epic_id" --json 2>/dev/null) || {
+            log ERROR "Failed to query tasks for epic $epic_id"
+            return 1
+        }
+
+        # Exclude the epic itself and event tasks
+        task_count=$(echo "$all_tasks" | jq '[.[] | select(.id != "'"$epic_id"'" and .issue_type != "event")] | length' 2>/dev/null || echo "0")
+
+        if [[ "$task_count" -eq 0 ]]; then
+            log ERROR "The epic has no tasks to process"
+            echo "" >&2
+            echo "[ralph] ERROR: Epic $epic_id has no tasks." >&2
+            echo "" >&2
+            echo "Please create tasks under this epic before running ralph." >&2
+            return 1
+        fi
+
+        log INFO "Generic task workflow prerequisites satisfied ($task_count task(s) found)"
+    fi
 
     log INFO "All prerequisites satisfied"
     return 0
@@ -791,9 +881,20 @@ run_loop() {
     local next_task task_id task_title task_description task_type
     local focused_prompt
     local is_resuming=false
+    local task_source
 
     log INFO "Starting automation loop (max $MAX_ITERATIONS iterations)"
     log_section "AUTOMATION LOOP START"
+
+    # Detect and log operational mode
+    task_source=$(detect_task_source "$epic_id")
+    if [[ "$task_source" == "spec-kit" ]]; then
+        log INFO "Operating in spec-kit workflow mode"
+        log INFO "Ralph will process tasks from the sp:* workflow phases"
+    else
+        log INFO "Operating in generic task workflow mode"
+        log INFO "Ralph will process all tasks under the epic (no phase prerequisites)"
+    fi
 
     while (( iteration < MAX_ITERATIONS )); do
         iteration=$((iteration + 1))
