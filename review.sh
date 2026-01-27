@@ -356,7 +356,7 @@ ensure_epic_exists() {
             --description "Automated code review epic for branch: $branch" \
             --type epic \
             --priority 0 \
-            --format json | jq -r '.id')
+            --json | jq -r '.id')
         log INFO "Created epic: $epic_id"
     else
         log INFO "Found existing epic: $epic_id"
@@ -649,7 +649,7 @@ $fix"
         --description "$description" \
         --priority "$priority" \
         --parent "$EPIC_ID" \
-        --format json 2>/dev/null | jq -r '.id'); then
+        --json 2>/dev/null | jq -r '.id'); then
 
         log INFO "Created task: $task_id"
 
