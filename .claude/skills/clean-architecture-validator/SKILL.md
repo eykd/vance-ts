@@ -70,6 +70,23 @@ Inner layers must never depend on outer layers:
   → Move interface to `src/domain/interfaces/UserRepository.ts`
 ```
 
+## Related Skills
+
+This skill works together with:
+
+- **security-review**: Authentication, data security, web security
+- **quality-review**: Code correctness, test quality, general code standards
+- **ddd-domain-modeling**: Entity design, value objects, repository interfaces
+- **d1-repository-implementation**: Repository pattern, avoiding database schema pollution in domain
+- **error-handling-patterns**: Result types, error hierarchies (domain errors should not depend on infrastructure)
+- **cloudflare-use-case-creator**: Use case patterns, DTO mapping, application layer structure
+
+When reviewing code, use multiple skills for comprehensive analysis:
+
+1. **Architecture review** (this skill): Layer violations, dependency issues
+2. **Security review**: Authentication, rate limiting, input validation, error disclosure
+3. **Quality review**: Error handling, test coverage, code standards
+
 ## References
 
 - **Detailed violation patterns**: See [references/violations.md](references/violations.md)

@@ -178,3 +178,20 @@ function constantTimeEqual(a: string, b: string): boolean {
 - Verify `helmet` middleware
 - Check `express-rate-limit`
 - Validate CSRF protection
+
+## Related Skills
+
+This skill works together with:
+
+- **quality-review**: Code correctness, test quality, general code standards
+- **clean-architecture-validator**: Layer boundaries, architectural compliance
+- **error-handling-patterns**: Error disclosure prevention, safe error responses
+- **worker-request-handler**: Security headers middleware, nonce-based CSP
+- **kv-session-management**: Session storage, KV rate limiting
+- **ddd-domain-modeling**: Validation architecture, input sanitization
+
+When reviewing code, use multiple skills for comprehensive analysis:
+
+1. **Security review** (this skill): Authentication, rate limiting, input validation, error disclosure
+2. **Architecture review**: Layer violations, dependency issues
+3. **Quality review**: Error handling, test coverage, code standards
