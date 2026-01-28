@@ -209,6 +209,21 @@ Build verification is required for all Hugo changes:
 - **Implementation**: Naming things, structuring logic, implementing business rules
 - **API Design**: Defining contracts, validation, error handling strategies
 
+**ALWAYS use the `/error-handling-patterns` skill** when working with error handling. **Required usage during**:
+
+- **Use Case Implementation**: All use cases must return Result types
+- **Error Class Design**: Creating domain errors, validation errors, infrastructure errors
+- **HTTP Handler Implementation**: Mapping errors to safe HTTP responses
+- **Code Review**: Checking for error disclosure vulnerabilities and inconsistent error handling
+
+**ALWAYS use the `/portable-datetime` skill** when working with dates and times. **Required usage during**:
+
+- **Database Schema Design**: Defining timestamp columns (always TEXT with UTC)
+- **Entity/Value Object Creation**: Storing timestamps as ISO strings
+- **Business Logic**: Calculating future dates, scheduling
+- **Testing**: Writing timezone-independent tests with fixed UTC values
+- **Display Logic**: Converting UTC to user timezone only at presentation boundary
+
 ## Active Technologies
 
 Do not track active technologies in CLAUDE.md.

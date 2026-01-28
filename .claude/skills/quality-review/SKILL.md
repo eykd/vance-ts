@@ -112,6 +112,77 @@ Check compliance with CLAUDE.md project standards:
 - Environment variables via `env: Env` parameter in fetch handler
 - Web Standard APIs only (`fetch`, `Request`, `Response`, `crypto.subtle`, Web Streams)
 
+### 6. Error Handling Standards
+
+Check compliance with error-handling-patterns skill:
+
+- **Use cases return Result types**: All use cases must return `Result<T, E>` types, never throw domain errors
+- **Error hierarchy**: Use specific error classes (ValidationError, NotFoundError, ConflictError, etc.)
+- **HTTP mapping**: Handlers map Result to HTTP responses with generic error messages
+- **No error disclosure**: Error responses never expose internal details (stack traces, SQL, file paths)
+- **Error logging**: Detailed errors logged server-side, generic messages returned to client
+
+**Checklist items**:
+
+- [ ] Use cases return Result<T, E> types
+- [ ] Domain errors caught and returned as Result
+- [ ] HTTP handlers map errors to safe responses
+- [ ] Error responses use generic messages
+- [ ] Detailed errors logged server-side only
+- [ ] No stack traces or internal details in responses
+
+### 7. Validation Architecture
+
+Check compliance with validation-architecture reference in ddd-domain-modeling skill:
+
+- **Three-layer validation**: Presentation (format), Domain (business rules), Infrastructure (constraints)
+- **No duplication**: Each validation check in exactly one layer
+- **Presentation layer**: Format validation (StringValidator, AllowlistValidator) returns 422
+- **Domain layer**: Business rules in entity constructors, throws ValidationError
+- **Infrastructure layer**: Uniqueness constraints caught, throw ConflictError
+
+**Checklist items**:
+
+- [ ] Format validation at presentation boundary
+- [ ] Business rules in domain entities/value objects
+- [ ] No duplicate validation across layers
+- [ ] UNIQUE constraint violations caught and mapped to ConflictError
+- [ ] Validation errors have clear messages
+
+### 8. Domain Modeling
+
+Check compliance with ddd-domain-modeling skill:
+
+- **No primitive obsession**: Use value objects for IDs, emails, money (not raw strings/numbers)
+- **Domain entities pure**: No database methods (toRow, fromRow) in entities
+- **Repository interfaces in domain**: Interface in domain/interfaces/, implementation in infrastructure
+- **Value object immutability**: Value objects have no setters, create new instance for changes
+
+**Checklist items**:
+
+- [ ] IDs use value objects (UserId, TaskId), not string
+- [ ] Emails use Email value object, not string
+- [ ] No toRow() methods in domain entities
+- [ ] Repository interfaces in domain/interfaces/
+- [ ] Value objects are immutable
+
+### 9. Datetime Handling
+
+Check compliance with portable-datetime skill:
+
+- **UTC storage**: All timestamps stored as ISO 8601 UTC strings (string type, not Date)
+- **UTC calculations**: Use setUTC* and getUTC* methods, never local time methods
+- **Timezone conversion at boundary**: Convert to user timezone only at presentation layer
+- **Time injection for tests**: Tests use injected time function, not new Date()
+
+**Checklist items**:
+
+- [ ] Timestamps stored as UTC ISO strings (string type)
+- [ ] No Date objects in domain entities (use string)
+- [ ] Calculations use UTC methods only
+- [ ] No local time methods (setDate, getDate, setHours)
+- [ ] Tests inject time, don't use new Date() directly
+
 ## Known Issues Handling
 
 See [references/known-issues.md](references/known-issues.md) for details.
@@ -233,6 +304,19 @@ Post as PR comment with this structure:
 - **quality-review** (this skill): Handles correctness, test quality, simplicity, code standards
 
 **DO NOT overlap** - if a finding is about security or architecture, don't report it here.
+
+### Related Skills
+
+This skill works together with:
+
+- **error-handling-patterns**: Result types, error hierarchies, HTTP error mapping
+- **ddd-domain-modeling**: Value objects, entities, validation architecture, domain purity
+- **portable-datetime**: UTC storage, timezone conversion, time injection for tests
+- **typescript-unit-testing**: Test patterns, mocking strategies, achieving 100% coverage
+- **security-review**: Error disclosure prevention, safe error responses
+- **clean-architecture-validator**: Layer boundaries, dependency rules
+
+When reviewing code, check these skills for detailed guidance on specific patterns.
 
 ### GitHub Actions Context
 
