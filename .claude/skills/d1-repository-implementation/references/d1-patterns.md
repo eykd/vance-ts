@@ -376,3 +376,305 @@ wrangler types
 # Creates worker-configuration.d.ts with:
 # interface Env { DB: D1Database; ... }
 ```
+
+---
+
+## Anti-Patterns
+
+### ❌ Anti-Pattern: Database Schemas in Domain
+
+**WRONG**: Domain entities knowing about database structure.
+
+```typescript
+// ❌ Domain entity with database methods
+export class Task {
+  constructor(
+    private id: string,
+    private title: string,
+    private completed: boolean
+  ) {}
+
+  // ❌ Domain knows about database row structure
+  toRow(): TaskRow {
+    return {
+      id: this.id,
+      title: this.title,
+      completed: this.completed ? 1 : 0, // ❌ DB encoding in domain
+      user_id: this.userId, // ❌ snake_case leaks into domain
+    };
+  }
+
+  // ❌ Static factory that knows about database rows
+  static fromRow(row: TaskRow): Task {
+    return new Task(row.id, row.title, row.completed === 1);
+  }
+}
+```
+
+**Problems**:
+
+1. **Breaks Clean Architecture**: Domain depends on infrastructure details
+2. **Tight coupling**: Database changes require domain changes
+3. **Type pollution**: snake_case database conventions leak into domain
+4. **Encoding knowledge**: Domain must know how booleans map to integers
+5. **Not testable**: Domain tests depend on database row structure
+
+**CORRECT**: Domain entities are pure, repository handles mapping.
+
+```typescript
+// ✅ Pure domain entity
+export class Task {
+  private constructor(
+    private readonly id: TaskId,
+    private title: string,
+    private completed: boolean
+  ) {}
+
+  // ✅ Factory from domain types only
+  static create(props: { title: string }): Task {
+    return new Task(TaskId.generate(), props.title, false);
+  }
+
+  // ✅ Reconstitute from domain types (for repository)
+  static reconstitute(props: { id: TaskId; title: string; completed: boolean }): Task {
+    return new Task(props.id, props.title, props.completed);
+  }
+
+  // ✅ Domain methods only
+  complete(): void {
+    if (this.completed) {
+      throw new DomainError('Task already completed');
+    }
+    this.completed = true;
+  }
+
+  // ✅ Getters for domain state
+  getId(): TaskId {
+    return this.id;
+  }
+
+  getTitle(): string {
+    return this.title;
+  }
+
+  isCompleted(): boolean {
+    return this.completed;
+  }
+}
+```
+
+**Repository handles all mapping**:
+
+```typescript
+// ✅ Repository in infrastructure layer handles mapping
+export class D1TaskRepository implements TaskRepository {
+  constructor(private readonly db: D1Database) {}
+
+  async save(task: Task): Promise<void> {
+    const query = `
+      INSERT INTO tasks (id, title, completed)
+      VALUES (?, ?, ?)
+    `;
+
+    // ✅ Mapping happens in infrastructure
+    await this.db
+      .prepare(query)
+      .bind(
+        task.getId().toString(), // ✅ Extract via getters
+        task.getTitle(),
+        task.isCompleted() ? 1 : 0 // ✅ Boolean → integer conversion here
+      )
+      .run();
+  }
+
+  async findById(id: TaskId): Promise<Task | null> {
+    const row = await this.db
+      .prepare('SELECT * FROM tasks WHERE id = ?')
+      .bind(id.toString())
+      .first<TaskRow>();
+
+    if (!row) {
+      return null;
+    }
+
+    // ✅ Mapping from row to domain happens here
+    return this.toDomain(row);
+  }
+
+  private toDomain(row: TaskRow): Task {
+    return Task.reconstitute({
+      id: TaskId.fromString(row.id),
+      title: row.title,
+      completed: row.completed === 1, // ✅ Integer → boolean conversion here
+    });
+  }
+}
+```
+
+**Repository interface in domain**:
+
+```typescript
+// ✅ Interface in domain/interfaces/TaskRepository.ts
+export interface TaskRepository {
+  save(task: Task): Promise<void>;
+  findById(id: TaskId): Promise<Task | null>;
+  findByTitle(title: string): Promise<Task[]>;
+}
+```
+
+### ❌ Anti-Pattern: Anemic Domain Model
+
+**WRONG**: Domain entities are just data bags.
+
+```typescript
+// ❌ Anemic domain model (just getters/setters)
+export class Task {
+  constructor(
+    public id: string,
+    public title: string,
+    public completed: boolean
+  ) {}
+
+  // No business logic - just data
+}
+
+// ❌ Business logic in use case (service layer)
+export class CompleteTaskUseCase {
+  async execute(taskId: string): Promise<void> {
+    const task = await this.repository.findById(taskId);
+
+    // ❌ Business rule in use case, not domain
+    if (task.completed) {
+      throw new Error('Task already completed');
+    }
+
+    task.completed = true; // ❌ Direct field access
+    await this.repository.save(task);
+  }
+}
+```
+
+**CORRECT**: Domain entities contain business logic.
+
+```typescript
+// ✅ Rich domain model with business logic
+export class Task {
+  private constructor(
+    private readonly id: TaskId,
+    private title: string,
+    private completed: boolean
+  ) {}
+
+  // ✅ Business logic in domain
+  complete(): void {
+    if (this.completed) {
+      throw new DomainError('Task already completed'); // ✅ Domain error
+    }
+    this.completed = true;
+  }
+
+  rename(newTitle: string): void {
+    if (!newTitle || newTitle.trim().length === 0) {
+      throw new ValidationError('Title cannot be empty');
+    }
+    this.title = newTitle.trim();
+  }
+
+  // ✅ Encapsulated state
+  isCompleted(): boolean {
+    return this.completed;
+  }
+}
+
+// ✅ Use case orchestrates, doesn't contain business logic
+export class CompleteTaskUseCase {
+  async execute(taskId: TaskId): Promise<Result<Task, NotFoundError>> {
+    const task = await this.repository.findById(taskId);
+
+    if (!task) {
+      return err(new NotFoundError('Task not found'));
+    }
+
+    // ✅ Business logic delegated to domain
+    task.complete();
+
+    await this.repository.save(task);
+    return ok(task);
+  }
+}
+```
+
+### ❌ Anti-Pattern: Exposing Row Types
+
+**WRONG**: Row types exposed outside repository.
+
+```typescript
+// ❌ Row type exposed in public API
+export interface TaskRow {
+  id: string;
+  user_id: string; // ❌ snake_case leaks
+  completed: number; // ❌ DB encoding leaks
+}
+
+export class D1TaskRepository {
+  // ❌ Returns database row type
+  async getRaw(id: string): Promise<TaskRow | null> {
+    return this.db.prepare('SELECT * FROM tasks WHERE id = ?').bind(id).first<TaskRow>();
+  }
+}
+```
+
+**CORRECT**: Row types are private to repository.
+
+```typescript
+// ✅ Row type is private to repository implementation
+interface TaskRow {
+  id: string;
+  user_id: string;
+  completed: number;
+}
+
+export class D1TaskRepository implements TaskRepository {
+  // ✅ Returns domain entity only
+  async findById(id: TaskId): Promise<Task | null> {
+    const row = await this.db
+      .prepare('SELECT * FROM tasks WHERE id = ?')
+      .bind(id.toString())
+      .first<TaskRow>();
+
+    if (!row) {
+      return null;
+    }
+
+    return this.toDomain(row); // ✅ Maps to domain
+  }
+
+  // ✅ Private mapping method
+  private toDomain(row: TaskRow): Task {
+    return Task.reconstitute({
+      id: TaskId.fromString(row.id),
+      title: row.title,
+      completed: row.completed === 1,
+    });
+  }
+}
+```
+
+### Checklist: Clean Repository Pattern
+
+- [ ] Domain entities have NO `toRow()` or `fromRow()` methods
+- [ ] Domain entities have NO knowledge of database structure
+- [ ] Repository interface defined in `domain/interfaces/`
+- [ ] Repository implementation in `infrastructure/repositories/`
+- [ ] Row types are private to repository implementation
+- [ ] All mapping (snake_case, type conversions) happens in repository
+- [ ] Domain entities use value objects (TaskId, UserId, Email)
+- [ ] Business logic in domain entities, NOT in use cases
+- [ ] Use cases orchestrate, domain entities encapsulate logic
+
+## Related Skills
+
+- **ddd-domain-modeling**: Entity design, value objects, domain services
+- **clean-architecture-validator**: Layer boundaries, dependency rules
+- **error-handling-patterns**: Result types, error hierarchies
+- **quality-review**: Domain modeling standards
