@@ -760,23 +760,66 @@ EOF
     # Always add commit instructions
     cat <<EOF
 
-## After Task Completion
-Follow this EXACT sequence:
-1. Close bead: npx bd close $task_id
-   - This updates .beads state which needs to be committed
-2. Commit: Run /commit skill to stage and commit changes
+## After Task Completion - COMMITTING IS MANDATORY
+
+YOU MUST COMMIT YOUR WORK. This is NON-NEGOTIABLE.
+
+### Why Committing Is Critical
+
+Without a successful commit:
+- Your work will be LOST if the next task modifies the same files
+- Ralph will repeat this task thinking it wasn't completed
+- The .beads state won't be saved, causing task tracking failures
+- Pre-commit hooks won't validate your changes
+
+### Exact Commit Sequence (REQUIRED)
+
+1. **Close bead FIRST**: \`npx bd close $task_id\`
+   - This updates .beads state which MUST be included in the commit
+   - Marks task as complete in beads tracking
+
+2. **Commit ALL changes**: Run \`/commit\` skill
+   - Stages ALL modified files (.beads state + your code changes)
    - Creates conventional commit message
-   - Includes .beads state changes from step 1
-   - Runs pre-commit hooks (NEVER skip with --no-verify)
-   - If hooks fail, you MUST fix the issues (format, lint, tests)
-   - Retry /commit after fixing
+   - Runs pre-commit hooks (prettier, ESLint, type-check, tests)
+   - **PRE-COMMIT HOOKS MUST PASS - NO EXCEPTIONS**
 
-CRITICAL: Close bead BEFORE commit to include .beads state.
+3. **If pre-commit hooks FAIL**:
+   - READ the error message carefully
+   - FIX the issues (formatting, linting, type errors, test failures)
+   - Run \`/commit\` again
+   - REPEAT until commit succeeds
+
+4. **Verify commit succeeded**:
+   - You should see "committed successfully" message
+   - If not, the task is NOT complete - keep fixing and retrying
+
+### Critical Rules
+
+✅ REQUIRED:
+- Create a commit for EVERY completed task
+- Fix ALL pre-commit hook failures
+- Include .beads state changes in commit
+- Verify commit succeeded before moving on
+
+❌ FORBIDDEN:
+- Skipping commit after completing task
+- Using --no-verify, --no-hooks, or similar flags
+- Leaving task closed but changes uncommitted
+- Moving to next iteration without successful commit
+
+### Success Criteria
+
+The task is ONLY complete when:
+1. ✓ Bead is closed (\`npx bd close $task_id\`)
+2. ✓ All changes are committed (including .beads/)
+3. ✓ Pre-commit hooks passed (100% tests, no lint errors, type-check passed)
+4. ✓ Commit succeeded (you saw success message)
+
+If ANY of these are false, the task is INCOMPLETE - keep working until all pass.
+
 Ralph will create a series of commits across iterations.
-User will push manually when ready.
-
-FORBIDDEN: NEVER use --no-verify, --no-hooks, or similar flags.
-Pre-commit hooks enforce code quality and MUST pass.
+User will push all commits manually when the feature is ready.
 EOF
 }
 
