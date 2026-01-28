@@ -1,408 +1,531 @@
 ---
 name: code-review
-description: Review code changes for quality, correctness, and security. Use when (1) reviewing code before committing, (2) evaluating staged changes, (3) reviewing PR or branch changes, (4) getting feedback on implementation quality, (5) identifying security issues in changes, (6) assessing test coverage and quality, or (7) preparing changes for team review.
+description: Launch review.sh for parallel code quality review (security, quality, architecture). Creates beads tasks for findings. Runs in background with Haiku model.
 ---
 
-# Code Review Skill
+# Code Review via review.sh
 
-Comprehensive code review following best practices for quality, security, and maintainability.
+Run parallel code reviews on TypeScript files using three specialized skills, executed in the background with the Haiku model.
 
-## Review Process
-
-1. **Determine scope**: Use git diff based on scope parameter (default: working directory)
-2. **Detect current epic**: Extract epic ID from current git branch
-3. **Invoke review subagents in parallel**:
-   - quality-review (correctness, test quality, simplicity, code standards)
-   - security-review (OWASP vulnerabilities, auth, data security)
-   - clean-architecture-validator (dependency violations, layer boundaries)
-4. **Collect findings**: Aggregate findings from all three reviews
-5. **Create beads tasks**: For each finding, create a task under the current epic
-6. **Generate output**: Structured report with actionable recommendations and copy-paste prompt
-
-## Scope Parameter
-
-| Scope               | Git Command               | Description            |
-| ------------------- | ------------------------- | ---------------------- |
-| `working` (default) | `git diff`                | Uncommitted changes    |
-| `staged`            | `git diff --cached`       | Staged changes         |
-| `head`              | `git diff HEAD~1`         | Last commit            |
-| `branch`            | `git diff <base>..HEAD`   | Branch changes vs base |
-| `refs`              | `git diff <ref1>..<ref2>` | Custom ref comparison  |
-
-### Usage Examples
+## Quick Usage
 
 ```bash
-# Review uncommitted changes
-/code-review
-
-# Review staged changes
-/code-review --scope staged
-
-# Review last commit
-/code-review --scope head
-
-# Review branch changes
-/code-review --scope branch --base main
+/code-review                     # Review all TypeScript files
+/code-review dry run             # Preview what would be reviewed
+/code-review the files we changed  # Review staged files
+/code-review security only       # Only security review
 ```
 
-## Review Sections
+## How It Works
 
-See [references/review-sections.md](references/review-sections.md) for detailed guidance on each section:
+1. **Parse arguments** - Convert natural language to script flags
+2. **Detect epic** - Extract from git branch or create new
+3. **Launch background agent** - Uses Haiku model for parallel reviews
+4. **Run review.sh** - Agent executes three skills in parallel
+5. **Create beads tasks** - Findings become trackable tasks
+6. **Present summary** - Files reviewed, tasks created, priorities
 
-1. **What Changed**: Plain English summary of functionality
-2. **Does It Work**: Correctness, testing, production-readiness
-3. **Simplicity & Maintainability**: Code clarity and future maintenance
-4. **Test Quality**: When test files present (see [references/test-quality.md](references/test-quality.md))
-5. **Security Review**: Via `/security-review` skill invocation
-6. **Recommendations**: Prioritized action items
-7. **Copy-Paste Prompt**: Ready-to-use fix prompt
+## Natural Language Arguments
 
-## Output Format
+Code-review accepts these patterns:
 
-See [references/output-format.md](references/output-format.md) for the complete structured format.
+| You Say                            | Script Flag                                |
+| ---------------------------------- | ------------------------------------------ |
+| "dry run", "preview"               | `--dry-run`                                |
+| "files we changed", "staged files" | `--files $(git diff --name-only --staged)` |
+| "security only", "just quality"    | `--skills security-review`                 |
+| "files X Y Z"                      | `--files X Y Z`                            |
+| "no security", "skip architecture" | `--skills` (filtered list)                 |
 
-### Finding Format (for automated parsing)
+## Review Skills (Run in Parallel)
 
-```markdown
-### Finding: [Title]
+Review.sh invokes three skills concurrently:
 
-- **Severity**: Critical|High|Medium|Low
-- **Category**: security|test|quality|architecture|performance
-- **File**: path/to/file.ts
-- **Line**: 42
-- **Description**: What's wrong
-- **Risk**: What could go wrong
-- **Fix**: How to fix it
-```
+### 1. Security Review
 
-## Large Changeset Handling
+- OWASP vulnerabilities (SQL injection, XSS, CSRF)
+- Authentication and session issues
+- Input validation gaps
+- Secrets exposure
 
-For changesets over 1000 lines:
-
-- Provide high-level summary of all changes
-- Focus detailed review on highest-risk files
-- Note that full review was not possible due to size
-- Recommend splitting into smaller changesets
-
-## Epic Detection
-
-Before creating beads tasks, detect the current epic:
-
-1. Get current git branch: `git branch --show-current`
-2. Extract feature name: Remove numeric prefix (e.g., "001-feature-name" → "feature-name")
-3. Find matching epic (search both open AND closed):
-   ```bash
-   npx bd list --type epic --json | \
-     jq -r --arg name "$feature" \
-     '.[] | select(.title | ascii_downcase | contains($name | ascii_downcase)) | .id' | head -n1
-   ```
-
-**Note**: Search both open and closed epics because code review may happen after epic closure.
-
-If no epic is found, skip beads task creation and only generate the review report.
-
-## Epic Reopening
-
-If the detected epic is closed AND findings exist:
-
-1. Reopen the epic before creating tasks:
-   ```bash
-   npx bd reopen "$epic_id"
-   ```
-2. Note in the report that the epic was reopened
-3. Create tasks under the reopened epic
-
-**Rationale**: Code review may reveal issues after the epic was initially closed. Reopening allows tracking fixes as tasks.
-
-## Integration with Review Subagents
-
-### Quality Review
-
-Invoke using Task tool with `subagent_type="general-purpose"`:
-
-```
-Review the code changes for quality, correctness, and test quality using the /quality-review skill.
-```
-
-Handles:
+### 2. Quality Review
 
 - Correctness and production-readiness
 - Test quality (Kent Beck's Test Desiderata)
 - Simplicity and maintainability
 - Code standards compliance
 
-### Security Review
-
-Invoke using Task tool with `subagent_type="general-purpose"`:
-
-```
-Review the code changes for security vulnerabilities using the /security-review skill.
-```
-
-Handles:
-
-- SQL injection, XSS, CSRF
-- Authentication/session issues
-- Input validation gaps
-- Secrets exposure
-
-### Clean Architecture Validation
-
-Invoke using Task tool with `subagent_type="general-purpose"`:
-
-```
-Review the code changes for architecture compliance using the /clean-architecture-validator skill.
-```
-
-Handles:
+### 3. Clean Architecture Validator
 
 - Layer boundary violations
-- Dependency direction violations
-- Interface placement issues
+- Dependency direction issues
+- Interface placement
 - Coupling concerns
 
-## Creating Beads Tasks from Findings
+## Output Format
 
-After collecting findings from all three reviews, create a beads task for each finding:
+Review.sh provides a structured summary:
 
-```bash
-npx bd create "Fix: [Finding Title]" \
-  --parent "$epic_id" \
-  --type task \
-  --priority "[0-3 based on severity]" \
-  --description "[Finding details including file, line, problem, risk, and fix]"
+```
+Review complete!
+
+Files reviewed: 5 TypeScript files
+Skills: security-review, quality-review, clean-architecture-validator
+
+Findings:
+- Security: 1 task (1 High)
+- Quality: 3 tasks (1 High, 2 Medium)
+- Architecture: 0 tasks
+
+Total: 4 tasks created under epic workspace-abc
+
+Next Steps:
+- Review tasks: npx bd list --parent workspace-abc
+- Start working: npx bd ready --parent workspace-abc
+```
+
+## File Discovery
+
+By default, review.sh auto-discovers TypeScript files:
+
+**Scanned directories**:
+
+- `src/` - Implementation code
+- `tests/` - Test files
+- `functions/` - Cloudflare Functions
+
+**Excluded**:
+
+- `*.spec.ts` - Test files (reviewed but not as implementation)
+- `*.test.ts` - Test files
+- `node_modules/` - Dependencies
+- `.claude/` - Claude Code files
+- `dist/` - Build output
+
+**File size limits**:
+
+- Warns if file > 10KB
+- Skips if file > 100KB
+
+## Epic Management
+
+Review.sh handles epic detection and creation:
+
+### Automatic Epic Detection
+
+1. Get current branch: `git branch --show-current`
+2. Extract feature name: Remove numeric prefix (e.g., "001-feature" → "feature")
+3. Find matching epic: Search by feature name in title
+
+### Epic Creation
+
+If no epic found for the branch:
+
+```
+No epic found for feature 'my-feature', creating...
+Created epic: workspace-abc
+```
+
+### Epic Reopening
+
+If epic is closed and findings exist:
+
+```
+Reopening closed epic workspace-abc
+```
+
+Review.sh ensures the epic is open before creating tasks.
+
+## Task Creation
+
+For each finding, review.sh creates a beads task:
+
+**Task format**:
+
+```
+Title: [security-review] SQL Injection in search
+
+Description:
+File: src/search.ts
+Line: 45
+Severity: Critical
+Skill: security-review
+
+Problem:
+User input concatenated into SQL query without sanitization.
+
+Fix:
+Use parameterized queries with proper binding.
+
+Priority: 0 (Critical)
+Parent: workspace-abc
 ```
 
 ### Severity to Priority Mapping
 
-| Severity | Priority | Description                                              |
-| -------- | -------- | -------------------------------------------------------- |
-| Critical | P0       | Blocks merge - security vulnerabilities, data loss risks |
-| High     | P1       | Fix before merge - significant bugs, test gaps           |
-| Medium   | P2       | Should fix - code smells, improvements                   |
-| Low      | P3       | Optional - style issues, documentation                   |
+| Severity | Priority | Description                                      |
+| -------- | -------- | ------------------------------------------------ |
+| Critical | 0        | Security vulnerability, data loss risk           |
+| High     | 1        | Significant bug, test gap, pattern violation     |
+| Medium   | 2        | Code smell, minor bug, improvement opportunity   |
+| Low      | 3        | Style issue, optional enhancement, documentation |
 
-### Task Description Format
+## Deduplication
 
-```markdown
-**Category**: [security|test|quality|architecture|performance]
-**File**: [path/to/file.ts:line]
+Review.sh checks existing open tasks to avoid duplicates:
 
-**Problem**: [Description in plain English]
-
-**Risk**: [Business impact - what could go wrong]
-
-**Fix**: [Recommended solution]
-```
-
-## Detailed Workflow
-
-### Step 1: Get Code Changes
-
-```bash
-# Based on scope parameter
-git diff                    # working (default)
-git diff --cached          # staged
-git diff HEAD~1            # head
-git diff <base>..HEAD      # branch
-```
-
-### Step 2: Detect Current Epic
-
-```bash
-# Get current branch
-branch=$(git branch --show-current)
-
-# Extract feature name (remove numeric prefix)
-feature=$(echo "$branch" | sed 's/^[0-9]*-//')
-
-# Find matching epic (search both open and closed)
-epic_id=$(npx bd list --type epic --json | \
-  jq -r --arg name "$feature" '.[] | select(.title | ascii_downcase | contains($name | ascii_downcase)) | .id' | head -n1)
-
-# Check if epic is closed
-if [ -n "$epic_id" ]; then
-  epic_status=$(npx bd show "$epic_id" --json | jq -r '.[0].status')
-fi
-```
-
-### Step 3: Invoke Review Subagents in Parallel
-
-Launch all three reviews using the Task tool in a **single message with multiple tool calls**:
-
-1. Task tool → quality-review skill
-2. Task tool → security-review skill
-3. Task tool → clean-architecture-validator skill
-
-**CRITICAL**: Send all three Task tool calls in one message for parallel execution.
-
-### Step 4: Collect Findings
-
-Parse findings from each subagent's output:
-
-- Extract structured findings (severity, category, file, line, description, risk, fix)
-- Deduplicate findings across reviews
-- Sort by severity (Critical → High → Medium → Low)
-
-### Step 5: Reopen Epic (if needed)
-
-Before creating tasks, check if epic needs reopening:
-
-```bash
-# If epic is closed and we have findings, reopen it
-if [ "$epic_status" = "closed" ] && [ "${#findings[@]}" -gt 0 ]; then
-  npx bd reopen "$epic_id"
-  echo "Reopened epic $epic_id to track new findings"
-fi
-```
-
-### Step 6: Create Beads Tasks
-
-For each finding, create a beads task:
-
-```bash
-npx bd create "Fix: [Title]" \
-  --parent "$epic_id" \
-  --type task \
-  --priority "[0-3]" \
-  --description "[Structured description]"
-```
-
-**Skip beads creation if**:
-
-- No epic found for current branch
-- No findings to report
-- User explicitly opts out
-
-### Step 7: Generate Consolidated Report
-
-Create a single report combining:
-
-- Summary of all reviews
-- What Changed section
-- Findings from all three reviews organized by severity
-- Beads tasks created (with IDs)
-- Copy-paste prompt to fix all findings
+1. Queries all open tasks under the epic
+2. Passes task list to Claude in review prompt
+3. Claude compares findings to existing tasks
+4. Only creates NEW findings not already tracked
 
 ## Edge Cases
 
-- **No changes**: Report "No changes detected" and exit gracefully
-- **Outside git repo**: Report error explaining git repository requirement
-- **No epic found**: Skip beads creation, generate report only
-- **Epic is closed**: Reopen epic before creating tasks (if findings exist)
-- **Binary files**: Note but don't analyze; focus on text-based source files
-- **Very large changesets**: Switch to summary mode with warning
-- **Beads not initialized**: Skip beads creation, generate report only
-
-## Review Guidelines
-
-### Audience: Non-Technical Managers
-
-**CRITICAL**: Write the ENTIRE review for non-technical managers, not developers.
-
-- Technical jargon is OK when explained briefly and concisely
-- Always follow technical terms with plain English explanation (e.g., "SQL injection - inserting malicious database commands")
-- Explain impacts in business terms (risk, cost, user experience)
-- Focus on "what" and "why", not implementation details
-- Keep explanations concise - don't over-explain
-- Keep all sections accessible to non-technical readers
-
-### Prioritize Findings
-
-1. **Critical**: Security vulnerabilities, data loss risks - block merge
-2. **High**: Significant bugs, test gaps - fix before merge
-3. **Medium**: Code smells, improvements - should fix
-4. **Low**: Style issues, documentation - optional
-
-### Focus on Value
-
-- Summarize for non-technical stakeholders
-- Explain the "why" not just the "what"
-- Provide actionable recommendations
-- Include specific file and line references
-
-### Always Include Copy-Paste Prompt
-
-**REQUIRED**: Every review with findings MUST end with a copy-paste prompt in a code block that the customer can paste directly into Claude Code to implement the recommended fixes.
-
-## Complete Workflow Example
+### No TypeScript Files
 
 ```
-User: /code-review --scope staged
-
-1. Get staged changes:
-   git diff --cached
-
-2. Detect epic:
-   branch = "001-user-authentication"
-   feature = "user-authentication"
-   epic_id = "workspace-abc123"
-   epic_status = "closed"  # Epic was already closed
-
-3. Launch parallel reviews (single message, 3 Task calls):
-   - Task(quality-review) → findings: 2 test issues, 1 code quality issue
-   - Task(security-review) → findings: 1 SQL injection, 1 XSS vulnerability
-   - Task(clean-architecture-validator) → findings: 1 layer violation
-
-4. Reopen epic (because it's closed and we have findings):
-   npx bd reopen workspace-abc123
-   → Epic reopened to track new findings from code review
-
-5. Create beads tasks:
-   - workspace-abc123-t1: Fix SQL injection (P0)
-   - workspace-abc123-t2: Fix XSS vulnerability (P0)
-   - workspace-abc123-t3: Fix layer violation (P1)
-   - workspace-abc123-t4: Add missing tests (P1)
-   - workspace-abc123-t5: Simplify complex function (P2)
-   - workspace-abc123-t6: Improve variable naming (P3)
-
-6. Generate report:
-   - Summary for non-technical readers
-   - All findings organized by severity
-   - Note that epic was reopened
-   - Beads tasks created section
-   - Copy-paste prompt to fix all issues
-
-Output to user:
-   - Consolidated review report
-   - Note: "Epic workspace-abc123 was reopened to track findings"
-   - 6 beads tasks created
-   - Ready-to-paste prompt
+No TypeScript files found to review
 ```
 
-## Error Handling
+**Fix**: Ensure you have `.ts` files in `src/`, `tests/`, or `functions/`
 
-### When Beads Task Creation Fails
+### No Findings
 
-If beads task creation fails for any reason:
+```
+Review complete!
+Files reviewed: 5 TypeScript files
+No issues found! ✓
+```
 
-- Log the error but continue with the review
-- Include error message in the report
-- Still generate the findings section and copy-paste prompt
-- Inform the user they can create tasks manually if needed
+All files passed review.
 
-### When Review Subagents Fail
+### Lock File Exists
 
-If any subagent fails to complete:
+```
+Error: review.sh is already running (PID: 12345)
+If this is stale, remove .review.lock manually.
+```
 
-- Continue with other subagents
-- Note which reviews failed in the report
-- Generate findings from successful reviews only
-- Recommend re-running the failed review manually
+**Fix**: Check if review is running. If not, remove lock:
 
-### When No Epic Is Found
+```bash
+rm .review.lock
+```
 
-If no epic matches the current branch:
+### Not a Git Repository
 
-- Skip beads task creation entirely
-- Include note in report: "No epic found for current branch - skipping beads task creation"
-- Still generate complete review with findings and copy-paste prompt
+```
+Error: Not in a git repository or HEAD is detached
+```
 
-### When Epic Reopening Fails
+**Fix**: Run from within a git repository
 
-If `npx bd reopen` fails:
+### Beads Not Initialized
 
-- Log the error but continue with task creation attempt
-- Beads may prevent reopening for valid reasons (e.g., epic in special state)
-- If task creation also fails, include error in report
-- Suggest manual intervention: "Epic could not be reopened. Please reopen manually: `npx bd reopen [epic-id]`"
+Review.sh handles this gracefully:
+
+- Creates epic even without beads
+- Initializes beads if needed
+- Creates tasks under new epic
+
+### Authentication Failure (Exit 130)
+
+```
+Error: Claude CLI authentication issue (exit code 130)
+```
+
+**Fix**: Re-authenticate Claude CLI:
+
+```bash
+claude auth
+```
+
+## Skill Filtering
+
+Review only specific aspects:
+
+### Security Only
+
+```bash
+/code-review security only
+```
+
+Runs only the security-review skill.
+
+### Skip Architecture
+
+```bash
+/code-review no architecture
+```
+
+Runs security-review and quality-review, skips clean-architecture-validator.
+
+### Custom Combination
+
+```bash
+/code-review security and quality
+```
+
+Runs security-review and quality-review only.
+
+## File Filtering
+
+Review specific files:
+
+### Staged Files
+
+```bash
+/code-review the files we changed
+```
+
+Reviews only files in git staging area.
+
+### Specific Files
+
+```bash
+/code-review files src/auth.ts src/login.ts
+```
+
+Reviews only the specified files.
+
+### Pattern Matching
+
+```bash
+/code-review files src/**/*.ts
+```
+
+Reviews all TypeScript files in src/ (including subdirectories).
+
+## Background Execution
+
+Review.sh runs as a background task:
+
+- ✅ Continue working in main chat
+- ✅ Monitor progress via .review.log
+- ✅ Parallel skill execution (3 concurrent)
+- ✅ Haiku model for cost efficiency
+
+## Logs
+
+Detailed logs are written to `.review.log`:
+
+- Session start/end timestamps
+- Configuration (skills, files, flags)
+- Skill invocations and outputs
+- Task creation details
+- Error messages
+
+Use these logs to debug or audit the review.
+
+## Examples
+
+### Basic Usage
+
+```bash
+# Review all TypeScript files with all skills
+/code-review
+```
+
+### Preview Mode
+
+```bash
+# See what would be reviewed
+/code-review dry run
+```
+
+### Review Staged Changes
+
+```bash
+# Review only files you're about to commit
+/code-review the files we changed
+```
+
+### Security-Only Review
+
+```bash
+# Quick security scan before commit
+/code-review security only
+```
+
+### Review Specific Files
+
+```bash
+# Review files mentioned in code review feedback
+/code-review files src/payment.ts src/checkout.ts
+```
+
+## Workflow Integration
+
+### After Implementation
+
+```bash
+# Implement feature
+/sp:07-implement
+
+# Review what you built
+/code-review
+
+# Address findings
+npx bd ready  # See tasks created by review
+# Work on high-priority findings
+
+# Commit fixes
+/commit
+```
+
+### Before Pull Request
+
+```bash
+# Stage changes
+git add .
+
+# Review staged files
+/code-review the files we changed
+
+# Fix issues
+# (work on tasks created)
+
+# Create PR
+/create-pr
+```
+
+### Continuous Review
+
+```bash
+# Review during development
+/code-review files src/new-feature.ts
+
+# Fix issues immediately
+# Create commit
+
+# Review again
+/code-review files src/new-feature.ts
+
+# Repeat until clean
+```
+
+## When to Use Code Review
+
+Use code-review when you want to:
+
+- ✅ Find security vulnerabilities before commit
+- ✅ Validate code quality across multiple files
+- ✅ Check architectural compliance
+- ✅ Get actionable feedback as beads tasks
+- ✅ Review before creating a pull request
+
+Don't use code-review for:
+
+- ❌ Git diff review (base..HEAD) - Use `/sp:08-security-review`, `/sp:09-architecture-review`, `/sp:10-code-quality-review` instead
+- ❌ Single-file quick checks - Just ask Claude directly
+- ❌ Work in progress - Wait until code is ready for review
+
+## Difference from sp:\* Review Commands
+
+| Aspect          | /code-review (this skill)      | /sp:08, /sp:09, /sp:10              |
+| --------------- | ------------------------------ | ----------------------------------- |
+| **Scope**       | Reviews files directly         | Reviews git diff (base..HEAD)       |
+| **When**        | During development             | After implementation phase complete |
+| **Files**       | Auto-discover or specify files | All changes in branch               |
+| **Integration** | Standalone skill               | Part of spec-kit workflow           |
+| **Use case**    | Iterative review during coding | Final review before merge           |
+
+## Performance Tips
+
+### Use Haiku Model (Default)
+
+Review.sh uses Haiku by default for cost-effective reviews. If you need higher quality:
+
+```bash
+# Use sonnet model for more thorough review
+# (Advanced: requires manual script invocation)
+./review.sh --claude-flags '--model sonnet'
+```
+
+### Limit File Count
+
+Review fewer files at once for faster results:
+
+```bash
+# Review by directory
+/code-review files src/auth/**/*.ts
+
+# Review recent changes
+/code-review the files we changed
+```
+
+### Filter Skills
+
+Run only the skills you need:
+
+```bash
+# Quick security check
+/code-review security only
+
+# Skip expensive architecture analysis
+/code-review no architecture
+```
+
+## Troubleshooting
+
+### Reviews Taking Too Long
+
+- Reduce file count (use filters)
+- Run specific skills only
+- Check .review.log for slow files
+
+### No Tasks Created
+
+- Check if findings were duplicates of existing tasks
+- Review .review.log for Claude's output
+- Verify epic was detected/created
+
+### Permission Errors
+
+- Ensure you can write to `.review.log`
+- Check beads initialization
+- Verify git repository access
+
+## Safety Features
+
+Review.sh enforces safety:
+
+- ✅ **Lock file** - Prevents concurrent runs
+- ✅ **Timeout** - 30-minute max per skill invocation
+- ✅ **Retry logic** - Exponential backoff for transient failures
+- ✅ **Deduplication** - Checks existing tasks before creating
+- ✅ **File size limits** - Skips very large files
+- ✅ **Epic reopening** - Reopens closed epics when needed
+
+## Next Steps After Review
+
+Once review.sh completes:
+
+1. **Check tasks created**:
+
+   ```bash
+   npx bd list --parent <epic-id>
+   ```
+
+2. **Start with high-priority**:
+
+   ```bash
+   npx bd ready --parent <epic-id>
+   ```
+
+3. **Work on findings**:
+   - Security (P0) - Fix immediately
+   - Quality (P1) - Fix before merge
+   - Architecture (P1) - Fix before merge
+   - Low priority (P3) - Optional improvements
+
+4. **Re-review after fixes**:
+
+   ```bash
+   /code-review
+   ```
+
+5. **Commit when clean**:
+   ```bash
+   /commit
+   ```

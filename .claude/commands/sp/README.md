@@ -59,18 +59,17 @@ Progress: Run `/sp:next` to query `bd ready` and invoke the next phase
 
 Phase tasks use the `[sp:NN-name]` prefix for automatic skill invocation:
 
-| Phase Task                        | Skill Invoked                    |
-| --------------------------------- | -------------------------------- | ---------------------------------- |
-| `[sp:02-clarify] ...`             | `/sp:02-clarify`                 |
-| `[sp:03-plan] ...`                | `/sp:03-plan`                    |
-| `[sp:04-checklist] ...`           | `/sp:04-checklist`               |
-| `[sp:05-tasks] ...`               | `/sp:05-tasks`                   |
-| `[sp:06-analyze] ...`             | `/sp:06-analyze`                 |
-| `[sp:07-implement] ...`           | `/sp:07-implement`               |
-| `[sp:08-security-review] ...`     | `/sp:08-security-review`         |
-| `[sp:09-architecture-review] ...` | `/sp:09-architecture-review`     |
-| `[sp:10-code-quality-review] ...` | `/sp:10-code-quality-review`     |
-| `/sp:10-code-quality-review`      | Code quality review (base..HEAD) | Creates remediation tasks in beads |
+| Phase Task                        | Skill Invoked                |
+| --------------------------------- | ---------------------------- |
+| `[sp:02-clarify] ...`             | `/sp:02-clarify`             |
+| `[sp:03-plan] ...`                | `/sp:03-plan`                |
+| `[sp:04-checklist] ...`           | `/sp:04-checklist`           |
+| `[sp:05-tasks] ...`               | `/sp:05-tasks`               |
+| `[sp:06-analyze] ...`             | `/sp:06-analyze`             |
+| `[sp:07-implement] ...`           | `/sp:07-implement`           |
+| `[sp:08-security-review] ...`     | `/sp:08-security-review`     |
+| `[sp:09-architecture-review] ...` | `/sp:09-architecture-review` |
+| `[sp:10-code-quality-review] ...` | `/sp:10-code-quality-review` |
 
 ## Using /sp:next
 
@@ -147,3 +146,20 @@ npx bd stats
 # Check workflow status
 /sp:next --status
 ```
+
+## Code Review (Not Part of sp Workflow)
+
+The `/code-review` skill is available for iterative code review during development, but is **not part of the sp workflow**:
+
+- **`/code-review`** - Reviews TypeScript files directly (auto-discovers or specify files)
+  - Use during development for iterative feedback
+  - Creates beads tasks for findings under the current epic
+  - Runs in background with Haiku model
+
+The sp workflow includes **final review phases** that review git diffs (base..HEAD):
+
+- **`/sp:08-security-review`** - Security review after implementation
+- **`/sp:09-architecture-review`** - Architecture review after security
+- **`/sp:10-code-quality-review`** - Quality review after architecture
+
+**Key difference**: `/code-review` reviews files directly for iterative feedback, while sp:08/09/10 review all changes in the branch as final validation before merge.
