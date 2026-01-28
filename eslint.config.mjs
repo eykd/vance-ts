@@ -607,6 +607,67 @@ export default [
     },
   },
 
+  // Clean Architecture layer boundary enforcement
+  // IMPORTANT: Uncomment these rules once you've created the proper directory structure
+  // with src/domain/, src/application/, src/infrastructure/, src/presentation/
+  //
+  // Domain layer cannot import from outer layers
+  // {
+  //   files: ['src/domain/**/*.ts'],
+  //   rules: {
+  //     'no-restricted-imports': [
+  //       'error',
+  //       {
+  //         patterns: [
+  //           {
+  //             group: ['**/infrastructure/**', '**/presentation/**', '**/application/**'],
+  //             message:
+  //               'Domain layer must not import from outer layers (application, infrastructure, presentation). Domain should only depend on other domain code.',
+  //           },
+  //         ],
+  //       },
+  //     ],
+  //   },
+  // },
+  //
+  // Application layer cannot import from infrastructure or presentation
+  // {
+  //   files: ['src/application/**/*.ts'],
+  //   rules: {
+  //     'no-restricted-imports': [
+  //       'error',
+  //       {
+  //         patterns: [
+  //           {
+  //             group: ['**/infrastructure/**', '**/presentation/**'],
+  //             message:
+  //               'Application layer must not import from outer layers (infrastructure, presentation). Application should depend on domain interfaces, not concrete implementations.',
+  //           },
+  //         ],
+  //       },
+  //     ],
+  //   },
+  // },
+  //
+  // Infrastructure layer cannot import from presentation
+  // {
+  //   files: ['src/infrastructure/**/*.ts'],
+  //   rules: {
+  //     'no-restricted-imports': [
+  //       'error',
+  //       {
+  //         patterns: [
+  //           {
+  //             group: ['**/presentation/**'],
+  //             message:
+  //               'Infrastructure layer must not import from presentation layer. Infrastructure implements domain interfaces and can be used by presentation.',
+  //           },
+  //         ],
+  //       },
+  //     ],
+  //   },
+  // },
+
   // Development tooling in .claude/ directory can use Node.js APIs
   {
     files: ['.claude/**/*.ts'],

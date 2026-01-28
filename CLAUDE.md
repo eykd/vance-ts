@@ -117,6 +117,24 @@ cd hugo && npm test  # Run build verification (builds site and checks output)
 - **JSDoc required** for all public functions, methods, classes, interfaces, types, enums
 - **Import order**: builtin → external → internal → parent → sibling → index (alphabetized)
 
+#### Architecture Boundary Enforcement
+
+ESLint enforces Clean Architecture layer boundaries (once enabled in `eslint.config.mjs`):
+
+- **Domain layer** (`src/domain/`) cannot import from:
+  - `application/` - Domain is innermost layer
+  - `infrastructure/` - Domain defines interfaces, infrastructure implements
+  - `presentation/` - Domain has no knowledge of HTTP or UI
+- **Application layer** (`src/application/`) cannot import from:
+  - `infrastructure/` - Application depends on domain interfaces only
+  - `presentation/` - Application has no knowledge of HTTP or UI
+- **Infrastructure layer** (`src/infrastructure/`) cannot import from:
+  - `presentation/` - Infrastructure implements domain interfaces, not presentation concerns
+
+**To enable**: Uncomment the architecture rules in `eslint.config.mjs` once you've created the proper directory structure (`src/domain/`, `src/application/`, `src/infrastructure/`, `src/presentation/`).
+
+**Violations**: Pre-commit hooks will fail if layer boundaries are violated.
+
 ### Testing Requirements
 
 - **100% coverage threshold** (branches, functions, lines, statements)
