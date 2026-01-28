@@ -1,22 +1,48 @@
 # Security headers for all pages
 /*
-  # CSP allows 'unsafe-inline' for scripts and styles because:
-  # - Hugo templates generate inline <script> tags for some functionality
-  # - TailwindCSS requires inline styles in development
-  # - DaisyUI theme switching uses inline scripts
-  # Production sites should migrate to nonces or hashes if possible
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://www.google-analytics.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  # HSTS: Force HTTPS for 2 years
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+
+  # CSP: Content Security Policy
+  #
+  # CURRENT: Uses 'unsafe-inline' for static Hugo site
+  # REASON: All inline scripts from trusted templates, low XSS risk (see hugo/CLAUDE.md)
+  #
+  # TO MIGRATE TO HASH-BASED CSP:
+  # 1. Find all inline scripts: grep -r "<script>" layouts/
+  # 2. For each script, compute hash: echo -n 'script content' | openssl dgst -sha256 -binary | openssl base64
+  # 3. Replace 'unsafe-inline' with 'sha256-HASH1' 'sha256-HASH2' for each hash
+  # 4. For Alpine.js, use CDN with SRI integrity hash
+  # 5. Test with browser console to verify no CSP violations
+  #
+  # ALTERNATIVE: External scripts with SRI
+  # - Move inline scripts to static/js/ files
+  # - Load with <script src="/js/file.js" integrity="sha384-HASH" crossorigin="anonymous"></script>
+  # - Remove 'unsafe-inline' from script-src
+  #
+  # PRODUCTION RECOMMENDATION: Migrate to hash-based CSP when:
+  # - User-generated content is added
+  # - Stricter security requirements needed
+  # - Third-party scripts are no longer required
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://cdn.usefathom.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://www.google-analytics.com https://cdn.usefathom.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+
+  # Frame protection: Prevent clickjacking
   X-Frame-Options: DENY
+
+  # MIME type sniffing: Prevent MIME confusion attacks
   X-Content-Type-Options: nosniff
-  X-XSS-Protection: 1; mode=block
+
+  # Referrer policy: Control referrer information leakage
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+  # Permissions policy: Disable unused browser features
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()
 
 # Prevent indexing of preview deployments
 https://*.pages.dev/*
   X-Robots-Tag: noindex
 
-# Cache static assets aggressively
+# Cache static assets aggressively (fingerprinted files)
 /css/*
   Cache-Control: public, max-age=31536000, immutable
 
@@ -25,3 +51,11 @@ https://*.pages.dev/*
 
 /images/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Cache fonts (usually stable)
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Don't cache HTML (always fresh)
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate

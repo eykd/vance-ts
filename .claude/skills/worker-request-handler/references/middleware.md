@@ -396,6 +396,276 @@ async function withLogging(request: Request, handler: () => Promise<Response>): 
 }
 ```
 
+## Security Headers
+
+### Nonce-Based CSP for Dynamic Responses
+
+For dynamic Worker responses (HTMX partials, API responses), use **nonce-based Content Security Policy** to prevent XSS while allowing inline scripts.
+
+**When to use nonce-based CSP:**
+
+- Dynamic HTML fragments rendered per request
+- HTMX partials with Alpine.js state
+- Per-user content that varies by request
+
+**When NOT to use nonce-based CSP:**
+
+- Static Hugo pages (use hash-based CSP in `_headers` file instead)
+- Responses without inline scripts (simpler CSP without nonces)
+
+```typescript
+// src/presentation/middleware/securityHeaders.ts
+
+/**
+ * Security headers middleware with nonce-based CSP
+ */
+export function withSecurityHeaders(
+  handler: (request: Request, nonce: string) => Promise<Response>
+): (request: Request) => Promise<Response> {
+  return async (request: Request): Promise<Response> => {
+    // Generate unique nonce for this request
+    const nonce = crypto.randomUUID();
+
+    // Execute handler with nonce
+    const response = await handler(request, nonce);
+
+    // Add security headers to response
+    const headers = new Headers(response.headers);
+
+    // CSP with nonce for inline scripts
+    headers.set(
+      'Content-Security-Policy',
+      [
+        "default-src 'self'",
+        `script-src 'self' 'nonce-${nonce}' https://cdn.jsdelivr.net`, // Alpine.js from CDN
+        "style-src 'self' 'unsafe-inline'", // Tailwind utility classes
+        "img-src 'self' data: https:",
+        "font-src 'self' data:",
+        "connect-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        'upgrade-insecure-requests',
+      ].join('; ')
+    );
+
+    // HSTS: Force HTTPS for 2 years
+    headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+
+    // Frame protection
+    headers.set('X-Frame-Options', 'DENY');
+
+    // MIME type sniffing protection
+    headers.set('X-Content-Type-Options', 'nosniff');
+
+    // Referrer policy
+    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+    // Permissions policy
+    headers.set(
+      'Permissions-Policy',
+      'geolocation=(), microphone=(), camera=(), payment=(), usb=()'
+    );
+
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  };
+}
+
+/**
+ * Build CSP string with nonce
+ */
+export function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' https://cdn.jsdelivr.net`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    'upgrade-insecure-requests',
+  ].join('; ');
+}
+```
+
+### Usage in Handlers
+
+**HTMX partial with inline Alpine.js:**
+
+```typescript
+// src/presentation/handlers/TaskHandlers.ts
+export class TaskHandlers {
+  // Wrap handler with security headers middleware
+  listTasks = withSecurityHeaders(async (request: Request, nonce: string): Promise<Response> => {
+    const session = await this.auth.requireAuth(request);
+    const tasks = await this.taskRepository.findByUserId(session.userId);
+
+    // Use nonce in template for inline scripts
+    const html = taskListPartial(tasks, nonce);
+
+    return new Response(html, {
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    });
+  });
+}
+```
+
+**Template with nonce:**
+
+```typescript
+// src/presentation/templates/taskListPartial.ts
+export function taskListPartial(tasks: Task[], nonce: string): string {
+  return html`
+    <div class="task-list" x-data="{ expanded: false }">
+      ${tasks.map((task) => taskItem(task, nonce)).join('')}
+
+      <!-- Inline script MUST include nonce attribute -->
+      <script nonce="${nonce}">
+        // Alpine.js component initialization
+        document.addEventListener('alpine:init', () => {
+          Alpine.data('taskManager', () => ({
+            deleteTask(id) {
+              // HTMX will handle the actual deletion
+              htmx.trigger(this.$el, 'taskDeleted', { id });
+            },
+          }));
+        });
+      </script>
+    </div>
+  `;
+}
+```
+
+**IMPORTANT**: Every `<script>` tag with inline code MUST include the `nonce="${nonce}"` attribute. Scripts without the nonce will be blocked by CSP.
+
+### CSP Without Nonces (Simpler)
+
+For responses without inline scripts (JSON API, simple HTML), use a simpler CSP without nonces:
+
+```typescript
+/**
+ * Security headers for API responses (no inline scripts)
+ */
+export function withApiSecurityHeaders(
+  handler: (request: Request) => Promise<Response>
+): (request: Request) => Promise<Response> {
+  return async (request: Request): Promise<Response> => {
+    const response = await handler(request);
+    const headers = new Headers(response.headers);
+
+    // Simpler CSP without nonces
+    headers.set(
+      'Content-Security-Policy',
+      [
+        "default-src 'self'",
+        "script-src 'self'", // No inline scripts allowed
+        "style-src 'self'",
+        "img-src 'self' data: https:",
+        "font-src 'self' data:",
+        "connect-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        'upgrade-insecure-requests',
+      ].join('; ')
+    );
+
+    headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+    headers.set('X-Frame-Options', 'DENY');
+    headers.set('X-Content-Type-Options', 'nosniff');
+    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+
+    return new Response(response.body, {
+      status: response.status,
+      headers,
+    });
+  };
+}
+```
+
+### Rate Limit Headers
+
+For endpoints with rate limiting, include rate limit information in headers:
+
+```typescript
+/**
+ * Add rate limit headers to response
+ */
+export function withRateLimitHeaders(
+  response: Response,
+  config: RateLimitConfig,
+  result: RateLimitResult
+): Response {
+  const headers = new Headers(response.headers);
+
+  headers.set('X-RateLimit-Limit', String(config.maxAttempts));
+  headers.set('X-RateLimit-Remaining', String(result.remaining));
+  headers.set('X-RateLimit-Reset', String(Math.floor(result.resetAt / 1000)));
+
+  return new Response(response.body, {
+    status: response.status,
+    headers,
+  });
+}
+```
+
+### Testing Security Headers
+
+```typescript
+describe('withSecurityHeaders', () => {
+  it('adds CSP header with nonce', async () => {
+    const handler = withSecurityHeaders(async (request, nonce) => {
+      return new Response(`<script nonce="${nonce}">console.log('test')</script>`, {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    });
+
+    const response = await handler(new Request('http://localhost'));
+
+    expect(response.headers.get('Content-Security-Policy')).toContain("script-src 'self' 'nonce-");
+  });
+
+  it('adds HSTS header', async () => {
+    const handler = withSecurityHeaders(async () => {
+      return new Response('test');
+    });
+
+    const response = await handler(new Request('http://localhost'));
+
+    expect(response.headers.get('Strict-Transport-Security')).toBe(
+      'max-age=63072000; includeSubDomains; preload'
+    );
+  });
+
+  it('includes nonce in response body', async () => {
+    const handler = withSecurityHeaders(async (request, nonce) => {
+      return new Response(`<script nonce="${nonce}">test</script>`);
+    });
+
+    const response = await handler(new Request('http://localhost'));
+    const body = await response.text();
+    const csp = response.headers.get('Content-Security-Policy');
+
+    // Extract nonce from CSP header
+    const nonceMatch = csp?.match(/nonce-([a-f0-9-]+)/);
+    expect(nonceMatch).toBeTruthy();
+
+    // Verify nonce in body matches nonce in CSP
+    expect(body).toContain(`nonce="${nonceMatch?.[1]}"`);
+  });
+});
+```
+
 ## Integration in Entry Point
 
 ```typescript
@@ -403,6 +673,7 @@ async function withLogging(request: Request, handler: () => Promise<Response>): 
 import { Router } from './router';
 import { errorHandler } from './presentation/middleware/errorHandler';
 import { logRequest, logError } from './presentation/middleware/logging';
+import { withSecurityHeaders } from './presentation/middleware/securityHeaders';
 import { AuthMiddleware } from './presentation/middleware/auth';
 import { TaskHandlers } from './presentation/handlers/TaskHandlers';
 import { AuthHandlers } from './presentation/handlers/AuthHandlers';

@@ -41,7 +41,32 @@ Quick reference for security audits. Check each item and flag issues by severity
 - [ ] HTMX `selfRequestsOnly: true`
 - [ ] HTMX `allowScriptTags: false`
 - [ ] `hx-disable` on user content zones
-- [ ] CSP header configured
+- [ ] CSP header configured (see below for details)
+
+## Content Security Policy (MANDATORY)
+
+**Static Hugo pages** (hash-based CSP):
+
+- [ ] CSP includes script-src with hashes for inline scripts
+- [ ] No `unsafe-inline` in production
+- [ ] Alpine.js loaded from CDN with SRI integrity
+- [ ] All inline script hashes generated and included
+
+**Dynamic Worker responses** (nonce-based CSP):
+
+- [ ] CSP includes script-src with per-request nonce
+- [ ] Nonce generated with crypto.randomUUID()
+- [ ] Nonce included in CSP header and script tags
+- [ ] No `unsafe-inline` in production
+
+**All responses**:
+
+- [ ] `default-src 'self'`
+- [ ] `object-src 'none'`
+- [ ] `base-uri 'self'`
+- [ ] `form-action 'self'`
+- [ ] `frame-ancestors 'none'`
+- [ ] `upgrade-insecure-requests` directive present
 
 ## Input Validation
 
@@ -50,6 +75,25 @@ Quick reference for security audits. Check each item and flag issues by severity
 - [ ] Type checking before use
 - [ ] Length limits on strings
 - [ ] Email format validation
+
+## Request Metadata Validation
+
+See [metadata-validation.md](metadata-validation.md) for implementation details.
+
+- [ ] Content-Type validated before parsing body
+- [ ] Content-Length validated before reading body
+- [ ] File upload MIME types whitelisted
+- [ ] File upload size limits enforced
+- [ ] File extensions validated (in addition to MIME)
+- [ ] Directory traversal in filenames rejected
+- [ ] HTTP method validated per endpoint
+
+**Size limits**:
+
+- JSON API requests: 10 KB max
+- Form submissions: 50 KB max
+- Image uploads: 5 MB max
+- Document uploads: 10 MB max
 
 ## Database Security
 
@@ -60,19 +104,38 @@ Quick reference for security audits. Check each item and flag issues by severity
 
 ## Rate Limiting
 
-- [ ] Login attempts limited per IP
-- [ ] Login attempts limited per account
-- [ ] Account lockout after failures
-- [ ] Registration rate limited
-- [ ] Password reset rate limited
+See [rate-limiting.md](rate-limiting.md) for complete KV-based implementation.
+
+**MANDATORY for authentication endpoints**:
+
+- [ ] Login: 5 attempts per IP / 15 min (30 min lockout)
+- [ ] Login: 10 attempts per account / 1 hour (1 hour lockout)
+- [ ] Registration: 3 attempts per IP / 1 hour (2 hour lockout)
+- [ ] Password reset (email): 3 attempts / 1 hour
+- [ ] Password reset (IP): 10 attempts / 1 hour
+
+**RECOMMENDED for other endpoints**:
+
+- [ ] API endpoints: 100 requests per user / 1 min
+- [ ] File uploads: 10 uploads per user / 1 hour
+- [ ] Search queries: 30 requests per IP / 1 min
+
+**Implementation requirements**:
+
+- [ ] Rate limiter uses KV namespace for storage
+- [ ] Returns 429 status code when limit exceeded
+- [ ] Includes Retry-After header in response
+- [ ] Uses CF-Connecting-IP for real client IP
+- [ ] Dual limits (IP + account) for authentication
 
 ## Security Headers
 
-- [ ] `Strict-Transport-Security`
-- [ ] `Content-Security-Policy`
+- [ ] `Strict-Transport-Security: max-age=63072000` (2 years)
+- [ ] `Content-Security-Policy` (MANDATORY - see CSP section)
 - [ ] `X-Frame-Options: DENY`
 - [ ] `X-Content-Type-Options: nosniff`
-- [ ] `Referrer-Policy`
+- [ ] `Referrer-Policy: strict-origin-when-cross-origin`
+- [ ] `Permissions-Policy: geolocation=(), microphone=(), camera=()`
 - [ ] `Cache-Control: no-store` for authenticated content
 
 ## Secrets Management
@@ -120,9 +183,12 @@ Quick reference for security audits. Check each item and flag issues by severity
 
 - Missing CSRF protection
 - Insecure session cookies
-- Missing rate limiting on auth
+- Missing rate limiting on auth endpoints
+- Missing Content-Length validation
+- Missing CSP or CSP with unsafe-inline
 - Timing-vulnerable comparisons
 - Mass assignment vulnerabilities
+- File uploads without size/type validation
 
 ### Medium (Fix Soon)
 

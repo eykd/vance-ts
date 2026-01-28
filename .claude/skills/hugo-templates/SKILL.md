@@ -60,6 +60,50 @@ Access in templates: `{{ .Site.Params.api.contact }}`
 {{ if not .Draft }} {{ .Content }} {{ end }}
 ```
 
+### Content Security Policy (CSP)
+
+Hugo static pages use **hash-based CSP** (not nonce-based). Inline scripts are allowed via SHA-256 hashes.
+
+**Current approach**: `unsafe-inline` is used for simplicity (see `hugo/static/_headers` and `hugo/CLAUDE.md`).
+
+**To migrate to hash-based CSP**:
+
+1. **Find inline scripts**:
+
+   ```bash
+   grep -r "<script>" layouts/
+   ```
+
+2. **Compute SHA-256 hash for each script**:
+
+   ```bash
+   echo -n 'exact script content' | openssl dgst -sha256 -binary | openssl base64
+   ```
+
+3. **Update CSP in `hugo/static/_headers`**:
+
+   ```
+   Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-HASH1' 'sha256-HASH2'
+   ```
+
+4. **Alternative: External scripts with SRI**:
+   ```html
+   <script
+     src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+     integrity="sha384-HASH"
+     crossorigin="anonymous"
+     defer
+   ></script>
+   ```
+
+**When to migrate**:
+
+- User-generated content is added to site
+- Stricter security requirements
+- Third-party scripts no longer needed
+
+**DO NOT use nonce-based CSP** for static Hugo pages (nonces only work for dynamic per-request responses).
+
 ## Workflow
 
 1. **Need a page wrapper?** → Create/edit `baseof.html`
