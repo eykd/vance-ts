@@ -31,6 +31,7 @@ readonly EXIT_SIGINT=130
 # Runtime configuration (set by argument parsing)
 DRY_RUN=false
 MAX_ITERATIONS="$DEFAULT_MAX_ITERATIONS"
+EXPLICIT_EPIC_ID=""  # Epic ID provided via --epic argument
 
 # Runtime state (used for signal handlers and summary)
 CURRENT_ITERATION=0
@@ -59,7 +60,7 @@ init_log() {
         echo "Ralph Automation Session"
         echo "Started: $(date -Iseconds)"
         echo "Version: $VERSION"
-        echo "Configuration: dry_run=$DRY_RUN, max_iterations=$MAX_ITERATIONS"
+        echo "Configuration: dry_run=$DRY_RUN, max_iterations=$MAX_ITERATIONS, explicit_epic=$EXPLICIT_EPIC_ID"
         echo "========================================================================"
         echo ""
     } >> "$LOG_FILE"
@@ -132,20 +133,23 @@ feature epic are complete. Uses beads as source of truth for task state.
 
 OPTIONS:
     --dry-run           Show what would be executed without invoking Claude
+    --epic <epic-id>    Explicitly specify epic ID (overrides branch-based detection)
     --max-iterations N  Maximum loop iterations (default: $DEFAULT_MAX_ITERATIONS)
     --help              Show this help message and exit
     --version           Show version and exit
 
 EXIT CODES:
     0   All tasks completed successfully
-    1   Error (prerequisites failed, Claude failures after retries)
+    1   Error (prerequisites failed, Claude failures after retries, invalid epic)
     2   Maximum iterations reached
     130 Interrupted by SIGINT (Ctrl+C)
 
 EXAMPLES:
-    ralph.sh                    # Run with defaults
+    ralph.sh                    # Run with defaults (branch-based detection)
     ralph.sh --dry-run          # Preview what would happen
+    ralph.sh --epic workspace-whatever13  # Use explicit epic ID
     ralph.sh --max-iterations 10  # Limit to 10 iterations
+    ralph.sh --epic workspace-abc --dry-run  # Combine options
 
 EOF
 }
@@ -160,6 +164,14 @@ parse_args() {
             --dry-run)
                 DRY_RUN=true
                 shift
+                ;;
+            --epic)
+                if [[ -z "${2:-}" ]]; then
+                    echo "Error: --epic requires an epic ID argument" >&2
+                    exit "$EXIT_FAILURE"
+                fi
+                EXPLICIT_EPIC_ID="$2"
+                shift 2
                 ;;
             --max-iterations)
                 if [[ -z "${2:-}" ]] || [[ ! "$2" =~ ^[0-9]+$ ]]; then
@@ -516,11 +528,63 @@ find_epic_id() {
     echo "$epic_id"
 }
 
-# Detect epic from current branch
-detect_epic() {
-    local branch feature_name epic_id
+# Validate that an epic exists and is open
+# Arguments: epic_id
+# Returns: 0 if valid and open, 1 if not found/closed
+validate_epic_exists() {
+    local epic_id="$1"
+    local epic_data status
 
+    log DEBUG "Validating epic: $epic_id"
+
+    # Query beads for this epic ID
+    epic_data=$(npx bd list --type epic --json 2>/dev/null | \
+        jq -r --arg id "$epic_id" '.[] | select(.id == $id)') || {
+        log ERROR "Failed to query beads for epics"
+        return 1
+    }
+
+    if [[ -z "$epic_data" ]]; then
+        log ERROR "Epic not found: $epic_id"
+        echo "Error: Epic '$epic_id' not found in beads" >&2
+        return 1
+    fi
+
+    # Check if epic is open
+    status=$(echo "$epic_data" | jq -r '.status // "unknown"')
+
+    if [[ "$status" != "open" ]]; then
+        log ERROR "Epic is not open: $epic_id (status: $status)"
+        echo "Error: Epic '$epic_id' is not open (status: $status)" >&2
+        return 1
+    fi
+
+    log DEBUG "Epic validated successfully: $epic_id (status: $status)"
+    return 0
+}
+
+# Detect epic from explicit argument or current branch
+# If EXPLICIT_EPIC_ID is set, validate and return it
+# Otherwise, fall back to branch-based detection
+detect_epic() {
+    local epic_id
+
+    # If --epic argument was provided, use and validate it
+    if [[ -n "$EXPLICIT_EPIC_ID" ]]; then
+        log DEBUG "Using explicit epic ID: $EXPLICIT_EPIC_ID"
+
+        if ! validate_epic_exists "$EXPLICIT_EPIC_ID"; then
+            return 1
+        fi
+
+        echo "$EXPLICIT_EPIC_ID"
+        return 0
+    fi
+
+    # Fall back to branch-based detection
     log DEBUG "Detecting epic from current branch..."
+
+    local branch feature_name
 
     branch=$(get_current_branch) || return 1
 
@@ -1149,7 +1213,7 @@ main() {
     # Initialize logging infrastructure
     init_log
 
-    log INFO "Configuration: dry_run=$DRY_RUN, max_iterations=$MAX_ITERATIONS"
+    log INFO "Configuration: dry_run=$DRY_RUN, max_iterations=$MAX_ITERATIONS, explicit_epic=$EXPLICIT_EPIC_ID"
     log INFO "Log file: $LOG_FILE"
 
     # Record start time for summary
