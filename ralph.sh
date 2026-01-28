@@ -35,6 +35,7 @@ MAX_ITERATIONS="$DEFAULT_MAX_ITERATIONS"
 # Runtime state (used for signal handlers and summary)
 CURRENT_ITERATION=0
 START_TIME=0
+CLAUDE_PID=""
 
 ##############################################################################
 # Logging infrastructure
@@ -798,18 +799,31 @@ invoke_claude() {
     local temp_output
     temp_output=$(mktemp)
 
-    # Use timeout to prevent indefinite hangs (exit code 124 = timeout)
-    if timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" 2>&1 | tee "$temp_output"; then
+    # Start claude in background so we can capture its PID
+    # This allows us to kill it explicitly on SIGINT
+    timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" 2>&1 | tee "$temp_output" &
+    CLAUDE_PID=$!
+
+    # Wait for the background process to complete
+    if wait "$CLAUDE_PID"; then
         exit_code=0
         log INFO "Claude completed successfully"
     else
         exit_code=$?
         if [[ "$exit_code" -eq 124 ]]; then
             log ERROR "Claude timed out after ${CLAUDE_TIMEOUT}s"
+        elif [[ "$exit_code" -eq 130 ]]; then
+            log INFO "Claude interrupted by SIGINT"
+            # Don't log output on interrupt - user is stopping the process
+            rm -f "$temp_output"
+            CLAUDE_PID=""
+            return "$exit_code"
         else
             log ERROR "Claude failed with exit code: $exit_code"
         fi
     fi
+
+    CLAUDE_PID=""
 
     # Log the output
     claude_output=$(cat "$temp_output")
@@ -1057,6 +1071,21 @@ show_summary() {
 # Handler for SIGINT (Ctrl+C)
 handle_sigint() {
     echo ""
+    log INFO "Received SIGINT, cleaning up..."
+
+    # If Claude is running, kill it explicitly to prevent hanging
+    if [[ -n "$CLAUDE_PID" ]] && kill -0 "$CLAUDE_PID" 2>/dev/null; then
+        log INFO "Terminating Claude subprocess (PID: $CLAUDE_PID)"
+        kill -TERM "$CLAUDE_PID" 2>/dev/null || true
+        # Give it a moment to terminate gracefully
+        sleep 1
+        # Force kill if still running
+        if kill -0 "$CLAUDE_PID" 2>/dev/null; then
+            log WARN "Force killing Claude subprocess"
+            kill -KILL "$CLAUDE_PID" 2>/dev/null || true
+        fi
+    fi
+
     show_summary "Interrupted by user"
     # EXIT trap will handle lock release
     exit "$EXIT_SIGINT"
