@@ -611,14 +611,15 @@ get_in_progress_tasks() {
     local epic_id="$1"
     local in_progress_json
 
-    in_progress_json=$(npx bd list --status in-progress --json 2>/dev/null) || {
+    in_progress_json=$(npx bd list --status in-progress --parent "$epic_id" --json 2>/dev/null) || {
         echo "Error: Failed to query beads for in-progress tasks" >&2
         return 1
     }
 
-    # Filter tasks that belong to this epic (ID starts with epic_id)
+    # Filter out the epic itself and event tasks
+    # (bd list --parent already returns only child tasks)
     echo "$in_progress_json" | jq --arg epic "$epic_id" \
-        '[.[] | select(.id | startswith($epic))]'
+        '[.[] | select(.id != $epic and .issue_type != "event")]'
 }
 
 # Check if there are in-progress tasks
@@ -651,10 +652,10 @@ get_ready_tasks() {
         return 1
     }
 
-    # Filter tasks that belong to this epic (ID starts with epic_id)
-    # Exclude the epic itself and event tasks
+    # Filter out the epic itself and event tasks
+    # (bd ready --parent already returns only child tasks)
     echo "$ready_json" | jq --arg epic "$epic_id" \
-        '[.[] | select(.id | startswith($epic)) | select(.id != $epic and .issue_type != "event")]'
+        '[.[] | select(.id != $epic and .issue_type != "event")]'
 }
 
 # Check if there are ready tasks remaining
@@ -682,15 +683,15 @@ get_open_tasks() {
     local epic_id="$1"
     local open_json
 
-    open_json=$(npx bd list --status open --json 2>/dev/null) || {
+    open_json=$(npx bd list --status open --parent "$epic_id" --json 2>/dev/null) || {
         echo "Error: Failed to query beads for open tasks" >&2
         return 1
     }
 
-    # Filter tasks that belong to this epic (ID starts with epic_id)
-    # Exclude the epic itself and event tasks
+    # Filter out the epic itself and event tasks
+    # (bd list --parent already returns only child tasks)
     echo "$open_json" | jq --arg epic "$epic_id" \
-        '[.[] | select(.id | startswith($epic)) | select(.id != $epic and .issue_type != "event")]'
+        '[.[] | select(.id != $epic and .issue_type != "event")]'
 }
 
 # Check if there are any open tasks remaining
