@@ -10,6 +10,7 @@ Stateless business logic that doesn't belong to any single entity.
 
 ## Skills
 
+- `/glossary` - Ensure domain service names match domain terminology
 - `/ddd-domain-modeling` - Service patterns
 
 ## Examples

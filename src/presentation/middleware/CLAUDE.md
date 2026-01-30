@@ -10,6 +10,7 @@ Request/response wrappers for auth, logging, error handling.
 
 ## Skills
 
+- `/glossary` - Ensure middleware names match domain terminology
 - `/worker-request-handler` - Middleware patterns
 - `/security-review` - Auth middleware
 

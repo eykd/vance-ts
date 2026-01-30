@@ -10,6 +10,7 @@ HTTP request handlers coordinating between HTTP and use cases.
 
 ## Skills
 
+- `/glossary` - Ensure handler names match domain terminology
 - `/worker-request-handler` - Handler patterns
 - `/htmx-pattern-library` - HTMX responses
 - `/security-review` - Input validation

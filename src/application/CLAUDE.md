@@ -20,6 +20,7 @@ Coordinate domain entities, call repository interfaces, handle transactions. Acc
 
 ## Applicable Skills
 
+- `/glossary` - Domain terminology and Ubiquitous Language reference
 - `/cloudflare-use-case-creator` - Use case structure and DTOs
 - `/typescript-unit-testing` - Mock dependencies for isolation
 - `/clean-architecture-validator` - Verify no infrastructure imports

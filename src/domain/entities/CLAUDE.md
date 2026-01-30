@@ -10,6 +10,7 @@ Objects with identity that persists over time. Two entities are equal if they ha
 
 ## Skills
 
+- `/glossary` - Ensure entity names match domain terminology
 - `/ddd-domain-modeling` - Entity patterns
 
 ## Examples

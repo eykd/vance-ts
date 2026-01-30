@@ -10,6 +10,7 @@ Ports defining how domain expects to persist and retrieve entities. Implementati
 
 ## Skills
 
+- `/glossary` - Ensure repository interface names match domain terminology
 - `/ddd-domain-modeling` - Port/adapter pattern
 - `/clean-architecture-validator` - Verify no implementation details
 

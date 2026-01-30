@@ -10,6 +10,7 @@ D1/KV adapters implementing domain repository interfaces.
 
 ## Skills
 
+- `/glossary` - Ensure repository names match domain terminology
 - `/d1-repository-implementation` - D1 query patterns
 - `/cloudflare-migrations` - Schema changes
 - `/vitest-integration-testing` - Test with real D1

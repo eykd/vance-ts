@@ -210,11 +210,16 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 
 #### F. Inconsistency
 
-- Terminology drift (same concept named differently across files)
+- **Terminology drift**: Use `/glossary` skill to:
+  - Check if terms in spec.md, plan.md, and task descriptions match glossary
+  - Detect use of synonyms (e.g., "user profile" vs. "user account")
+  - **Auto-fix**: Search/replace to standardize to canonical glossary terms
+  - Flag prominent names (entities, use cases, value objects) that don't match glossary
+  - Report any terms used in domain/application layers not in glossary
 - Data entities referenced in plan but absent in spec (or vice versa)
 - Task ordering contradictions (e.g., integration tasks before foundational setup tasks without dependency note)
 - Conflicting requirements (e.g., one requires Next.js while other specifies Vue)
-- **Auto-fix for terminology**: Search/replace to standardize terminology across spec.md and plan.md
+- **Auto-fix for terminology**: Search/replace to standardize terminology across spec.md and plan.md using glossary as authority
 - **Manual task**: Create HIGH remediation task for conflicting requirements (requires user decision)
 
 ### 6. Apply Auto-Fixes

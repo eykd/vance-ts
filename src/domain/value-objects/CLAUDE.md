@@ -10,6 +10,7 @@ Immutable objects defined by attributes. Two value objects are equal if all attr
 
 ## Skills
 
+- `/glossary` - Ensure value object names match domain terminology
 - `/ddd-domain-modeling` - Value object patterns
 
 ## Examples

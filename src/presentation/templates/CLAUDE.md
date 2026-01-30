@@ -10,6 +10,7 @@ Pure functions returning HTML strings. Used for full pages and HTMX partials.
 
 ## Skills
 
+- `/glossary` - Ensure template names match domain terminology
 - `/htmx-alpine-templates` - Template structure
 - `/typescript-html-templates` - HTML helpers
 

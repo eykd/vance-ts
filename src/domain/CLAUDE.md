@@ -22,6 +22,7 @@ This layer contains business rules independent of frameworks, databases, and UI.
 
 ## Applicable Skills
 
+- `/glossary` - Domain terminology and Ubiquitous Language reference
 - `/ddd-domain-modeling` - Entity and value object patterns
 - `/typescript-unit-testing` - TDD for domain logic
 - `/clean-architecture-validator` - Verify dependency rules

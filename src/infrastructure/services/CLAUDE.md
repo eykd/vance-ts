@@ -10,6 +10,7 @@ Integrations with third-party APIs (email, payments, etc.).
 
 ## Skills
 
+- `/glossary` - Ensure service names match domain terminology
 - `/vitest-integration-testing` - Mock external APIs
 
 ## Examples

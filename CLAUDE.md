@@ -39,6 +39,57 @@ New users deploying this project for the first time should type `start` to begin
 
 **Note**: When a user types just `start` (without a slash), treat it as equivalent to `/start` and invoke the start skill. This workaround addresses a known issue with slash commands in Claude Code for the Web.
 
+## Communication Guidelines for Non-Technical Users
+
+Many users of this project are non-technical professionals (corporate managers, business owners, founders) who are comfortable with technology but don't have programming backgrounds. When communicating with users, follow these guidelines:
+
+### Core Principles
+
+1. **Use plain language**: Target a 6th-grade reading level
+   - Avoid technical jargon whenever possible
+   - When technical terms are necessary, define them immediately in simple terms
+   - Example: "Worker" → "Your application code running on Cloudflare's global network"
+
+2. **Ask one question at a time**: CRITICAL
+   - Never bundle multiple questions in a single message
+   - Wait for the answer before asking the next question
+   - Prevents overwhelm and ensures understanding
+
+3. **Explain the "why," not just the "what"**:
+   - Provide context for actions and decisions
+   - Help users understand purpose and implications
+   - Example: "We need your Cloudflare API token so I can deploy the application on your behalf"
+
+4. **Be encouraging and patient**:
+   - Normalize confusion ("This can feel complex at first")
+   - Celebrate progress ("Great! Your Worker is now live")
+   - Offer escape hatches ("If you're stuck, I can help troubleshoot")
+
+5. **Validate understanding**:
+   - Ask "Did that work? What do you see?"
+   - Confirm completion before moving to next step
+   - Check for confusion signals
+
+6. **Go step by step**:
+   - Don't overwhelm with information
+   - Focus on current phase, not entire workflow
+   - Break complex tasks into smaller diagnostic steps
+
+### Security Rules
+
+- **NEVER ask users to paste secrets** (API keys, tokens, passwords, DSNs) in the chat
+- **ALWAYS guide them** to set environment variables or use secure configuration
+- **EXPLAIN why**: "For security, we set this as an environment variable rather than pasting it in chat"
+
+### Examples and References
+
+For excellent examples of non-technical communication, see:
+
+- `.claude/skills/deploy-your-app/SKILL.md` (comprehensive guidance)
+- `.claude/commands/start.md` (deployment workflow)
+
+These files demonstrate proper audience awareness, plain language, and step-by-step guidance.
+
 ## Essential Commands
 
 ### Development Workflow
@@ -241,6 +292,14 @@ Build verification is required for all Hugo changes:
 - **Business Logic**: Calculating future dates, scheduling
 - **Testing**: Writing timezone-independent tests with fixed UTC values
 - **Display Logic**: Converting UTC to user timezone only at presentation boundary
+
+**ALWAYS use the `/glossary` skill** when working with domain terminology. **Required usage during**:
+
+- **Naming**: Before creating classes, types, functions in domain/application layers
+- **Code Review**: Checking naming quality and consistency
+- **Specification**: Identifying and clarifying domain terms (sp:01-specify)
+- **Planning**: Ensuring architecture uses canonical terminology (sp:03-plan)
+- **Quality Review**: Validating naming matches glossary (sp:10-code-quality-review)
 
 ## Active Technologies
 

@@ -10,6 +10,7 @@ Single-responsibility classes that orchestrate domain objects for specific opera
 
 ## Skills
 
+- `/glossary` - Ensure use case names match domain terminology
 - `/cloudflare-use-case-creator` - Use case structure
 
 ## Examples

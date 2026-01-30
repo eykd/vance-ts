@@ -21,6 +21,7 @@ Parse requests, validate input, call use cases, format responses. Handle authent
 
 ## Applicable Skills
 
+- `/glossary` - Domain terminology and Ubiquitous Language reference
 - `/worker-request-handler` - Handler patterns, routing
 - `/htmx-pattern-library` - HTMX interactions
 - `/htmx-alpine-templates` - Template structure

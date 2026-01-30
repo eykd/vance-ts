@@ -10,6 +10,7 @@ Simple data structures with no behavior for crossing layer boundaries.
 
 ## Skills
 
+- `/glossary` - Ensure DTO names match domain terminology
 - `/cloudflare-use-case-creator` - DTO patterns
 
 ## Examples

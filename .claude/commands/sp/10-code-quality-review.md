@@ -68,6 +68,11 @@ git diff --stat <base>..HEAD
 - Skill: `/quality-review`
 - Review range: `<base>..HEAD`
 - Focus: general code quality
+- **Naming quality**: Use `/glossary` to validate:
+  - Class/interface/type names match glossary terms
+  - Domain concepts use canonical terminology
+  - No synonyms are introduced in new code
+  - Prominent names (especially in domain/application layers) correspond to glossary entries
 
 If the skill supports reading the git diff directly, prefer providing it the diff for `<base>..HEAD`.
 

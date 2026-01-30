@@ -10,6 +10,7 @@ Cross-cutting concerns spanning multiple use cases.
 
 ## Skills
 
+- `/glossary` - Ensure application service names match domain terminology
 - `/cloudflare-use-case-creator` - Service patterns
 - `/org-authorization` - Authorization patterns
 
