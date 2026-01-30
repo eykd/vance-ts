@@ -191,12 +191,12 @@ Given that feature description, do this:
    **Acceptance**: All technical decisions documented, file structure defined" --json
    # Store returned ID as PLAN_ID
 
-   npx bd create "[sp:04-checklist] Generate requirements checklist for $FEATURE_NAME" -p 2 --parent <epic-id> \
+   npx bd create "[sp:04-red-team] Perform adversarial review for $FEATURE_NAME" -p 2 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md, plan.md
    **Skills**: None
-   **Context**: Generate requirements quality checklists (unit tests for English)
-   **Acceptance**: Checklist files created in checklists/ directory" --json
-   # Store returned ID as CHECKLIST_ID
+   **Context**: Adversarial review of spec and plan; enhance plan.md with security, edge cases, performance, accessibility
+   **Acceptance**: plan.md enhanced with adversarial findings; red team review complete" --json
+   # Store returned ID as RED_TEAM_ID
 
    npx bd create "[sp:05-tasks] Generate implementation tasks for $FEATURE_NAME" -p 1 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md, plan.md
@@ -245,8 +245,8 @@ Given that feature description, do this:
 
    ```bash
    npx bd dep add <PLAN_ID> <CLARIFY_ID>
-   npx bd dep add <CHECKLIST_ID> <PLAN_ID>
-   npx bd dep add <TASKS_ID> <CHECKLIST_ID>
+   npx bd dep add <RED_TEAM_ID> <PLAN_ID>
+   npx bd dep add <TASKS_ID> <RED_TEAM_ID>
    npx bd dep add <ANALYZE_ID> <TASKS_ID>
    npx bd dep add <IMPLEMENT_ID> <ANALYZE_ID>
    npx bd dep add <SECURITY_REVIEW_ID> <IMPLEMENT_ID>
@@ -261,7 +261,7 @@ Given that feature description, do this:
 
    - clarify: `<CLARIFY_ID>`
    - plan: `<PLAN_ID>`
-   - checklist: `<CHECKLIST_ID>`
+   - red-team: `<RED_TEAM_ID>`
    - tasks: `<TASKS_ID>`
    - analyze: `<ANALYZE_ID>`
    - implement: `<IMPLEMENT_ID>`
@@ -274,7 +274,7 @@ Given that feature description, do this:
    npx bd dep tree <epic-id>
    ```
 
-   Expected output shows the chain: clarify → plan → checklist → tasks → analyze → implement → review
+   Expected output shows the chain: clarify → plan → red-team → tasks → analyze → implement → security-review → architecture-review → code-quality-review
 
    e. If phase task creation fails, log the error and continue. The workflow can still function with manual skill invocation.
 
