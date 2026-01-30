@@ -4,20 +4,20 @@ This directory contains the spec-kit workflow commands integrated with [beads](h
 
 ## Command Reference
 
-| Command                      | Description                      | Beads Integration                           |
-| ---------------------------- | -------------------------------- | ------------------------------------------- |
-| `/sp:00-constitution`        | Project constitution management  | None                                        |
-| `/sp:01-specify`             | Create feature specification     | Creates epic + all phase tasks              |
-| `/sp:02-clarify`             | Clarify requirements             | Closes phase task when done                 |
-| `/sp:03-plan`                | Create implementation plan       | Closes phase task when done                 |
-| `/sp:04-red-team`            | Adversarial review               | Enhances plan.md, closes phase task         |
-| `/sp:05-tasks`               | Generate implementation tasks    | Creates US tasks under implement phase      |
-| `/sp:06-analyze`             | Analyze artifacts                | Queries beads status, validates consistency |
-| `/sp:07-implement`           | Execute implementation           | Closes self when all sub-tasks done         |
-| `/sp:08-security-review`     | Security review (base..HEAD)     | Creates remediation tasks in beads          |
-| `/sp:09-architecture-review` | Architecture review (base..HEAD) | Creates remediation tasks in beads          |
-| `/sp:10-code-quality-review` | Code quality review (base..HEAD) | Creates remediation tasks in beads          |
-| `/sp:next`                   | **Orchestrate workflow**         | Queries `bd ready`, invokes next skill      |
+| Command                      | Description                      | Beads Integration                                                       |
+| ---------------------------- | -------------------------------- | ----------------------------------------------------------------------- |
+| `/sp:00-constitution`        | Project constitution management  | None                                                                    |
+| `/sp:01-specify`             | Create feature specification     | Creates epic + all phase tasks                                          |
+| `/sp:02-clarify`             | Clarify requirements             | Closes phase task when done                                             |
+| `/sp:03-plan`                | Create implementation plan       | Closes phase task when done                                             |
+| `/sp:04-red-team`            | Adversarial review               | Enhances plan.md, closes phase task                                     |
+| `/sp:05-tasks`               | Generate implementation tasks    | Creates US tasks under implement phase                                  |
+| `/sp:06-analyze`             | Analyze artifacts                | Auto-fixes consistency issues, validates coverage, queries beads status |
+| `/sp:07-implement`           | Execute implementation           | Closes self when all sub-tasks done                                     |
+| `/sp:08-security-review`     | Security review (base..HEAD)     | Creates remediation tasks in beads                                      |
+| `/sp:09-architecture-review` | Architecture review (base..HEAD) | Creates remediation tasks in beads                                      |
+| `/sp:10-code-quality-review` | Code quality review (base..HEAD) | Creates remediation tasks in beads                                      |
+| `/sp:next`                   | **Orchestrate workflow**         | Queries `bd ready`, invokes next skill                                  |
 
 ## Workflow: Beads Dependency Chain
 
