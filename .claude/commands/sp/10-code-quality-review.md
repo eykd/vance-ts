@@ -68,6 +68,11 @@ git diff --stat <base>..HEAD
 - Skill: `/quality-review`
 - Review range: `<base>..HEAD`
 - Focus: general code quality
+- **Style Requirements**:
+  - Report problems only, never praise or positive feedback
+  - Make findings scannable in 30 seconds
+  - Format: file:line, severity, one-sentence problem, concise fix
+  - Include copy-paste prompt ONLY if findings exist (3-5 lines)
 - **Naming quality**: Use `/glossary` to validate:
   - Class/interface/type names match glossary terms
   - Domain concepts use canonical terminology

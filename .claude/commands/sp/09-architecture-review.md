@@ -68,6 +68,11 @@ git diff --stat <base>..HEAD
 - Skill: `/clean-architecture-validator`
 - Review range: `<base>..HEAD`
 - Focus: architectural compliance
+- **Style Requirements**:
+  - Report problems only, never praise or positive feedback
+  - Make findings scannable in 30 seconds
+  - Format: file:line, severity, one-sentence problem, concise fix
+  - Include copy-paste prompt ONLY if findings exist (3-5 lines)
 
 If the skill supports reading the git diff directly, prefer providing it the diff for `<base>..HEAD`.
 

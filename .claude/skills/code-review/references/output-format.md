@@ -2,16 +2,20 @@
 
 Structured output format for the code-review skill. This format is designed to be:
 
-1. Human-readable as a standalone review **for non-technical managers**
-2. Parseable by the `/sp:review` command for beads issue creation
-3. Consistent across all invocation environments
+1. **Scannable in 30 seconds** for busy non-technical managers
+2. **Problem-focused only** - never include praise or acknowledgment of what's done well
+3. Parseable by the `/sp:review` command for beads issue creation
+4. Consistent across all invocation environments
 
 ## CRITICAL Requirements
 
-1. **Audience**: Write the ENTIRE review for non-technical managers using plain English
-2. **Copy-Paste Prompt**: ALWAYS include a ready-to-use prompt when findings exist
-3. **Beads Tasks**: Create beads tasks for all findings under the current epic
-4. **Parallel Reviews**: Invoke quality-review, security-review, and clean-architecture-validator in parallel
+1. **Audience**: Write for non-technical managers using plain English (6th-grade reading level)
+2. **Problem-focused**: Report problems only, never praise or positive feedback
+3. **Concise**: 2-3 lines per finding maximum
+4. **Copy-Paste Prompt**: ALWAYS include when findings exist (concise, 3-5 lines)
+5. **Conditional Sections**: Only show sections that have problems
+6. **Beads Tasks**: Create beads tasks for all findings under the current epic
+7. **Parallel Reviews**: Invoke quality-review, security-review, and clean-architecture-validator in parallel
 
 ---
 
@@ -20,77 +24,32 @@ Structured output format for the code-review skill. This format is designed to b
 ````markdown
 # Code Review: [Brief Description]
 
-**Scope**: [working|staged|head|branch] changes
-**Files**: [N] files changed (+[A]/-[R] lines)
-**Date**: [YYYY-MM-DD]
+**Files**: [N] changed (+[A]/-[R] lines) | **Date**: [YYYY-MM-DD]
 
 ## Summary
 
-[1-3 sentence overview of the changes and overall assessment]
+[1-2 sentence overview - problems only, or "No issues found"]
 
 ---
 
-## What Changed
+## Findings
 
-[Plain English summary of functionality changes]
+> Only show this section if findings exist. Group by severity.
 
-- [Bullet point 1]
-- [Bullet point 2]
+### Critical
 
----
+- [file.ts:45](#L45): [One-sentence problem]
+  Fix: [Concise fix with code example if needed]
 
-## Does It Work
+### High
 
-[Assessment of correctness, testing, and production-readiness]
+- [file.ts:23](#L23): [One-sentence problem]
+  Fix: [Concise fix]
 
-- **Tests**: [Present/Missing/Partial]
-- **Safety**: [Assessment]
-- **Production Ready**: [Yes/No/Conditional]
+### Medium
 
----
-
-## Simplicity & Maintainability
-
-[Assessment of code clarity and maintainability]
-
-- **Complexity**: [Low/Medium/High]
-- **Patterns**: [Follows standards/Deviates - explain]
-- **Concerns**: [List any maintainability concerns]
-
----
-
-## Test Quality
-
-> This section appears only when test files are included in the changes.
-
-[Evaluation using Kent Beck's Test Desiderata]
-
-- **Classification**: [Unit/Integration/Acceptance mix assessment]
-- **Properties**: [Behavioral, readable, fast, deterministic, isolated, specific]
-- **Mocking**: [Appropriate/Over-mocked/Under-mocked]
-- **Anti-patterns**: [List any detected]
-
----
-
-## Security Review
-
-[Output from security-review skill invocation]
-
-### Critical Issues
-
-[List or "None found"]
-
-### High Priority
-
-[List or "None found"]
-
-### Medium Priority
-
-[List or "None found"]
-
-### Low Priority
-
-[List or "None found"]
+- [file.ts:67](#L67): [One-sentence problem]
+  Fix: [Concise fix]
 
 ---
 
@@ -102,101 +61,99 @@ The following tasks have been created under epic `[epic-id]`:
 
 - `[task-id-1]`: Fix: [Finding 1 Title] (Priority: P0)
 - `[task-id-2]`: Fix: [Finding 2 Title] (Priority: P1)
-- `[task-id-3]`: Fix: [Finding 3 Title] (Priority: P2)
 
-You can view these tasks with:
+View tasks:
 
 ```bash
 npx bd list --parent [epic-id]
 ```
 
-> **Note**: If the epic was closed, the note "Epic `[epic-id]` was reopened to track these findings" will appear at the top of this section.
-
----
-
-## Findings
-
-> Structured findings for automated processing and beads task creation.
-
-### Finding: [Title]
-
-- **Severity**: [Critical|High|Medium|Low]
-- **Category**: [security|test|quality|architecture|performance]
-- **File**: [relative/path/to/file.ext]
-- **Line**: [line number]
-- **Description**: [Detailed explanation of the issue]
-- **Risk**: [What could go wrong if not addressed]
-- **Fix**: [Recommended solution]
-
-```[language]
-// Code example showing the fix (optional)
-```
-````
+> **Note**: If epic was closed, note "Epic `[epic-id]` was reopened to track these findings" appears here.
 
 ---
 
 ## Recommendations
 
-[Prioritized list of actions before merging]
+> Only show this section if findings exist.
 
-1. **Must Fix**: [Critical/High items that block merge]
-2. **Should Fix**: [Medium items recommended before merge]
-3. **Consider**: [Low priority improvements]
+- **Must Fix**: [Critical/High items that block merge]
+- **Should Fix**: [Medium items recommended before merge]
+- **Consider**: [Low priority improvements]
 
 ---
 
 ## Copy-Paste Prompt for Claude Code
 
-**REQUIRED when any findings exist** - this section MUST be included.
-
-> Ready-to-use prompt that the customer can paste directly into Claude Code.
+> REQUIRED when any findings exist. Concise, 3-5 lines maximum.
 
 ```
-[Specific, actionable prompt with file paths and line numbers addressing all Must Fix and Should Fix items]
+[Specific prompt with file:line references addressing all Must Fix and Should Fix items]
 ```
 
 ### Guidelines for Copy-Paste Prompts
 
-- Be specific with exact file paths and line numbers
-- Prioritize fixes in order of severity (Critical → High → Medium)
-- Include enough context from the review for Claude to understand
-- Make it truly copy-paste ready - no placeholders or [brackets]
-- Focus on the concrete actions needed, not the problems
-- Keep it concise but complete
+- Specific file paths with line numbers (e.g., src/handler.ts:45)
+- Prioritize by severity (Critical → High → Medium)
+- Truly copy-paste ready - no placeholders
+- Concise but complete (3-5 lines)
+- Focus on actions, not problems
 
 ---
 
 ## Review Metadata
 
-- **Reviewer**: Claude (code-review skill)
-- **Duration**: [Approximate review time]
-- **Changeset Size**: [Small (<100)|Medium (<500)|Large (<1000)|Very Large (1000+)]
-- **Findings Count**: [N] ([Critical]/[High]/[Medium]/[Low])
-
+- **Reviewer**: Claude | **Changeset**: [Small|Medium|Large|Very Large] | **Findings**: [N] ([C]/[H]/[M]/[L])
 ````
+
+---
+
+## Compressed Finding Format
+
+**OLD (7 fields, verbose):**
+
+```markdown
+### Finding: SQL Injection in Search Query
+
+- **Severity**: Critical
+- **Category**: security
+- **File**: src/search/handler.ts
+- **Line**: 45
+- **Description**: The search feature directly inserts user input into database queries...
+- **Risk**: Attackers could access, modify, or delete customer data...
+- **Fix**: Use parameterized queries that safely separate user input...
+```
+
+**NEW (2-3 lines, scannable):**
+
+```markdown
+### Critical
+
+- src/search/handler.ts:45: SQL injection - user input concatenated into query
+  Fix: `db.prepare('SELECT * FROM items WHERE name LIKE ?').bind(searchTerm)`
+```
 
 ---
 
 ## Finding Categories
 
-| Category | Description | Examples |
-|----------|-------------|----------|
-| `security` | Security vulnerabilities | SQL injection, XSS, auth bypass, secrets exposure |
-| `test` | Test quality issues | Missing tests, flaky tests, wrong assertions |
-| `quality` | Code quality problems | Dead code, poor naming, high complexity |
-| `architecture` | Structural issues | Layer violations, coupling, wrong patterns |
-| `performance` | Performance concerns | N+1 queries, memory leaks, blocking calls |
+| Category       | Description              | Examples                                          |
+| -------------- | ------------------------ | ------------------------------------------------- |
+| `security`     | Security vulnerabilities | SQL injection, XSS, auth bypass, secrets exposure |
+| `test`         | Test quality issues      | Missing tests, flaky tests, wrong assertions      |
+| `quality`      | Code quality problems    | Dead code, poor naming, high complexity           |
+| `architecture` | Structural issues        | Layer violations, coupling, wrong patterns        |
+| `performance`  | Performance concerns     | N+1 queries, memory leaks, blocking calls         |
 
 ---
 
 ## Severity Levels
 
-| Level | Criteria | Beads Priority | Action Required |
-|-------|----------|----------------|-----------------|
-| `Critical` | Security vulnerability, data loss risk, production blocker | P0 | Fix immediately, blocks merge |
-| `High` | Significant bug, test gap, important pattern violation | P1 | Fix before merge |
-| `Medium` | Code smell, minor bug, improvement opportunity | P2 | Should fix before merge |
-| `Low` | Style issue, optional enhancement, documentation | P3 | Consider fixing |
+| Level      | Criteria                                                   | Beads Priority | Action Required               |
+| ---------- | ---------------------------------------------------------- | -------------- | ----------------------------- |
+| `Critical` | Security vulnerability, data loss risk, production blocker | P0             | Fix immediately, blocks merge |
+| `High`     | Significant bug, test gap, important pattern violation     | P1             | Fix before merge              |
+| `Medium`   | Code smell, minor bug, improvement opportunity             | P2             | Should fix before merge       |
+| `Low`      | Style issue, optional enhancement, documentation           | P3             | Consider fixing               |
 
 ---
 
@@ -204,7 +161,16 @@ npx bd list --parent [epic-id]
 
 The `/sp:review` command parses findings using these patterns:
 
-### Detection Patterns
+### Detection Patterns for Compressed Format
+
+```text
+Severity Section: /^### (Critical|High|Medium|Low)$/
+Finding Line:     /^- (.+?):(\d+): (.+)$/
+  Captures: [file, line, description]
+Fix Line:         /^\s+Fix: (.+)$/
+```
+
+### Legacy Format (Still Supported)
 
 ```text
 Finding Start: /^### Finding: (.+)$/
@@ -215,13 +181,11 @@ Line:          /^\- \*\*Line\*\*: (\d+)$/
 Description:   /^\- \*\*Description\*\*: (.+)$/
 Risk:          /^\- \*\*Risk\*\*: (.+)$/
 Fix:           /^\- \*\*Fix\*\*: (.+)$/
-````
+```
 
 ### Duplicate Key
 
 Findings are uniquely identified by: `{File}:{Line}:{Category}`
-
-This key is used by `/sp:review` to skip creating duplicate beads issues.
 
 ---
 
@@ -232,54 +196,15 @@ This key is used by `/sp:review` to skip creating duplicate beads issues.
 ```markdown
 # Code Review: Add user preferences endpoint
 
-**Scope**: branch changes (main..HEAD)
-**Files**: 2 files changed (+45/-10 lines)
-**Date**: 2026-01-15
-
-## Summary
-
-Clean implementation of user preferences API endpoint following existing patterns.
-
-## What Changed
-
-- Added GET/PUT endpoints for user preferences
-- Implemented validation using existing schema patterns
-
-## Does It Work
-
-- **Tests**: Yes - includes automated tests that verify the feature works correctly
-- **Safety**: Good - handles errors gracefully and shows helpful messages
-- **Production Ready**: Yes - ready to deploy
-
-## Simplicity & Maintainability
-
-- **Complexity**: Low - straightforward code that's easy to understand
-- **Patterns**: Follows the same patterns used throughout the codebase
-- **Concerns**: None - should be easy to maintain and modify
-
-## Security Review
-
-### Critical Issues
-
-None found.
-
-### High Priority
-
-None found.
+**Files**: 2 changed (+45/-10 lines) | **Date**: 2026-01-31
 
 ## Findings
 
-No issues found.
-
-## Recommendations
-
-No changes required. Ready to merge.
+No issues found. Ready to merge.
 
 ## Review Metadata
 
-- **Reviewer**: Claude (code-review skill)
-- **Changeset Size**: Small
-- **Findings Count**: 0
+- **Reviewer**: Claude | **Changeset**: Small | **Findings**: 0
 ```
 
 ### Review with Findings
@@ -287,102 +212,68 @@ No changes required. Ready to merge.
 ````markdown
 # Code Review: Implement search feature
 
-**Scope**: working changes
-**Files**: 5 files changed (+234/-12 lines)
-**Date**: 2026-01-15
+**Files**: 5 changed (+234/-12 lines) | **Date**: 2026-01-31
 
 ## Summary
 
-Search implementation with security and test coverage concerns that must be addressed.
-
-## What Changed
-
-- Added search endpoint for products
-- Implemented full-text search with D1
-
-## Does It Work
-
-- **Tests**: Partial - some tests exist but don't cover all scenarios
-- **Safety**: Security concern - the system could be vulnerable to attacks
-- **Production Ready**: No - security issues must be fixed first
-
-## Simplicity & Maintainability
-
-- **Complexity**: Medium - reasonably straightforward but could be simpler
-- **Patterns**: Generally follows the same approach as other features
-- **Concerns**: The search logic could be organized more clearly for easier future changes
-
-## Security Review
-
-### Critical Issues
-
-1. SQL Injection in search handler
-
-### High Priority
-
-None found.
+Security and test coverage issues must be fixed before merge.
 
 ## Findings
 
-### Finding: SQL Injection in Search Query
+### Critical
 
-- **Severity**: Critical
-- **Category**: security
-- **File**: src/search/handler.ts
-- **Line**: 45
-- **Description**: The search feature directly inserts user input into database queries without proper validation. This is like allowing a visitor to write their own instructions for accessing your filing cabinets.
-- **Risk**: Attackers could access, modify, or delete customer data, financial records, or other sensitive information. This could lead to data breaches, regulatory fines, and loss of customer trust.
-- **Fix**: Use parameterized queries that safely separate user input from database commands.
+- src/search/handler.ts:45: SQL injection - user input concatenated into database query
+  Fix: `db.prepare('SELECT * FROM items WHERE name LIKE ?').bind(searchTerm)`
 
-```typescript
-// Use parameterized query
-const results = db.prepare('SELECT * FROM items WHERE name LIKE ?').bind(`%${searchTerm}%`).all();
+### Medium
+
+- src/search/handler.spec.ts:0: Missing test for empty search results
+  Fix: Add test case verifying graceful handling of no results
+
+## Beads Tasks Created
+
+The following tasks have been created under epic `feat-search-123`:
+
+- `task-001`: Fix: SQL injection in search handler (Priority: P0)
+- `task-002`: Fix: Add empty results test (Priority: P2)
+
+View tasks:
+
+```bash
+npx bd list --parent feat-search-123
 ```
-````
-
-### Finding: Missing Test for Empty Results
-
-- **Severity**: Medium
-- **Category**: test
-- **File**: src/search/handler.spec.ts
-- **Line**: 0
-- **Description**: The tests don't check what happens when a search finds nothing. This is like not testing what happens when a search box returns "no results found."
-- **Risk**: The system might crash or show confusing messages when users search for items that don't exist. This could frustrate users and hurt the user experience.
-- **Fix**: Add a test that verifies the system handles empty search results gracefully.
 
 ## Recommendations
 
-1. **Must Fix**: SQL injection vulnerability (Critical)
-2. **Should Fix**: Add empty results test case
+- **Must Fix**: SQL injection (Critical)
+- **Should Fix**: Empty results test case (Medium)
 
 ## Copy-Paste Prompt for Claude Code
 
 ```
-Fix the SQL injection vulnerability in src/search/handler.ts:45 by using a parameterized query. Also add a test case in src/search/handler.spec.ts for empty search results.
+Fix SQL injection in src/search/handler.ts:45 using parameterized queries.
+Add test for empty search results in src/search/handler.spec.ts.
 ```
 
 ## Review Metadata
 
-- **Reviewer**: Claude (code-review skill)
-- **Changeset Size**: Medium
-- **Findings Count**: 2 (1 Critical, 0 High, 1 Medium, 0 Low)
-
+- **Reviewer**: Claude | **Changeset**: Medium | **Findings**: 2 (1 Critical, 1 Medium)
 ````
 
 ---
 
 ## Changeset Size Thresholds
 
-| Size | Line Count | Review Approach |
-|------|------------|-----------------|
-| Small | < 100 | Full detailed review |
-| Medium | 100-499 | Full review, prioritize complexity |
-| Large | 500-999 | Thorough review, may chunk analysis |
-| Very Large | 1000+ | Summary mode, focus on high-risk files |
+| Size       | Line Count | Review Approach                        |
+| ---------- | ---------- | -------------------------------------- |
+| Small      | < 100      | Full detailed review                   |
+| Medium     | 100-499    | Full review, prioritize complexity     |
+| Large      | 500-999    | Thorough review, may chunk analysis    |
+| Very Large | 1000+      | Summary mode, focus on high-risk files |
 
 For very large changesets, include a note:
 
 ```markdown
 > **Note**: This changeset exceeds 1000 lines. Review focuses on high-risk files.
 > Consider splitting into smaller, focused pull requests for more thorough review.
-````
+```

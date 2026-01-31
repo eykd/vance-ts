@@ -7,25 +7,23 @@ description: Review code for quality, correctness, and test quality. Use when re
 
 Review pull requests for code quality, correctness, and test quality while excluding security and architecture concerns (handled by dedicated skills).
 
+## Style Requirements
+
+**CRITICAL**: Write for non-technical managers using plain English (6th-grade reading level).
+
+- **Report problems only** - never acknowledge what's done well or include praise
+- **Target 30-second scan time** - compress findings to 2-3 lines maximum
+- **Use plain language** - no unnecessary jargon
+- **Focus on fixes** - one-sentence problem, one-line fix
+- **Conditional sections** - only show sections with problems
+
 ## Review Process
 
 1. **Get PR diff**: Use `gh pr diff <number>` to get branch changes
 2. **Check known issues**: Read `known-issues.json` if present to avoid re-reporting tracked beads tasks
-3. **Analyze changes**: Evaluate across 5 focus areas
-4. **Organize findings**: Categorize by priority level (Must Fix, Should Fix, Consider)
-5. **Post review**: Use `gh pr comment` to post structured review
-
-## Focus Areas
-
-### 1. What Changed
-
-Provide a plain English summary of the changes for non-technical stakeholders:
-
-- **What functionality was added/changed/removed?**
-- **Why would someone care about this change?**
-- **What user-visible behavior changed?**
-
-Avoid implementation details - focus on the "what" and "why", not the "how".
+3. **Analyze changes**: Evaluate correctness, test quality, simplicity, code quality
+4. **Organize findings**: Group by severity (Critical → High → Medium → Low)
+5. **Post review**: Use concise compressed format
 
 ### 2. Does It Work
 
@@ -219,79 +217,48 @@ See [references/priority-levels.md](references/priority-levels.md) for definitio
 - Alternative approaches
 - Minor optimizations
 
-## Audience: Non-Technical Managers
-
-**CRITICAL**: Write the ENTIRE review for non-technical managers, not developers.
-
-- Technical jargon is OK when explained briefly and concisely
-- Always follow technical terms with plain English explanation (e.g., "mocking - simulating external systems in tests")
-- Explain impacts in business terms (risk, cost, user experience)
-- Focus on "what" and "why", not implementation details
-- Keep explanations concise - don't over-explain
-- Keep all sections accessible to non-technical readers
-
 ## Output Format
 
-Post as PR comment with this structure:
+**COMPRESSED FORMAT** (2-3 lines per finding):
 
 ```markdown
 ## Code Quality Review
 
-### What Changed
+### Critical
 
-[Plain English summary - 2-3 sentences for non-technical readers]
+- src/handler.ts:45: Missing error handling - unhandled promise rejection
+  Fix: Add try-catch block and return error response
 
-### Does It Work
+### High
 
-[Assessment of correctness and production-readiness]
+- src/handler.spec.ts:0: Test coverage below 100% - missing edge case tests
+  Fix: Add tests for empty input and validation failures
 
-### Test Quality
+- src/types.ts:12: Using `any` type - violates ESLint no-any rule
+  Fix: Define proper interface for user data
 
-[Evaluation against Test Desiderata, coverage check, anti-patterns]
+### Medium
 
-### Simplicity
-
-[Assessment of code clarity and maintainability]
-
-### Code Quality
-
-[CLAUDE.md standards compliance check]
-
----
-
-## Findings
-
-### Must Fix
-
-1. **[Issue Title]** - [File:Line]
-   - **Problem**: [Description]
-   - **Impact**: [Why this matters]
-   - **Fix**: [How to resolve]
-
-### Should Fix
-
-[Same format as Must Fix]
-
-### Consider
-
-[Same format as Must Fix]
-
----
-
-## Summary
-
-[Overall assessment - ready to merge, needs fixes, etc.]
-
----
+- src/utils.ts:67: Function too complex - 8 levels of nesting
+  Fix: Extract validation logic to separate function
 
 ## Copy-Paste Prompt for Claude Code
 
-**REQUIRED when findings exist**: Provide a ready-to-use prompt in a code block.
+**REQUIRED when findings exist** (3-5 lines maximum):
 ```
 
-[Specific, actionable prompt with file paths and line numbers that addresses all Must Fix and Should Fix items]
+Add error handling to src/handler.ts:45 with try-catch block.
+Add edge case tests to src/handler.spec.ts for empty input and validation failures.
+Replace `any` type in src/types.ts:12 with proper interface.
+Extract validation logic from src/utils.ts:67 to reduce nesting.
 
 ```
+
+**DO NOT include:**
+- ~~"What Changed", "Does It Work", "Test Quality", "Simplicity"~~ sections - use compressed findings only
+- ~~"None found"~~ sections - omit sections with no issues
+- ~~Praise or positive feedback~~ - focus exclusively on problems
+- ~~Lengthy explanations~~ - keep to 2-3 lines per finding
 
 ```
 

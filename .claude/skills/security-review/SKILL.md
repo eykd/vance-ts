@@ -9,14 +9,15 @@ Systematic security review following OWASP guidelines and defense-in-depth princ
 
 ## Audience: Non-Technical Managers
 
-**CRITICAL**: Write the ENTIRE review for non-technical managers, not developers.
+**CRITICAL**: Write for non-technical managers using plain English (6th-grade reading level).
 
-- Technical jargon is OK when explained briefly and concisely
-- Always follow technical terms with plain English explanation (e.g., "XSS (cross-site scripting) - injecting malicious code into web pages")
-- Explain security risks in business terms (data breach, financial loss, reputation damage)
-- Focus on impacts and consequences, not implementation details
-- Keep explanations concise - don't over-explain
-- Keep all sections accessible to non-technical readers
+**Style Requirements:**
+
+- **Report problems only** - never acknowledge what's done well or include praise
+- **Target 30-second scan time** - compress findings to 2-3 lines maximum
+- **Use plain language** - explain technical terms briefly (e.g., "SQL injection - inserting malicious database commands")
+- **Focus on business impact** - data breach, financial loss, reputation damage
+- **Be concise** - one-sentence problem, one-line fix
 
 ## Review Process
 
@@ -119,36 +120,48 @@ function constantTimeEqual(a: string, b: string): boolean {
 
 ## Review Output Format
 
+**COMPRESSED FORMAT** (2-3 lines per finding):
+
 ```markdown
-## Security Review: [Component]
+## Security Review
 
-### Critical Issues
+### Critical
 
-1. **[Issue]** - [File:Line]
-   - Problem: [Description in plain English]
-   - Risk: [Business impact - data breach, financial loss, etc.]
-   - Fix: [What needs to be done]
+- src/auth/login.ts:45: SQL injection - user input concatenated into query
+  Fix: `db.prepare('SELECT * FROM users WHERE email = ?').bind(email)`
 
-### High Priority
+- src/auth/hash.ts:12: Weak password hashing - using bcrypt instead of Argon2id
+  Fix: Switch to `@node-rs/argon2` with default parameters
 
-...
+### High
 
-### Recommendations
+- src/api/transfer.ts:23: Missing CSRF protection on state-changing endpoint
+  Fix: Add CSRF token validation middleware
 
-...
+### Medium
 
----
+- src/cookies.ts:34: Insecure cookie flags - missing HttpOnly and Secure
+  Fix: Use `__Host-session=${id}; HttpOnly; Secure; SameSite=Lax`
 
 ## Copy-Paste Prompt for Claude Code
 
-**REQUIRED when findings exist**: Provide a ready-to-use prompt in a code block.
+**REQUIRED when findings exist** (3-5 lines maximum):
 ```
 
-[Specific, actionable prompt with file paths and line numbers that addresses all Critical and High Priority items]
+Fix SQL injection in src/auth/login.ts:45 using parameterized queries.
+Replace bcrypt with Argon2id in src/auth/hash.ts:12.
+Add CSRF protection to src/api/transfer.ts:23.
+Update cookie flags in src/cookies.ts:34 to include HttpOnly and Secure.
 
 ```
 
 ```
+
+**DO NOT include:**
+
+- ~~"None found"~~ sections - omit sections with no issues
+- ~~Praise or positive feedback~~ - focus exclusively on problems
+- ~~Lengthy explanations~~ - keep to 2-3 lines per finding
 
 ## Framework-Specific
 

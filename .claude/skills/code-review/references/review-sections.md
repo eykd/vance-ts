@@ -356,16 +356,19 @@ Start with the security issue first.
 
 The consolidated review should follow this order:
 
-1. Summary (1-3 sentences)
-2. What Changed
-3. Does It Work (synthesized from quality-review)
-4. Simplicity & Maintainability (from quality-review)
-5. Test Quality (from quality-review, if applicable)
-6. Findings (aggregated from all three reviews, sorted by severity)
-7. Beads Tasks Created (if applicable)
-8. Recommendations
-9. Copy-Paste Prompt (always include when findings exist)
-10. Review Metadata
+1. Summary (1-2 sentences - problems only, or "No issues found")
+2. Findings (aggregated from all three reviews, sorted by severity) - **only if findings exist**
+3. Beads Tasks Created (if applicable)
+4. Recommendations - **only if findings exist**
+5. Copy-Paste Prompt (always include when findings exist)
+6. Review Metadata
+
+**Sections removed for conciseness:**
+
+- ~~What Changed~~ - not needed for problem-focused reviews
+- ~~Does It Work~~ - findings cover this
+- ~~Simplicity & Maintainability~~ - findings cover this
+- ~~Test Quality~~ - findings cover this
 
 ---
 
@@ -373,26 +376,28 @@ The consolidated review should follow this order:
 
 **CRITICAL**: The entire review is written for non-technical managers, not developers.
 
+### Target Scan Time: 30 Seconds
+
+Busy managers need to quickly understand what must be fixed. Every review should be scannable in 30 seconds or less.
+
 ### Do
 
-- Use technical jargon when it's precise, but always explain it briefly
-- Follow technical terms with concise explanations (e.g., "API endpoint - a way for systems to communicate")
-- Keep explanations brief - one short phrase or sentence
+- **Focus exclusively on problems and fixes** - never acknowledge what's done well
+- Use plain language at a 6th-grade reading level
+- Keep findings to 2-3 lines maximum (file:line, problem, fix)
 - Focus on business impact and risk (cost, security, user experience)
-- Use analogies sparingly when they clarify complex concepts
-- Provide specific examples in accessible language
 - Reference file paths and line numbers for developer handoff
-- Explain the "why" behind concerns in business terms
+- Only show sections that have problems (conditional sections)
+- Make copy-paste prompts concise (3-5 lines maximum)
 
 ### Don't
 
-- Use technical terms without explaining them
-- Over-explain or be verbose - keep it concise
-- Be overly critical or harsh
-- Make vague suggestions
-- Focus on style over substance
-- Forget to acknowledge what's done well
-- Assume technical knowledge
+- **NEVER include praise, positive feedback, or acknowledgment of good practices**
+- Don't use analogies or metaphors - use plain language instead
+- Don't show sections when there are no problems (e.g., "None found")
+- Don't be verbose - compress findings to essential information
+- Don't make vague suggestions - be specific with file:line references
+- Don't assume technical knowledge
 
 ### Examples of Technical Terms with Explanations
 

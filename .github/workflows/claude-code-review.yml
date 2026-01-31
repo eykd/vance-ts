@@ -89,6 +89,12 @@ jobs:
 
             Review scope: Branch changes from ${{ github.event.pull_request.base.ref }} to HEAD.
 
+            Style Requirements:
+            - Report problems only, never praise or positive feedback
+            - Make findings scannable in 30 seconds
+            - Format: file:line, severity, one-sentence problem, concise fix
+            - Include copy-paste prompt ONLY if findings exist (3-5 lines)
+
             IMPORTANT - Known Issues Context:
             Before reporting issues, check the file known-issues.json for tasks already tracked in beads.
             These issues are already documented and should not be re-reported.
@@ -164,6 +170,12 @@ jobs:
 
             Review scope: Branch changes from ${{ github.event.pull_request.base.ref }} to HEAD.
 
+            Style Requirements:
+            - Report problems only, never praise or positive feedback
+            - Make findings scannable in 30 seconds
+            - Format: file:line, severity, one-sentence problem, concise fix
+            - Include copy-paste prompt ONLY if findings exist (3-5 lines)
+
             IMPORTANT - Known Issues Context:
             Before reporting issues, check the file known-issues.json for tasks already tracked in beads.
             These issues are already documented and should not be re-reported.
@@ -238,6 +250,12 @@ jobs:
             Use the /quality-review skill to review this pull request.
 
             Review scope: Branch changes from ${{ github.event.pull_request.base.ref }} to HEAD.
+
+            Style Requirements:
+            - Report problems only, never praise or positive feedback
+            - Make findings scannable in 30 seconds
+            - Format: file:line, severity, one-sentence problem, concise fix
+            - Include copy-paste prompt ONLY if findings exist (3-5 lines)
 
             IMPORTANT - Known Issues Context:
             The file known-issues.json contains tasks already tracked in beads.

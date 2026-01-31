@@ -7,6 +7,16 @@ description: 'Use when: (1) reviewing code for architecture compliance, (2) find
 
 Analyze code for Clean Architecture compliance focusing on the dependency rule: dependencies point inward, never outward.
 
+## Style Requirements
+
+**CRITICAL**: Write for non-technical managers using plain English (6th-grade reading level).
+
+- **Report problems only** - never acknowledge what's done well or include praise
+- **Target 30-second scan time** - compress findings to 2-3 lines maximum
+- **Use plain language** - briefly explain technical terms
+- **Focus on fixes** - one-sentence problem, one-line fix
+- **Conditional sections** - only show sections with violations
+
 ## Layer Hierarchy (Inner to Outer)
 
 ```
@@ -54,21 +64,48 @@ Inner layers must never depend on outer layers:
 
 ## Output Format
 
+**COMPRESSED FORMAT** (2-3 lines per finding):
+
+```markdown
+## Architecture Review
+
+### Critical
+
+- src/domain/entities/User.ts:5: Domain imports infrastructure - violates dependency rule
+  Fix: Move database logic to repository implementation in infrastructure layer
+
+- src/domain/services/EmailService.ts:12: Domain imports external API client
+  Fix: Define EmailPort interface in domain, implement in infrastructure
+
+### High
+
+- src/application/use-cases/CreateUser.ts:12: Instantiates concrete repository
+  Fix: Accept UserRepository via constructor injection
+
+### Medium
+
+- src/infrastructure/UserRepository.ts:1: Interface defined in infrastructure layer
+  Fix: Move interface to src/domain/interfaces/UserRepository.ts
+
+## Copy-Paste Prompt for Claude Code
+
+**REQUIRED when findings exist** (3-5 lines maximum):
 ```
-## Architecture Violations Found
 
-### Critical (Domain Layer)
-- `src/domain/entities/User.ts:5` - Imports `D1Database` from infrastructure
-  → Move database logic to repository implementation
+Move database logic from src/domain/entities/User.ts:5 to repository implementation.
+Define EmailPort interface in domain, implement in infrastructure.
+Use constructor injection in src/application/use-cases/CreateUser.ts:12.
+Move UserRepository interface to src/domain/interfaces/.
 
-### Warning (Application Layer)
-- `src/application/use-cases/CreateUser.ts:12` - Instantiates `D1UserRepository`
-  → Accept repository via constructor injection
-
-### Info (Interface Placement)
-- `src/infrastructure/UserRepository.ts` - Interface defined in infrastructure
-  → Move interface to `src/domain/interfaces/UserRepository.ts`
 ```
+
+```
+
+**DO NOT include:**
+
+- ~~"None found"~~ sections - omit sections with no violations
+- ~~Praise or positive feedback~~ - focus exclusively on problems
+- ~~Lengthy explanations~~ - keep to 2-3 lines per finding
 
 ## Related Skills
 
