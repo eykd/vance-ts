@@ -57,7 +57,7 @@ describe('mapErrorToStatusCode', () => {
 
     expect(mapErrorToStatusCode(new UnknownDomainError('unknown'), logger)).toBe(500);
     // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(logger.warn).toHaveBeenCalledWith('Unmapped domain error type: UnknownDomainError');
+    expect(logger.warn).toHaveBeenCalledWith('Unmapped domain error code: UNKNOWN');
   });
 });
 

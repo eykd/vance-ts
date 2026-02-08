@@ -10,7 +10,9 @@ describe('UserBuilder', () => {
       expect(user.id.toString()).toBe('00000000-0000-4000-a000-000000000001');
       expect(user.email.value).toBe('default@example.com');
       expect(user.email.normalizedValue).toBe('default@example.com');
-      expect(user.passwordHash).toBe('$2a$12$defaulthashedpasswordvalue');
+      expect(user.passwordHash).toBe(
+        '$argon2id$v=19$m=19456,t=2,p=1$dGVzdHNhbHQ$dGVzdGhhc2h2YWx1ZQ'
+      );
       expect(user.failedLoginAttempts).toBe(0);
       expect(user.lockedUntil).toBeNull();
       expect(user.lastLoginAt).toBeNull();

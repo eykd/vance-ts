@@ -21,7 +21,7 @@ export class UserBuilder {
   private id = '00000000-0000-4000-a000-000000000001';
   private email = 'default@example.com';
   private emailNormalized = 'default@example.com';
-  private passwordHash = '$2a$12$defaulthashedpasswordvalue';
+  private passwordHash = '$argon2id$v=19$m=19456,t=2,p=1$dGVzdHNhbHQ$dGVzdGhhc2h2YWx1ZQ';
   private failedLoginAttempts = 0;
   private lockedUntil: string | null = null;
   private lastLoginAt: string | null = null;
@@ -57,7 +57,7 @@ export class UserBuilder {
   /**
    * Sets the password hash.
    *
-   * @param hash - The bcrypt password hash to set
+   * @param hash - The Argon2id password hash to set
    * @returns This builder for chaining
    */
   withPasswordHash(hash: string): this {

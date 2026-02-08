@@ -1,8 +1,10 @@
 /**
  * Port defining how the domain expects to hash and verify passwords.
  *
- * Implementations live in the infrastructure layer and should use
- * Web Crypto API compatible hashing (e.g., PBKDF2, argon2).
+ * Implementations MUST use Argon2id with default parameters per OWASP
+ * recommendations (minimum: m=19456 KiB, t=2, p=1).
+ *
+ * @see https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
  */
 export interface PasswordHasher {
   /**
