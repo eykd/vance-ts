@@ -3,7 +3,7 @@ import { validSession, expiredSession, recentlyActiveSession } from './sessions'
 describe('Session fixtures', () => {
   describe('validSession', () => {
     it('has a valid session id', () => {
-      expect(validSession.sessionId).toBe('session-valid-001');
+      expect(validSession.sessionId.toString()).toBe('00000000-0000-4000-a000-000000000010');
     });
 
     it('has a valid user id', () => {
@@ -11,7 +11,7 @@ describe('Session fixtures', () => {
     });
 
     it('has a CSRF token', () => {
-      expect(validSession.csrfToken).toBe('csrf-valid-token-001');
+      expect(validSession.csrfToken.toString()).toBe('ab'.repeat(32));
     });
 
     it('has a future expiry', () => {
@@ -37,7 +37,7 @@ describe('Session fixtures', () => {
 
   describe('expiredSession', () => {
     it('has an expired session id', () => {
-      expect(expiredSession.sessionId).toBe('session-expired-001');
+      expect(expiredSession.sessionId.toString()).toBe('00000000-0000-4000-a000-000000000020');
     });
 
     it('has a past expiry', () => {
@@ -51,7 +51,9 @@ describe('Session fixtures', () => {
 
   describe('recentlyActiveSession', () => {
     it('has a recently active session id', () => {
-      expect(recentlyActiveSession.sessionId).toBe('session-recent-001');
+      expect(recentlyActiveSession.sessionId.toString()).toBe(
+        '00000000-0000-4000-a000-000000000030'
+      );
     });
 
     it('has a recent last activity timestamp', () => {

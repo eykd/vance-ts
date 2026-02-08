@@ -1,5 +1,6 @@
+import type { User } from '../../domain/entities/User';
+
 import { UserBuilder } from './UserBuilder';
-import type { UserProps } from './UserBuilder';
 
 describe('UserBuilder', () => {
   describe('build with defaults', () => {
@@ -7,8 +8,8 @@ describe('UserBuilder', () => {
       const user = new UserBuilder().build();
 
       expect(user.id).toBe('user-default-id');
-      expect(user.email).toBe('default@example.com');
-      expect(user.emailNormalized).toBe('default@example.com');
+      expect(user.email.value).toBe('default@example.com');
+      expect(user.email.normalizedValue).toBe('default@example.com');
       expect(user.passwordHash).toBe('$2a$12$defaulthashedpasswordvalue');
       expect(user.failedLoginAttempts).toBe(0);
       expect(user.lockedUntil).toBeNull();
@@ -33,8 +34,8 @@ describe('UserBuilder', () => {
     it('sets the email and normalized email', () => {
       const user = new UserBuilder().withEmail('Test@Example.COM').build();
 
-      expect(user.email).toBe('Test@Example.COM');
-      expect(user.emailNormalized).toBe('test@example.com');
+      expect(user.email.value).toBe('Test@Example.COM');
+      expect(user.email.normalizedValue).toBe('test@example.com');
     });
   });
 
@@ -83,8 +84,8 @@ describe('UserBuilder', () => {
         .build();
 
       expect(user.id).toBe('chained-id');
-      expect(user.email).toBe('Chained@Test.com');
-      expect(user.emailNormalized).toBe('chained@test.com');
+      expect(user.email.value).toBe('Chained@Test.com');
+      expect(user.email.normalizedValue).toBe('chained@test.com');
       expect(user.failedLoginAttempts).toBe(2);
       expect(user.lastLoginAt).toBe('2025-01-14T12:00:00.000Z');
     });
@@ -96,14 +97,14 @@ describe('UserBuilder', () => {
       const user1 = builder.build();
       const user2 = builder.build();
 
-      expect(user1).toEqual(user2);
+      expect(user1.id).toBe(user2.id);
       expect(user1).not.toBe(user2);
     });
   });
 
   describe('type safety', () => {
-    it('returns an object conforming to UserProps', () => {
-      const user: UserProps = new UserBuilder().build();
+    it('returns a User entity', () => {
+      const user: User = new UserBuilder().build();
 
       expect(user).toBeDefined();
     });

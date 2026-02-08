@@ -1,41 +1,11 @@
-/**
- * Shape of a User data object for testing purposes.
- *
- * Matches the expected User entity structure before the entity is implemented.
- * All timestamps are in UTC ISO 8601 format.
- */
-export interface UserProps {
-  /** Unique user identifier. */
-  readonly id: string;
-  /** User's email address as originally provided. */
-  readonly email: string;
-  /** Lowercased email for case-insensitive lookups. */
-  readonly emailNormalized: string;
-  /** Bcrypt-hashed password. */
-  readonly passwordHash: string;
-  /** Number of consecutive failed login attempts. */
-  readonly failedLoginAttempts: number;
-  /** UTC ISO 8601 timestamp when account lockout expires, or null if not locked. */
-  readonly lockedUntil: string | null;
-  /** UTC ISO 8601 timestamp of last successful login, or null if never logged in. */
-  readonly lastLoginAt: string | null;
-  /** UTC ISO 8601 timestamp when the user was created. */
-  readonly createdAt: string;
-  /** UTC ISO 8601 timestamp when the user was last updated. */
-  readonly updatedAt: string;
-  /** UTC ISO 8601 timestamp when the password was last changed. */
-  readonly passwordChangedAt: string;
-  /** IP address of last successful login, or null if never logged in. */
-  readonly lastLoginIp: string | null;
-  /** User agent of last successful login, or null if never logged in. */
-  readonly lastLoginUserAgent: string | null;
-}
+import { User } from '../../domain/entities/User';
+import { Email } from '../../domain/value-objects/Email';
 
 /**
- * Fluent builder for creating User test data objects.
+ * Fluent builder for creating User entity test instances.
  *
  * Provides sensible defaults and chainable methods for overriding specific
- * properties. Each call to build() returns a new object.
+ * properties. Each call to build() returns a new User entity.
  *
  * @example
  * ```typescript
@@ -129,15 +99,16 @@ export class UserBuilder {
   }
 
   /**
-   * Builds and returns a new UserProps object with current settings.
+   * Builds and returns a new User entity with current settings.
    *
-   * @returns A frozen UserProps object
+   * @returns A User entity instance
    */
-  build(): UserProps {
-    return {
+  build(): User {
+    const emailVo = Email.reconstitute(this.email, this.emailNormalized);
+
+    return User.reconstitute({
       id: this.id,
-      email: this.email,
-      emailNormalized: this.emailNormalized,
+      email: emailVo,
       passwordHash: this.passwordHash,
       failedLoginAttempts: this.failedLoginAttempts,
       lockedUntil: this.lockedUntil,
@@ -147,6 +118,6 @@ export class UserBuilder {
       passwordChangedAt: this.passwordChangedAt,
       lastLoginIp: this.lastLoginIp,
       lastLoginUserAgent: this.lastLoginUserAgent,
-    };
+    });
   }
 }

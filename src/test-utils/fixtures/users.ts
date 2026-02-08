@@ -1,12 +1,12 @@
+import type { User } from '../../domain/entities/User';
 import { UserBuilder } from '../builders/UserBuilder';
-import type { UserProps } from '../builders/UserBuilder';
 
 /**
  * A normal user with no lockout and zero failed attempts.
  *
  * Use this fixture for tests involving standard authenticated user behavior.
  */
-export const validUser: UserProps = new UserBuilder()
+export const validUser: User = new UserBuilder()
   .withId('user-valid-001')
   .withEmail('alice@example.com')
   .withPasswordHash('$2a$12$validhashedpasswordvalue')
@@ -17,7 +17,7 @@ export const validUser: UserProps = new UserBuilder()
  *
  * Use this fixture for tests involving account lockout logic.
  */
-export const lockedUser: UserProps = new UserBuilder()
+export const lockedUser: User = new UserBuilder()
   .withId('user-locked-001')
   .withEmail('locked@example.com')
   .withPasswordHash('$2a$12$lockedhashedpasswordvalue')
@@ -29,7 +29,7 @@ export const lockedUser: UserProps = new UserBuilder()
  *
  * Use this fixture for tests involving failed attempt thresholds.
  */
-export const userWithFailedAttempts: UserProps = new UserBuilder()
+export const userWithFailedAttempts: User = new UserBuilder()
   .withId('user-failed-001')
   .withEmail('failing@example.com')
   .withPasswordHash('$2a$12$failedhashedpasswordvalue')

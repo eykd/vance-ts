@@ -7,8 +7,8 @@ describe('User fixtures', () => {
     });
 
     it('has a valid email', () => {
-      expect(validUser.email).toBe('alice@example.com');
-      expect(validUser.emailNormalized).toBe('alice@example.com');
+      expect(validUser.email.value).toBe('alice@example.com');
+      expect(validUser.email.normalizedValue).toBe('alice@example.com');
     });
 
     it('has a password hash', () => {
@@ -42,8 +42,8 @@ describe('User fixtures', () => {
     });
 
     it('has a locked email', () => {
-      expect(lockedUser.email).toBe('locked@example.com');
-      expect(lockedUser.emailNormalized).toBe('locked@example.com');
+      expect(lockedUser.email.value).toBe('locked@example.com');
+      expect(lockedUser.email.normalizedValue).toBe('locked@example.com');
     });
 
     it('has lockedUntil set to a future date', () => {
@@ -61,8 +61,8 @@ describe('User fixtures', () => {
     });
 
     it('has a failed-attempts email', () => {
-      expect(userWithFailedAttempts.email).toBe('failing@example.com');
-      expect(userWithFailedAttempts.emailNormalized).toBe('failing@example.com');
+      expect(userWithFailedAttempts.email.value).toBe('failing@example.com');
+      expect(userWithFailedAttempts.email.normalizedValue).toBe('failing@example.com');
     });
 
     it('has 4 failed login attempts', () => {

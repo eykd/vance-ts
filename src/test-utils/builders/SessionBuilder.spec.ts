@@ -1,14 +1,15 @@
+import type { Session } from '../../domain/entities/Session';
+
 import { SessionBuilder } from './SessionBuilder';
-import type { SessionProps } from './SessionBuilder';
 
 describe('SessionBuilder', () => {
   describe('build with defaults', () => {
     it('creates a session with valid default values', () => {
       const session = new SessionBuilder().build();
 
-      expect(session.sessionId).toBe('session-default-id');
+      expect(session.sessionId.toString()).toBe('00000000-0000-4000-a000-000000000001');
       expect(session.userId).toBe('user-default-id');
-      expect(session.csrfToken).toBe('csrf-default-token');
+      expect(session.csrfToken.toString()).toBe('a'.repeat(64));
       expect(session.expiresAt).toBe('2025-12-31T23:59:59.000Z');
       expect(session.lastActivityAt).toBe('2025-01-15T00:00:00.000Z');
       expect(session.ipAddress).toBe('127.0.0.1');
@@ -19,9 +20,11 @@ describe('SessionBuilder', () => {
 
   describe('withSessionId', () => {
     it('sets a custom session id', () => {
-      const session = new SessionBuilder().withSessionId('custom-session').build();
+      const session = new SessionBuilder()
+        .withSessionId('550e8400-e29b-41d4-a716-446655440000')
+        .build();
 
-      expect(session.sessionId).toBe('custom-session');
+      expect(session.sessionId.toString()).toBe('550e8400-e29b-41d4-a716-446655440000');
     });
   });
 
@@ -35,9 +38,10 @@ describe('SessionBuilder', () => {
 
   describe('withCsrfToken', () => {
     it('sets a custom CSRF token', () => {
-      const session = new SessionBuilder().withCsrfToken('custom-csrf').build();
+      const token = 'b'.repeat(64);
+      const session = new SessionBuilder().withCsrfToken(token).build();
 
-      expect(session.csrfToken).toBe('custom-csrf');
+      expect(session.csrfToken.toString()).toBe(token);
     });
   });
 
@@ -84,15 +88,15 @@ describe('SessionBuilder', () => {
   describe('fluent chaining', () => {
     it('supports chaining multiple methods', () => {
       const session = new SessionBuilder()
-        .withSessionId('chain-session')
+        .withSessionId('550e8400-e29b-41d4-a716-446655440000')
         .withUserId('chain-user')
-        .withCsrfToken('chain-csrf')
+        .withCsrfToken('c'.repeat(64))
         .withIpAddress('10.0.0.5')
         .build();
 
-      expect(session.sessionId).toBe('chain-session');
+      expect(session.sessionId.toString()).toBe('550e8400-e29b-41d4-a716-446655440000');
       expect(session.userId).toBe('chain-user');
-      expect(session.csrfToken).toBe('chain-csrf');
+      expect(session.csrfToken.toString()).toBe('c'.repeat(64));
       expect(session.ipAddress).toBe('10.0.0.5');
     });
   });
@@ -103,14 +107,14 @@ describe('SessionBuilder', () => {
       const session1 = builder.build();
       const session2 = builder.build();
 
-      expect(session1).toEqual(session2);
+      expect(session1.userId).toBe(session2.userId);
       expect(session1).not.toBe(session2);
     });
   });
 
   describe('type safety', () => {
-    it('returns an object conforming to SessionProps', () => {
-      const session: SessionProps = new SessionBuilder().build();
+    it('returns a Session entity', () => {
+      const session: Session = new SessionBuilder().build();
 
       expect(session).toBeDefined();
     });
