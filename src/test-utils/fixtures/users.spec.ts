@@ -3,7 +3,7 @@ import { validUser, lockedUser, userWithFailedAttempts } from './users';
 describe('User fixtures', () => {
   describe('validUser', () => {
     it('has a valid id', () => {
-      expect(validUser.id).toBe('user-valid-001');
+      expect(validUser.id.toString()).toBe('00000000-0000-4000-a000-000000000101');
     });
 
     it('has a valid email', () => {
@@ -38,7 +38,7 @@ describe('User fixtures', () => {
 
   describe('lockedUser', () => {
     it('has a locked id', () => {
-      expect(lockedUser.id).toBe('user-locked-001');
+      expect(lockedUser.id.toString()).toBe('00000000-0000-4000-a000-000000000102');
     });
 
     it('has a locked email', () => {
@@ -57,7 +57,7 @@ describe('User fixtures', () => {
 
   describe('userWithFailedAttempts', () => {
     it('has a failed-attempts id', () => {
-      expect(userWithFailedAttempts.id).toBe('user-failed-001');
+      expect(userWithFailedAttempts.id.toString()).toBe('00000000-0000-4000-a000-000000000103');
     });
 
     it('has a failed-attempts email', () => {

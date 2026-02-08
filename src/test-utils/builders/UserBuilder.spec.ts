@@ -7,7 +7,7 @@ describe('UserBuilder', () => {
     it('creates a user with valid default values', () => {
       const user = new UserBuilder().build();
 
-      expect(user.id).toBe('user-default-id');
+      expect(user.id.toString()).toBe('00000000-0000-4000-a000-000000000001');
       expect(user.email.value).toBe('default@example.com');
       expect(user.email.normalizedValue).toBe('default@example.com');
       expect(user.passwordHash).toBe('$2a$12$defaulthashedpasswordvalue');
@@ -24,9 +24,9 @@ describe('UserBuilder', () => {
 
   describe('withId', () => {
     it('sets a custom id', () => {
-      const user = new UserBuilder().withId('custom-id').build();
+      const user = new UserBuilder().withId('550e8400-e29b-41d4-a716-446655440000').build();
 
-      expect(user.id).toBe('custom-id');
+      expect(user.id.toString()).toBe('550e8400-e29b-41d4-a716-446655440000');
     });
   });
 
@@ -77,13 +77,13 @@ describe('UserBuilder', () => {
   describe('fluent chaining', () => {
     it('supports chaining multiple methods', () => {
       const user = new UserBuilder()
-        .withId('chained-id')
+        .withId('660e8400-e29b-41d4-a716-446655440000')
         .withEmail('Chained@Test.com')
         .withFailedAttempts(2)
         .withLastLogin()
         .build();
 
-      expect(user.id).toBe('chained-id');
+      expect(user.id.toString()).toBe('660e8400-e29b-41d4-a716-446655440000');
       expect(user.email.value).toBe('Chained@Test.com');
       expect(user.email.normalizedValue).toBe('chained@test.com');
       expect(user.failedLoginAttempts).toBe(2);
@@ -97,7 +97,7 @@ describe('UserBuilder', () => {
       const user1 = builder.build();
       const user2 = builder.build();
 
-      expect(user1.id).toBe(user2.id);
+      expect(user1.id.toString()).toBe(user2.id.toString());
       expect(user1).not.toBe(user2);
     });
   });

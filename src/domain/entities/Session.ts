@@ -1,9 +1,10 @@
 import type { CsrfToken } from '../value-objects/CsrfToken';
 import type { SessionId } from '../value-objects/SessionId';
+import type { UserId } from '../value-objects/UserId';
 
 interface SessionProps {
   readonly sessionId: SessionId;
-  readonly userId: string;
+  readonly userId: UserId;
   readonly csrfToken: CsrfToken;
   readonly expiresAt: string;
   readonly lastActivityAt: string;
@@ -32,7 +33,7 @@ export class Session {
    *
    * @param params - The creation parameters
    * @param params.sessionId - Unique session identifier
-   * @param params.userId - ID of the owning user
+   * @param params.userId - UserId value object of the owning user
    * @param params.csrfToken - CSRF protection token
    * @param params.ipAddress - IP address of the request
    * @param params.userAgent - User agent string of the request
@@ -41,7 +42,7 @@ export class Session {
    */
   static create(params: {
     sessionId: SessionId;
-    userId: string;
+    userId: UserId;
     csrfToken: CsrfToken;
     ipAddress: string;
     userAgent: string;
@@ -68,7 +69,7 @@ export class Session {
    *
    * @param props - The stored session properties
    * @param props.sessionId - Unique session identifier
-   * @param props.userId - ID of the owning user
+   * @param props.userId - UserId value object of the owning user
    * @param props.csrfToken - CSRF protection token
    * @param props.expiresAt - UTC ISO 8601 expiry timestamp
    * @param props.lastActivityAt - UTC ISO 8601 last activity timestamp
@@ -79,7 +80,7 @@ export class Session {
    */
   static reconstitute(props: {
     sessionId: SessionId;
-    userId: string;
+    userId: UserId;
     csrfToken: CsrfToken;
     expiresAt: string;
     lastActivityAt: string;
@@ -102,9 +103,9 @@ export class Session {
   /**
    * Returns the owning user's ID.
    *
-   * @returns The user ID string
+   * @returns The UserId value object
    */
-  get userId(): string {
+  get userId(): UserId {
     return this.props.userId;
   }
 

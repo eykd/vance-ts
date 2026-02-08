@@ -1,6 +1,7 @@
 import { Session } from '../../domain/entities/Session';
 import { CsrfToken } from '../../domain/value-objects/CsrfToken';
 import { SessionId } from '../../domain/value-objects/SessionId';
+import { UserId } from '../../domain/value-objects/UserId';
 
 /**
  * Fluent builder for creating Session entity test instances.
@@ -19,7 +20,7 @@ import { SessionId } from '../../domain/value-objects/SessionId';
  */
 export class SessionBuilder {
   private sessionId = '00000000-0000-4000-a000-000000000001';
-  private userId = 'user-default-id';
+  private userId = '00000000-0000-4000-a000-000000000001';
   private csrfToken = 'a'.repeat(64);
   private expiresAt = '2025-12-31T23:59:59.000Z';
   private lastActivityAt = '2025-01-15T00:00:00.000Z';
@@ -125,7 +126,7 @@ export class SessionBuilder {
 
     return Session.reconstitute({
       sessionId: sessionIdVo,
-      userId: this.userId,
+      userId: UserId.fromString(this.userId),
       csrfToken: csrfTokenVo,
       expiresAt: this.expiresAt,
       lastActivityAt: this.lastActivityAt,

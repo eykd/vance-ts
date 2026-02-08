@@ -7,7 +7,7 @@ describe('Session fixtures', () => {
     });
 
     it('has a valid user id', () => {
-      expect(validSession.userId).toBe('user-valid-001');
+      expect(validSession.userId.toString()).toBe('00000000-0000-4000-a000-000000000101');
     });
 
     it('has a CSRF token', () => {
@@ -45,7 +45,7 @@ describe('Session fixtures', () => {
     });
 
     it('has a user id', () => {
-      expect(expiredSession.userId).toBe('user-valid-001');
+      expect(expiredSession.userId.toString()).toBe('00000000-0000-4000-a000-000000000101');
     });
   });
 
@@ -65,7 +65,7 @@ describe('Session fixtures', () => {
     });
 
     it('has a user id', () => {
-      expect(recentlyActiveSession.userId).toBe('user-valid-001');
+      expect(recentlyActiveSession.userId.toString()).toBe('00000000-0000-4000-a000-000000000101');
     });
   });
 });

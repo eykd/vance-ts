@@ -8,7 +8,7 @@ import { SessionBuilder } from '../builders/SessionBuilder';
  */
 export const validSession: Session = new SessionBuilder()
   .withSessionId('00000000-0000-4000-a000-000000000010')
-  .withUserId('user-valid-001')
+  .withUserId('00000000-0000-4000-a000-000000000101')
   .withCsrfToken('ab'.repeat(32))
   .withIpAddress('192.168.1.100')
   .build();
@@ -20,7 +20,7 @@ export const validSession: Session = new SessionBuilder()
  */
 export const expiredSession: Session = new SessionBuilder()
   .withSessionId('00000000-0000-4000-a000-000000000020')
-  .withUserId('user-valid-001')
+  .withUserId('00000000-0000-4000-a000-000000000101')
   .withCsrfToken('cd'.repeat(32))
   .withIpAddress('192.168.1.100')
   .expired()
@@ -33,7 +33,7 @@ export const expiredSession: Session = new SessionBuilder()
  */
 export const recentlyActiveSession: Session = new SessionBuilder()
   .withSessionId('00000000-0000-4000-a000-000000000030')
-  .withUserId('user-valid-001')
+  .withUserId('00000000-0000-4000-a000-000000000101')
   .withCsrfToken('ef'.repeat(32))
   .withIpAddress('192.168.1.100')
   .withExpiry('2025-12-31T23:59:59.000Z')

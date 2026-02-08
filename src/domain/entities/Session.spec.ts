@@ -1,10 +1,12 @@
 import { CsrfToken } from '../value-objects/CsrfToken';
 import { SessionId } from '../value-objects/SessionId';
+import { UserId } from '../value-objects/UserId';
 
 import { Session } from './Session';
 
 describe('Session', () => {
   const sessionId = SessionId.fromString('550e8400-e29b-41d4-a716-446655440000');
+  const userId = UserId.fromString('660e8400-e29b-41d4-a716-446655440000');
   const csrfToken = CsrfToken.fromString('a'.repeat(64));
   const now = '2025-01-15T00:00:00.000Z';
 
@@ -12,7 +14,7 @@ describe('Session', () => {
     it('creates a new session with computed expiry', () => {
       const session = Session.create({
         sessionId,
-        userId: 'user-001',
+        userId,
         csrfToken,
         ipAddress: '127.0.0.1',
         userAgent: 'Mozilla/5.0',
@@ -20,7 +22,7 @@ describe('Session', () => {
       });
 
       expect(session.sessionId.equals(sessionId)).toBe(true);
-      expect(session.userId).toBe('user-001');
+      expect(session.userId.equals(userId)).toBe(true);
       expect(session.csrfToken.equals(csrfToken)).toBe(true);
       expect(session.ipAddress).toBe('127.0.0.1');
       expect(session.userAgent).toBe('Mozilla/5.0');
@@ -33,9 +35,10 @@ describe('Session', () => {
 
   describe('reconstitute', () => {
     it('creates a session from stored data without validation', () => {
+      const anotherUserId = UserId.fromString('770e8400-e29b-41d4-a716-446655440000');
       const session = Session.reconstitute({
         sessionId,
-        userId: 'user-002',
+        userId: anotherUserId,
         csrfToken,
         expiresAt: '2025-12-31T23:59:59.000Z',
         lastActivityAt: '2025-01-15T12:00:00.000Z',
@@ -45,7 +48,7 @@ describe('Session', () => {
       });
 
       expect(session.sessionId.equals(sessionId)).toBe(true);
-      expect(session.userId).toBe('user-002');
+      expect(session.userId.equals(anotherUserId)).toBe(true);
       expect(session.csrfToken.equals(csrfToken)).toBe(true);
       expect(session.expiresAt).toBe('2025-12-31T23:59:59.000Z');
       expect(session.lastActivityAt).toBe('2025-01-15T12:00:00.000Z');
@@ -59,7 +62,7 @@ describe('Session', () => {
     it('returns true when now is after expiresAt', () => {
       const session = Session.reconstitute({
         sessionId,
-        userId: 'user-001',
+        userId,
         csrfToken,
         expiresAt: '2025-01-15T12:00:00.000Z',
         lastActivityAt: now,
@@ -74,7 +77,7 @@ describe('Session', () => {
     it('returns true when now equals expiresAt', () => {
       const session = Session.reconstitute({
         sessionId,
-        userId: 'user-001',
+        userId,
         csrfToken,
         expiresAt: '2025-01-15T12:00:00.000Z',
         lastActivityAt: now,
@@ -89,7 +92,7 @@ describe('Session', () => {
     it('returns false when now is before expiresAt', () => {
       const session = Session.reconstitute({
         sessionId,
-        userId: 'user-001',
+        userId,
         csrfToken,
         expiresAt: '2025-01-15T12:00:00.000Z',
         lastActivityAt: now,
@@ -106,7 +109,7 @@ describe('Session', () => {
     it('returns true when time since last activity exceeds threshold', () => {
       const session = Session.reconstitute({
         sessionId,
-        userId: 'user-001',
+        userId,
         csrfToken,
         expiresAt: '2025-01-16T00:00:00.000Z',
         lastActivityAt: '2025-01-15T10:00:00.000Z',
@@ -122,7 +125,7 @@ describe('Session', () => {
     it('returns true when time since last activity equals threshold', () => {
       const session = Session.reconstitute({
         sessionId,
-        userId: 'user-001',
+        userId,
         csrfToken,
         expiresAt: '2025-01-16T00:00:00.000Z',
         lastActivityAt: '2025-01-15T10:00:00.000Z',
@@ -138,7 +141,7 @@ describe('Session', () => {
     it('returns false when time since last activity is below threshold', () => {
       const session = Session.reconstitute({
         sessionId,
-        userId: 'user-001',
+        userId,
         csrfToken,
         expiresAt: '2025-01-16T00:00:00.000Z',
         lastActivityAt: '2025-01-15T10:00:00.000Z',
@@ -156,7 +159,7 @@ describe('Session', () => {
     it('returns a new session with updated lastActivityAt', () => {
       const session = Session.create({
         sessionId,
-        userId: 'user-001',
+        userId,
         csrfToken,
         ipAddress: '127.0.0.1',
         userAgent: 'Mozilla/5.0',
@@ -173,7 +176,7 @@ describe('Session', () => {
     it('does not mutate the original session', () => {
       const session = Session.create({
         sessionId,
-        userId: 'user-001',
+        userId,
         csrfToken,
         ipAddress: '127.0.0.1',
         userAgent: 'Mozilla/5.0',
@@ -190,7 +193,7 @@ describe('Session', () => {
     it('returns true for a matching CSRF token', () => {
       const session = Session.create({
         sessionId,
-        userId: 'user-001',
+        userId,
         csrfToken,
         ipAddress: '127.0.0.1',
         userAgent: 'Mozilla/5.0',
@@ -205,7 +208,7 @@ describe('Session', () => {
     it('returns false for a different CSRF token', () => {
       const session = Session.create({
         sessionId,
-        userId: 'user-001',
+        userId,
         csrfToken,
         ipAddress: '127.0.0.1',
         userAgent: 'Mozilla/5.0',

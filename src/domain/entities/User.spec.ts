@@ -1,21 +1,23 @@
 import { Email } from '../value-objects/Email';
+import { UserId } from '../value-objects/UserId';
 
 import { User } from './User';
 
 describe('User', () => {
+  const defaultId = UserId.fromString('550e8400-e29b-41d4-a716-446655440000');
   const defaultEmail = Email.create('alice@example.com');
   const now = '2025-01-15T00:00:00.000Z';
 
   describe('create', () => {
     it('creates a new user with initial values', () => {
       const user = User.create({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$hash',
         now,
       });
 
-      expect(user.id).toBe('user-001');
+      expect(user.id.equals(defaultId)).toBe(true);
       expect(user.email.equals(defaultEmail)).toBe(true);
       expect(user.passwordHash).toBe('$2a$12$hash');
       expect(user.failedLoginAttempts).toBe(0);
@@ -32,8 +34,9 @@ describe('User', () => {
   describe('reconstitute', () => {
     it('creates a user from stored data without validation', () => {
       const email = Email.reconstitute('Bob@Test.COM', 'bob@test.com');
+      const anotherId = UserId.fromString('660e8400-e29b-41d4-a716-446655440000');
       const user = User.reconstitute({
-        id: 'user-002',
+        id: anotherId,
         email,
         passwordHash: '$2a$12$stored',
         failedLoginAttempts: 3,
@@ -46,7 +49,7 @@ describe('User', () => {
         lastLoginUserAgent: 'Mozilla/5.0',
       });
 
-      expect(user.id).toBe('user-002');
+      expect(user.id.equals(anotherId)).toBe(true);
       expect(user.email.equals(email)).toBe(true);
       expect(user.passwordHash).toBe('$2a$12$stored');
       expect(user.failedLoginAttempts).toBe(3);
@@ -63,7 +66,7 @@ describe('User', () => {
   describe('isLocked', () => {
     it('returns false when lockedUntil is null', () => {
       const user = User.create({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$hash',
         now,
@@ -74,7 +77,7 @@ describe('User', () => {
 
     it('returns true when now is before lockedUntil', () => {
       const user = User.reconstitute({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$hash',
         failedLoginAttempts: 5,
@@ -92,7 +95,7 @@ describe('User', () => {
 
     it('returns false when now is after lockedUntil', () => {
       const user = User.reconstitute({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$hash',
         failedLoginAttempts: 5,
@@ -110,7 +113,7 @@ describe('User', () => {
 
     it('returns false when now equals lockedUntil', () => {
       const user = User.reconstitute({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$hash',
         failedLoginAttempts: 5,
@@ -130,7 +133,7 @@ describe('User', () => {
   describe('recordFailedLogin', () => {
     it('increments failed login attempts', () => {
       const user = User.create({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$hash',
         now,
@@ -144,7 +147,7 @@ describe('User', () => {
 
     it('does not mutate the original user', () => {
       const user = User.create({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$hash',
         now,
@@ -157,7 +160,7 @@ describe('User', () => {
 
     it('sets lockedUntil when reaching max failed attempts', () => {
       const user = User.reconstitute({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$hash',
         failedLoginAttempts: 4,
@@ -181,7 +184,7 @@ describe('User', () => {
 
     it('does not set lockedUntil before reaching max failed attempts', () => {
       const user = User.reconstitute({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$hash',
         failedLoginAttempts: 3,
@@ -204,7 +207,7 @@ describe('User', () => {
   describe('recordSuccessfulLogin', () => {
     it('resets failed login attempts and sets login metadata', () => {
       const user = User.reconstitute({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$hash',
         failedLoginAttempts: 3,
@@ -230,7 +233,7 @@ describe('User', () => {
 
     it('does not mutate the original user', () => {
       const user = User.create({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$hash',
         now,
@@ -245,7 +248,7 @@ describe('User', () => {
   describe('updatePassword', () => {
     it('updates password hash and timestamps', () => {
       const user = User.create({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$oldhash',
         now,
@@ -261,7 +264,7 @@ describe('User', () => {
 
     it('does not mutate the original user', () => {
       const user = User.create({
-        id: 'user-001',
+        id: defaultId,
         email: defaultEmail,
         passwordHash: '$2a$12$oldhash',
         now,

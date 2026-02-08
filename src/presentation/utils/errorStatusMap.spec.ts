@@ -32,8 +32,13 @@ describe('mapErrorToStatusCode', () => {
     expect(mapErrorToStatusCode(new RateLimitError('slow down', 60))).toBe(429);
   });
 
-  it('maps unknown DomainError to 500', () => {
+  it('maps unknown DomainError to 500 and logs warning', () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
     expect(mapErrorToStatusCode(new UnknownDomainError('unknown'))).toBe(500);
+    expect(warnSpy).toHaveBeenCalledWith('Unmapped domain error type: UnknownDomainError');
+
+    warnSpy.mockRestore();
   });
 });
 

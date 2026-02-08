@@ -8,7 +8,7 @@ describe('SessionBuilder', () => {
       const session = new SessionBuilder().build();
 
       expect(session.sessionId.toString()).toBe('00000000-0000-4000-a000-000000000001');
-      expect(session.userId).toBe('user-default-id');
+      expect(session.userId.toString()).toBe('00000000-0000-4000-a000-000000000001');
       expect(session.csrfToken.toString()).toBe('a'.repeat(64));
       expect(session.expiresAt).toBe('2025-12-31T23:59:59.000Z');
       expect(session.lastActivityAt).toBe('2025-01-15T00:00:00.000Z');
@@ -30,9 +30,11 @@ describe('SessionBuilder', () => {
 
   describe('withUserId', () => {
     it('sets a custom user id', () => {
-      const session = new SessionBuilder().withUserId('custom-user-id').build();
+      const session = new SessionBuilder()
+        .withUserId('550e8400-e29b-41d4-a716-446655440000')
+        .build();
 
-      expect(session.userId).toBe('custom-user-id');
+      expect(session.userId.toString()).toBe('550e8400-e29b-41d4-a716-446655440000');
     });
   });
 
@@ -89,13 +91,13 @@ describe('SessionBuilder', () => {
     it('supports chaining multiple methods', () => {
       const session = new SessionBuilder()
         .withSessionId('550e8400-e29b-41d4-a716-446655440000')
-        .withUserId('chain-user')
+        .withUserId('660e8400-e29b-41d4-a716-446655440000')
         .withCsrfToken('c'.repeat(64))
         .withIpAddress('10.0.0.5')
         .build();
 
       expect(session.sessionId.toString()).toBe('550e8400-e29b-41d4-a716-446655440000');
-      expect(session.userId).toBe('chain-user');
+      expect(session.userId.toString()).toBe('660e8400-e29b-41d4-a716-446655440000');
       expect(session.csrfToken.toString()).toBe('c'.repeat(64));
       expect(session.ipAddress).toBe('10.0.0.5');
     });
@@ -107,7 +109,7 @@ describe('SessionBuilder', () => {
       const session1 = builder.build();
       const session2 = builder.build();
 
-      expect(session1.userId).toBe(session2.userId);
+      expect(session1.userId.toString()).toBe(session2.userId.toString());
       expect(session1).not.toBe(session2);
     });
   });

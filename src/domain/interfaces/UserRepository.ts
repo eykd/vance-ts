@@ -1,5 +1,6 @@
 import type { User } from '../entities/User';
 import type { Email } from '../value-objects/Email';
+import type { UserId } from '../value-objects/UserId';
 
 /**
  * Port defining how the domain expects to persist and retrieve User entities.
@@ -18,10 +19,10 @@ export interface UserRepository {
   /**
    * Finds a user by their unique identifier.
    *
-   * @param id - The user ID to search by
+   * @param id - The UserId value object to search by
    * @returns The User entity if found, or null
    */
-  findById(id: string): Promise<User | null>;
+  findById(id: UserId): Promise<User | null>;
 
   /**
    * Persists a User entity (insert or update).

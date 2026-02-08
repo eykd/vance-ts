@@ -1,5 +1,6 @@
 import { User } from '../../domain/entities/User';
 import { Email } from '../../domain/value-objects/Email';
+import { UserId } from '../../domain/value-objects/UserId';
 
 /**
  * Fluent builder for creating User entity test instances.
@@ -17,7 +18,7 @@ import { Email } from '../../domain/value-objects/Email';
  * ```
  */
 export class UserBuilder {
-  private id = 'user-default-id';
+  private id = '00000000-0000-4000-a000-000000000001';
   private email = 'default@example.com';
   private emailNormalized = 'default@example.com';
   private passwordHash = '$2a$12$defaulthashedpasswordvalue';
@@ -107,7 +108,7 @@ export class UserBuilder {
     const emailVo = Email.reconstitute(this.email, this.emailNormalized);
 
     return User.reconstitute({
-      id: this.id,
+      id: UserId.fromString(this.id),
       email: emailVo,
       passwordHash: this.passwordHash,
       failedLoginAttempts: this.failedLoginAttempts,

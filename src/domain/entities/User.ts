@@ -1,7 +1,8 @@
 import type { Email } from '../value-objects/Email';
+import type { UserId } from '../value-objects/UserId';
 
 interface UserProps {
-  readonly id: string;
+  readonly id: UserId;
   readonly email: Email;
   readonly passwordHash: string;
   readonly failedLoginAttempts: number;
@@ -33,13 +34,13 @@ export class User {
    * Creates a new User with initial default values.
    *
    * @param params - The creation parameters
-   * @param params.id - Unique user identifier
+   * @param params.id - Unique UserId value object
    * @param params.email - Validated Email value object
    * @param params.passwordHash - Hashed password string
    * @param params.now - Current UTC ISO 8601 timestamp
    * @returns A new User instance
    */
-  static create(params: { id: string; email: Email; passwordHash: string; now: string }): User {
+  static create(params: { id: UserId; email: Email; passwordHash: string; now: string }): User {
     return new User({
       id: params.id,
       email: params.email,
@@ -59,7 +60,7 @@ export class User {
    * Reconstitutes a User from persisted data without validation.
    *
    * @param props - The stored user properties
-   * @param props.id - Unique user identifier
+   * @param props.id - Unique UserId value object
    * @param props.email - Validated Email value object
    * @param props.passwordHash - Hashed password string
    * @param props.failedLoginAttempts - Number of consecutive failed login attempts
@@ -73,7 +74,7 @@ export class User {
    * @returns A User instance
    */
   static reconstitute(props: {
-    id: string;
+    id: UserId;
     email: Email;
     passwordHash: string;
     failedLoginAttempts: number;
@@ -91,9 +92,9 @@ export class User {
   /**
    * Returns the unique user identifier.
    *
-   * @returns The user ID string
+   * @returns The UserId value object
    */
-  get id(): string {
+  get id(): UserId {
     return this.props.id;
   }
 

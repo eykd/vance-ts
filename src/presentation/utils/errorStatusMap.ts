@@ -21,6 +21,7 @@ export function mapErrorToStatusCode(error: DomainError): number {
   if (error instanceof NotFoundError) return 404;
   if (error instanceof ConflictError) return 409;
   if (error instanceof RateLimitError) return 429;
+  console.warn(`Unmapped domain error type: ${error.constructor.name}`);
   return 500;
 }
 

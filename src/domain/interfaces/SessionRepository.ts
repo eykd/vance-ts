@@ -1,5 +1,6 @@
 import type { Session } from '../entities/Session';
 import type { SessionId } from '../value-objects/SessionId';
+import type { UserId } from '../value-objects/UserId';
 
 /**
  * Port defining how the domain expects to persist and retrieve Session entities.
@@ -32,9 +33,9 @@ export interface SessionRepository {
   /**
    * Deletes all sessions belonging to a specific user.
    *
-   * @param userId - The user ID whose sessions should be deleted
+   * @param userId - The UserId whose sessions should be deleted
    */
-  deleteAllForUser(userId: string): Promise<void>;
+  deleteAllForUser(userId: UserId): Promise<void>;
 
   /**
    * Updates the last activity timestamp for a session.
