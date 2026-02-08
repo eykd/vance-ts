@@ -1,5 +1,7 @@
 import { ValidationError } from '../errors/ValidationError';
 
+import { constantTimeEqual } from './constant-time-equal';
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -46,12 +48,12 @@ export class SessionId {
   }
 
   /**
-   * Compares two SessionId instances for equality.
+   * Compares two SessionId instances using constant-time comparison.
    *
    * @param other - The SessionId to compare with
    * @returns True if the UUIDs are equal
    */
   equals(other: SessionId): boolean {
-    return this.value === other.value;
+    return constantTimeEqual(this.value, other.value);
   }
 }
