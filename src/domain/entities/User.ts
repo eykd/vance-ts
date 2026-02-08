@@ -205,18 +205,17 @@ export class User {
    * Records a failed login attempt and locks the account if threshold is reached.
    *
    * @param now - Current UTC ISO 8601 timestamp
+   * @param lockoutExpiry - Pre-computed UTC ISO 8601 lockout expiry (now + LOCK_DURATION_MS)
    * @returns A new User with incremented failed attempts and possible lockout
    */
-  recordFailedLogin(now: string): User {
+  recordFailedLogin(now: string, lockoutExpiry: string): User {
     const newAttempts = this.props.failedLoginAttempts + 1;
     const shouldLock = newAttempts >= User.MAX_FAILED_ATTEMPTS;
 
     return new User({
       ...this.props,
       failedLoginAttempts: newAttempts,
-      lockedUntil: shouldLock
-        ? new Date(new Date(now).getTime() + User.LOCK_DURATION_MS).toISOString()
-        : this.props.lockedUntil,
+      lockedUntil: shouldLock ? lockoutExpiry : this.props.lockedUntil,
       updatedAt: now,
     });
   }

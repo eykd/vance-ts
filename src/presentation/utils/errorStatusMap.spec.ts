@@ -4,8 +4,23 @@ import { NotFoundError } from '../../domain/errors/NotFoundError';
 import { RateLimitError } from '../../domain/errors/RateLimitError';
 import { UnauthorizedError } from '../../domain/errors/UnauthorizedError';
 import { ValidationError } from '../../domain/errors/ValidationError';
+import type { Logger } from '../../domain/interfaces/Logger';
 
 import { mapErrorToStatusCode, getGenericErrorMessage } from './errorStatusMap';
+
+/**
+ * Creates a mock Logger with jest.fn() for all methods.
+ *
+ * @returns A mock Logger instance
+ */
+function createMockLogger(): Logger {
+  return {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    security: jest.fn(),
+  };
+}
 
 class UnknownDomainError extends DomainError {
   readonly code = 'UNKNOWN';
@@ -13,32 +28,36 @@ class UnknownDomainError extends DomainError {
 
 describe('mapErrorToStatusCode', () => {
   it('maps ValidationError to 422', () => {
-    expect(mapErrorToStatusCode(new ValidationError('bad input'))).toBe(422);
+    const logger = createMockLogger();
+    expect(mapErrorToStatusCode(new ValidationError('bad input'), logger)).toBe(422);
   });
 
   it('maps UnauthorizedError to 401', () => {
-    expect(mapErrorToStatusCode(new UnauthorizedError('no auth'))).toBe(401);
+    const logger = createMockLogger();
+    expect(mapErrorToStatusCode(new UnauthorizedError('no auth'), logger)).toBe(401);
   });
 
   it('maps NotFoundError to 404', () => {
-    expect(mapErrorToStatusCode(new NotFoundError('missing'))).toBe(404);
+    const logger = createMockLogger();
+    expect(mapErrorToStatusCode(new NotFoundError('missing'), logger)).toBe(404);
   });
 
   it('maps ConflictError to 409', () => {
-    expect(mapErrorToStatusCode(new ConflictError('duplicate'))).toBe(409);
+    const logger = createMockLogger();
+    expect(mapErrorToStatusCode(new ConflictError('duplicate'), logger)).toBe(409);
   });
 
   it('maps RateLimitError to 429', () => {
-    expect(mapErrorToStatusCode(new RateLimitError('slow down', 60))).toBe(429);
+    const logger = createMockLogger();
+    expect(mapErrorToStatusCode(new RateLimitError('slow down', 60), logger)).toBe(429);
   });
 
-  it('maps unknown DomainError to 500 and logs warning', () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+  it('maps unknown DomainError to 500 and logs warning via Logger', () => {
+    const logger = createMockLogger();
 
-    expect(mapErrorToStatusCode(new UnknownDomainError('unknown'))).toBe(500);
-    expect(warnSpy).toHaveBeenCalledWith('Unmapped domain error type: UnknownDomainError');
-
-    warnSpy.mockRestore();
+    expect(mapErrorToStatusCode(new UnknownDomainError('unknown'), logger)).toBe(500);
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(logger.warn).toHaveBeenCalledWith('Unmapped domain error type: UnknownDomainError');
   });
 });
 

@@ -11,7 +11,8 @@ describe('Session', () => {
   const now = '2025-01-15T00:00:00.000Z';
 
   describe('create', () => {
-    it('creates a new session with computed expiry', () => {
+    it('creates a new session with provided expiry', () => {
+      const expiresAt = '2025-01-16T00:00:00.000Z';
       const session = Session.create({
         sessionId,
         userId,
@@ -19,6 +20,7 @@ describe('Session', () => {
         ipAddress: '127.0.0.1',
         userAgent: 'Mozilla/5.0',
         now,
+        expiresAt,
       });
 
       expect(session.sessionId.equals(sessionId)).toBe(true);
@@ -28,8 +30,7 @@ describe('Session', () => {
       expect(session.userAgent).toBe('Mozilla/5.0');
       expect(session.createdAt).toBe(now);
       expect(session.lastActivityAt).toBe(now);
-      // 24 hours from now
-      expect(session.expiresAt).toBe('2025-01-16T00:00:00.000Z');
+      expect(session.expiresAt).toBe(expiresAt);
     });
   });
 
@@ -106,7 +107,7 @@ describe('Session', () => {
   });
 
   describe('needsRefresh', () => {
-    it('returns true when time since last activity exceeds threshold', () => {
+    it('returns true when elapsed time exceeds threshold', () => {
       const session = Session.reconstitute({
         sessionId,
         userId,
@@ -118,11 +119,11 @@ describe('Session', () => {
         createdAt: now,
       });
 
-      // 6 minutes after last activity (threshold is 5 minutes)
-      expect(session.needsRefresh('2025-01-15T10:06:00.000Z')).toBe(true);
+      // 6 minutes in ms (threshold is 5 minutes)
+      expect(session.needsRefresh(6 * 60 * 1000)).toBe(true);
     });
 
-    it('returns true when time since last activity equals threshold', () => {
+    it('returns true when elapsed time equals threshold', () => {
       const session = Session.reconstitute({
         sessionId,
         userId,
@@ -134,11 +135,11 @@ describe('Session', () => {
         createdAt: now,
       });
 
-      // Exactly 5 minutes after last activity
-      expect(session.needsRefresh('2025-01-15T10:05:00.000Z')).toBe(true);
+      // Exactly 5 minutes in ms
+      expect(session.needsRefresh(5 * 60 * 1000)).toBe(true);
     });
 
-    it('returns false when time since last activity is below threshold', () => {
+    it('returns false when elapsed time is below threshold', () => {
       const session = Session.reconstitute({
         sessionId,
         userId,
@@ -150,8 +151,8 @@ describe('Session', () => {
         createdAt: now,
       });
 
-      // 4 minutes after last activity
-      expect(session.needsRefresh('2025-01-15T10:04:00.000Z')).toBe(false);
+      // 4 minutes in ms
+      expect(session.needsRefresh(4 * 60 * 1000)).toBe(false);
     });
   });
 
@@ -164,6 +165,7 @@ describe('Session', () => {
         ipAddress: '127.0.0.1',
         userAgent: 'Mozilla/5.0',
         now,
+        expiresAt: '2025-01-16T00:00:00.000Z',
       });
 
       const updatedTime = '2025-01-15T01:00:00.000Z';
@@ -181,6 +183,7 @@ describe('Session', () => {
         ipAddress: '127.0.0.1',
         userAgent: 'Mozilla/5.0',
         now,
+        expiresAt: '2025-01-16T00:00:00.000Z',
       });
 
       session.withUpdatedActivity('2025-01-15T01:00:00.000Z');
@@ -198,6 +201,7 @@ describe('Session', () => {
         ipAddress: '127.0.0.1',
         userAgent: 'Mozilla/5.0',
         now,
+        expiresAt: '2025-01-16T00:00:00.000Z',
       });
 
       const sameToken = CsrfToken.fromString('a'.repeat(64));
@@ -213,6 +217,7 @@ describe('Session', () => {
         ipAddress: '127.0.0.1',
         userAgent: 'Mozilla/5.0',
         now,
+        expiresAt: '2025-01-16T00:00:00.000Z',
       });
 
       const differentToken = CsrfToken.fromString('b'.repeat(64));

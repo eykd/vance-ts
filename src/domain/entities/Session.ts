@@ -29,7 +29,7 @@ export class Session {
   private constructor(private readonly props: SessionProps) {}
 
   /**
-   * Creates a new Session with computed expiry.
+   * Creates a new Session with the provided expiry.
    *
    * @param params - The creation parameters
    * @param params.sessionId - Unique session identifier
@@ -38,6 +38,7 @@ export class Session {
    * @param params.ipAddress - IP address of the request
    * @param params.userAgent - User agent string of the request
    * @param params.now - Current UTC ISO 8601 timestamp
+   * @param params.expiresAt - Pre-computed UTC ISO 8601 expiry (now + SESSION_DURATION_MS)
    * @returns A new Session instance
    */
   static create(params: {
@@ -47,16 +48,13 @@ export class Session {
     ipAddress: string;
     userAgent: string;
     now: string;
+    expiresAt: string;
   }): Session {
-    const expiresAt = new Date(
-      new Date(params.now).getTime() + Session.SESSION_DURATION_MS
-    ).toISOString();
-
     return new Session({
       sessionId: params.sessionId,
       userId: params.userId,
       csrfToken: params.csrfToken,
-      expiresAt,
+      expiresAt: params.expiresAt,
       lastActivityAt: params.now,
       ipAddress: params.ipAddress,
       userAgent: params.userAgent,
@@ -176,12 +174,11 @@ export class Session {
   /**
    * Checks whether the session needs an activity refresh.
    *
-   * @param now - Current UTC ISO 8601 timestamp
-   * @returns True if time since last activity >= refresh threshold
+   * @param elapsedSinceLastActivityMs - Milliseconds elapsed since last activity
+   * @returns True if elapsed time >= refresh threshold
    */
-  needsRefresh(now: string): boolean {
-    const elapsed = new Date(now).getTime() - new Date(this.props.lastActivityAt).getTime();
-    return elapsed >= Session.REFRESH_THRESHOLD_MS;
+  needsRefresh(elapsedSinceLastActivityMs: number): boolean {
+    return elapsedSinceLastActivityMs >= Session.REFRESH_THRESHOLD_MS;
   }
 
   /**

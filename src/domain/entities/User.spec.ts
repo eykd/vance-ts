@@ -139,7 +139,7 @@ describe('User', () => {
         now,
       });
 
-      const updated = user.recordFailedLogin(now);
+      const updated = user.recordFailedLogin(now, '2025-01-15T00:15:00.000Z');
 
       expect(updated.failedLoginAttempts).toBe(1);
       expect(updated.updatedAt).toBe(now);
@@ -153,7 +153,7 @@ describe('User', () => {
         now,
       });
 
-      user.recordFailedLogin(now);
+      user.recordFailedLogin(now, '2025-01-15T00:15:00.000Z');
 
       expect(user.failedLoginAttempts).toBe(0);
     });
@@ -174,12 +174,11 @@ describe('User', () => {
       });
 
       const failTime = '2025-01-15T10:00:00.000Z';
-      const locked = user.recordFailedLogin(failTime);
+      const lockoutExpiry = '2025-01-15T10:15:00.000Z';
+      const locked = user.recordFailedLogin(failTime, lockoutExpiry);
 
       expect(locked.failedLoginAttempts).toBe(5);
-      expect(locked.lockedUntil).not.toBeNull();
-      // Lock duration is 15 minutes
-      expect(locked.lockedUntil).toBe('2025-01-15T10:15:00.000Z');
+      expect(locked.lockedUntil).toBe(lockoutExpiry);
     });
 
     it('does not set lockedUntil before reaching max failed attempts', () => {
@@ -197,7 +196,7 @@ describe('User', () => {
         lastLoginUserAgent: null,
       });
 
-      const updated = user.recordFailedLogin(now);
+      const updated = user.recordFailedLogin(now, '2025-01-15T00:15:00.000Z');
 
       expect(updated.failedLoginAttempts).toBe(4);
       expect(updated.lockedUntil).toBeNull();

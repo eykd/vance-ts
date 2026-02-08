@@ -4,6 +4,7 @@ import { NotFoundError } from '../../domain/errors/NotFoundError';
 import { RateLimitError } from '../../domain/errors/RateLimitError';
 import { UnauthorizedError } from '../../domain/errors/UnauthorizedError';
 import { ValidationError } from '../../domain/errors/ValidationError';
+import type { Logger } from '../../domain/interfaces/Logger';
 
 /**
  * Maps domain error types to HTTP status codes.
@@ -13,15 +14,16 @@ import { ValidationError } from '../../domain/errors/ValidationError';
  * rule violations; this mapper translates them to the HTTP protocol.
  *
  * @param error - A domain error to map
+ * @param logger - Logger for warning about unmapped error types
  * @returns The appropriate HTTP status code
  */
-export function mapErrorToStatusCode(error: DomainError): number {
+export function mapErrorToStatusCode(error: DomainError, logger: Logger): number {
   if (error instanceof ValidationError) return 422;
   if (error instanceof UnauthorizedError) return 401;
   if (error instanceof NotFoundError) return 404;
   if (error instanceof ConflictError) return 409;
   if (error instanceof RateLimitError) return 429;
-  console.warn(`Unmapped domain error type: ${error.constructor.name}`);
+  logger.warn(`Unmapped domain error type: ${error.constructor.name}`);
   return 500;
 }
 
