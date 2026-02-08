@@ -19,8 +19,8 @@ export function constantTimeEqual(a: string, b: string): boolean {
 
   let result = 0;
   for (let i = 0; i < bufferA.length; i++) {
-    // istanbul ignore next -- guaranteed in-bounds by length check above
-    result |= (bufferA[i] ?? 0) ^ (bufferB[i] ?? 0);
+    // Non-null: loop bound guarantees valid indices after length equality check
+    result |= bufferA[i]! ^ bufferB[i]!;
   }
 
   return result === 0;

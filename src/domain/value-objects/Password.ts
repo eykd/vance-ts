@@ -43,7 +43,6 @@ export class Password {
       );
     }
 
-    // istanbul ignore next -- all current common passwords are < 12 chars, so this branch is unreachable after the min-length check
     if (COMMON_PASSWORDS.has(plaintext.toLowerCase())) {
       throw new ValidationError('Password is too common', {
         password: ['Password is too common'],

@@ -108,4 +108,10 @@ export const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
   'hello',
   'martin',
   'password1',
+  'password1234',
+  'password12345',
+  'passwordpassword',
+  'qwertyuiop123',
+  'iloveyou1234',
+  'changeme1234',
 ]);

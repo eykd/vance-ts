@@ -83,8 +83,7 @@ export class Email {
    * @returns The domain portion of the email address
    */
   get domain(): string {
-    // istanbul ignore next -- '@' guaranteed by regex validation in create()
-    return this.normalized.split('@')[1] ?? '';
+    return this.normalized.slice(this.normalized.indexOf('@') + 1);
   }
 
   /**

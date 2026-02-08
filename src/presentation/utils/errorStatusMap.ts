@@ -23,7 +23,7 @@ export function mapErrorToStatusCode(error: DomainError, logger: Logger): number
   if (error instanceof NotFoundError) return 404;
   if (error instanceof ConflictError) return 409;
   if (error instanceof RateLimitError) return 429;
-  logger.warn(`Unmapped domain error code: ${error.code}`);
+  logger.warn(`Unmapped domain error type: ${error.name} (code: ${error.code})`);
   return 500;
 }
 

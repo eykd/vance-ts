@@ -116,7 +116,9 @@ export class ConsoleLogger implements Logger {
    * @param context - Optional structured context metadata
    */
   private logProduction(level: string, message: string, context?: LogContext): void {
-    // Structural fields placed AFTER spread to prevent context from overriding them
+    // SECURITY: Structural fields (timestamp, level, message) are placed AFTER the
+    // ...context spread so they always win. This prevents a malicious or buggy caller
+    // from injecting fake timestamps, levels, or messages via the context object.
     const entry = {
       ...context,
       timestamp: new Date().toISOString(),

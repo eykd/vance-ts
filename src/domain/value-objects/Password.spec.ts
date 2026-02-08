@@ -37,6 +37,23 @@ describe('Password', () => {
       expect(() => Password.create('')).toThrow(ValidationError);
     });
 
+    it('throws ValidationError for common password that meets length requirement', () => {
+      expect(() => Password.create('passwordpassword')).toThrow(ValidationError);
+    });
+
+    it('includes field-level error details for common password', () => {
+      let caught: ValidationError | undefined;
+      try {
+        Password.create('password12345');
+      } catch (error: unknown) {
+        caught = error as ValidationError;
+      }
+      expect(caught).toBeInstanceOf(ValidationError);
+      expect(caught?.fields).toEqual({
+        password: ['Password is too common'],
+      });
+    });
+
     it('includes field-level error details for short password', () => {
       let caught: ValidationError | undefined;
       try {
