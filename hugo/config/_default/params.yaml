@@ -1,11 +1,9 @@
 # Site parameters - branding, SEO defaults, social links, and theme settings.
 # Referenced in templates via .Site.Params (e.g., .Site.Params.description)
 
-# STARTUPFIXME: Set your site title
-title: "My Hugo Site"
+title: "The Oikumene"
 
-# STARTUPFIXME: Set your site description for SEO
-description: "A modern static website built with Hugo, TailwindCSS, and DaisyUI"
+description: "Operatic space adventure"
 
 # STARTUPFIXME: Add your default social share image (1200x630px recommended)
 # Place the image in hugo/assets/images/og-image.png
@@ -20,19 +18,15 @@ imageHeight: 630
 logo: "logo.svg"
 
 social:
-  # STARTUPFIXME: Set your Twitter/X handle (without @)
-  twitter: ""
-  # STARTUPFIXME: Set your GitHub username or organization
-  github: ""
-  # STARTUPFIXME: Set your LinkedIn profile URL
-  linkedin: ""
+  twitter: "eykd"
+  github: "eykd"
+  linkedin: "https://www.linkedin.com/in/david-eyk/"
 
 # STARTUPFIXME: Set your location or tagline
 location:
   - "Built with Hugo + TailwindCSS + DaisyUI"
 
-# STARTUPFIXME: Set your copyright notice
-copyright: "© 2026 My Hugo Site. All Rights Reserved."
+copyright: "© 2026 David Eyk. All Rights Reserved."
 
 # STARTUPFIXME: Set your Google Analytics ID (or leave empty to disable)
 googleAnalytics: ""
@@ -44,6 +38,5 @@ theme: "lemonade"
 # Author information for Schema.org (used in article metadata)
 # STARTUPFIXME: Set the default author name
 author:
-  name: ""
-  # STARTUPFIXME: Set the author's Twitter handle (without @) for twitter:creator
-  twitter: ""
+  name: "David Eyk"
+  twitter: "eykd"

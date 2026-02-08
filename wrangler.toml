@@ -1,17 +1,7 @@
 name = "vance-ts"
-main = "dist/worker.js"
 compatibility_date = "2024-01-01"
 pages_build_output_dir = "hugo/public"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "vance-ts-db"
-database_id = ""  # Will be auto-populated on first deploy
-
-[[kv_namespaces]]
-binding = "KV"
-id = ""  # Will be auto-populated on first deploy
-
-[[r2_buckets]]
-binding = "R2"
-bucket_name = "vance-ts-storage"
+# Note: For Cloudflare Pages projects, D1, KV, and R2 bindings
+# are configured in the Cloudflare dashboard under:
+# Workers & Pages > vance-ts > Settings > Functions > Bindings
