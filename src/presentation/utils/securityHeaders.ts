@@ -1,29 +1,25 @@
 /**
  * Builds the Content-Security-Policy header value.
  *
+ * All assets are self-hosted (CSS fingerprinted by Hugo, vendored JS),
+ * so the policy is self-only with no external domains.
+ *
  * Directives:
  * - `default-src 'self'` — only same-origin by default
- * - `script-src 'self' https://cdn.tailwindcss.com https://unpkg.com` — allows Tailwind CSS, HTMX, and Alpine.js CDN scripts
- * - `style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net` — allows DaisyUI CDN stylesheet and inline styles
+ * - `script-src 'self'` — self-hosted HTMX and Alpine.js
+ * - `style-src 'self'` — self-hosted Tailwind/DaisyUI CSS
  * - `img-src 'self'` — same-origin images only
  * - `connect-src 'self'` — allows HTMX XHR to same origin
  * - `frame-ancestors 'none'` — prevents framing (clickjacking)
  * - `form-action 'self'` — forms can only submit to same origin
- *
- * Note: `'unsafe-inline'` in style-src is required because the Tailwind CDN
- * play script injects `<style>` elements at runtime. In production, replace
- * with nonce-based CSP or self-hosted Tailwind.
  *
  * @returns The CSP header value string
  */
 export function buildCspHeaderValue(): string {
   return [
     "default-src 'self'",
-    "script-src 'self' https://cdn.tailwindcss.com https://unpkg.com",
-    // FIXME: 'unsafe-inline' is required for the Tailwind CDN play script which
-    // injects <style> elements. Replace with nonce-based CSP or self-hosted
-    // Tailwind in production.
-    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+    "script-src 'self'",
+    "style-src 'self'",
     "img-src 'self'",
     "connect-src 'self'",
     "frame-ancestors 'none'",

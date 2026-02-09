@@ -1,3 +1,4 @@
+import { STYLES_CSS_PATH } from '../../generated/assetPaths';
 import { html, safe } from '../../utils/html';
 
 /** Props for the auth layout template. */
@@ -11,7 +12,8 @@ interface AuthLayoutProps {
 /**
  * Renders the full HTML document layout for authentication pages.
  *
- * Includes DaisyUI/Tailwind CSS, HTMX, and Alpine.js CDN scripts.
+ * Includes self-hosted DaisyUI/Tailwind CSS (fingerprinted by Hugo),
+ * HTMX, and Alpine.js scripts.
  * Content is rendered inside a centered card component.
  *
  * @param props - The layout properties
@@ -24,26 +26,9 @@ export function authLayout(props: AuthLayoutProps): string {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>${props.title}</title>
-        <link
-          href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css"
-          rel="stylesheet"
-          integrity="sha384-2V5uSMIWpBK7suX6yRDZH6ll7ktPJF2O58y0HSz+HiFCBCsmqZpxX1AZB4qAHuYI"
-          crossorigin="anonymous"
-        />
-        <!-- FIXME: Tailwind CDN play script generates CSS dynamically, making SRI impossible.
-             Replace with self-hosted Tailwind build in production. -->
-        <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
-        <script
-          src="https://unpkg.com/htmx.org@2"
-          integrity="sha384-/TgkGk7p307TH7EXJDuUlgG3Ce1UVolAOFopFekQkkXihi5u/6OCvVKyz1W+idaz"
-          crossorigin="anonymous"
-        ></script>
-        <script
-          defer
-          src="https://unpkg.com/alpinejs@3"
-          integrity="sha384-LXWjKwDZz29o7TduNe+r/UxaolHh5FsSvy2W7bDHSZ8jJeGgDeuNnsDNHoxpSgDi"
-          crossorigin="anonymous"
-        ></script>
+        <link href="${safe(STYLES_CSS_PATH)}" rel="stylesheet" />
+        <script src="/js/htmx-2.0.8.min.js"></script>
+        <script defer src="/js/alpine-3.15.8.min.js"></script>
         <meta
           name="htmx-config"
           content='{"selfRequestsOnly":true,"allowScriptTags":false,"allowEval":false}'

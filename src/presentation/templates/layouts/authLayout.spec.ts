@@ -1,3 +1,5 @@
+import { STYLES_CSS_PATH } from '../../generated/assetPaths';
+
 import { authLayout } from './authLayout';
 
 describe('authLayout', () => {
@@ -22,19 +24,34 @@ describe('authLayout', () => {
     expect(result).toContain('<form>test form</form>');
   });
 
-  it('includes DaisyUI/Tailwind CSS CDN link', () => {
+  it('includes the fingerprinted CSS path from Hugo build', () => {
     const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toContain('tailwindcss');
+    expect(result).toContain(STYLES_CSS_PATH);
+    expect(result).toContain(`<link`);
+    expect(result).toContain(`href="${STYLES_CSS_PATH}"`);
   });
 
-  it('includes HTMX script', () => {
+  it('includes self-hosted HTMX script', () => {
     const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toContain('htmx');
+    expect(result).toContain('src="/js/htmx-2.0.8.min.js"');
   });
 
-  it('includes Alpine.js script', () => {
+  it('includes self-hosted Alpine.js script with defer', () => {
     const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toContain('alpinejs');
+    expect(result).toMatch(/<script\s+defer\s+src="\/js\/alpine-3\.15\.8\.min\.js"/);
+  });
+
+  it('does not reference any external CDN domains', () => {
+    const result = authLayout({ title: 'Test', content: '' });
+    expect(result).not.toContain('cdn.jsdelivr.net');
+    expect(result).not.toContain('cdn.tailwindcss.com');
+    expect(result).not.toContain('unpkg.com');
+  });
+
+  it('does not include SRI integrity or crossorigin attributes', () => {
+    const result = authLayout({ title: 'Test', content: '' });
+    expect(result).not.toContain('integrity=');
+    expect(result).not.toContain('crossorigin=');
   });
 
   it('sets UTF-8 charset', () => {
@@ -53,21 +70,6 @@ describe('authLayout', () => {
     expect(result).toContain('<p>inner</p>');
   });
 
-  it('includes SRI integrity attributes on CDN resources', () => {
-    const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toMatch(/daisyui.*integrity="sha384-[A-Za-z0-9+/=]+"/s);
-    expect(result).toMatch(/htmx.*integrity="sha384-[A-Za-z0-9+/=]+"/s);
-    expect(result).toMatch(/alpinejs.*integrity="sha384-[A-Za-z0-9+/=]+"/s);
-  });
-
-  it('includes crossorigin="anonymous" on CDN resources', () => {
-    const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toMatch(/daisyui.*crossorigin="anonymous"/s);
-    expect(result).toMatch(/tailwindcss.*crossorigin="anonymous"/s);
-    expect(result).toMatch(/htmx\.org.*crossorigin="anonymous"/s);
-    expect(result).toMatch(/alpinejs.*crossorigin="anonymous"/s);
-  });
-
   it('includes HTMX security config meta tag', () => {
     const result = authLayout({ title: 'Test', content: '' });
     expect(result).toContain('name="htmx-config"');
@@ -82,12 +84,5 @@ describe('authLayout', () => {
   it('HTMX config enables selfRequestsOnly', () => {
     const result = authLayout({ title: 'Test', content: '' });
     expect(result).toContain('"selfRequestsOnly":true');
-  });
-
-  it('Tailwind CDN play script cannot use SRI (dynamic content)', () => {
-    const result = authLayout({ title: 'Test', content: '' });
-    const tailwindScript = result.match(/<script[^>]*tailwindcss[^>]*>/s);
-    expect(tailwindScript).not.toBeNull();
-    expect(tailwindScript![0]).not.toContain('integrity');
   });
 });

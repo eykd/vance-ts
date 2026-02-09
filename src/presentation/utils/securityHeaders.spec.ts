@@ -26,43 +26,29 @@ describe('buildCspHeaderValue', () => {
     expect(csp).toContain("form-action 'self'");
   });
 
-  it('includes script-src self with CDN domains', () => {
-    const csp = buildCspHeaderValue();
-    expect(csp).toContain("script-src 'self'");
-    expect(csp).toContain('https://cdn.tailwindcss.com');
-    expect(csp).toContain('https://unpkg.com');
-  });
-
-  it('includes style-src self with unsafe-inline and jsdelivr CDN (required for Tailwind CDN play script)', () => {
-    const csp = buildCspHeaderValue();
-    expect(csp).toContain("style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net");
-  });
-
-  it('allows cdn.tailwindcss.com in script-src', () => {
+  it('uses self-only script-src with no external domains', () => {
     const csp = buildCspHeaderValue();
     const scriptDirective = csp
       .split(';')
       .map((d) => d.trim())
       .find((d) => d.startsWith('script-src'));
-    expect(scriptDirective).toContain('https://cdn.tailwindcss.com');
+    expect(scriptDirective).toBe("script-src 'self'");
   });
 
-  it('allows unpkg.com in script-src', () => {
-    const csp = buildCspHeaderValue();
-    const scriptDirective = csp
-      .split(';')
-      .map((d) => d.trim())
-      .find((d) => d.startsWith('script-src'));
-    expect(scriptDirective).toContain('https://unpkg.com');
-  });
-
-  it('allows cdn.jsdelivr.net in style-src', () => {
+  it('uses self-only style-src with no unsafe-inline or external domains', () => {
     const csp = buildCspHeaderValue();
     const styleDirective = csp
       .split(';')
       .map((d) => d.trim())
       .find((d) => d.startsWith('style-src'));
-    expect(styleDirective).toContain('https://cdn.jsdelivr.net');
+    expect(styleDirective).toBe("style-src 'self'");
+  });
+
+  it('does not contain any external CDN domains', () => {
+    const csp = buildCspHeaderValue();
+    expect(csp).not.toContain('cdn.tailwindcss.com');
+    expect(csp).not.toContain('unpkg.com');
+    expect(csp).not.toContain('cdn.jsdelivr.net');
   });
 
   it('includes img-src self', () => {
