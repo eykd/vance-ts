@@ -54,16 +54,15 @@ When a user visits your app, they automatically connect to the nearest data cent
 
 Here's what Claude does for you:
 
-### Step 1: Configure Authentication
+### Step 1: Verify Authentication
 
-Claude sets up wrangler to use your API token:
+Authentication is handled by the Sprites.dev environment. Claude verifies credentials are working by running:
 
 ```bash
-export CLOUDFLARE_API_TOKEN="your-token-here"
-export CLOUDFLARE_ACCOUNT_ID="your-account-id-here"
+npx wrangler whoami
 ```
 
-This tells wrangler to deploy to your Cloudflare account.
+If this fails, Claude uses the `wrangler-sprite-auth` skill to authenticate via OAuth.
 
 ### Step 2: Build the Project
 

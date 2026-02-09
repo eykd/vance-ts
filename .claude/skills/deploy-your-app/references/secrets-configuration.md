@@ -44,13 +44,14 @@ This is the safest and easiest method:
    - Click **Add variable**
 8. Click **Save and deploy**
 
-### Option B: Claude Code Environment Settings
+### Option B: Wrangler CLI
 
-If you're using Claude Code for Web with environment support:
+Claude can run `wrangler secret put` to set secrets interactively:
 
-1. Configure secrets in your Claude Code environment settings
-2. These will be available to wrangler commands
-3. Claude can then run `wrangler secret put` using the environment configuration
+```bash
+wrangler secret put RESEND_API_KEY
+# Wrangler will prompt you to paste the secret value securely
+```
 
 **Never share secret values in the chat**
 

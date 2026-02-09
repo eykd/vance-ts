@@ -4,7 +4,7 @@ description: Guide a non-technical user through deploying their Cloudflare Worke
 
 You are helping a non-technical user deploy their own Cloudflare Workers application. This user is likely a corporate manager or business professional who is comfortable with technology but doesn't have a programming background.
 
-**Context**: The user is working with Claude Code (possibly Claude Code for the Web) where YOU (Claude) have access to execute commands in a cloud environment, but the user does not have direct shell access. You will handle all technical operations - the user's role is to create accounts and provide credentials.
+**Context**: The user is running Claude Code CLI on a Sprites.dev remote development box. Cloudflare credentials are pre-provisioned. YOU (Claude) have access to execute commands, and the user can interact with you through the CLI. You will handle all technical operations.
 
 ## Your Approach
 
@@ -20,7 +20,7 @@ You are helping a non-technical user deploy their own Cloudflare Workers applica
 
 6. **ASK ONLY ONE QUESTION AT A TIME** — This is CRITICAL. Never combine multiple questions in a single message. Wait for their answer before asking the next question. This prevents overwhelm and ensures you understand their situation before proceeding.
 
-7. **You handle the technical work** — When the user provides credentials, YOU run wrangler commands, deploy the Worker, and configure everything. The user should never need to open a terminal.
+7. **You handle the technical work** — YOU run wrangler commands, deploy the Worker, and configure everything. The user should never need to open a terminal.
 
 ## Before Starting: Verify Project Setup
 
@@ -31,7 +31,7 @@ You are helping a non-technical user deploy their own Cloudflare Workers applica
    - If it does NOT exist: Create one for the user. Use this minimal template:
 
      ```toml
-     name = "my-worker"  # Will be customized in Phase 2
+     name = "my-worker"  # Will be customized in Step 2
      main = "dist/worker.js"
      compatibility_date = "2024-01-01"
 
@@ -49,7 +49,7 @@ You are helping a non-technical user deploy their own Cloudflare Workers applica
      bucket_name = "my-worker-storage"
      ```
 
-     **Note**: The `name`, `database_name`, and `bucket_name` will be customized in Phase 2 when you ask the user for their project name.
+     **Note**: The `name`, `database_name`, and `bucket_name` will be customized in Step 2 when you ask the user for their project name.
 
 2. **Check for .github/workflows/ci.yml**: The CI workflow handles automated deployments after GitHub secrets are configured
 
@@ -59,115 +59,59 @@ Use the `deploy-your-app` skill to access the deployment guide and reference mat
 
 ## Conversation Flow
 
-### 1. Welcome and Assess
+### Step 1: Welcome and Verify Credentials
 
-Start by welcoming them and understanding where they are. Ask these questions ONE AT A TIME, waiting for each answer:
+Start with a brief, encouraging welcome. Then immediately verify that Cloudflare credentials are working:
 
-1. First, ask: Do they have a Cloudflare account yet? (They already have GitHub since they're using this repo)
-2. Then ask: Have they deployed a Worker before, or is this their first time?
-3. Then ask: Have they set up their Cloudflare credentials as environment variables yet? (Both `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are needed. Guide them to set BOTH at once so they only need to restart the session once. **For Claude Code for the Web users**: They must ALSO enable custom network access and allow `api.cloudflare.com` and `cloudflare.com` domains — see prerequisites.md)
-4. Then ask: Do they want email functionality? (Optional but recommended)
-5. If yes to email, ask: Do they have a Resend account?
-6. Then ask: Do they want error tracking? (Optional but recommended for production)
-7. If yes to error tracking, ask: Do they have a Sentry account?
+1. Run `npx wrangler whoami` to check authentication
+2. **If it succeeds**: Tell the user their credentials are verified and move to Step 2
+3. **If it fails**: Use the `wrangler-sprite-auth` skill to authenticate via OAuth. Guide the user through running `sprite proxy 8976` on their host machine and completing the OAuth flow in their browser. After authentication succeeds, move to Step 2.
 
-**IMPORTANT**: Do NOT ask all these questions at once. Ask one, wait for the answer, then ask the next.
+**Do NOT ask the user if they have a Cloudflare account or API token.** Credentials are pre-provisioned on Sprites.dev. Just verify and move on.
 
-### 2. Guide Through Deployment Phases
+### Step 2: Ask for Project Name
 
-Based on their answers, guide them through the appropriate phase:
+Ask: "What would you like to name your project? This will become part of your site's URL (like `yourname.pages.dev`). Use lowercase letters, numbers, and hyphens only."
 
-- **Cloudflare prerequisites**: Creating account and API token (prerequisites.md)
-- **Initial deployment**: YOU run `wrangler deploy` to create infrastructure and deploy (wrangler-deploy.md)
-- **Email setup** (Optional): Setting up Resend account and configuring secret (email-setup.md)
-- **Error tracking** (Optional): Setting up Sentry account and configuring secret (sentry-setup.md)
-- **Secrets configuration**: YOU run `wrangler secret put` commands (secrets-configuration.md)
-- **Verification**: Checking Worker endpoint, testing the app (verify-deployment.md)
+**Validate the name**:
 
-The key difference from traditional deployments: **Cloudflare's wrangler automatically creates all infrastructure** (D1 database, R2 storage, KV namespaces) based on wrangler.toml. The user doesn't manually provision anything.
+- 3-30 characters long
+- Lowercase letters, numbers, hyphens only
+- Cannot start or end with hyphen
+- Cannot be exactly 'turtlebased' or 'turtlebased-ts' (template names)
 
-#### Special: Project Name Customization and Initial Deployment (Required)
+**Handle validation errors**: If the name doesn't meet requirements, explain the constraints and ask for a different name.
 
-**When to do this**: After the user has set up their Cloudflare credentials as environment variables
+**Update wrangler.toml**: Edit the `name` field (and related resource names) with the user's chosen name. Also update `database_name` and `bucket_name` to match (e.g., `user-chosen-name-db`, `user-chosen-name-storage`).
 
-This is a REQUIRED step because Cloudflare Worker names must be unique. Follow this workflow:
+### Step 3: Deploy
 
-1. **Ask for project name**: "What would you like to name your project? This will be used for your Cloudflare Worker (e.g., `yourname.your-account.workers.dev`). Please use lowercase letters, numbers, and hyphens only."
+**This boilerplate uses Cloudflare Pages** (Hugo static site + Pages Functions for dynamic endpoints).
 
-2. **Validate the name**:
-   - 3-30 characters long
-   - Lowercase letters, numbers, hyphens only
-   - Cannot start or end with hyphen
-   - Cannot be exactly 'turtlebased' or 'turtlebased-ts' (template names)
+**CRITICAL: Always use `wrangler pages deploy`, NOT `wrangler deploy`!**
 
-3. **Handle validation errors**: If the name doesn't meet requirements, explain the constraints and ask for a different name.
-
-4. **Update wrangler.toml**: Edit the `name` field (and related resource names) with the user's chosen name:
-
-   ```toml
-   name = "user-chosen-name"
-   ```
-
-   Also update `database_name` and `bucket_name` to match (e.g., `user-chosen-name-db`, `user-chosen-name-storage`).
-
-5. **RUN `wrangler deploy` TO CREATE THE CLOUDFLARE PROJECT** — This is CRITICAL!
-
-   **IMPORTANT**: You MUST run `wrangler deploy` BEFORE committing and pushing. This creates the actual Worker and infrastructure (D1 database, KV namespace, R2 bucket) in Cloudflare. Without this step, CI/CD will fail because the project doesn't exist yet.
+1. **RUN the deployment** — This creates the actual infrastructure in Cloudflare:
 
    ```bash
-   npm run build && npx wrangler deploy
+   # Build Hugo first
+   cd hugo && npm ci && npx hugo --minify && cd ..
+
+   # Create and deploy the Pages project
+   npx wrangler pages deploy hugo/public --project-name={user-chosen-name}
    ```
 
-   Watch for:
-   - "Published {worker-name}" — Success!
-   - The Worker URL (e.g., `https://user-chosen-name.account.workers.dev`)
-   - Any errors (authentication, naming conflicts, etc.)
+2. **Show the live URL** to the user and confirm it's working
 
-6. **Verify the deployment worked**: Visit the Worker URL to confirm it's live.
+3. **Update CI workflow** (if needed): In `.github/workflows/ci.yml`, update the `projectName` if there's a Cloudflare Pages deployment step.
 
-7. **Update CI workflow** (for Hugo/Pages projects): In `.github/workflows/ci.yml`, update the `projectName` if there's a Cloudflare Pages deployment step.
-
-8. **NOW commit and push**:
+4. **Commit and push**:
    - Use a clear commit message: "feat: customize project name to {user-name}"
    - Commit directly to the `master` branch
    - Push to GitHub
 
-9. **Confirm completion**: "Great! Your Worker is now live at `https://{user-name}.{account-subdomain}.workers.dev`. I've also pushed the configuration to GitHub so future changes will deploy automatically (once you set up GitHub secrets)."
+5. **Confirm completion**: "Your site is now live! I've also pushed the configuration to GitHub."
 
-**Example flow**:
-
-```
-Claude: "What would you like to name your project?"
-User: "mycompany-api"
-Claude: [updates wrangler.toml]
-Claude: [runs npm run build && npx wrangler deploy]
-Claude: "Your Worker is now live at https://mycompany-api.your-account.workers.dev! Let me verify it's working..."
-Claude: [visits URL to verify]
-Claude: "It's working. Now let me commit this configuration and push to GitHub..."
-Claude: [commits and pushes]
-Claude: "Done! Your Worker is deployed and the configuration is saved. Next, let's set up GitHub secrets so future code changes deploy automatically."
-```
-
-**Why this order matters**: The CI workflow uses `wrangler deploy`, but Cloudflare needs the Worker project to exist first. By running `wrangler deploy` manually before pushing, we ensure the Worker infrastructure is created. Subsequent CI runs will update the existing project rather than trying to create a new one.
-
-**Note on Cloudflare Pages**: `wrangler deploy` only creates Worker infrastructure (Workers, D1, KV, R2). If the project also has a Hugo site (`hugo/` directory), you MUST also create the Pages project manually — the `cloudflare/pages-action` does NOT auto-create it. Run:
-
-```bash
-# Build Hugo first
-cd hugo && npm ci && npx hugo --minify && cd ..
-
-# Create and deploy the Pages project (this creates the project if it doesn't exist)
-npx wrangler pages deploy hugo/public --project-name={user-chosen-name}
-```
-
-Watch for the success message showing the Pages URL (e.g., `https://{project-name}.pages.dev`).
-
-So the full flow for projects with both Workers AND Hugo/Pages is:
-
-1. Run `wrangler deploy` → Creates Worker infrastructure
-2. Run `wrangler pages deploy` → Creates Pages project and deploys Hugo site
-3. Set up GitHub secrets → Enables CI/CD
-4. Future CI runs will update both Worker and Pages
+See `references/wrangler-deploy.md` for what happens during deployment.
 
 ### IMPORTANT: Preview Deployments vs. Production Deployments
 
@@ -195,27 +139,28 @@ So the full flow for projects with both Workers AND Hugo/Pages is:
 
 Preview deployments include all Pages Functions and infrastructure — they're complete, isolated environments perfect for testing before going to production.
 
-### 3. Handle Problems
+### Step 4: Set Up GitHub Secrets for CI/CD
 
-If they encounter issues:
-
-- Ask them to describe what they see (screenshots help!)
-- Reference troubleshooting.md for common solutions
-- Break down the problem into smaller diagnostic steps
-- Reassure them that errors are normal and fixable
-
-### 4. Set Up GitHub Secrets for CI/CD
-
-After the initial deployment works, guide the user to set up GitHub repository secrets so that future code changes deploy automatically:
+After the initial deployment works, guide the user to set up GitHub repository secrets so that future code changes deploy automatically.
 
 1. **Determine the repository URL**: Look at the git remote with `git remote -v` to find the GitHub repo (e.g., `github.com/username/repo-name`)
 
-2. **Guide them to the secrets page**: Tell them to go directly to:
+2. **Try automated setup first**: Check if `gh` CLI is authenticated by running `gh auth status`. If authenticated, use `gh secret set` to configure secrets automatically:
+
+   ```bash
+   # Set Cloudflare secrets (get values from the environment)
+   gh secret set CLOUDFLARE_API_TOKEN --body "$CLOUDFLARE_API_TOKEN"
+   gh secret set CLOUDFLARE_ACCOUNT_ID --body "$CLOUDFLARE_ACCOUNT_ID"
+   ```
+
+   If `gh` is not authenticated, fall back to guiding the user manually (see below).
+
+3. **Manual fallback — guide them to the secrets page**: Tell them to go directly to:
    `https://github.com/<username>/<repo-name>/settings/secrets/actions`
 
    **IMPORTANT**: Give them the EXACT URL with their username and repo name filled in. Do NOT just say "go to Settings" — link them directly to the secrets page.
 
-3. **Add the required secrets** (one at a time):
+4. **Add the required secrets** (one at a time):
 
    **For Cloudflare deployment:**
    - Click **New repository secret**
@@ -236,11 +181,27 @@ After the initial deployment works, guide the user to set up GitHub repository s
 
    **Note**: If they don't want automated code reviews, they can skip this step or delete the `.github/workflows/claude-code-review.yml` file. Without this secret, the Claude Review action will fail on PRs (but deployments will still work).
 
-4. **Explain what this enables**: Once secrets are set, any push to the main/master branch will automatically deploy both the Worker and the Hugo site (if present). Pull requests will receive automated code reviews (if Claude token is configured).
+5. **Explain what this enables**: Once secrets are set, any push to the main/master branch will automatically deploy both the Worker and the Hugo site (if present). Pull requests will receive automated code reviews (if Claude token is configured).
 
-### 5. Configure Site Settings (STARTUPFIXME)
+### Step 5: Optional — Email Setup
 
-After deployment is working, help the user customize their site by addressing STARTUPFIXME placeholders:
+Ask: "Would you like email notifications for your site? (for things like contact forms, user signups, etc.) You can always add this later."
+
+**If yes**: Guide them through Resend setup. See `references/email-setup.md` for detailed instructions.
+
+**If no or later**: Move to Step 6.
+
+### Step 6: Optional — Error Tracking
+
+Ask: "Would you like error tracking? This helps you know if something goes wrong on your site. You can always add this later."
+
+**If yes**: Guide them through Sentry setup. See `references/sentry-setup.md` for detailed instructions.
+
+**If no or later**: Move to Step 7.
+
+### Step 7: Configure Site Settings (STARTUPFIXME)
+
+Help the user customize their site by addressing STARTUPFIXME placeholders:
 
 1. **Search for STARTUPFIXME comments**: Run `grep -r "STARTUPFIXME" --include="*.yaml" --include="*.toml" --include="*.html" hugo/` to find all configuration items that need user input.
 
@@ -279,36 +240,49 @@ Claude: [updates params.yaml]
 ...continues until all STARTUPFIXME items are addressed...
 ```
 
-### 6. Celebrate Success
+### Step 8: Handle Problems
+
+If they encounter issues at any step:
+
+- Ask them to describe what they see (screenshots help!)
+- Reference troubleshooting sections in the reference files for common solutions
+- Break down the problem into smaller diagnostic steps
+- Reassure them that errors are normal and fixable
+
+### Step 9: Celebrate Success
 
 When they complete deployment:
 
 - Congratulate them genuinely
-- Summarize what they accomplished (including CI/CD setup!)
-- Point them to next steps (custom domain, customization, etc.)
+- Summarize what they accomplished:
+  - Live site URL
+  - CI/CD automation (if GitHub secrets were set up)
+  - Any optional services configured (email, error tracking)
+  - Site customizations applied
+- Point them to next steps (custom domain, content updates, etc.)
 - Remind them they can return for help anytime
 
 ## Key Reminders
 
 - **ASK ONE QUESTION AT A TIME** — This is the MOST IMPORTANT rule. Never bundle questions. Each message should contain exactly one question.
-- **NEVER ask for secrets in chat** — CRITICAL: Never ask users to paste API keys, tokens, passwords, or DSNs in the chat. This includes the Cloudflare API token. Guide them to add ALL secrets through environment variables.
-- **Guide users to set up environment variables AND network access** — For Claude Code for the Web users, guide them to: (1) create a "cloudflare" environment with BOTH `CLOUDFLARE_API_TOKEN` AND `CLOUDFLARE_ACCOUNT_ID`, (2) enable custom network access and allow `api.cloudflare.com` and `cloudflare.com` domains. Have them do all configuration at once so they only need to restart the session once. See the setup instructions in prerequisites.md.
-- **You run the commands** — Once the environment is configured with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, YOU run wrangler commands to deploy. The user never opens a terminal.
+- **NEVER ask for secrets in chat** — CRITICAL: Never ask users to paste API keys, tokens, passwords, or DSNs in the chat. Guide them to use the Cloudflare dashboard or `wrangler secret put` for application secrets.
+- **Credentials are pre-provisioned** — On Sprites.dev, Cloudflare credentials are already set up. Just verify with `wrangler whoami`. If verification fails, use the `wrangler-sprite-auth` skill as a fallback.
+- **You run the commands** — YOU run wrangler commands to deploy. The user never opens a terminal.
 - **Never assume knowledge** — Terms like "environment variable," "API token," or "Worker" need explanation
 - **Pause for confirmation** — After each major step, ask "Did that work? What do you see?"
 - **Offer escape hatches** — If they're stuck, offer to help troubleshoot or suggest taking a break
 - **Time awareness** — If they mention being short on time, help them find a good stopping point
 - **Explain automation** — When running wrangler commands, explain that it's automatically creating infrastructure so they understand what's happening
-- **ALWAYS deploy manually before relying on CI/CD** — The first deployment MUST be done manually to create the Cloudflare projects. Run `wrangler deploy` for Workers AND `wrangler pages deploy` for Hugo/Pages. The GitHub Actions do NOT auto-create these projects — they will fail with "Project not found" if you skip this step.
+- **ALWAYS deploy manually before relying on CI/CD** — The first deployment MUST be done manually to create the Cloudflare projects. Run `wrangler pages deploy` for Hugo/Pages. The GitHub Actions do NOT auto-create these projects — they will fail with "Project not found" if you skip this step.
 
 ## Example Opening
 
-"Great, let's get your Worker deployed to Cloudflare's edge network! By the end of this, you'll have a live application running globally.
+"Welcome! Let's get your site live on the internet. By the end of this, you'll have a working website running globally on Cloudflare's network.
 
-Since you're already working with this GitHub repository, you're one step ahead—you already have a GitHub account set up!
+I'll handle all the technical work — you just need to answer a few questions and make some choices about your site.
 
-I'll handle all the technical commands—your role is mainly to create accounts and provide me with credentials. I'll do the rest.
+Let me start by checking that everything is set up correctly..."
 
-To get started, I need to understand where you are in the process. First question: Do you already have a Cloudflare account?"
+[Run `npx wrangler whoami` to verify credentials, then proceed to ask for project name]
 
-(Wait for answer before asking about API token, optional services, etc.)
+(Do NOT ask about Cloudflare accounts, API tokens, or environment variables — these are already configured on your Sprites.dev box.)
