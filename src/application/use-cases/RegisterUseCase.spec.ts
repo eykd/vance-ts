@@ -21,8 +21,9 @@ describe('RegisterUseCase', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(typeof result.value.userId).toBe('string');
-      expect(result.value.userId.length).toBeGreaterThan(0);
+      expect(result.value.userId.toString()).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      );
     }
   });
 
@@ -143,7 +144,7 @@ describe('RegisterUseCase', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      const savedUser = userRepository.getById(result.value.userId);
+      const savedUser = userRepository.getById(result.value.userId.toString());
       expect(savedUser).toBeDefined();
       expect(savedUser?.email.normalizedValue).toBe(VALID_EMAIL);
       expect(savedUser?.passwordHash).toBe('hashed:' + VALID_PASSWORD);
@@ -173,7 +174,7 @@ describe('RegisterUseCase', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      const savedUser = userRepository.getById(result.value.userId);
+      const savedUser = userRepository.getById(result.value.userId.toString());
       expect(savedUser?.createdAt).toBe(FIXED_ISO);
       expect(savedUser?.updatedAt).toBe(FIXED_ISO);
     }
@@ -197,7 +198,7 @@ describe('RegisterUseCase', () => {
     expect(result1.success).toBe(true);
     expect(result2.success).toBe(true);
     if (result1.success && result2.success) {
-      expect(result1.value.userId).not.toBe(result2.value.userId);
+      expect(result1.value.userId.toString()).not.toBe(result2.value.userId.toString());
     }
   });
 

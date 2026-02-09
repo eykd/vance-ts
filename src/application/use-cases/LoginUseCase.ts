@@ -130,6 +130,7 @@ export class LoginUseCase {
     const nowIso = new Date(now).toISOString();
 
     if (user.isLocked(nowIso)) {
+      await this.passwordHasher.verify(password.plaintext, user.passwordHash);
       return err(new UnauthorizedError('Account is temporarily locked'));
     }
 
@@ -160,9 +161,9 @@ export class LoginUseCase {
     await this.sessionRepository.save(session);
 
     return ok({
-      userId: user.id.toString(),
-      sessionId: sessionId.toString(),
-      csrfToken: csrfToken.toString(),
+      userId: user.id,
+      sessionId,
+      csrfToken,
       redirectTo,
     });
   }

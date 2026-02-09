@@ -44,7 +44,7 @@ describe('LoginUseCase', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.value.userId).toBe('00000000-0000-4000-a000-000000000001');
+        expect(result.value.userId.toString()).toBe('00000000-0000-4000-a000-000000000001');
         expect(result.value.sessionId).toBeDefined();
         expect(result.value.csrfToken).toBeDefined();
         expect(result.value.redirectTo).toBe('/');
@@ -67,7 +67,7 @@ describe('LoginUseCase', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const session = sessionRepository.getById(result.value.sessionId);
+        const session = sessionRepository.getById(result.value.sessionId.toString());
         expect(session).toBeDefined();
       }
     });
@@ -89,11 +89,14 @@ describe('LoginUseCase', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(typeof result.value.userId).toBe('string');
-        expect(typeof result.value.sessionId).toBe('string');
-        expect(typeof result.value.csrfToken).toBe('string');
+        expect(result.value.userId.toString()).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        );
+        expect(result.value.sessionId.toString()).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        );
+        expect(result.value.csrfToken.toString()).toHaveLength(64);
         expect(typeof result.value.redirectTo).toBe('string');
-        expect(result.value.csrfToken).toHaveLength(64);
       }
     });
   });
@@ -173,6 +176,14 @@ describe('LoginUseCase', () => {
         expect(result.error).toBeInstanceOf(UnauthorizedError);
         expect(result.error.message).toBe('Account is temporarily locked');
       }
+    });
+
+    it('calls passwordHasher.verify even for locked accounts (timing attack prevention)', async () => {
+      userRepository.addUser(makeUser({ locked: true }));
+      await useCase.execute(makeLoginRequest());
+
+      expect(passwordHasher.verifyCalls).toHaveLength(1);
+      expect(passwordHasher.verifyCalls[0]?.hash).toBe('hashed:correct-password');
     });
 
     it('proceeds to password check when lockout has expired', async () => {
@@ -291,7 +302,7 @@ describe('LoginUseCase', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        const session = sessionRepository.getById(result.value.sessionId);
+        const session = sessionRepository.getById(result.value.sessionId.toString());
         expect(session?.createdAt).toBe(fixedIso);
 
         const savedUser = userRepository.getById('00000000-0000-4000-a000-000000000001');
