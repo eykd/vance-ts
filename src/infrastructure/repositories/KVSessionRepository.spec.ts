@@ -192,7 +192,7 @@ describe('KVSessionRepository', () => {
       expect(options?.expirationTtl).toBe(1);
     });
 
-    it('uses session TTL for user index instead of static value', async () => {
+    it('uses dedicated index TTL for user index regardless of session TTL', async () => {
       const kv = createMockKV();
       const repo = new KVSessionRepository(kv, createMockTimeProvider());
       // Session that expires in 2 hours (7200 seconds)
@@ -209,11 +209,11 @@ describe('KVSessionRepository', () => {
 
       await repo.save(shortSession);
 
-      // User index TTL should match the session TTL (7200), not static 86400
+      // User index TTL should use INDEX_TTL_SECONDS (86400), not session TTL (7200)
       expect(kv.put).toHaveBeenCalledWith(
         `user_sessions:${USER_ID}`,
         JSON.stringify([SESSION_ID]),
-        { expirationTtl: 7200 }
+        { expirationTtl: 86400 }
       );
     });
   });

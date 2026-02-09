@@ -139,7 +139,7 @@ export class KVSessionRepository implements SessionRepository {
     const ttl = calculateTtl(session.expiresAt, this.timeProvider.now());
 
     await this.kv.put(key, JSON.stringify(record), { expirationTtl: ttl });
-    await this.addToUserIndex(session.userId.toString(), session.sessionId.toString(), ttl);
+    await this.addToUserIndex(session.userId.toString(), session.sessionId.toString());
   }
 
   /**
@@ -222,11 +222,13 @@ export class KVSessionRepository implements SessionRepository {
   /**
    * Adds a session ID to the user's session index.
    *
+   * Uses the dedicated INDEX_TTL_SECONDS constant so the index outlives
+   * any individual session and is not prematurely expired.
+   *
    * @param userId - The user ID string
    * @param sessionId - The session ID string to add
-   * @param ttl - TTL in seconds, matching the session's expiration
    */
-  private async addToUserIndex(userId: string, sessionId: string, ttl: number): Promise<void> {
+  private async addToUserIndex(userId: string, sessionId: string): Promise<void> {
     const indexKey = `user_sessions:${userId}`;
     const raw = await this.kv.get(indexKey);
 
@@ -239,12 +241,11 @@ export class KVSessionRepository implements SessionRepository {
       }
     }
 
-    if (!sessionIds.includes(sessionId)) {
-      sessionIds.push(sessionId);
-    }
+    const sessionSet = new Set(sessionIds);
+    sessionSet.add(sessionId);
 
-    await this.kv.put(indexKey, JSON.stringify(sessionIds), {
-      expirationTtl: ttl,
+    await this.kv.put(indexKey, JSON.stringify([...sessionSet]), {
+      expirationTtl: KVSessionRepository.INDEX_TTL_SECONDS,
     });
   }
 

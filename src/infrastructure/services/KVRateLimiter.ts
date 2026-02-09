@@ -103,7 +103,13 @@ export class KVRateLimiter implements RateLimiter {
 
     // Evict expired requests outside the window
     const windowStart = now - config.windowSeconds * 1000;
-    const activeRequests = clearedState.requests.filter((ts) => ts > windowStart);
+    const activeRequests: number[] = [];
+    for (let i = 0; i < clearedState.requests.length; i++) {
+      const ts = clearedState.requests[i];
+      if (ts !== undefined && ts > windowStart) {
+        activeRequests.push(ts);
+      }
+    }
 
     if (activeRequests.length >= config.maxRequests) {
       // Rate limit exceeded
