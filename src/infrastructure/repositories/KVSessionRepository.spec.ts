@@ -94,7 +94,7 @@ describe('KVSessionRepository', () => {
       );
     });
 
-    it('updates user session index with session TTL', async () => {
+    it('updates user session index with dedicated index TTL', async () => {
       const kv = createMockKV();
       const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const session = createTestSession();

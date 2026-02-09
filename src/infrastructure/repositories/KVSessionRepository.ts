@@ -129,7 +129,7 @@ export class KVSessionRepository implements SessionRepository {
   /**
    * Persists a Session entity with TTL-based expiration.
    *
-   * Also updates the user-to-sessions index with the same TTL as the session.
+   * Also updates the user-to-sessions index with a dedicated index TTL.
    *
    * @param session - The Session entity to save
    */

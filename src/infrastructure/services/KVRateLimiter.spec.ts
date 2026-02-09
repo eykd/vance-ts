@@ -156,7 +156,8 @@ describe('KVRateLimiter', () => {
 
       // Verify block state saved to KV
       const putCall = kv.put.mock.calls[0];
-      const savedState = JSON.parse(String(putCall?.[1])) as { blockedUntil: number };
+      expect(putCall).toBeDefined();
+      const savedState = JSON.parse(String(putCall[1])) as { blockedUntil: number };
       expect(savedState.blockedUntil).toBe(BASE_TIME + 300000);
     });
 
