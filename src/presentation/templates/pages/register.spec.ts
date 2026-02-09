@@ -86,4 +86,12 @@ describe('registerPage', () => {
     expect(result).toContain('<!DOCTYPE html>');
     expect(result).toContain('Register');
   });
+
+  it('both password fields have minlength attribute', () => {
+    const result = registerPage({ csrfToken: 'token' });
+    const passwordMatch = result.match(/id="password"[^>]*minlength="12"/);
+    const confirmMatch = result.match(/id="confirmPassword"[^>]*minlength="12"/);
+    expect(passwordMatch).not.toBeNull();
+    expect(confirmMatch).not.toBeNull();
+  });
 });

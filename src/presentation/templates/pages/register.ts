@@ -75,6 +75,7 @@ export function registerPage(props: RegisterPageProps): string {
           class="input input-bordered w-full"
           required
           autocomplete="new-password"
+          minlength="12"
         />
         ${safe(confirmErrors)}
       </div>
