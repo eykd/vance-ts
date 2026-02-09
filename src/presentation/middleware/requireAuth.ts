@@ -1,7 +1,7 @@
 import type { UserResponse } from '../../application/dto/UserResponse';
 import type { GetCurrentUserUseCase } from '../../application/use-cases/GetCurrentUserUseCase';
-import type { CookieOptions } from '../../infrastructure/types/CookieOptions';
-import { DEFAULT_COOKIE_OPTIONS } from '../../infrastructure/types/CookieOptions';
+import type { CookieOptions } from '../../domain/types/CookieOptions';
+import { DEFAULT_COOKIE_OPTIONS } from '../../domain/types/CookieOptions';
 import { extractSessionIdFromCookies } from '../utils/cookieBuilder';
 import { applySecurityHeaders } from '../utils/securityHeaders';
 

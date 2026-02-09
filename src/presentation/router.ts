@@ -1,6 +1,6 @@
 import type { GetCurrentUserUseCase } from '../application/use-cases/GetCurrentUserUseCase';
 import type { Logger } from '../domain/interfaces/Logger';
-import type { CookieOptions } from '../infrastructure/types/CookieOptions';
+import type { CookieOptions } from '../domain/types/CookieOptions';
 
 import type { AuthHandlers } from './handlers/AuthHandlers';
 import { type RequireAuthDeps, requireAuth as defaultRequireAuth } from './middleware/requireAuth';

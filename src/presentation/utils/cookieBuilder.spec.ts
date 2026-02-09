@@ -1,5 +1,5 @@
-import type { CookieOptions } from '../../infrastructure/types/CookieOptions';
-import { DEV_COOKIE_OPTIONS } from '../../infrastructure/types/CookieOptions';
+import type { CookieOptions } from '../../domain/types/CookieOptions';
+import { DEV_COOKIE_OPTIONS } from '../../domain/types/CookieOptions';
 
 import {
   SESSION_COOKIE_NAME,

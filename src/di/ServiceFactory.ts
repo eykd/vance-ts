@@ -10,13 +10,13 @@ import type { RateLimiter } from '../domain/interfaces/RateLimiter';
 import type { SessionRepository } from '../domain/interfaces/SessionRepository';
 import type { TimeProvider } from '../domain/interfaces/TimeProvider';
 import type { UserRepository } from '../domain/interfaces/UserRepository';
+import type { CookieOptions } from '../domain/types/CookieOptions';
 import { D1UserRepository } from '../infrastructure/repositories/D1UserRepository';
 import { KVSessionRepository } from '../infrastructure/repositories/KVSessionRepository';
 import { Argon2PasswordHasher } from '../infrastructure/services/Argon2PasswordHasher';
 import { ConsoleLogger } from '../infrastructure/services/ConsoleLogger';
 import { KVRateLimiter } from '../infrastructure/services/KVRateLimiter';
 import { SystemTimeProvider } from '../infrastructure/services/SystemTimeProvider';
-import type { CookieOptions } from '../infrastructure/types/CookieOptions';
 import type { Env } from '../infrastructure/types/Env';
 import { AuthHandlers } from '../presentation/handlers/AuthHandlers';
 
