@@ -1,4 +1,4 @@
-import { escapeHtml, html } from './html';
+import { escapeHtml, html, safe } from './html';
 
 describe('escapeHtml', () => {
   it('escapes ampersand', () => {
@@ -64,5 +64,18 @@ describe('html tagged template', () => {
   it('handles template with no interpolations', () => {
     const result = html`<div>static</div>`;
     expect(result).toBe('<div>static</div>');
+  });
+
+  it('does not escape SafeHtml values', () => {
+    const trustedHtml = safe('<strong>bold</strong>');
+    const result = html`<div>${trustedHtml}</div>`;
+    expect(result).toBe('<div><strong>bold</strong></div>');
+  });
+
+  it('mixes safe and unsafe interpolations', () => {
+    const trusted = safe('<em>safe</em>');
+    const untrusted = '<em>unsafe</em>';
+    const result = html`${trusted} ${untrusted}`;
+    expect(result).toBe('<em>safe</em> &lt;em&gt;unsafe&lt;/em&gt;');
   });
 });
