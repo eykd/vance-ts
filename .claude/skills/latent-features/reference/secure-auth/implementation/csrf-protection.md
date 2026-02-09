@@ -1,10 +1,10 @@
 # CSRF Protection
 
-**Purpose**: Cross-Site Request Forgery protection using signed double-submit cookie pattern
+**Purpose**: Cross-Site Request Forgery protection using double-submit cookie pattern as Hono middleware
 
 **When to read**: During implementation of form submissions and state-changing operations
 
-**Source**: Full implementation in `docs/secure-authentication-guide.md` (lines 1479-1731)
+**Why this is needed**: better-auth does not provide CSRF protection for custom form endpoints. HTMX forms that POST to your own routes (outside `/api/auth/*`) need CSRF tokens.
 
 ---
 
@@ -12,11 +12,9 @@
 
 **CSRF Attack**: Malicious site tricks user's browser into making unauthorized request to your app
 
-**Example**:
-
 ```html
 <!-- Evil site: evil.com -->
-<form action="https://yourapp.com/transfer" method="POST">
+<form action="https://yourapp.com/app/transfer" method="POST">
   <input name="amount" value="1000" />
   <input name="to" value="attacker" />
 </form>
@@ -25,129 +23,63 @@
 </script>
 ```
 
-User's browser automatically includes session cookie → Request looks legitimate!
+User's browser automatically includes session cookie — request looks legitimate.
 
 ---
 
-## Defense Strategy: Signed Double-Submit Cookie
+## Hono CSRF Middleware
 
-**How it works**:
-
-1. Generate CSRF token on session creation
-2. Store token in session (server-side)
-3. Send token to client in cookie (JavaScript-readable)
-4. Client includes token in header or form field for state-changing requests
-5. Server validates submitted token matches session token
-
-**Why this works**:
-
-- Attacker's site can't read your cookies (Same-Origin Policy)
-- Attacker can't forge valid token
-- Combined with SameSite cookies for defense-in-depth
-
----
-
-## CSRF Token Generation
+**File**: `src/middleware/csrf.ts`
 
 ```typescript
-export class CsrfTokenGenerator {
-  private static readonly BYTES_LENGTH = 32; // 256 bits
+import type { MiddlewareHandler } from 'hono';
+import type { AppType } from './auth';
 
-  generate(): string {
-    const bytes = new Uint8Array(CsrfTokenGenerator.BYTES_LENGTH);
-    crypto.getRandomValues(bytes);
-    return btoa(String.fromCharCode(...bytes))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=/g, '');
+const CSRF_COOKIE = '__Host-csrf';
+const CSRF_HEADER = 'X-CSRF-Token';
+const CSRF_FIELD = '_csrf';
+const PROTECTED_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const TOKEN_BYTES = 32; // 256 bits
+
+/**
+ * Generate a cryptographically random CSRF token.
+ */
+function generateCsrfToken(): string {
+  const bytes = new Uint8Array(TOKEN_BYTES);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+/**
+ * Constant-time string comparison to prevent timing attacks.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
-}
-```
-
-**Key requirements**:
-
-- Cryptographically random (not predictable)
-- Unique per session (not reused)
-- Sufficient entropy (256 bits)
-
----
-
-## CSRF Middleware
-
-**File**: `src/presentation/middleware/csrfProtection.ts`
-
-```typescript
-export interface CsrfConfig {
-  cookieName: string; // "__Host-csrf"
-  headerName: string; // "X-CSRF-Token"
-  formFieldName: string; // "_csrf"
-  protectedMethods: string[]; // ["POST", "PUT", "PATCH", "DELETE"]
-  excludePaths: string[]; // ["/webhooks"]
+  return result === 0;
 }
 
-export function createCsrfMiddleware(config: Partial<CsrfConfig> = {}) {
-  const cfg = { ...DEFAULT_CONFIG, ...config };
+/**
+ * Extract CSRF token from request (header first, then form body).
+ */
+async function extractToken(request: Request): Promise<string | null> {
+  // Prefer header (HTMX/AJAX)
+  const headerToken = request.headers.get(CSRF_HEADER);
+  if (headerToken !== null && headerToken.length > 0) return headerToken;
 
-  return async function csrfMiddleware(ctx: Context, next: Next): Promise<Response> {
-    const { request, session } = ctx;
-    const method = request.method.toUpperCase();
-
-    // Skip for safe methods (GET, HEAD, OPTIONS)
-    if (!cfg.protectedMethods.includes(method)) {
-      return next();
-    }
-
-    // Skip for excluded paths (webhooks, etc.)
-    const url = new URL(request.url);
-    if (cfg.excludePaths.some((path) => url.pathname.startsWith(path))) {
-      return next();
-    }
-
-    // Require valid session
-    if (session === undefined) {
-      return new Response('Unauthorized', { status: 401 });
-    }
-
-    // Extract token from request
-    const submittedToken = await extractCsrfToken(request, cfg);
-
-    if (submittedToken === null) {
-      return csrfError('Missing CSRF token');
-    }
-
-    // Validate against session token (constant-time comparison)
-    if (!session.validateCsrfToken(submittedToken)) {
-      return csrfError('Invalid CSRF token');
-    }
-
-    // Also verify Origin/Referer header for defense-in-depth
-    if (!validateOrigin(request)) {
-      return csrfError('Invalid request origin');
-    }
-
-    return next();
-  };
-}
-
-async function extractCsrfToken(request: Request, config: CsrfConfig): Promise<string | null> {
-  // First check header (preferred for HTMX/AJAX)
-  const headerToken = request.headers.get(config.headerName);
-  if (headerToken !== null && headerToken.length > 0) {
-    return headerToken;
-  }
-
-  // Then check form body (traditional form submissions)
+  // Fallback to form body
   const contentType = request.headers.get('Content-Type') ?? '';
-
   if (contentType.includes('application/x-www-form-urlencoded')) {
     try {
-      const cloned = request.clone();
-      const formData = await cloned.formData();
-      const formToken = formData.get(config.formFieldName);
-
-      if (typeof formToken === 'string' && formToken.length > 0) {
-        return formToken;
-      }
+      const formData = await request.clone().formData();
+      const formToken = formData.get(CSRF_FIELD);
+      if (typeof formToken === 'string' && formToken.length > 0) return formToken;
     } catch {
       // Form parsing failed
     }
@@ -156,82 +88,114 @@ async function extractCsrfToken(request: Request, config: CsrfConfig): Promise<s
   return null;
 }
 
+/**
+ * Extract CSRF token from cookie.
+ */
+function getCsrfCookie(request: Request): string | null {
+  const cookies = request.headers.get('Cookie') ?? '';
+  const match = cookies.split(';').find((c) => c.trim().startsWith(`${CSRF_COOKIE}=`));
+  return match?.split('=')[1]?.trim() ?? null;
+}
+
+/**
+ * Validate Origin/Referer header matches Host for defense-in-depth.
+ */
 function validateOrigin(request: Request): boolean {
-  const origin = request.headers.get('Origin');
   const host = request.headers.get('Host');
+  const origin = request.headers.get('Origin');
 
-  // If no Origin, check Referer
-  if (origin === null) {
-    const referer = request.headers.get('Referer');
-    if (referer === null) return true; // Or false for stricter security
-
+  if (origin !== null) {
     try {
-      const refererUrl = new URL(referer);
-      return refererUrl.host === host;
+      return new URL(origin).host === host;
     } catch {
       return false;
     }
   }
 
-  // Validate Origin matches Host
-  try {
-    const originUrl = new URL(origin);
-    return originUrl.host === host;
-  } catch {
-    return false;
-  }
-}
-```
-
----
-
-## CSRF Cookie Configuration
-
-**Must be JavaScript-readable** (NOT HttpOnly):
-
-```typescript
-export function csrfCookieHeader(token: string, secure: boolean): string {
-  const parts = [
-    `__Host-csrf=${token}`,
-    'Path=/',
-    'SameSite=Lax', // Or Strict for higher security
-  ];
-
-  if (secure) {
-    parts.push('Secure');
+  const referer = request.headers.get('Referer');
+  if (referer !== null) {
+    try {
+      return new URL(referer).host === host;
+    } catch {
+      return false;
+    }
   }
 
-  // Note: NOT HttpOnly - JavaScript needs to read this
-  return parts.join('; ');
+  // No Origin or Referer — allow (some browsers omit on same-origin)
+  return true;
+}
+
+/**
+ * CSRF protection middleware for Hono.
+ *
+ * On GET: Sets a CSRF cookie (token for JavaScript to read).
+ * On POST/PUT/PATCH/DELETE: Validates submitted token matches cookie.
+ *
+ * @param excludePaths - Paths to skip CSRF checks (e.g., ['/api/auth', '/webhooks'])
+ */
+export function csrfProtection(
+  excludePaths: string[] = ['/api/auth', '/webhooks']
+): MiddlewareHandler<AppType> {
+  return async (c, next) => {
+    const method = c.req.method.toUpperCase();
+    const pathname = new URL(c.req.url).pathname;
+
+    // Skip excluded paths
+    if (excludePaths.some((path) => pathname.startsWith(path))) {
+      await next();
+      return;
+    }
+
+    // For safe methods: ensure CSRF cookie exists
+    if (!PROTECTED_METHODS.has(method)) {
+      await next();
+
+      // Set CSRF cookie if not already present
+      if (getCsrfCookie(c.req.raw) === null) {
+        const token = generateCsrfToken();
+        c.header('Set-Cookie', `${CSRF_COOKIE}=${token}; Path=/; SameSite=Lax; Secure`);
+      }
+      return;
+    }
+
+    // For state-changing methods: validate CSRF token
+    if (!validateOrigin(c.req.raw)) {
+      return c.text('Invalid request origin', 403);
+    }
+
+    const cookieToken = getCsrfCookie(c.req.raw);
+    if (cookieToken === null) {
+      return c.text('Missing CSRF token', 403);
+    }
+
+    const submittedToken = await extractToken(c.req.raw);
+    if (submittedToken === null) {
+      return c.text('Missing CSRF token', 403);
+    }
+
+    if (!timingSafeEqual(cookieToken, submittedToken)) {
+      return c.text('Invalid CSRF token', 403);
+    }
+
+    await next();
+  };
 }
 ```
-
-**Why not HttpOnly?**
-
-- HTMX needs to read token to include in requests
-- Safe because token is also validated server-side
-- Attacker's site still can't read it (Same-Origin Policy)
 
 ---
 
 ## HTMX Integration
 
-**Include token in all HTMX requests**:
+Include the CSRF token in all HTMX requests automatically:
 
 ```html
-<!-- Option 1: Global header configuration on <body> -->
-<body hx-headers='{"X-CSRF-Token": "TOKEN_VALUE"}'>
-  <!-- All HTMX requests will include this header -->
-</body>
-
-<!-- Option 2: JavaScript event listener -->
+<!-- Option 1: JavaScript event listener (recommended) -->
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    document.body.addEventListener('htmx:configRequest', function (event) {
-      // Read from cookie and add to request
-      const csrfToken = getCookie('__Host-csrf');
+  document.body.addEventListener('htmx:configRequest', function (event) {
+    const csrfToken = getCookie('__Host-csrf');
+    if (csrfToken) {
       event.detail.headers['X-CSRF-Token'] = csrfToken;
-    });
+    }
   });
 
   function getCookie(name) {
@@ -240,88 +204,33 @@ export function csrfCookieHeader(token: string, secure: boolean): string {
     if (parts.length === 2) return parts.pop().split(';').shift();
   }
 </script>
+
+<!-- Option 2: Global header on body (simpler, but token is static) -->
+<body hx-headers='{"X-CSRF-Token": "TOKEN_VALUE"}'>
+  <!-- All HTMX requests include this header -->
+</body>
 ```
 
 ---
 
 ## Traditional Form Integration
 
-**Hidden field for non-HTMX forms**:
+For non-HTMX forms, include the token as a hidden field:
 
 ```typescript
-export function csrfField(csrfToken: string): string {
-  return `<input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}">`;
+function csrfField(token: string): string {
+  return `<input type="hidden" name="_csrf" value="${HtmlEncoder.encodeForAttribute(token)}">`;
 }
-```
-
-```html
-<form method="POST" action="/submit">
-  <!-- Include CSRF token -->
-  <input type="hidden" name="_csrf" value="TOKEN_VALUE" />
-
-  <!-- Form fields -->
-  <input type="text" name="username" />
-  <button type="submit">Submit</button>
-</form>
 ```
 
 ---
 
 ## Defense-in-Depth Layers
 
-1. **CSRF Token** (primary defense)
-   - Unique per session
-   - Validated on state-changing requests
-   - Constant-time comparison
-
-2. **SameSite Cookies** (secondary defense)
-   - `SameSite=Lax`: Protects POST/PUT/DELETE, allows top-level GET
-   - `SameSite=Strict`: Maximum protection, may break legitimate flows
-
-3. **Origin Validation** (tertiary defense)
-   - Check Origin header matches Host
-   - Fallback to Referer header
-   - Reject cross-origin requests
-
-4. **HTTPS Only** (transport security)
-   - Secure flag on cookies
-   - HSTS header
-   - Prevents MITM attacks
-
----
-
-## Exclusion Patterns
-
-**When to exclude CSRF protection**:
-
-- Webhooks from external services (no session)
-- Public APIs with API key authentication
-- Read-only endpoints (GET requests)
-
-```typescript
-const csrfMiddleware = createCsrfMiddleware({
-  excludePaths: [
-    '/api/webhooks', // External webhooks
-    '/api/public', // Public API
-  ],
-});
-```
-
-**Important**: Only exclude paths that:
-
-- Don't require authentication
-- Don't modify state
-- Have alternative authentication (API keys, signatures)
-
----
-
-## Security Considerations
-
-1. **Token rotation**: Regenerate token on privilege escalation
-2. **Constant-time comparison**: Prevents timing attacks on token validation
-3. **Token scope**: One token per session (not per request)
-4. **Token storage**: Server-side (in session), not just in cookie
-5. **HTTPS required**: Without HTTPS, tokens can be stolen via MITM
+1. **CSRF Token** (primary) — Double-submit cookie, constant-time comparison
+2. **SameSite Cookies** (secondary) — better-auth sets `SameSite=Lax` on session cookies
+3. **Origin Validation** (tertiary) — Check Origin/Referer matches Host
+4. **HTTPS Only** (transport) — `Secure` flag on cookies, HSTS header
 
 ---
 
@@ -330,61 +239,65 @@ const csrfMiddleware = createCsrfMiddleware({
 ```typescript
 describe('CSRF Protection', () => {
   it('should reject POST without CSRF token', async () => {
-    const request = new Request('https://app.com/submit', {
-      method: 'POST',
-      headers: { Cookie: '__Host-session=valid_session' },
-    });
+    const app = new Hono();
+    app.use('*', csrfProtection());
+    app.post('/submit', (c) => c.text('ok'));
 
-    const response = await csrfMiddleware(mockContext(request), mockNext);
+    const res = await app.request('/submit', { method: 'POST' });
 
-    expect(response.status).toBe(403);
+    expect(res.status).toBe(403);
   });
 
   it('should accept POST with valid CSRF token', async () => {
-    const request = new Request('https://app.com/submit', {
+    const token = 'test-token-value';
+    const app = new Hono();
+    app.use('*', csrfProtection());
+    app.post('/submit', (c) => c.text('ok'));
+
+    const res = await app.request('/submit', {
       method: 'POST',
       headers: {
-        Cookie: '__Host-session=valid_session',
-        'X-CSRF-Token': 'valid_token',
+        Cookie: `__Host-csrf=${token}`,
+        'X-CSRF-Token': token,
       },
     });
 
-    const response = await csrfMiddleware(mockContext(request), mockNext);
-
-    expect(response.status).toBe(200);
+    expect(res.status).toBe(200);
   });
 
   it('should reject request with mismatched origin', async () => {
-    const request = new Request('https://app.com/submit', {
+    const token = 'test-token-value';
+    const app = new Hono();
+    app.use('*', csrfProtection());
+    app.post('/submit', (c) => c.text('ok'));
+
+    const res = await app.request('https://app.com/submit', {
       method: 'POST',
       headers: {
-        Cookie: '__Host-session=valid_session',
-        'X-CSRF-Token': 'valid_token',
+        Cookie: `__Host-csrf=${token}`,
+        'X-CSRF-Token': token,
         Origin: 'https://evil.com',
       },
     });
 
-    const response = await csrfMiddleware(mockContext(request), mockNext);
+    expect(res.status).toBe(403);
+  });
 
-    expect(response.status).toBe(403);
+  it('should skip CSRF for excluded paths', async () => {
+    const app = new Hono();
+    app.use('*', csrfProtection(['/webhooks']));
+    app.post('/webhooks/stripe', (c) => c.text('ok'));
+
+    const res = await app.request('/webhooks/stripe', { method: 'POST' });
+
+    expect(res.status).toBe(200);
   });
 });
 ```
 
 ---
 
-## Common Pitfalls
-
-1. **Using HttpOnly for CSRF cookie** - JavaScript can't read it, breaks HTMX
-2. **Not validating Origin** - Token alone isn't sufficient
-3. **Sequential token comparison** - Vulnerable to timing attacks
-4. **Reusing tokens across sessions** - Reduces security
-5. **Excluding too many paths** - Reduces protection coverage
-
----
-
 ## Next Steps
 
-- For XSS prevention → Read `xss-prevention.md`
-- For HTMX security configuration → Read `htmx-alpine-security.md`
-- For complete authentication flow → Read full guide sections on AuthHandlers
+- For XSS prevention in templates → Read `xss-prevention.md`
+- For auth page templates → Read `auth-templates.md`

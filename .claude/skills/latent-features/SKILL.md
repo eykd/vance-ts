@@ -59,29 +59,29 @@ allowed-tools: [Read, Bash]
 
 **Triggers**: authentication, login, logout, session, password, user registration, auth
 
-**Covers**: OWASP-compliant session auth for Cloudflare Workers with defense-in-depth security
+**Covers**: OWASP-compliant session auth using better-auth + Hono on Cloudflare Workers with defense-in-depth security
 
 **Quick start**: Read `reference/secure-auth/PATTERN.md` for complete pattern guide
 
 **Progressive disclosure**:
 
-- Specification phase → `architecture/overview.md` (~120 lines)
-- Planning phase → `implementation/domain-entities.md` (~504 lines)
-- Implementation → Choose from implementation/\*.md files (~295-458 lines each)
+- Specification phase → `architecture/overview.md` (~130 lines)
+- Planning phase → `implementation/better-auth-setup.md` (~250 lines)
+- Implementation → Choose from implementation/\*.md files (~150-460 lines each)
 
 **Reference structure**:
 
 ```
 reference/secure-auth/
-├── PATTERN.md                          # Pattern guide (this file)
+├── PATTERN.md                          # Pattern guide
 ├── architecture/
 │   └── overview.md                     # Security architecture, threat model
 └── implementation/
-    ├── domain-entities.md              # User, Session, Email, Password
-    ├── password-security.md            # Argon2id, PBKDF2
-    ├── session-management.md           # KV storage, cookies, lifecycle
-    ├── csrf-protection.md              # CSRF middleware, tokens
-    └── xss-prevention.md               # Output encoding, safe templates
+    ├── better-auth-setup.md            # Core better-auth + Hono + D1 wiring
+    ├── hono-auth-middleware.md          # Session middleware, route protection
+    ├── csrf-protection.md              # CSRF middleware for HTMX forms
+    ├── xss-prevention.md               # Output encoding, safe templates
+    └── auth-templates.md               # HTMX login/register/error forms
 ```
 
 ---
@@ -230,14 +230,14 @@ Read docs/[pattern-name]-guide.md
 **Example workflow** (secure authentication):
 
 ```
-Read PATTERN.md                    →  ~200 lines (pattern guide)
-Read architecture/overview.md      →  ~120 lines (specification)
-Read implementation/domain-entities.md → ~504 lines (planning)
-Read implementation/password-security.md → ~295 lines (implementation)
+Read PATTERN.md                        →  ~250 lines (pattern guide)
+Read architecture/overview.md          →  ~130 lines (specification)
+Read implementation/better-auth-setup.md → ~250 lines (planning)
+Read implementation/csrf-protection.md →  ~200 lines (implementation)
 
-Total: ~1,119 lines across 4 files
-vs full guide: ~3,818 lines
-Savings: ~71% token reduction
+Total: ~830 lines across 4 files
+vs old hand-rolled pattern: ~2,500+ lines
+Savings: ~67% token reduction
 ```
 
 ---
