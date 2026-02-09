@@ -6,7 +6,7 @@ module.exports = {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
-  transformIgnorePatterns: ['node_modules/(?!(better-sqlite3)/)'],
+  transformIgnorePatterns: ['node_modules/(?!(better-sqlite3|@noble/hashes)/)'],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',

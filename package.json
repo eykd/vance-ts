@@ -77,5 +77,8 @@
     "prettier-plugin-tailwindcss": "^0.7.2",
     "ts-jest": "^29.4.6",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.0.1"
   }
 }
