@@ -69,5 +69,14 @@ describe('createAppConfig', () => {
       expect(config.cookie).toEqual(DEFAULT_COOKIE_OPTIONS);
       expect(config.isDevelopment).toBe(false);
     });
+
+    it('treats any non-allowlisted value as production', () => {
+      const values = ['staging', 'PRODUCTION', 'dev', ''];
+      for (const value of values) {
+        const config = createAppConfig(value);
+        expect(config.isDevelopment).toBe(false);
+        expect(config.loginRateLimit.maxRequests).toBe(10);
+      }
+    });
   });
 });

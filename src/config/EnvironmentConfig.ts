@@ -19,17 +19,27 @@ export interface AppConfig {
   readonly registerRateLimit: RateLimitConfig;
 }
 
+/** Valid runtime environment names. */
+type ValidEnvironment = 'development' | 'production';
+
+/** Set of recognized environment values. */
+const VALID_ENVIRONMENTS: ReadonlySet<string> = new Set<string>([
+  'development',
+  'production',
+] satisfies ValidEnvironment[]);
+
 /**
  * Creates an AppConfig based on the runtime environment name.
  *
- * Only `'development'` enables dev mode (relaxed rate limits, insecure cookies).
- * All other values (including empty/unknown) default to production settings.
+ * Valid environment values are 'development' and 'production'.
+ * Unknown values (including empty strings) safely default to production settings.
  *
- * @param environment - Runtime environment name (e.g., 'development', 'production')
+ * @param environment - Runtime environment name ('development' or 'production')
  * @returns The application configuration
  */
 export function createAppConfig(environment: string): AppConfig {
-  const isDevelopment = environment === 'development';
+  const isValid = VALID_ENVIRONMENTS.has(environment);
+  const isDevelopment = isValid && environment === 'development';
 
   if (isDevelopment) {
     return {
