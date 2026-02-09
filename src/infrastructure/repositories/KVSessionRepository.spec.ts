@@ -101,7 +101,11 @@ describe('KVSessionRepository', () => {
       await repo.save(session);
 
       expect(kv.get).toHaveBeenCalledWith(`user_sessions:${USER_ID}`);
-      expect(kv.put).toHaveBeenCalledWith(`user_sessions:${USER_ID}`, JSON.stringify([SESSION_ID]));
+      expect(kv.put).toHaveBeenCalledWith(
+        `user_sessions:${USER_ID}`,
+        JSON.stringify([SESSION_ID]),
+        { expirationTtl: 86400 }
+      );
     });
 
     it('appends to existing user session index', async () => {
@@ -120,7 +124,8 @@ describe('KVSessionRepository', () => {
 
       expect(kv.put).toHaveBeenCalledWith(
         `user_sessions:${USER_ID}`,
-        JSON.stringify([existingSessionId, SESSION_ID])
+        JSON.stringify([existingSessionId, SESSION_ID]),
+        { expirationTtl: 86400 }
       );
     });
 
@@ -137,7 +142,11 @@ describe('KVSessionRepository', () => {
 
       await repo.save(session);
 
-      expect(kv.put).toHaveBeenCalledWith(`user_sessions:${USER_ID}`, JSON.stringify([SESSION_ID]));
+      expect(kv.put).toHaveBeenCalledWith(
+        `user_sessions:${USER_ID}`,
+        JSON.stringify([SESSION_ID]),
+        { expirationTtl: 86400 }
+      );
     });
 
     it('handles corrupt user index by starting fresh', async () => {
@@ -153,7 +162,11 @@ describe('KVSessionRepository', () => {
 
       await repo.save(session);
 
-      expect(kv.put).toHaveBeenCalledWith(`user_sessions:${USER_ID}`, JSON.stringify([SESSION_ID]));
+      expect(kv.put).toHaveBeenCalledWith(
+        `user_sessions:${USER_ID}`,
+        JSON.stringify([SESSION_ID]),
+        { expirationTtl: 86400 }
+      );
     });
 
     it('uses minimum TTL of 1 when session is nearly expired', async () => {
@@ -276,7 +289,8 @@ describe('KVSessionRepository', () => {
 
       expect(kv.put).toHaveBeenCalledWith(
         `user_sessions:${USER_ID}`,
-        JSON.stringify([otherSessionId])
+        JSON.stringify([otherSessionId]),
+        { expirationTtl: 86400 }
       );
     });
 

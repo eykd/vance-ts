@@ -81,6 +81,9 @@ function calculateTtl(expiresAt: string): number {
  * - `user_sessions:{userId}` - Array of session IDs (JSON)
  */
 export class KVSessionRepository implements SessionRepository {
+  /** TTL for the user session index, matching max session duration (24 hours). */
+  private static readonly INDEX_TTL_SECONDS = 86400;
+
   private readonly kv: KVNamespace;
 
   /**
@@ -234,7 +237,9 @@ export class KVSessionRepository implements SessionRepository {
       sessionIds.push(sessionId);
     }
 
-    await this.kv.put(indexKey, JSON.stringify(sessionIds));
+    await this.kv.put(indexKey, JSON.stringify(sessionIds), {
+      expirationTtl: KVSessionRepository.INDEX_TTL_SECONDS,
+    });
   }
 
   /**
@@ -258,7 +263,9 @@ export class KVSessionRepository implements SessionRepository {
       if (filtered.length === 0) {
         await this.kv.delete(indexKey);
       } else {
-        await this.kv.put(indexKey, JSON.stringify(filtered));
+        await this.kv.put(indexKey, JSON.stringify(filtered), {
+          expirationTtl: KVSessionRepository.INDEX_TTL_SECONDS,
+        });
       }
     } catch {
       await this.kv.delete(indexKey);

@@ -13,6 +13,9 @@ export interface RateLimitConfig {
 
   /** Optional duration in seconds to block after limit is exceeded. */
   readonly blockDurationSeconds?: number;
+
+  /** When true, denies requests if the rate limiter backend is unavailable. */
+  readonly failClosed?: boolean;
 }
 
 /**

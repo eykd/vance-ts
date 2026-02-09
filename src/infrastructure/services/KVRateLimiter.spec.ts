@@ -201,6 +201,24 @@ describe('KVRateLimiter', () => {
       );
     });
 
+    it('fails closed and logs warning on KV read error when failClosed is true', async () => {
+      const kv = createMockKV();
+      const { logger, warnMock } = createMockLogger();
+      kv.get.mockRejectedValue(new Error('KV unavailable'));
+      const limiter = new KVRateLimiter(kv, logger);
+      const failClosedConfig: RateLimitConfig = { ...TEST_CONFIG, failClosed: true };
+
+      const result = await limiter.checkLimit('127.0.0.1', 'login', failClosedConfig);
+
+      expect(result.allowed).toBe(false);
+      expect(result.remaining).toBe(0);
+      expect(result.retryAfterSeconds).toBeNull();
+      expect(warnMock).toHaveBeenCalledWith(
+        'Rate limiter KV read failed, failing closed',
+        expect.objectContaining({ action: 'login', ip: '127.0.0.1' })
+      );
+    });
+
     it('logs warning on KV write error but still returns result', async () => {
       const kv = createMockKV();
       const { logger, warnMock } = createMockLogger();

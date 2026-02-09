@@ -73,6 +73,13 @@ export class KVRateLimiter implements RateLimiter {
     try {
       state = await this.loadState(key);
     } catch {
+      if (config.failClosed === true) {
+        this.logger.warn('Rate limiter KV read failed, failing closed', {
+          action,
+          ip: identifier,
+        });
+        return { allowed: false, remaining: 0, retryAfterSeconds: null };
+      }
       this.logger.warn('Rate limiter KV read failed, failing open', {
         action,
         ip: identifier,
