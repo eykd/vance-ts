@@ -40,8 +40,8 @@ describe('createAppConfig', () => {
 
     it('uses strict login rate limits', () => {
       const config = createAppConfig('production');
-      expect(config.loginRateLimit.maxRequests).toBe(10);
-      expect(config.loginRateLimit.windowSeconds).toBe(60);
+      expect(config.loginRateLimit.maxRequests).toBe(5);
+      expect(config.loginRateLimit.windowSeconds).toBe(900);
     });
 
     it('uses strict register rate limits', () => {
@@ -75,7 +75,7 @@ describe('createAppConfig', () => {
       for (const value of values) {
         const config = createAppConfig(value);
         expect(config.isDevelopment).toBe(false);
-        expect(config.loginRateLimit.maxRequests).toBe(10);
+        expect(config.loginRateLimit.maxRequests).toBe(5);
       }
     });
   });
