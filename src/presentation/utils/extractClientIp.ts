@@ -1,7 +1,9 @@
 /**
- * Extracts the client IP address from a request using standard proxy headers.
+ * Extracts the client IP address from a Cloudflare Workers request.
  *
- * Priority: CF-Connecting-IP > X-Real-IP > X-Forwarded-For (first) > "unknown".
+ * Only trusts the CF-Connecting-IP header, which is set by Cloudflare's edge
+ * network and cannot be spoofed by clients. Headers like X-Real-IP and
+ * X-Forwarded-For are intentionally ignored because they can be forged.
  *
  * @param request - The incoming HTTP request
  * @returns The client IP address string, or "unknown" if not determinable
@@ -10,20 +12,6 @@ export function extractClientIp(request: Request): string {
   const cfIp = request.headers.get('CF-Connecting-IP');
   if (cfIp !== null) {
     return cfIp;
-  }
-
-  const realIp = request.headers.get('X-Real-IP');
-  if (realIp !== null) {
-    return realIp;
-  }
-
-  const forwardedFor = request.headers.get('X-Forwarded-For');
-  if (forwardedFor !== null) {
-    const firstIp = forwardedFor.split(',')[0];
-    /* istanbul ignore next -- split always returns at least one element */
-    if (firstIp !== undefined) {
-      return firstIp.trim();
-    }
   }
 
   return 'unknown';
