@@ -26,14 +26,43 @@ describe('buildCspHeaderValue', () => {
     expect(csp).toContain("form-action 'self'");
   });
 
-  it('includes script-src self', () => {
+  it('includes script-src self with CDN domains', () => {
     const csp = buildCspHeaderValue();
     expect(csp).toContain("script-src 'self'");
+    expect(csp).toContain('https://cdn.tailwindcss.com');
+    expect(csp).toContain('https://unpkg.com');
   });
 
-  it('includes style-src self with unsafe-inline for DaisyUI', () => {
+  it('includes style-src self with unsafe-inline and jsdelivr CDN', () => {
     const csp = buildCspHeaderValue();
-    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+    expect(csp).toContain("style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net");
+  });
+
+  it('allows cdn.tailwindcss.com in script-src', () => {
+    const csp = buildCspHeaderValue();
+    const scriptDirective = csp
+      .split(';')
+      .map((d) => d.trim())
+      .find((d) => d.startsWith('script-src'));
+    expect(scriptDirective).toContain('https://cdn.tailwindcss.com');
+  });
+
+  it('allows unpkg.com in script-src', () => {
+    const csp = buildCspHeaderValue();
+    const scriptDirective = csp
+      .split(';')
+      .map((d) => d.trim())
+      .find((d) => d.startsWith('script-src'));
+    expect(scriptDirective).toContain('https://unpkg.com');
+  });
+
+  it('allows cdn.jsdelivr.net in style-src', () => {
+    const csp = buildCspHeaderValue();
+    const styleDirective = csp
+      .split(';')
+      .map((d) => d.trim())
+      .find((d) => d.startsWith('style-src'));
+    expect(styleDirective).toContain('https://cdn.jsdelivr.net');
   });
 
   it('includes img-src self', () => {

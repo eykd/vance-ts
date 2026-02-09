@@ -42,12 +42,12 @@ export async function requireAuth(
   const sessionId = extractSessionIdFromCookies(cookieHeader);
 
   if (sessionId === null) {
-    return { type: 'redirect', response: buildLoginRedirect() };
+    return { type: 'redirect', response: buildLoginRedirect(request.url) };
   }
 
   const result = await deps.getCurrentUserUseCase.execute(sessionId);
   if (!result.success) {
-    return { type: 'redirect', response: buildLoginRedirect() };
+    return { type: 'redirect', response: buildLoginRedirect(request.url) };
   }
 
   return { type: 'authenticated', user: result.value };
@@ -56,11 +56,23 @@ export async function requireAuth(
 /**
  * Builds a 303 redirect response to the login page.
  *
+ * Preserves the original request path as a `redirectTo` query parameter
+ * so the login page can redirect back after successful authentication.
+ * Paths under `/auth/` are excluded to avoid redirect loops.
+ *
+ * @param requestUrl - The full URL of the original request
  * @returns A redirect Response with security headers
  */
-function buildLoginRedirect(): Response {
+function buildLoginRedirect(requestUrl: string): Response {
+  const { pathname } = new URL(requestUrl);
+
+  let location = '/auth/login';
+  if (!pathname.startsWith('/auth/')) {
+    location += `?redirectTo=${encodeURIComponent(pathname)}`;
+  }
+
   const headers = new Headers();
-  headers.set('Location', '/auth/login');
+  headers.set('Location', location);
   applySecurityHeaders(headers);
 
   return new Response(null, { status: 303, headers });

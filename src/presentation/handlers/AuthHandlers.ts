@@ -261,6 +261,15 @@ export class AuthHandlers {
    * @returns Redirect to login page with cleared cookies
    */
   async handlePostLogout(request: Request): Promise<Response> {
+    const form = await parseFormBody(request);
+    const formCsrf = getFormField(form, '_csrf');
+    const cookieCsrf = extractCsrfTokenFromCookies(request.headers.get('Cookie'));
+
+    const csrfResponse = validateDoubleSubmitCsrf(formCsrf, cookieCsrf);
+    if (csrfResponse !== null) {
+      return csrfResponse;
+    }
+
     const sessionId = extractSessionIdFromCookies(request.headers.get('Cookie')) ?? '';
     await this.logoutUseCase.execute(sessionId);
 

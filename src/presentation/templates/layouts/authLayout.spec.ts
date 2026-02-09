@@ -52,4 +52,35 @@ describe('authLayout', () => {
     expect(result).toContain('card');
     expect(result).toContain('<p>inner</p>');
   });
+
+  it('includes SRI integrity attributes on CDN resources', () => {
+    const result = authLayout({ title: 'Test', content: '' });
+    expect(result).toMatch(/daisyui.*integrity="sha384-[A-Za-z0-9+/=]+"/s);
+    expect(result).toMatch(/htmx.*integrity="sha384-[A-Za-z0-9+/=]+"/s);
+    expect(result).toMatch(/alpinejs.*integrity="sha384-[A-Za-z0-9+/=]+"/s);
+  });
+
+  it('includes crossorigin="anonymous" on CDN resources', () => {
+    const result = authLayout({ title: 'Test', content: '' });
+    expect(result).toMatch(/daisyui.*crossorigin="anonymous"/s);
+    expect(result).toMatch(/tailwindcss.*crossorigin="anonymous"/s);
+    expect(result).toMatch(/htmx\.org.*crossorigin="anonymous"/s);
+    expect(result).toMatch(/alpinejs.*crossorigin="anonymous"/s);
+  });
+
+  it('includes HTMX security config meta tag', () => {
+    const result = authLayout({ title: 'Test', content: '' });
+    expect(result).toContain('name="htmx-config"');
+  });
+
+  it('HTMX config disables script tags and eval', () => {
+    const result = authLayout({ title: 'Test', content: '' });
+    expect(result).toContain('"allowScriptTags":false');
+    expect(result).toContain('"allowEval":false');
+  });
+
+  it('HTMX config enables selfRequestsOnly', () => {
+    const result = authLayout({ title: 'Test', content: '' });
+    expect(result).toContain('"selfRequestsOnly":true');
+  });
 });

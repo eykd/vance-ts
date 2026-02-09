@@ -564,14 +564,30 @@ describe('AuthHandlers', () => {
   });
 
   describe('handlePostLogout', () => {
+    it('returns 403 when CSRF token is missing on logout', async () => {
+      const { handlers } = createHandlers();
+
+      const request = postRequest(
+        'https://example.com/auth/logout',
+        {},
+        { Cookie: '__Host-session=some-session-id' }
+      );
+
+      const response = await handlers.handlePostLogout(request);
+      expect(response.status).toBe(403);
+    });
+
     it('clears session and CSRF cookies', async () => {
       const { handlers, deps } = createHandlers();
       deps.logoutUseCase.execute.mockResolvedValue(ok(undefined));
 
-      const request = new Request('https://example.com/auth/logout', {
-        method: 'POST',
-        headers: { Cookie: '__Host-session=some-session-id' },
-      });
+      const request = postRequest(
+        'https://example.com/auth/logout',
+        {
+          _csrf: 'test-csrf-token',
+        },
+        { Cookie: '__Host-session=some-session-id; __Host-csrf=test-csrf-token' }
+      );
 
       const response = await handlers.handlePostLogout(request);
       const setCookie = response.headers.get('Set-Cookie') ?? '';
@@ -583,10 +599,13 @@ describe('AuthHandlers', () => {
       const { handlers, deps } = createHandlers();
       deps.logoutUseCase.execute.mockResolvedValue(ok(undefined));
 
-      const request = new Request('https://example.com/auth/logout', {
-        method: 'POST',
-        headers: { Cookie: '__Host-session=some-session-id' },
-      });
+      const request = postRequest(
+        'https://example.com/auth/logout',
+        {
+          _csrf: 'test-csrf-token',
+        },
+        { Cookie: '__Host-session=some-session-id; __Host-csrf=test-csrf-token' }
+      );
 
       const response = await handlers.handlePostLogout(request);
       expect(response.status).toBe(303);
@@ -597,8 +616,8 @@ describe('AuthHandlers', () => {
       const { handlers, deps } = createHandlers();
       deps.logoutUseCase.execute.mockResolvedValue(ok(undefined));
 
-      const request = new Request('https://example.com/auth/logout', {
-        method: 'POST',
+      const request = postRequest('https://example.com/auth/logout', {
+        _csrf: 'test-csrf-token',
       });
 
       const response = await handlers.handlePostLogout(request);
@@ -609,10 +628,13 @@ describe('AuthHandlers', () => {
       const { handlers, deps } = createHandlers();
       deps.logoutUseCase.execute.mockResolvedValue(ok(undefined));
 
-      const request = new Request('https://example.com/auth/logout', {
-        method: 'POST',
-        headers: { Cookie: '__Host-session=my-session-id' },
-      });
+      const request = postRequest(
+        'https://example.com/auth/logout',
+        {
+          _csrf: 'test-csrf-token',
+        },
+        { Cookie: '__Host-session=my-session-id; __Host-csrf=test-csrf-token' }
+      );
 
       await handlers.handlePostLogout(request);
       // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -623,8 +645,8 @@ describe('AuthHandlers', () => {
       const { handlers, deps } = createHandlers();
       deps.logoutUseCase.execute.mockResolvedValue(ok(undefined));
 
-      const request = new Request('https://example.com/auth/logout', {
-        method: 'POST',
+      const request = postRequest('https://example.com/auth/logout', {
+        _csrf: 'test-csrf-token',
       });
 
       await handlers.handlePostLogout(request);

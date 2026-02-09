@@ -3,8 +3,8 @@
  *
  * Directives:
  * - `default-src 'self'` — only same-origin by default
- * - `script-src 'self'` — no inline scripts (no `unsafe-inline`)
- * - `style-src 'self' 'unsafe-inline'` — allows DaisyUI/Tailwind inline styles
+ * - `script-src 'self' https://cdn.tailwindcss.com https://unpkg.com` — allows Tailwind CSS, HTMX, and Alpine.js CDN scripts
+ * - `style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net` — allows DaisyUI CDN stylesheet and inline styles
  * - `img-src 'self'` — same-origin images only
  * - `connect-src 'self'` — allows HTMX XHR to same origin
  * - `frame-ancestors 'none'` — prevents framing (clickjacking)
@@ -15,8 +15,8 @@
 export function buildCspHeaderValue(): string {
   return [
     "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self' https://cdn.tailwindcss.com https://unpkg.com",
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
     "img-src 'self'",
     "connect-src 'self'",
     "frame-ancestors 'none'",

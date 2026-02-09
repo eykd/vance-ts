@@ -24,10 +24,28 @@ export function authLayout(props: AuthLayoutProps): string {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <title>${props.title}</title>
-        <link href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css" rel="stylesheet" />
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script src="https://unpkg.com/htmx.org@2"></script>
-        <script defer src="https://unpkg.com/alpinejs@3"></script>
+        <link
+          href="https://cdn.jsdelivr.net/npm/daisyui@4/dist/full.min.css"
+          rel="stylesheet"
+          integrity="sha384-2V5uSMIWpBK7suX6yRDZH6ll7ktPJF2O58y0HSz+HiFCBCsmqZpxX1AZB4qAHuYI"
+          crossorigin="anonymous"
+        />
+        <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
+        <script
+          src="https://unpkg.com/htmx.org@2"
+          integrity="sha384-/TgkGk7p307TH7EXJDuUlgG3Ce1UVolAOFopFekQkkXihi5u/6OCvVKyz1W+idaz"
+          crossorigin="anonymous"
+        ></script>
+        <script
+          defer
+          src="https://unpkg.com/alpinejs@3"
+          integrity="sha384-LXWjKwDZz29o7TduNe+r/UxaolHh5FsSvy2W7bDHSZ8jJeGgDeuNnsDNHoxpSgDi"
+          crossorigin="anonymous"
+        ></script>
+        <meta
+          name="htmx-config"
+          content='{"selfRequestsOnly":true,"allowScriptTags":false,"allowEval":false}'
+        />
       </head>
       <body class="min-h-screen flex items-center justify-center bg-base-200">
         <div class="card w-full max-w-md bg-base-100 shadow-xl">

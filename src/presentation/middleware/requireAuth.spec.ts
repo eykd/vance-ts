@@ -38,7 +38,7 @@ describe('requireAuth', () => {
     expect(result).toEqual({ type: 'authenticated', user: mockUser });
   });
 
-  it('returns redirect to login when no session cookie', async () => {
+  it('returns redirect to login with redirectTo when no session cookie', async () => {
     const useCase = createMockUseCase();
 
     const request = new Request('https://example.com/dashboard');
@@ -47,11 +47,11 @@ describe('requireAuth', () => {
     expect(result.type).toBe('redirect');
     if (result.type === 'redirect') {
       expect(result.response.status).toBe(303);
-      expect(result.response.headers.get('Location')).toBe('/auth/login');
+      expect(result.response.headers.get('Location')).toBe('/auth/login?redirectTo=%2Fdashboard');
     }
   });
 
-  it('returns redirect to login when session is invalid', async () => {
+  it('returns redirect to login with redirectTo when session is invalid', async () => {
     const useCase = createMockUseCase();
     useCase.execute.mockResolvedValue(err(new UnauthorizedError('Invalid session')));
 
@@ -63,7 +63,7 @@ describe('requireAuth', () => {
     expect(result.type).toBe('redirect');
     if (result.type === 'redirect') {
       expect(result.response.status).toBe(303);
-      expect(result.response.headers.get('Location')).toBe('/auth/login');
+      expect(result.response.headers.get('Location')).toBe('/auth/login?redirectTo=%2Fdashboard');
     }
   });
 
@@ -78,6 +78,19 @@ describe('requireAuth', () => {
     await requireAuth(request, { getCurrentUserUseCase: useCase });
     // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(useCase.execute).toHaveBeenCalledWith('my-sess-id');
+  });
+
+  it('omits redirectTo when request URL is under /auth/', async () => {
+    const useCase = createMockUseCase();
+
+    const request = new Request('https://example.com/auth/register');
+
+    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
+    expect(result.type).toBe('redirect');
+    if (result.type === 'redirect') {
+      expect(result.response.status).toBe(303);
+      expect(result.response.headers.get('Location')).toBe('/auth/login');
+    }
   });
 
   it('redirect response includes security headers', async () => {
