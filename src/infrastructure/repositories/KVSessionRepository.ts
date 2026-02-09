@@ -1,5 +1,6 @@
 import { Session } from '../../domain/entities/Session';
 import type { SessionRepository } from '../../domain/interfaces/SessionRepository';
+import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
 import { CsrfToken } from '../../domain/value-objects/CsrfToken';
 import { SessionId } from '../../domain/value-objects/SessionId';
 import { UserId } from '../../domain/value-objects/UserId';
@@ -63,10 +64,11 @@ function toDomain(record: SessionRecord): Session {
  * Calculates the TTL in seconds from an expiry timestamp.
  *
  * @param expiresAt - UTC ISO 8601 expiry timestamp
+ * @param nowMs - Current time in milliseconds since epoch
  * @returns TTL in seconds, minimum 1
  */
-function calculateTtl(expiresAt: string): number {
-  const ttl = Math.ceil((Date.parse(expiresAt) - Date.now()) / 1000);
+function calculateTtl(expiresAt: string, nowMs: number): number {
+  const ttl = Math.ceil((Date.parse(expiresAt) - nowMs) / 1000);
   return Math.max(1, ttl);
 }
 
@@ -81,18 +83,21 @@ function calculateTtl(expiresAt: string): number {
  * - `user_sessions:{userId}` - Array of session IDs (JSON)
  */
 export class KVSessionRepository implements SessionRepository {
-  /** TTL for the user session index, matching max session duration (24 hours). */
+  /** TTL for the user session index during delete operations (24 hours). */
   private static readonly INDEX_TTL_SECONDS = 86400;
 
   private readonly kv: KVNamespace;
+  private readonly timeProvider: TimeProvider;
 
   /**
    * Creates a new KVSessionRepository.
    *
    * @param kv - The KV namespace binding
+   * @param timeProvider - Provides the current time for deterministic testing
    */
-  constructor(kv: KVNamespace) {
+  constructor(kv: KVNamespace, timeProvider: TimeProvider) {
     this.kv = kv;
+    this.timeProvider = timeProvider;
   }
 
   /**
@@ -124,17 +129,17 @@ export class KVSessionRepository implements SessionRepository {
   /**
    * Persists a Session entity with TTL-based expiration.
    *
-   * Also updates the user-to-sessions index.
+   * Also updates the user-to-sessions index with the same TTL as the session.
    *
    * @param session - The Session entity to save
    */
   async save(session: Session): Promise<void> {
     const key = `session:${session.sessionId.toString()}`;
     const record = toRecord(session);
-    const ttl = calculateTtl(session.expiresAt);
+    const ttl = calculateTtl(session.expiresAt, this.timeProvider.now());
 
     await this.kv.put(key, JSON.stringify(record), { expirationTtl: ttl });
-    await this.addToUserIndex(session.userId.toString(), session.sessionId.toString());
+    await this.addToUserIndex(session.userId.toString(), session.sessionId.toString(), ttl);
   }
 
   /**
@@ -205,7 +210,7 @@ export class KVSessionRepository implements SessionRepository {
     try {
       const record = JSON.parse(raw) as SessionRecord;
       const updatedRecord: SessionRecord = { ...record, lastActivityAt: now };
-      const ttl = calculateTtl(record.expiresAt);
+      const ttl = calculateTtl(record.expiresAt, this.timeProvider.now());
 
       await this.kv.put(key, JSON.stringify(updatedRecord), { expirationTtl: ttl });
     } catch {
@@ -219,8 +224,9 @@ export class KVSessionRepository implements SessionRepository {
    *
    * @param userId - The user ID string
    * @param sessionId - The session ID string to add
+   * @param ttl - TTL in seconds, matching the session's expiration
    */
-  private async addToUserIndex(userId: string, sessionId: string): Promise<void> {
+  private async addToUserIndex(userId: string, sessionId: string, ttl: number): Promise<void> {
     const indexKey = `user_sessions:${userId}`;
     const raw = await this.kv.get(indexKey);
 
@@ -238,7 +244,7 @@ export class KVSessionRepository implements SessionRepository {
     }
 
     await this.kv.put(indexKey, JSON.stringify(sessionIds), {
-      expirationTtl: KVSessionRepository.INDEX_TTL_SECONDS,
+      expirationTtl: ttl,
     });
   }
 

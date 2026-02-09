@@ -4,6 +4,7 @@ import type {
   RateLimitResult,
   RateLimiter,
 } from '../../domain/interfaces/RateLimiter';
+import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
 import type { KVNamespace } from '../types/CloudflareTypes';
 
 /**
@@ -32,16 +33,19 @@ interface RateLimitState {
 export class KVRateLimiter implements RateLimiter {
   private readonly kv: KVNamespace;
   private readonly logger: Logger;
+  private readonly timeProvider: TimeProvider;
 
   /**
    * Creates a new KVRateLimiter.
    *
    * @param kv - The KV namespace binding
    * @param logger - Logger for warning on KV failures
+   * @param timeProvider - Provides the current time for deterministic testing
    */
-  constructor(kv: KVNamespace, logger: Logger) {
+  constructor(kv: KVNamespace, logger: Logger, timeProvider: TimeProvider) {
     this.kv = kv;
     this.logger = logger;
+    this.timeProvider = timeProvider;
   }
 
   /**
@@ -67,7 +71,7 @@ export class KVRateLimiter implements RateLimiter {
     config: RateLimitConfig
   ): Promise<RateLimitResult> {
     const key = `ratelimit:${action}:${identifier}`;
-    const now = Date.now();
+    const now = this.timeProvider.now();
 
     let state: RateLimitState;
     try {

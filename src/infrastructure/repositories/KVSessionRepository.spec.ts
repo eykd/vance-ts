@@ -1,4 +1,5 @@
 import { Session } from '../../domain/entities/Session';
+import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
 import { CsrfToken } from '../../domain/value-objects/CsrfToken';
 import { SessionId } from '../../domain/value-objects/SessionId';
 import { UserId } from '../../domain/value-objects/UserId';
@@ -8,6 +9,7 @@ import { KVSessionRepository } from './KVSessionRepository';
 
 /** Fixed test timestamps. */
 const NOW = '2025-06-01T00:00:00.000Z';
+const NOW_MS = Date.parse(NOW);
 const EXPIRES = '2025-06-02T00:00:00.000Z';
 const SESSION_ID = '550e8400-e29b-41d4-a716-446655440000';
 const USER_ID = '660e8400-e29b-41d4-a716-446655440000';
@@ -66,22 +68,21 @@ function createMockKV(): KVNamespace & {
   };
 }
 
+/**
+ * Creates a mock TimeProvider returning a fixed timestamp.
+ *
+ * @param time - The fixed timestamp to return
+ * @returns A mock TimeProvider
+ */
+function createMockTimeProvider(time: number = NOW_MS): TimeProvider {
+  return { now: jest.fn().mockReturnValue(time) };
+}
+
 describe('KVSessionRepository', () => {
-  let dateNowSpy: jest.SpyInstance;
-
-  beforeEach(() => {
-    // Fix Date.now to 2025-06-01T00:00:00.000Z (1748736000000)
-    dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(Date.parse(NOW));
-  });
-
-  afterEach(() => {
-    dateNowSpy.mockRestore();
-  });
-
   describe('save', () => {
     it('stores session JSON with correct key and TTL', async () => {
       const kv = createMockKV();
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const session = createTestSession();
 
       await repo.save(session);
@@ -93,9 +94,9 @@ describe('KVSessionRepository', () => {
       );
     });
 
-    it('updates user session index', async () => {
+    it('updates user session index with session TTL', async () => {
       const kv = createMockKV();
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const session = createTestSession();
 
       await repo.save(session);
@@ -117,7 +118,7 @@ describe('KVSessionRepository', () => {
         }
         return Promise.resolve(null);
       });
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const session = createTestSession();
 
       await repo.save(session);
@@ -137,7 +138,7 @@ describe('KVSessionRepository', () => {
         }
         return Promise.resolve(null);
       });
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const session = createTestSession();
 
       await repo.save(session);
@@ -157,7 +158,7 @@ describe('KVSessionRepository', () => {
         }
         return Promise.resolve(null);
       });
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const session = createTestSession();
 
       await repo.save(session);
@@ -171,13 +172,13 @@ describe('KVSessionRepository', () => {
 
     it('uses minimum TTL of 1 when session is nearly expired', async () => {
       const kv = createMockKV();
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       // Session that expires 100ms from now
       const nearlyExpired = Session.reconstitute({
         sessionId: SessionId.fromString(SESSION_ID),
         userId: UserId.fromString(USER_ID),
         csrfToken: CsrfToken.fromString(CSRF_TOKEN),
-        expiresAt: new Date(Date.parse(NOW) + 100).toISOString(),
+        expiresAt: new Date(NOW_MS + 100).toISOString(),
         lastActivityAt: NOW,
         ipAddress: '192.168.1.1',
         userAgent: 'TestAgent/1.0',
@@ -190,13 +191,38 @@ describe('KVSessionRepository', () => {
       const options = putCall?.[2] as { expirationTtl: number } | undefined;
       expect(options?.expirationTtl).toBe(1);
     });
+
+    it('uses session TTL for user index instead of static value', async () => {
+      const kv = createMockKV();
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
+      // Session that expires in 2 hours (7200 seconds)
+      const shortSession = Session.reconstitute({
+        sessionId: SessionId.fromString(SESSION_ID),
+        userId: UserId.fromString(USER_ID),
+        csrfToken: CsrfToken.fromString(CSRF_TOKEN),
+        expiresAt: new Date(NOW_MS + 7200000).toISOString(),
+        lastActivityAt: NOW,
+        ipAddress: '192.168.1.1',
+        userAgent: 'TestAgent/1.0',
+        createdAt: NOW,
+      });
+
+      await repo.save(shortSession);
+
+      // User index TTL should match the session TTL (7200), not static 86400
+      expect(kv.put).toHaveBeenCalledWith(
+        `user_sessions:${USER_ID}`,
+        JSON.stringify([SESSION_ID]),
+        { expirationTtl: 7200 }
+      );
+    });
   });
 
   describe('findById', () => {
     it('returns a Session when found', async () => {
       const kv = createMockKV();
       kv.get.mockResolvedValue(JSON.stringify(createTestRecord()));
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
 
       const session = await repo.findById(id);
@@ -216,7 +242,7 @@ describe('KVSessionRepository', () => {
 
     it('returns null when not found', async () => {
       const kv = createMockKV();
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
 
       const session = await repo.findById(id);
@@ -227,7 +253,7 @@ describe('KVSessionRepository', () => {
     it('returns null and cleans up corrupt data', async () => {
       const kv = createMockKV();
       kv.get.mockResolvedValue('not-valid-json');
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
 
       const session = await repo.findById(id);
@@ -250,7 +276,7 @@ describe('KVSessionRepository', () => {
         }
         return Promise.resolve(null);
       });
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
 
       await repo.delete(id);
@@ -262,7 +288,7 @@ describe('KVSessionRepository', () => {
 
     it('handles non-existent session gracefully', async () => {
       const kv = createMockKV();
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
 
       await repo.delete(id);
@@ -282,7 +308,7 @@ describe('KVSessionRepository', () => {
         }
         return Promise.resolve(null);
       });
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
 
       await repo.delete(id);
@@ -297,7 +323,7 @@ describe('KVSessionRepository', () => {
     it('handles corrupt session data during delete', async () => {
       const kv = createMockKV();
       kv.get.mockResolvedValue('not-valid-json');
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
 
       await repo.delete(id);
@@ -315,7 +341,7 @@ describe('KVSessionRepository', () => {
         // user_sessions index returns null
         return Promise.resolve(null);
       });
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
 
       await repo.delete(id);
@@ -334,7 +360,7 @@ describe('KVSessionRepository', () => {
         }
         return Promise.resolve(null);
       });
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
 
       await repo.delete(id);
@@ -354,7 +380,7 @@ describe('KVSessionRepository', () => {
         }
         return Promise.resolve(null);
       });
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const userId = UserId.fromString(USER_ID);
 
       await repo.deleteAllForUser(userId);
@@ -366,7 +392,7 @@ describe('KVSessionRepository', () => {
 
     it('handles empty user index', async () => {
       const kv = createMockKV();
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const userId = UserId.fromString(USER_ID);
 
       await repo.deleteAllForUser(userId);
@@ -377,7 +403,7 @@ describe('KVSessionRepository', () => {
     it('handles corrupt user index', async () => {
       const kv = createMockKV();
       kv.get.mockResolvedValue('not-valid-json');
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const userId = UserId.fromString(USER_ID);
 
       await repo.deleteAllForUser(userId);
@@ -390,7 +416,7 @@ describe('KVSessionRepository', () => {
     it('updates lastActivityAt and re-saves with TTL', async () => {
       const kv = createMockKV();
       kv.get.mockResolvedValue(JSON.stringify(createTestRecord()));
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
       const newNow = '2025-06-01T01:00:00.000Z';
 
@@ -404,7 +430,7 @@ describe('KVSessionRepository', () => {
 
     it('no-ops when session does not exist', async () => {
       const kv = createMockKV();
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
 
       await repo.updateActivity(id, NOW);
@@ -415,7 +441,7 @@ describe('KVSessionRepository', () => {
     it('cleans up corrupt session data', async () => {
       const kv = createMockKV();
       kv.get.mockResolvedValue('not-valid-json');
-      const repo = new KVSessionRepository(kv);
+      const repo = new KVSessionRepository(kv, createMockTimeProvider());
       const id = SessionId.fromString(SESSION_ID);
 
       await repo.updateActivity(id, NOW);

@@ -1,5 +1,6 @@
 import type { Logger } from '../../domain/interfaces/Logger';
 import type { RateLimitConfig } from '../../domain/interfaces/RateLimiter';
+import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
 import type { KVNamespace } from '../types/CloudflareTypes';
 
 import { KVRateLimiter } from './KVRateLimiter';
@@ -43,6 +44,16 @@ function createMockLogger(): {
   return { logger, warnMock };
 }
 
+/**
+ * Creates a mock TimeProvider returning a fixed timestamp.
+ *
+ * @param time - The fixed timestamp to return
+ * @returns A mock TimeProvider
+ */
+function createMockTimeProvider(time: number = BASE_TIME): TimeProvider {
+  return { now: jest.fn().mockReturnValue(time) };
+}
+
 /** Standard test config: 5 requests per 60s window. */
 const TEST_CONFIG: RateLimitConfig = {
   maxRequests: 5,
@@ -57,21 +68,11 @@ const BLOCK_CONFIG: RateLimitConfig = {
 };
 
 describe('KVRateLimiter', () => {
-  let dateNowSpy: jest.SpyInstance;
-
-  beforeEach(() => {
-    dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(BASE_TIME);
-  });
-
-  afterEach(() => {
-    dateNowSpy.mockRestore();
-  });
-
   describe('checkLimit', () => {
     it('allows first request with correct remaining count', async () => {
       const kv = createMockKV();
       const { logger } = createMockLogger();
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', TEST_CONFIG);
 
@@ -91,7 +92,7 @@ describe('KVRateLimiter', () => {
       const { logger } = createMockLogger();
       const existingRequests = [BASE_TIME - 10000, BASE_TIME - 5000];
       kv.get.mockResolvedValue(JSON.stringify({ requests: existingRequests, blockedUntil: null }));
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', TEST_CONFIG);
 
@@ -110,7 +111,7 @@ describe('KVRateLimiter', () => {
         BASE_TIME - 5000,
       ];
       kv.get.mockResolvedValue(JSON.stringify({ requests: existingRequests, blockedUntil: null }));
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', TEST_CONFIG);
 
@@ -131,7 +132,7 @@ describe('KVRateLimiter', () => {
         BASE_TIME - 10000, // 10s ago — inside window
       ];
       kv.get.mockResolvedValue(JSON.stringify({ requests: existingRequests, blockedUntil: null }));
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', TEST_CONFIG);
 
@@ -145,7 +146,7 @@ describe('KVRateLimiter', () => {
       const { logger } = createMockLogger();
       const existingRequests = [BASE_TIME - 30000, BASE_TIME - 20000, BASE_TIME - 10000];
       kv.get.mockResolvedValue(JSON.stringify({ requests: existingRequests, blockedUntil: null }));
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', BLOCK_CONFIG);
 
@@ -163,7 +164,7 @@ describe('KVRateLimiter', () => {
       const kv = createMockKV();
       const { logger } = createMockLogger();
       kv.get.mockResolvedValue(JSON.stringify({ requests: [], blockedUntil: BASE_TIME + 200000 }));
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', BLOCK_CONFIG);
 
@@ -177,7 +178,7 @@ describe('KVRateLimiter', () => {
       const { logger } = createMockLogger();
       // Block expired 1 second ago
       kv.get.mockResolvedValue(JSON.stringify({ requests: [], blockedUntil: BASE_TIME - 1000 }));
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', BLOCK_CONFIG);
 
@@ -189,7 +190,7 @@ describe('KVRateLimiter', () => {
       const kv = createMockKV();
       const { logger, warnMock } = createMockLogger();
       kv.get.mockRejectedValue(new Error('KV unavailable'));
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', TEST_CONFIG);
 
@@ -205,7 +206,7 @@ describe('KVRateLimiter', () => {
       const kv = createMockKV();
       const { logger, warnMock } = createMockLogger();
       kv.get.mockRejectedValue(new Error('KV unavailable'));
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
       const failClosedConfig: RateLimitConfig = { ...TEST_CONFIG, failClosed: true };
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', failClosedConfig);
@@ -223,7 +224,7 @@ describe('KVRateLimiter', () => {
       const kv = createMockKV();
       const { logger, warnMock } = createMockLogger();
       kv.put.mockRejectedValue(new Error('KV write failed'));
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', TEST_CONFIG);
 
@@ -238,7 +239,7 @@ describe('KVRateLimiter', () => {
       const kv = createMockKV();
       const { logger } = createMockLogger();
       kv.get.mockResolvedValue('not-valid-json');
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', TEST_CONFIG);
 
@@ -250,7 +251,7 @@ describe('KVRateLimiter', () => {
       const kv = createMockKV();
       const { logger } = createMockLogger();
       kv.get.mockResolvedValue(JSON.stringify({ blockedUntil: null }));
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', TEST_CONFIG);
 
@@ -264,7 +265,7 @@ describe('KVRateLimiter', () => {
       const existingRequests = [BASE_TIME - 30000, BASE_TIME - 20000, BASE_TIME - 10000];
       kv.get.mockResolvedValue(JSON.stringify({ requests: existingRequests, blockedUntil: null }));
       kv.put.mockRejectedValue(new Error('KV write failed'));
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       const result = await limiter.checkLimit('127.0.0.1', 'login', BLOCK_CONFIG);
 
@@ -280,7 +281,7 @@ describe('KVRateLimiter', () => {
     it('clears state for identifier and action', async () => {
       const kv = createMockKV();
       const { logger } = createMockLogger();
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       await limiter.reset('127.0.0.1', 'login');
 
@@ -290,7 +291,7 @@ describe('KVRateLimiter', () => {
     it('allows requests after reset', async () => {
       const kv = createMockKV();
       const { logger } = createMockLogger();
-      const limiter = new KVRateLimiter(kv, logger);
+      const limiter = new KVRateLimiter(kv, logger, createMockTimeProvider());
 
       // First, reset
       await limiter.reset('127.0.0.1', 'login');
