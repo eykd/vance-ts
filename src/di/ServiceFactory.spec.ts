@@ -1,5 +1,5 @@
-import type { AppConfig } from '../config/EnvironmentConfig';
-import { createAppConfig } from '../config/EnvironmentConfig';
+import type { AppConfig } from '../application/config/EnvironmentConfig';
+import { createAppConfig } from '../application/config/EnvironmentConfig';
 import type { D1Database, KVNamespace } from '../infrastructure/types/CloudflareTypes';
 import type { Env } from '../infrastructure/types/Env';
 

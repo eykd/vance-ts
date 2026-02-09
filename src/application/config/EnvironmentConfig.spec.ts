@@ -1,4 +1,7 @@
-import { DEFAULT_COOKIE_OPTIONS, DEV_COOKIE_OPTIONS } from '../infrastructure/types/CookieOptions';
+import {
+  DEFAULT_COOKIE_OPTIONS,
+  DEV_COOKIE_OPTIONS,
+} from '../../infrastructure/types/CookieOptions';
 
 import { createAppConfig } from './EnvironmentConfig';
 

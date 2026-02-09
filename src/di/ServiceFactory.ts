@@ -1,9 +1,9 @@
+import { createAppConfig } from '../application/config/EnvironmentConfig';
+import type { AppConfig } from '../application/config/EnvironmentConfig';
 import { GetCurrentUserUseCase } from '../application/use-cases/GetCurrentUserUseCase';
 import { LoginUseCase } from '../application/use-cases/LoginUseCase';
 import { LogoutUseCase } from '../application/use-cases/LogoutUseCase';
 import { RegisterUseCase } from '../application/use-cases/RegisterUseCase';
-import { createAppConfig } from '../config/EnvironmentConfig';
-import type { AppConfig } from '../config/EnvironmentConfig';
 import type { Logger } from '../domain/interfaces/Logger';
 import type { PasswordHasher } from '../domain/interfaces/PasswordHasher';
 import type { RateLimiter } from '../domain/interfaces/RateLimiter';
