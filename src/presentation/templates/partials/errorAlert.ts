@@ -1,4 +1,4 @@
-import { escapeHtml, html } from '../../utils/html';
+import { html } from '../../utils/html';
 
 /**
  * Renders a DaisyUI error alert component.
@@ -23,6 +23,6 @@ export function fieldErrors(errors: string[] | undefined): string {
     return '';
   }
 
-  const items = errors.map((e) => `<li class="text-error text-sm">${escapeHtml(e)}</li>`).join('');
+  const items = errors.map((e) => html`<li class="text-error text-sm">${e}</li>`).join('');
   return `<ul class="mt-1">${items}</ul>`;
 }
