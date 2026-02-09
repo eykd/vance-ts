@@ -121,4 +121,61 @@ describe('GetCurrentUserUseCase', () => {
       expect(result.value.lastLoginAt).toBeNull();
     }
   });
+
+  describe('session activity refresh', () => {
+    it('updates activity when session needs refresh', async () => {
+      // Default lastActivityAt is '2025-01-15T00:00:00.000Z', fixedTime is '2025-06-15T10:30:00.000Z'
+      // That's well over 5 minutes, so needsRefresh should be true
+      const user = new UserBuilder().withId(USER_ID).build();
+      const session = new SessionBuilder().withSessionId(SESSION_ID).withUserId(USER_ID).build();
+      userRepository.addUser(user);
+      sessionRepository.addSession(session);
+
+      await useCase.execute(SESSION_ID);
+
+      const updatedSession = sessionRepository.getById(SESSION_ID);
+      expect(updatedSession?.lastActivityAt).toBe('2025-06-15T10:30:00.000Z');
+    });
+
+    it('does not update activity when session was recently active', async () => {
+      const user = new UserBuilder().withId(USER_ID).build();
+      // Set lastActivityAt to 1 minute before fixedTime (within 5 min threshold)
+      const recentActivity = new Date(fixedTime - 60_000).toISOString();
+      const session = new SessionBuilder()
+        .withSessionId(SESSION_ID)
+        .withUserId(USER_ID)
+        .withLastActivity(recentActivity)
+        .build();
+      userRepository.addUser(user);
+      sessionRepository.addSession(session);
+
+      await useCase.execute(SESSION_ID);
+
+      const updatedSession = sessionRepository.getById(SESSION_ID);
+      expect(updatedSession?.lastActivityAt).toBe(recentActivity);
+    });
+
+    it('still returns user data even if activity update fails', async () => {
+      const user = new UserBuilder().withId(USER_ID).withEmail('alice@example.com').build();
+      const session = new SessionBuilder().withSessionId(SESSION_ID).withUserId(USER_ID).build();
+      userRepository.addUser(user);
+      sessionRepository.addSession(session);
+
+      // Make updateActivity throw
+      const originalUpdateActivity = sessionRepository.updateActivity.bind(sessionRepository);
+      sessionRepository.updateActivity = (): Promise<void> =>
+        Promise.reject(new Error('KV failure'));
+
+      const result = await useCase.execute(SESSION_ID);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.value.id).toBe(USER_ID);
+        expect(result.value.email).toBe('alice@example.com');
+      }
+
+      // Restore
+      sessionRepository.updateActivity = originalUpdateActivity;
+    });
+  });
 });

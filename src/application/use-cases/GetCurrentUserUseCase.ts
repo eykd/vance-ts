@@ -53,7 +53,8 @@ export class GetCurrentUserUseCase {
       return err(new UnauthorizedError('Invalid session'));
     }
 
-    const nowIso = new Date(this.timeProvider.now()).toISOString();
+    const nowMs = this.timeProvider.now();
+    const nowIso = new Date(nowMs).toISOString();
     if (session.isExpired(nowIso)) {
       return err(new UnauthorizedError('Session expired'));
     }
@@ -61,6 +62,16 @@ export class GetCurrentUserUseCase {
     const user = await this.userRepository.findById(session.userId);
     if (user === null) {
       return err(new UnauthorizedError('Invalid session'));
+    }
+
+    // Refresh session activity if needed (non-blocking, fire-and-forget)
+    const lastActivityMs = new Date(session.lastActivityAt).getTime();
+    const elapsedMs = nowMs - lastActivityMs;
+    if (session.needsRefresh(elapsedMs)) {
+      void this.sessionRepository.updateActivity(session.sessionId, nowIso).catch(
+        /* istanbul ignore next -- fire-and-forget error suppression */
+        () => {}
+      );
     }
 
     return ok({
