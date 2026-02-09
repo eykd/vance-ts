@@ -51,9 +51,9 @@ export class AuthHandlers {
    * @param logoutUseCase - Use case for terminating sessions
    * @param rateLimiter - Service for rate limiting requests
    * @param logger - Logger for security and error events
-   * @param cookieOptions - Cookie naming and security options
    * @param loginRateLimit - Rate limit config for login attempts
    * @param registerRateLimit - Rate limit config for registration attempts
+   * @param cookieOptions - Cookie naming and security options
    */
   constructor(
     loginUseCase: LoginUseCase,
@@ -61,9 +61,9 @@ export class AuthHandlers {
     logoutUseCase: LogoutUseCase,
     rateLimiter: RateLimiter,
     logger: Logger,
-    cookieOptions: CookieOptions = DEFAULT_COOKIE_OPTIONS,
     loginRateLimit: RateLimitConfig,
-    registerRateLimit: RateLimitConfig
+    registerRateLimit: RateLimitConfig,
+    cookieOptions: CookieOptions = DEFAULT_COOKIE_OPTIONS
   ) {
     this.loginUseCase = loginUseCase;
     this.registerUseCase = registerUseCase;

@@ -108,7 +108,6 @@ function createHandlers(overrides?: Partial<TestDeps>): { handlers: AuthHandlers
     deps.logoutUseCase,
     deps.rateLimiter,
     deps.logger,
-    undefined,
     TEST_LOGIN_RATE_LIMIT,
     TEST_REGISTER_RATE_LIMIT
   );

@@ -188,9 +188,9 @@ export class ServiceFactory {
       this.logoutUseCase,
       this.rateLimiter,
       this.logger,
-      this.cookieOptions,
       this.config.loginRateLimit,
-      this.config.registerRateLimit
+      this.config.registerRateLimit,
+      this.cookieOptions
     );
     return this._authHandlers;
   }
