@@ -19,7 +19,13 @@ const ESCAPE_REGEX = /[&<>"']/g;
 export function escapeHtml(str: string): string {
   return str.replace(
     ESCAPE_REGEX,
-    /* istanbul ignore next -- regex only matches keys present in ESCAPE_MAP */
+    /**
+     * Defensive fallback: the regex `/[&<>"']/g` only matches characters
+     * present as keys in ESCAPE_MAP, so `ESCAPE_MAP[char]` always resolves.
+     * The `?? char` satisfies TypeScript's `noUncheckedIndexedAccess` and
+     * guards against future regex/map divergence.
+     */
+    /* istanbul ignore next -- guaranteed by regex constraint */
     (char) => ESCAPE_MAP[char] ?? char
   );
 }

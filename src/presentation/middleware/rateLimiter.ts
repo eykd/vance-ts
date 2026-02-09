@@ -1,5 +1,6 @@
 import type { Logger } from '../../domain/interfaces/Logger';
 import type { RateLimitConfig, RateLimiter } from '../../domain/interfaces/RateLimiter';
+import { rateLimitPage } from '../templates/pages/errorPages';
 import { extractClientIp } from '../utils/extractClientIp';
 import { htmlResponse } from '../utils/htmlResponse';
 
@@ -46,5 +47,5 @@ export async function checkRateLimit(
   const headers = new Headers();
   headers.set('Retry-After', String(retryAfter));
 
-  return htmlResponse('<h1>Too Many Requests</h1><p>Please try again later.</p>', 429, headers);
+  return htmlResponse(rateLimitPage(), 429, headers);
 }

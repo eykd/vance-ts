@@ -8,6 +8,7 @@ import type { RateLimitConfig, RateLimiter } from '../../domain/interfaces/RateL
 import { CsrfToken } from '../../domain/value-objects/CsrfToken';
 import { validateDoubleSubmitCsrf } from '../middleware/csrfProtection';
 import { checkRateLimit } from '../middleware/rateLimiter';
+import { rateLimitPage } from '../templates/pages/errorPages';
 import { loginPage } from '../templates/pages/login';
 import { registerPage } from '../templates/pages/register';
 import {
@@ -150,11 +151,7 @@ export class AuthHandlers {
       if (error instanceof RateLimitError) {
         const headers = new Headers();
         headers.set('Retry-After', String(error.retryAfter));
-        return htmlResponse(
-          '<h1>Too Many Requests</h1><p>Please try again later.</p>',
-          429,
-          headers
-        );
+        return htmlResponse(rateLimitPage(), 429, headers);
       }
 
       this.logger.security('login_failed', { ip, action: 'login' });

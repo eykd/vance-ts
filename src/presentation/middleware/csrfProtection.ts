@@ -1,4 +1,5 @@
 import { constantTimeEqual } from '../../domain/value-objects/constant-time-equal';
+import { forbiddenPage } from '../templates/pages/errorPages';
 import { htmlResponse } from '../utils/htmlResponse';
 
 /**
@@ -16,11 +17,11 @@ export function validateDoubleSubmitCsrf(
   cookieToken: string | null
 ): Response | null {
   if (formToken === null || cookieToken === null) {
-    return htmlResponse('<h1>Forbidden</h1><p>Invalid CSRF token.</p>', 403);
+    return htmlResponse(forbiddenPage(), 403);
   }
 
   if (!constantTimeEqual(formToken, cookieToken)) {
-    return htmlResponse('<h1>Forbidden</h1><p>Invalid CSRF token.</p>', 403);
+    return htmlResponse(forbiddenPage(), 403);
   }
 
   return null;

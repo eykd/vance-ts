@@ -73,7 +73,12 @@ function parseCookie(cookieHeader: string | null, name: string): string | null {
   const pairs = cookieHeader.split(';');
   for (const pair of pairs) {
     const [key, ...rest] = pair.split('=');
-    /* istanbul ignore next -- split always returns at least one element */
+    /**
+     * `String.prototype.split()` is guaranteed by the ECMAScript specification
+     * to return an array with at least one element, so `key` is always defined.
+     * The optional chain (`?.`) satisfies TypeScript's `noUncheckedIndexedAccess`.
+     */
+    /* istanbul ignore next -- guaranteed by ECMAScript spec */
     if (key?.trim() === name) {
       const value = rest.join('=').trim();
       return value === '' ? null : value;

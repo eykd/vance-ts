@@ -63,7 +63,12 @@ export async function requireAuth(
  * @returns True if the path is safe for redirect
  */
 function isSafeRedirectPath(pathname: string): boolean {
-  /* istanbul ignore next -- URL.pathname always starts with '/', defensive guard */
+  /**
+   * Per the URL specification, `URL.pathname` always starts with '/' for
+   * HTTP(S) URLs, making this branch unreachable in practice. The defensive
+   * guard prevents an open redirect if the assumption ever breaks.
+   */
+  /* istanbul ignore next -- guaranteed by URL spec for HTTP(S) */
   if (!pathname.startsWith('/')) {
     return false;
   }
