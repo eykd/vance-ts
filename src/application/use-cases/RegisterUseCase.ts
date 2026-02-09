@@ -79,13 +79,14 @@ export class RegisterUseCase {
       throw error;
     }
 
-    const emailTaken = await this.userRepository.emailExists(email);
+    const userId = UserId.generate();
+    const [emailTaken, hashedPassword] = await Promise.all([
+      this.userRepository.emailExists(email),
+      this.passwordHasher.hash(request.password),
+    ]);
     if (emailTaken) {
       return err(new ConflictError('Email is already registered'));
     }
-
-    const userId = UserId.generate();
-    const hashedPassword = await this.passwordHasher.hash(request.password);
     const now = this.timeProvider.now();
     const nowIso = new Date(now).toISOString();
 

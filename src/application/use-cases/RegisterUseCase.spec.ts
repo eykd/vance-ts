@@ -201,6 +201,27 @@ describe('RegisterUseCase', () => {
     }
   });
 
+  it('performs password hash even when email is already taken (timing attack prevention)', async () => {
+    const { useCase, userRepository, passwordHasher } = createRegisterUseCaseDeps();
+    const email = Email.create(VALID_EMAIL);
+    const userId = UserId.generate();
+    const existingUser = User.create({
+      id: userId,
+      email,
+      passwordHash: 'hashed:existing',
+      now: FIXED_ISO,
+    });
+    userRepository.addUser(existingUser);
+
+    await useCase.execute({
+      email: VALID_EMAIL,
+      password: VALID_PASSWORD,
+      confirmPassword: VALID_PASSWORD,
+    });
+
+    expect(passwordHasher.hashCalls).toEqual([VALID_PASSWORD]);
+  });
+
   it('checks password mismatch before email validation', async () => {
     const { useCase } = createRegisterUseCaseDeps();
 
