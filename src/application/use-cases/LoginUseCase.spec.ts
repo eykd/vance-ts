@@ -1,12 +1,12 @@
-import type { User } from '../../domain/entities/User';
 import { UnauthorizedError } from '../../domain/errors/UnauthorizedError';
 import { ValidationError } from '../../domain/errors/ValidationError';
 import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
 import { UserBuilder } from '../../test-utils/builders/UserBuilder';
+import { makeLoginRequest } from '../../test-utils/factories/loginRequestFactory';
+import { makeUser } from '../../test-utils/factories/userFactory';
 import { MockPasswordHasher } from '../../test-utils/mocks/MockPasswordHasher';
 import { MockSessionRepository } from '../../test-utils/mocks/MockSessionRepository';
 import { MockUserRepository } from '../../test-utils/mocks/MockUserRepository';
-import type { LoginRequest } from '../dto/LoginRequest';
 
 import { LoginUseCase } from './LoginUseCase';
 
@@ -27,62 +27,10 @@ describe('LoginUseCase', () => {
     useCase = new LoginUseCase(userRepository, sessionRepository, passwordHasher, timeProvider);
   });
 
-  /**
-   * Creates a valid login request with sensible defaults.
-   *
-   * @param overrides - Properties to override
-   * @returns A LoginRequest object
-   */
-  function makeRequest(overrides: Partial<LoginRequest> = {}): LoginRequest {
-    return {
-      email: 'alice@example.com',
-      password: 'correct-password',
-      ipAddress: '192.168.1.100',
-      userAgent: 'Mozilla/5.0 TestBrowser',
-      ...overrides,
-    };
-  }
-
-  /**
-   * Creates a user with a password hash matching MockPasswordHasher's format.
-   *
-   * @param overrides - UserBuilder method calls
-   * @param overrides.id - User ID override
-   * @param overrides.email - Email override
-   * @param overrides.passwordHash - Password hash override
-   * @param overrides.failedAttempts - Number of failed login attempts
-   * @param overrides.locked - Whether the account is locked
-   * @returns A User entity
-   */
-  function makeUser(
-    overrides: {
-      id?: string;
-      email?: string;
-      passwordHash?: string;
-      failedAttempts?: number;
-      locked?: boolean;
-    } = {}
-  ): User {
-    let builder = new UserBuilder()
-      .withId(overrides.id ?? '00000000-0000-4000-a000-000000000001')
-      .withEmail(overrides.email ?? 'alice@example.com')
-      .withPasswordHash(overrides.passwordHash ?? 'hashed:correct-password');
-
-    if (overrides.failedAttempts !== undefined) {
-      builder = builder.withFailedAttempts(overrides.failedAttempts);
-    }
-
-    if (overrides.locked === true) {
-      builder = builder.withLockedAccount();
-    }
-
-    return builder.build();
-  }
-
   describe('happy path', () => {
     it('returns ok with AuthResult for valid credentials', async () => {
       userRepository.addUser(makeUser());
-      const result = await useCase.execute(makeRequest());
+      const result = await useCase.execute(makeLoginRequest());
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -95,7 +43,7 @@ describe('LoginUseCase', () => {
 
     it('returns the specified redirectTo path', async () => {
       userRepository.addUser(makeUser());
-      const result = await useCase.execute(makeRequest({ redirectTo: '/dashboard' }));
+      const result = await useCase.execute(makeLoginRequest({ redirectTo: '/dashboard' }));
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -105,7 +53,7 @@ describe('LoginUseCase', () => {
 
     it('saves a new session', async () => {
       userRepository.addUser(makeUser());
-      const result = await useCase.execute(makeRequest());
+      const result = await useCase.execute(makeLoginRequest());
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -116,7 +64,7 @@ describe('LoginUseCase', () => {
 
     it('records successful login on the user', async () => {
       userRepository.addUser(makeUser());
-      await useCase.execute(makeRequest());
+      await useCase.execute(makeLoginRequest());
 
       const savedUser = userRepository.getById('00000000-0000-4000-a000-000000000001');
       expect(savedUser?.lastLoginAt).toBe(fixedIso);
@@ -127,7 +75,7 @@ describe('LoginUseCase', () => {
 
     it('returns correctly structured AuthResult fields', async () => {
       userRepository.addUser(makeUser());
-      const result = await useCase.execute(makeRequest());
+      const result = await useCase.execute(makeLoginRequest());
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -142,7 +90,7 @@ describe('LoginUseCase', () => {
 
   describe('email and password validation', () => {
     it('returns err for empty email', async () => {
-      const result = await useCase.execute(makeRequest({ email: '' }));
+      const result = await useCase.execute(makeLoginRequest({ email: '' }));
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -151,7 +99,7 @@ describe('LoginUseCase', () => {
     });
 
     it('returns err for invalid email format', async () => {
-      const result = await useCase.execute(makeRequest({ email: 'not-an-email' }));
+      const result = await useCase.execute(makeLoginRequest({ email: 'not-an-email' }));
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -160,7 +108,7 @@ describe('LoginUseCase', () => {
     });
 
     it('returns err for empty password', async () => {
-      const result = await useCase.execute(makeRequest({ password: '' }));
+      const result = await useCase.execute(makeLoginRequest({ password: '' }));
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -171,7 +119,7 @@ describe('LoginUseCase', () => {
 
   describe('user not found (timing attack prevention)', () => {
     it('returns UnauthorizedError with generic message', async () => {
-      const result = await useCase.execute(makeRequest({ email: 'unknown@example.com' }));
+      const result = await useCase.execute(makeLoginRequest({ email: 'unknown@example.com' }));
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -181,18 +129,20 @@ describe('LoginUseCase', () => {
     });
 
     it('still calls passwordHasher.verify with dummy hash', async () => {
-      await useCase.execute(makeRequest({ email: 'unknown@example.com' }));
+      await useCase.execute(makeLoginRequest({ email: 'unknown@example.com' }));
 
       expect(passwordHasher.verifyCalls).toHaveLength(1);
       expect(passwordHasher.verifyCalls[0]?.hash).toBe('hashed:dummy_value_for_timing');
     });
 
     it('uses same error message as wrong password', async () => {
-      const notFoundResult = await useCase.execute(makeRequest({ email: 'unknown@example.com' }));
+      const notFoundResult = await useCase.execute(
+        makeLoginRequest({ email: 'unknown@example.com' })
+      );
 
       userRepository.addUser(makeUser());
       const wrongPasswordResult = await useCase.execute(
-        makeRequest({ password: 'wrong-password' })
+        makeLoginRequest({ password: 'wrong-password' })
       );
 
       expect(notFoundResult.success).toBe(false);
@@ -206,7 +156,7 @@ describe('LoginUseCase', () => {
   describe('account lockout', () => {
     it('returns UnauthorizedError for locked account', async () => {
       userRepository.addUser(makeUser({ locked: true }));
-      const result = await useCase.execute(makeRequest());
+      const result = await useCase.execute(makeLoginRequest());
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -224,7 +174,7 @@ describe('LoginUseCase', () => {
       // Default lockedUntil is null from withFailedAttempts alone, so not locked
       userRepository.addUser(user);
 
-      const result = await useCase.execute(makeRequest());
+      const result = await useCase.execute(makeLoginRequest());
 
       expect(result.success).toBe(true);
     });
@@ -233,7 +183,7 @@ describe('LoginUseCase', () => {
   describe('wrong password', () => {
     it('returns UnauthorizedError for wrong password', async () => {
       userRepository.addUser(makeUser());
-      const result = await useCase.execute(makeRequest({ password: 'wrong-password' }));
+      const result = await useCase.execute(makeLoginRequest({ password: 'wrong-password' }));
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -244,7 +194,7 @@ describe('LoginUseCase', () => {
 
     it('increments failed login attempts', async () => {
       userRepository.addUser(makeUser());
-      await useCase.execute(makeRequest({ password: 'wrong-password' }));
+      await useCase.execute(makeLoginRequest({ password: 'wrong-password' }));
 
       const savedUser = userRepository.getById('00000000-0000-4000-a000-000000000001');
       expect(savedUser?.failedLoginAttempts).toBe(1);
@@ -252,7 +202,7 @@ describe('LoginUseCase', () => {
 
     it('triggers lockout after max failed attempts', async () => {
       userRepository.addUser(makeUser({ failedAttempts: 4 }));
-      await useCase.execute(makeRequest({ password: 'wrong-password' }));
+      await useCase.execute(makeLoginRequest({ password: 'wrong-password' }));
 
       const savedUser = userRepository.getById('00000000-0000-4000-a000-000000000001');
       expect(savedUser?.failedLoginAttempts).toBe(5);
@@ -263,7 +213,7 @@ describe('LoginUseCase', () => {
   describe('redirect validation', () => {
     it('rejects //evil.com', async () => {
       userRepository.addUser(makeUser());
-      const result = await useCase.execute(makeRequest({ redirectTo: '//evil.com' }));
+      const result = await useCase.execute(makeLoginRequest({ redirectTo: '//evil.com' }));
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -273,7 +223,7 @@ describe('LoginUseCase', () => {
 
     it('rejects https://evil.com', async () => {
       userRepository.addUser(makeUser());
-      const result = await useCase.execute(makeRequest({ redirectTo: 'https://evil.com' }));
+      const result = await useCase.execute(makeLoginRequest({ redirectTo: 'https://evil.com' }));
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -284,7 +234,7 @@ describe('LoginUseCase', () => {
     it('rejects URLs containing ://', async () => {
       userRepository.addUser(makeUser());
       const result = await useCase.execute(
-        makeRequest({ redirectTo: '/page?url=http://evil.com' })
+        makeLoginRequest({ redirectTo: '/page?url=http://evil.com' })
       );
 
       expect(result.success).toBe(false);
@@ -295,7 +245,7 @@ describe('LoginUseCase', () => {
 
     it('rejects URLs containing backslash', async () => {
       userRepository.addUser(makeUser());
-      const result = await useCase.execute(makeRequest({ redirectTo: '/path\\evil' }));
+      const result = await useCase.execute(makeLoginRequest({ redirectTo: '/path\\evil' }));
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -305,7 +255,7 @@ describe('LoginUseCase', () => {
 
     it('defaults empty string to /', async () => {
       userRepository.addUser(makeUser());
-      const result = await useCase.execute(makeRequest({ redirectTo: '' }));
+      const result = await useCase.execute(makeLoginRequest({ redirectTo: '' }));
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -315,7 +265,7 @@ describe('LoginUseCase', () => {
 
     it('defaults undefined to /', async () => {
       userRepository.addUser(makeUser());
-      const result = await useCase.execute(makeRequest({ redirectTo: undefined }));
+      const result = await useCase.execute(makeLoginRequest({ redirectTo: undefined }));
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -327,7 +277,7 @@ describe('LoginUseCase', () => {
   describe('timestamps', () => {
     it('uses TimeProvider for all timestamps', async () => {
       userRepository.addUser(makeUser());
-      const result = await useCase.execute(makeRequest());
+      const result = await useCase.execute(makeLoginRequest());
 
       expect(result.success).toBe(true);
       if (result.success) {

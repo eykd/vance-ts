@@ -1,40 +1,17 @@
 import { User } from '../../domain/entities/User';
 import { ConflictError } from '../../domain/errors/ConflictError';
 import { ValidationError } from '../../domain/errors/ValidationError';
-import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
 import { Email } from '../../domain/value-objects/Email';
 import { UserId } from '../../domain/value-objects/UserId';
-import { MockPasswordHasher } from '../../test-utils/mocks/MockPasswordHasher';
-import { MockUserRepository } from '../../test-utils/mocks/MockUserRepository';
-
-import { RegisterUseCase } from './RegisterUseCase';
+import { createRegisterUseCaseDeps } from '../../test-utils/factories/registerUseCaseDepsFactory';
 
 const VALID_EMAIL = 'test@example.com';
 const VALID_PASSWORD = 'securePassword123!';
-const FIXED_TIME = new Date('2025-06-15T10:30:00.000Z').getTime();
 const FIXED_ISO = '2025-06-15T10:30:00.000Z';
-
-/**
- * Creates fresh test dependencies for each test case.
- *
- * @returns The mock repositories, password hasher, time provider, and use case instance
- */
-function createDeps(): {
-  userRepository: MockUserRepository;
-  passwordHasher: MockPasswordHasher;
-  timeProvider: TimeProvider;
-  useCase: RegisterUseCase;
-} {
-  const userRepository = new MockUserRepository();
-  const passwordHasher = new MockPasswordHasher();
-  const timeProvider: TimeProvider = { now: (): number => FIXED_TIME };
-  const useCase = new RegisterUseCase(userRepository, passwordHasher, timeProvider);
-  return { userRepository, passwordHasher, timeProvider, useCase };
-}
 
 describe('RegisterUseCase', () => {
   it('returns ok with userId on successful registration', async () => {
-    const { useCase } = createDeps();
+    const { useCase } = createRegisterUseCaseDeps();
 
     const result = await useCase.execute({
       email: VALID_EMAIL,
@@ -50,7 +27,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('returns ValidationError when passwords do not match', async () => {
-    const { useCase } = createDeps();
+    const { useCase } = createRegisterUseCaseDeps();
 
     const result = await useCase.execute({
       email: VALID_EMAIL,
@@ -69,7 +46,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('returns ValidationError for empty email', async () => {
-    const { useCase } = createDeps();
+    const { useCase } = createRegisterUseCaseDeps();
 
     const result = await useCase.execute({
       email: '',
@@ -84,7 +61,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('returns ValidationError for invalid email format', async () => {
-    const { useCase } = createDeps();
+    const { useCase } = createRegisterUseCaseDeps();
 
     const result = await useCase.execute({
       email: 'not-an-email',
@@ -99,7 +76,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('returns ValidationError for password too short', async () => {
-    const { useCase } = createDeps();
+    const { useCase } = createRegisterUseCaseDeps();
     const shortPassword = 'short';
 
     const result = await useCase.execute({
@@ -115,7 +92,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('returns ValidationError for common password', async () => {
-    const { useCase } = createDeps();
+    const { useCase } = createRegisterUseCaseDeps();
     const commonPassword = 'passwordpassword';
 
     const result = await useCase.execute({
@@ -131,7 +108,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('returns ConflictError when email is already taken', async () => {
-    const { useCase, userRepository } = createDeps();
+    const { useCase, userRepository } = createRegisterUseCaseDeps();
     const email = Email.create(VALID_EMAIL);
     const userId = UserId.generate();
     const existingUser = User.create({
@@ -156,7 +133,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('saves user with correct email and password hash', async () => {
-    const { useCase, userRepository } = createDeps();
+    const { useCase, userRepository } = createRegisterUseCaseDeps();
 
     const result = await useCase.execute({
       email: VALID_EMAIL,
@@ -174,7 +151,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('hashes the password using passwordHasher', async () => {
-    const { useCase, passwordHasher } = createDeps();
+    const { useCase, passwordHasher } = createRegisterUseCaseDeps();
 
     await useCase.execute({
       email: VALID_EMAIL,
@@ -186,7 +163,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('uses timestamps from TimeProvider', async () => {
-    const { useCase, userRepository } = createDeps();
+    const { useCase, userRepository } = createRegisterUseCaseDeps();
 
     const result = await useCase.execute({
       email: VALID_EMAIL,
@@ -203,7 +180,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('generates unique UserIds for each registration', async () => {
-    const { useCase } = createDeps();
+    const { useCase } = createRegisterUseCaseDeps();
 
     const result1 = await useCase.execute({
       email: 'user1@example.com',
@@ -225,7 +202,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('checks password mismatch before email validation', async () => {
-    const { useCase } = createDeps();
+    const { useCase } = createRegisterUseCaseDeps();
 
     const result = await useCase.execute({
       email: '',

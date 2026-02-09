@@ -14,6 +14,13 @@ import { Password } from '../../domain/value-objects/Password';
 import { SessionId } from '../../domain/value-objects/SessionId';
 import type { AuthResult } from '../dto/AuthResult';
 import type { LoginRequest } from '../dto/LoginRequest';
+import { validateRedirectUrl } from '../utils/validateRedirectUrl';
+
+/**
+ * Dummy hash used when user is not found to prevent timing attacks.
+ * Ensures passwordHasher.verify() is always called regardless of user existence.
+ */
+const DUMMY_HASH = 'hashed:dummy_value_for_timing';
 
 /**
  * Use case for authenticating a user with email and password.
@@ -22,12 +29,6 @@ import type { LoginRequest } from '../dto/LoginRequest';
  * account lockout, and open redirect prevention.
  */
 export class LoginUseCase {
-  /**
-   * Dummy hash used when user is not found to prevent timing attacks.
-   * Ensures passwordHasher.verify() is always called regardless of user existence.
-   */
-  private static readonly DUMMY_HASH = 'hashed:dummy_value_for_timing';
-
   private readonly userRepository: UserRepository;
   private readonly sessionRepository: SessionRepository;
   private readonly passwordHasher: PasswordHasher;
@@ -62,7 +63,7 @@ export class LoginUseCase {
   async execute(
     request: LoginRequest
   ): Promise<Result<AuthResult, ValidationError | UnauthorizedError>> {
-    const redirectTo = this.validateRedirectUrl(request.redirectTo);
+    const redirectTo = validateRedirectUrl(request.redirectTo);
     if (redirectTo === null) {
       return err(
         new ValidationError('Invalid redirect URL', {
@@ -97,7 +98,7 @@ export class LoginUseCase {
 
     const user = await this.userRepository.findByEmail(email);
     if (user === null) {
-      await this.passwordHasher.verify(password.plaintext, LoginUseCase.DUMMY_HASH);
+      await this.passwordHasher.verify(password.plaintext, DUMMY_HASH);
       return err(new UnauthorizedError('Invalid email or password'));
     }
 
@@ -140,35 +141,5 @@ export class LoginUseCase {
       csrfToken: csrfToken.toString(),
       redirectTo,
     });
-  }
-
-  /**
-   * Validates a redirect URL to prevent open redirect attacks.
-   *
-   * @param url - The redirect URL to validate
-   * @returns The validated URL or null if invalid
-   */
-  private validateRedirectUrl(url: string | undefined): string | null {
-    if (url === undefined || url === '') {
-      return '/';
-    }
-
-    if (!url.startsWith('/')) {
-      return null;
-    }
-
-    if (url.startsWith('//')) {
-      return null;
-    }
-
-    if (url.includes('://')) {
-      return null;
-    }
-
-    if (url.includes('\\')) {
-      return null;
-    }
-
-    return url;
   }
 }
