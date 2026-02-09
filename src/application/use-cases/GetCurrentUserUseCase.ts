@@ -65,7 +65,7 @@ export class GetCurrentUserUseCase {
     }
 
     // Refresh session activity if needed (non-blocking, fire-and-forget)
-    const lastActivityMs = new Date(session.lastActivityAt).getTime();
+    const lastActivityMs = Date.parse(session.lastActivityAt);
     const elapsedMs = nowMs - lastActivityMs;
     if (session.needsRefresh(elapsedMs)) {
       void this.sessionRepository.updateActivity(session.sessionId, nowIso).catch(
