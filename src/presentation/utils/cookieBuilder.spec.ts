@@ -1,3 +1,6 @@
+import type { CookieOptions } from '../../domain/types/CookieOptions';
+import { DEV_COOKIE_OPTIONS } from '../../domain/types/CookieOptions';
+
 import {
   SESSION_COOKIE_NAME,
   CSRF_COOKIE_NAME,
@@ -9,6 +12,9 @@ import {
   extractSessionIdFromCookies,
   extractCsrfTokenFromCookies,
 } from './cookieBuilder';
+
+/** Dev-like cookie options for testing custom options. */
+const devOptions: CookieOptions = DEV_COOKIE_OPTIONS;
 
 describe('cookie constants', () => {
   it('uses __Host- prefix for session cookie name', () => {
@@ -117,5 +123,69 @@ describe('extractCsrfTokenFromCookies', () => {
 
   it('returns null for null cookie header', () => {
     expect(extractCsrfTokenFromCookies(null)).toBeNull();
+  });
+});
+
+describe('custom CookieOptions', () => {
+  describe('buildSessionCookie with dev options', () => {
+    it('uses custom session name and omits Secure', () => {
+      const cookie = buildSessionCookie('abc-123', 3600, devOptions);
+      expect(cookie).toBe('session=abc-123; HttpOnly; SameSite=Lax; Path=/; Max-Age=3600');
+    });
+
+    it('omits Secure flag when options.secure is false', () => {
+      const cookie = buildSessionCookie('abc-123', 3600, devOptions);
+      expect(cookie).not.toContain('Secure');
+    });
+  });
+
+  describe('buildCsrfCookie with dev options', () => {
+    it('uses custom CSRF name and omits Secure', () => {
+      const cookie = buildCsrfCookie('token-abc', 3600, devOptions);
+      expect(cookie).toBe('csrf=token-abc; SameSite=Lax; Path=/; Max-Age=3600');
+    });
+
+    it('omits Secure flag when options.secure is false', () => {
+      const cookie = buildCsrfCookie('token-abc', 3600, devOptions);
+      expect(cookie).not.toContain('Secure');
+    });
+  });
+
+  describe('clearSessionCookie with dev options', () => {
+    it('uses custom session name and omits Secure', () => {
+      const cookie = clearSessionCookie(devOptions);
+      expect(cookie).toBe('session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
+    });
+  });
+
+  describe('clearCsrfCookie with dev options', () => {
+    it('uses custom CSRF name and omits Secure', () => {
+      const cookie = clearCsrfCookie(devOptions);
+      expect(cookie).toBe('csrf=; SameSite=Lax; Path=/; Max-Age=0');
+    });
+  });
+
+  describe('extractSessionIdFromCookies with dev options', () => {
+    it('extracts session ID using custom session name', () => {
+      const header = 'session=my-session-id; csrf=my-csrf';
+      expect(extractSessionIdFromCookies(header, devOptions)).toBe('my-session-id');
+    });
+
+    it('returns null when custom session cookie is absent', () => {
+      const header = '__Host-session=my-session-id';
+      expect(extractSessionIdFromCookies(header, devOptions)).toBeNull();
+    });
+  });
+
+  describe('extractCsrfTokenFromCookies with dev options', () => {
+    it('extracts CSRF token using custom CSRF name', () => {
+      const header = 'session=sess; csrf=my-csrf-token';
+      expect(extractCsrfTokenFromCookies(header, devOptions)).toBe('my-csrf-token');
+    });
+
+    it('returns null when custom CSRF cookie is absent', () => {
+      const header = '__Host-csrf=my-csrf-token';
+      expect(extractCsrfTokenFromCookies(header, devOptions)).toBeNull();
+    });
   });
 });

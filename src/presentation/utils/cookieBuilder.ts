@@ -1,3 +1,6 @@
+import type { CookieOptions } from '../../domain/types/CookieOptions';
+import { DEFAULT_COOKIE_OPTIONS } from '../../domain/types/CookieOptions';
+
 /** Cookie name for the session identifier. Uses `__Host-` prefix for origin binding. */
 export const SESSION_COOKIE_NAME = '__Host-session';
 
@@ -10,52 +13,64 @@ export const SESSION_MAX_AGE_SECONDS = 604800;
 /**
  * Builds a secure session cookie string.
  *
- * Attributes: HttpOnly (no JS access), Secure, SameSite=Lax, Path=/.
+ * Attributes: HttpOnly (no JS access), SameSite=Lax, Path=/.
+ * Secure attribute is included unless `options.secure` is false.
  *
  * @param sessionId - The session identifier value
  * @param maxAge - Cookie max age in seconds (defaults to 7 days)
+ * @param options - Cookie naming and security options (defaults to production)
  * @returns The formatted Set-Cookie value
  */
 export function buildSessionCookie(
   sessionId: string,
-  maxAge: number = SESSION_MAX_AGE_SECONDS
+  maxAge: number = SESSION_MAX_AGE_SECONDS,
+  options: CookieOptions = DEFAULT_COOKIE_OPTIONS
 ): string {
-  return `${SESSION_COOKIE_NAME}=${sessionId}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${String(maxAge)}`;
+  const secure = options.secure ? '; Secure' : '';
+  return `${options.sessionName}=${sessionId}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=${String(maxAge)}`;
 }
 
 /**
  * Builds a CSRF cookie string readable by JavaScript.
  *
  * NOT HttpOnly so that client-side JS can read the token for double-submit.
- * Attributes: Secure, SameSite=Lax, Path=/.
+ * Attributes: SameSite=Lax, Path=/.
+ * Secure attribute is included unless `options.secure` is false.
  *
  * @param csrfToken - The CSRF token value
  * @param maxAge - Cookie max age in seconds (defaults to 7 days)
+ * @param options - Cookie naming and security options (defaults to production)
  * @returns The formatted Set-Cookie value
  */
 export function buildCsrfCookie(
   csrfToken: string,
-  maxAge: number = SESSION_MAX_AGE_SECONDS
+  maxAge: number = SESSION_MAX_AGE_SECONDS,
+  options: CookieOptions = DEFAULT_COOKIE_OPTIONS
 ): string {
-  return `${CSRF_COOKIE_NAME}=${csrfToken}; Secure; SameSite=Lax; Path=/; Max-Age=${String(maxAge)}`;
+  const secure = options.secure ? '; Secure' : '';
+  return `${options.csrfName}=${csrfToken}${secure}; SameSite=Lax; Path=/; Max-Age=${String(maxAge)}`;
 }
 
 /**
  * Builds a Set-Cookie value that clears the session cookie.
  *
+ * @param options - Cookie naming and security options (defaults to production)
  * @returns The formatted Set-Cookie value with Max-Age=0
  */
-export function clearSessionCookie(): string {
-  return `${SESSION_COOKIE_NAME}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
+export function clearSessionCookie(options: CookieOptions = DEFAULT_COOKIE_OPTIONS): string {
+  const secure = options.secure ? '; Secure' : '';
+  return `${options.sessionName}=; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=0`;
 }
 
 /**
  * Builds a Set-Cookie value that clears the CSRF cookie.
  *
+ * @param options - Cookie naming and security options (defaults to production)
  * @returns The formatted Set-Cookie value with Max-Age=0
  */
-export function clearCsrfCookie(): string {
-  return `${CSRF_COOKIE_NAME}=; Secure; SameSite=Lax; Path=/; Max-Age=0`;
+export function clearCsrfCookie(options: CookieOptions = DEFAULT_COOKIE_OPTIONS): string {
+  const secure = options.secure ? '; Secure' : '';
+  return `${options.csrfName}=${secure}; SameSite=Lax; Path=/; Max-Age=0`;
 }
 
 /**
@@ -92,18 +107,26 @@ function parseCookie(cookieHeader: string | null, name: string): string | null {
  * Extracts the session ID from a Cookie header.
  *
  * @param cookieHeader - The raw Cookie header value
+ * @param options - Cookie naming and security options (defaults to production)
  * @returns The session ID, or null if not present
  */
-export function extractSessionIdFromCookies(cookieHeader: string | null): string | null {
-  return parseCookie(cookieHeader, SESSION_COOKIE_NAME);
+export function extractSessionIdFromCookies(
+  cookieHeader: string | null,
+  options: CookieOptions = DEFAULT_COOKIE_OPTIONS
+): string | null {
+  return parseCookie(cookieHeader, options.sessionName);
 }
 
 /**
  * Extracts the CSRF token from a Cookie header.
  *
  * @param cookieHeader - The raw Cookie header value
+ * @param options - Cookie naming and security options (defaults to production)
  * @returns The CSRF token, or null if not present
  */
-export function extractCsrfTokenFromCookies(cookieHeader: string | null): string | null {
-  return parseCookie(cookieHeader, CSRF_COOKIE_NAME);
+export function extractCsrfTokenFromCookies(
+  cookieHeader: string | null,
+  options: CookieOptions = DEFAULT_COOKIE_OPTIONS
+): string | null {
+  return parseCookie(cookieHeader, options.csrfName);
 }

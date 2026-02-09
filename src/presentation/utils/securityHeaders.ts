@@ -12,6 +12,8 @@
  * - `connect-src 'self'` — allows HTMX XHR to same origin
  * - `frame-ancestors 'none'` — prevents framing (clickjacking)
  * - `form-action 'self'` — forms can only submit to same origin
+ * - `base-uri 'self'` — restricts base element to same origin
+ * - `object-src 'none'` — blocks plugins (Flash, Java applets)
  *
  * @returns The CSP header value string
  */
@@ -24,13 +26,16 @@ export function buildCspHeaderValue(): string {
     "connect-src 'self'",
     "frame-ancestors 'none'",
     "form-action 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
   ].join('; ');
 }
 
 /**
  * Applies standard security headers to a Headers object.
  *
- * Sets CSP, X-Content-Type-Options, X-Frame-Options, and Referrer-Policy.
+ * Sets CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy,
+ * Strict-Transport-Security (HSTS), and Permissions-Policy.
  *
  * @param headers - The Headers object to mutate
  */
@@ -39,4 +44,6 @@ export function applySecurityHeaders(headers: Headers): void {
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('X-Frame-Options', 'DENY');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
 }

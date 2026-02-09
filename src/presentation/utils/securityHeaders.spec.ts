@@ -60,6 +60,16 @@ describe('buildCspHeaderValue', () => {
     const csp = buildCspHeaderValue();
     expect(csp).toContain("connect-src 'self'");
   });
+
+  it('includes base-uri self', () => {
+    const csp = buildCspHeaderValue();
+    expect(csp).toContain("base-uri 'self'");
+  });
+
+  it('includes object-src none', () => {
+    const csp = buildCspHeaderValue();
+    expect(csp).toContain("object-src 'none'");
+  });
 });
 
 describe('applySecurityHeaders', () => {
@@ -85,6 +95,20 @@ describe('applySecurityHeaders', () => {
     const headers = new Headers();
     applySecurityHeaders(headers);
     expect(headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+  });
+
+  it('sets Strict-Transport-Security header', () => {
+    const headers = new Headers();
+    applySecurityHeaders(headers);
+    expect(headers.get('Strict-Transport-Security')).toBe(
+      'max-age=63072000; includeSubDomains; preload'
+    );
+  });
+
+  it('sets Permissions-Policy header', () => {
+    const headers = new Headers();
+    applySecurityHeaders(headers);
+    expect(headers.get('Permissions-Policy')).toBe('geolocation=(), microphone=(), camera=()');
   });
 
   it('preserves existing headers', () => {
