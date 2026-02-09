@@ -1,7 +1,6 @@
 import type { LoginUseCase } from '../../application/use-cases/LoginUseCase';
 import type { LogoutUseCase } from '../../application/use-cases/LogoutUseCase';
 import type { RegisterUseCase } from '../../application/use-cases/RegisterUseCase';
-import { ConflictError } from '../../domain/errors/ConflictError';
 import { RateLimitError } from '../../domain/errors/RateLimitError';
 import { ValidationError } from '../../domain/errors/ValidationError';
 import type { Logger } from '../../domain/interfaces/Logger';
@@ -227,7 +226,9 @@ export class AuthHandlers {
       const error = result.error;
 
       const errorMessage =
-        error instanceof ConflictError ? 'Registration failed. Please try again.' : error.message;
+        error instanceof ValidationError
+          ? error.message
+          : 'Registration failed. Please try again.';
 
       const fieldErrors = error instanceof ValidationError ? error.fields : undefined;
 

@@ -30,6 +30,8 @@ export function authLayout(props: AuthLayoutProps): string {
           integrity="sha384-2V5uSMIWpBK7suX6yRDZH6ll7ktPJF2O58y0HSz+HiFCBCsmqZpxX1AZB4qAHuYI"
           crossorigin="anonymous"
         />
+        <!-- FIXME: Tailwind CDN play script generates CSS dynamically, making SRI impossible.
+             Replace with self-hosted Tailwind build in production. -->
         <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script>
         <script
           src="https://unpkg.com/htmx.org@2"

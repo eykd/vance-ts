@@ -83,4 +83,11 @@ describe('authLayout', () => {
     const result = authLayout({ title: 'Test', content: '' });
     expect(result).toContain('"selfRequestsOnly":true');
   });
+
+  it('Tailwind CDN play script cannot use SRI (dynamic content)', () => {
+    const result = authLayout({ title: 'Test', content: '' });
+    const tailwindScript = result.match(/<script[^>]*tailwindcss[^>]*>/s);
+    expect(tailwindScript).not.toBeNull();
+    expect(tailwindScript![0]).not.toContain('integrity');
+  });
 });
