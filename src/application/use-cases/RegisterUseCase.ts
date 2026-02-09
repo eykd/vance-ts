@@ -47,7 +47,7 @@ export class RegisterUseCase {
    */
   async execute(
     request: RegisterRequest
-  ): Promise<Result<{ userId: string }, ValidationError | ConflictError>> {
+  ): Promise<Result<{ userId: UserId }, ValidationError | ConflictError>> {
     if (request.password !== request.confirmPassword) {
       return err(
         new ValidationError('Passwords do not match', {
@@ -99,6 +99,6 @@ export class RegisterUseCase {
 
     await this.userRepository.save(user);
 
-    return ok({ userId: userId.toString() });
+    return ok({ userId });
   }
 }

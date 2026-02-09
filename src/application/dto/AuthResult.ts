@@ -1,3 +1,7 @@
+import type { CsrfToken } from '../../domain/value-objects/CsrfToken';
+import type { SessionId } from '../../domain/value-objects/SessionId';
+import type { UserId } from '../../domain/value-objects/UserId';
+
 /**
  * Result DTO returned after successful authentication.
  *
@@ -5,7 +9,7 @@
  * when setting the session cookie from the `sessionId` field:
  *
  * ```
- * Set-Cookie: __Host-sessionId=${sessionId}; HttpOnly; Secure; SameSite=Lax; Path=/
+ * Set-Cookie: __Host-sessionId=${sessionId.toString()}; HttpOnly; Secure; SameSite=Lax; Path=/
  * ```
  *
  * - `__Host-` prefix: Binds cookie to the secure origin, preventing subdomain attacks
@@ -16,17 +20,17 @@
  */
 export interface AuthResult {
   /** Unique identifier of the authenticated user. */
-  readonly userId: string;
+  readonly userId: UserId;
 
   /**
    * Session identifier to be set as a secure HTTP-only cookie.
    *
    * @see AuthResult (interface-level docs) for required cookie attributes.
    */
-  readonly sessionId: string;
+  readonly sessionId: SessionId;
 
   /** CSRF protection token to include in subsequent state-changing requests. */
-  readonly csrfToken: string;
+  readonly csrfToken: CsrfToken;
 
   /** Validated relative URL to redirect the user to after login. */
   readonly redirectTo: string;

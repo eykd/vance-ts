@@ -75,7 +75,7 @@ export class GetCurrentUserUseCase {
     }
 
     return ok({
-      id: user.id.toString(),
+      id: user.id,
       email: user.email.value,
       createdAt: user.createdAt,
       lastLoginAt: user.lastLoginAt,
