@@ -44,4 +44,26 @@ describe('validateRedirectUrl', () => {
   it('returns null for absolute URL starting with https://', () => {
     expect(validateRedirectUrl('https://evil.com')).toBeNull();
   });
+
+  describe('URL-encoded bypass prevention', () => {
+    it('returns null when encoded as protocol-relative URL (//)', () => {
+      expect(validateRedirectUrl('/%2Fevil.com')).toBeNull();
+    });
+
+    it('returns null when encoded with backslash', () => {
+      expect(validateRedirectUrl('/%5Cevil.com')).toBeNull();
+    });
+
+    it('returns null when encoded with :// scheme', () => {
+      expect(validateRedirectUrl('/redirect%3A%2F%2Fevil.com')).toBeNull();
+    });
+
+    it('returns null for malformed percent-encoding', () => {
+      expect(validateRedirectUrl('/%ZZbadencoding')).toBeNull();
+    });
+
+    it('allows valid paths that contain safe percent-encoded characters', () => {
+      expect(validateRedirectUrl('/path%20with%20spaces')).toBe('/path%20with%20spaces');
+    });
+  });
 });
