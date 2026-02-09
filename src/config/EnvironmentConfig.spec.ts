@@ -16,13 +16,13 @@ describe('createAppConfig', () => {
 
     it('uses relaxed login rate limits', () => {
       const config = createAppConfig('development');
-      expect(config.loginRateLimit.maxRequests).toBe(100);
+      expect(config.loginRateLimit.maxRequests).toBe(20);
       expect(config.loginRateLimit.windowSeconds).toBe(60);
     });
 
     it('uses relaxed register rate limits', () => {
       const config = createAppConfig('development');
-      expect(config.registerRateLimit.maxRequests).toBe(100);
+      expect(config.registerRateLimit.maxRequests).toBe(10);
       expect(config.registerRateLimit.windowSeconds).toBe(300);
     });
   });

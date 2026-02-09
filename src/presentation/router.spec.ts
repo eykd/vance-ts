@@ -123,7 +123,7 @@ describe('handleRequest', () => {
       const response = await handleRequest(request, deps);
       expect(response.status).toBe(200);
       const body = await response.text();
-      expect(body).toContain('Authenticated');
+      expect(body).toBe('OK');
     });
 
     it('redirects to login when not authenticated', async () => {

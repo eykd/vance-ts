@@ -36,11 +36,11 @@ export function createAppConfig(environment: string): AppConfig {
       cookie: DEV_COOKIE_OPTIONS,
       isDevelopment: true,
       loginRateLimit: {
-        maxRequests: 100,
+        maxRequests: 20,
         windowSeconds: 60,
       },
       registerRateLimit: {
-        maxRequests: 100,
+        maxRequests: 10,
         windowSeconds: 300,
       },
     };

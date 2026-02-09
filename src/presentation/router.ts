@@ -90,7 +90,8 @@ export async function handleRequest(request: Request, deps: RouterDeps): Promise
         return authResult.response;
       }
 
-      return new Response(`Authenticated as ${authResult.user.email}`, {
+      // TODO: Route to appropriate /app/* handler once implemented
+      return new Response('OK', {
         status: 200,
         headers: { 'Content-Type': 'text/plain' },
       });
