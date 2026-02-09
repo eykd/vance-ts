@@ -1,6 +1,6 @@
 import { getServiceFactory } from './di/ServiceFactory';
+import type { Env } from './infrastructure/types/Env';
 import { handleRequest } from './presentation/router';
-import type { Env } from './types/env';
 
 export default {
   /**

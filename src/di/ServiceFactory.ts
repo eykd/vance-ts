@@ -17,8 +17,8 @@ import { ConsoleLogger } from '../infrastructure/services/ConsoleLogger';
 import { KVRateLimiter } from '../infrastructure/services/KVRateLimiter';
 import { SystemTimeProvider } from '../infrastructure/services/SystemTimeProvider';
 import type { CookieOptions } from '../infrastructure/types/CookieOptions';
+import type { Env } from '../infrastructure/types/Env';
 import { AuthHandlers } from '../presentation/handlers/AuthHandlers';
-import type { Env } from '../types/env';
 
 /**
  * Dependency injection container that lazily creates and caches services.

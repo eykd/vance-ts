@@ -1,4 +1,4 @@
-import type { D1Database, KVNamespace } from '../infrastructure/types/CloudflareTypes';
+import type { D1Database, KVNamespace } from './CloudflareTypes';
 
 /**
  * Cloudflare Workers environment bindings.

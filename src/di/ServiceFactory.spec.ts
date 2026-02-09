@@ -1,7 +1,7 @@
 import type { AppConfig } from '../config/EnvironmentConfig';
 import { createAppConfig } from '../config/EnvironmentConfig';
 import type { D1Database, KVNamespace } from '../infrastructure/types/CloudflareTypes';
-import type { Env } from '../types/env';
+import type { Env } from '../infrastructure/types/Env';
 
 import { ServiceFactory, getServiceFactory, resetServiceFactory } from './ServiceFactory';
 
