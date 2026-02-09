@@ -41,5 +41,5 @@ export function validateRedirectUrl(url: string | undefined): string | null {
     return null;
   }
 
-  return url;
+  return decoded;
 }

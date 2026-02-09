@@ -63,7 +63,7 @@ describe('validateRedirectUrl', () => {
     });
 
     it('allows valid paths that contain safe percent-encoded characters', () => {
-      expect(validateRedirectUrl('/path%20with%20spaces')).toBe('/path%20with%20spaces');
+      expect(validateRedirectUrl('/path%20with%20spaces')).toBe('/path with spaces');
     });
   });
 });

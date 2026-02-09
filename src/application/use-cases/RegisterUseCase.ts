@@ -60,13 +60,19 @@ export class RegisterUseCase {
     try {
       email = Email.create(request.email);
     } catch (error: unknown) {
-      return err(error as ValidationError);
+      if (error instanceof ValidationError) {
+        return err(error);
+      }
+      throw error;
     }
 
     try {
       Password.create(request.password);
     } catch (error: unknown) {
-      return err(error as ValidationError);
+      if (error instanceof ValidationError) {
+        return err(error);
+      }
+      throw error;
     }
 
     const userId = UserId.generate();
@@ -89,8 +95,11 @@ export class RegisterUseCase {
 
     try {
       await this.userRepository.save(user);
-    } catch {
-      return err(new ConflictError('Email is already registered'));
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message.includes('UNIQUE constraint')) {
+        return err(new ConflictError('Email is already registered'));
+      }
+      throw error;
     }
 
     return ok({ userId });

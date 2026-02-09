@@ -2,6 +2,8 @@ import { RateLimitError } from '../../domain/errors/RateLimitError';
 import { UnauthorizedError } from '../../domain/errors/UnauthorizedError';
 import { ValidationError } from '../../domain/errors/ValidationError';
 import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
+import { Email } from '../../domain/value-objects/Email';
+import { Password } from '../../domain/value-objects/Password';
 import { UserBuilder } from '../../test-utils/builders/UserBuilder';
 import { makeLoginRequest } from '../../test-utils/factories/loginRequestFactory';
 import { makeUser } from '../../test-utils/factories/userFactory';
@@ -128,6 +130,28 @@ describe('LoginUseCase', () => {
         expect(result.error).toBeInstanceOf(ValidationError);
       }
     });
+
+    it('rethrows non-ValidationError from Email.create', async () => {
+      const genericError = new Error('unexpected failure');
+      jest.spyOn(Email, 'create').mockImplementation(() => {
+        throw genericError;
+      });
+
+      await expect(useCase.execute(makeLoginRequest())).rejects.toBe(genericError);
+
+      jest.restoreAllMocks();
+    });
+
+    it('rethrows non-ValidationError from Password.createUnchecked', async () => {
+      const genericError = new Error('unexpected failure');
+      jest.spyOn(Password, 'createUnchecked').mockImplementation(() => {
+        throw genericError;
+      });
+
+      await expect(useCase.execute(makeLoginRequest())).rejects.toBe(genericError);
+
+      jest.restoreAllMocks();
+    });
   });
 
   describe('user not found (timing attack prevention)', () => {
@@ -145,7 +169,13 @@ describe('LoginUseCase', () => {
       await useCase.execute(makeLoginRequest({ email: 'unknown@example.com' }));
 
       expect(passwordHasher.verifyCalls).toHaveLength(1);
-      expect(passwordHasher.verifyCalls[0]?.hash).toBe('hashed:dummy_value_for_timing');
+      expect(passwordHasher.verifyCalls[0]?.hash).toBe('hashed:__dummy_timing_value__');
+    });
+
+    it('lazily initializes dummy hash via passwordHasher.hash', async () => {
+      await useCase.execute(makeLoginRequest({ email: 'unknown@example.com' }));
+
+      expect(passwordHasher.hashCalls).toContain('__dummy_timing_value__');
     });
 
     it('uses same error message as wrong password', async () => {
@@ -183,7 +213,7 @@ describe('LoginUseCase', () => {
       await useCase.execute(makeLoginRequest());
 
       expect(passwordHasher.verifyCalls).toHaveLength(1);
-      expect(passwordHasher.verifyCalls[0]?.hash).toBe('hashed:correct-password');
+      expect(passwordHasher.verifyCalls[0]?.hash).toBe('hashed:__dummy_timing_value__');
     });
 
     it('proceeds to password check when lockout has expired', async () => {

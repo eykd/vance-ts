@@ -18,12 +18,6 @@ import type { AuthResult } from '../dto/AuthResult';
 import type { LoginRequest } from '../dto/LoginRequest';
 import { validateRedirectUrl } from '../utils/validateRedirectUrl';
 
-/**
- * Dummy hash used when user is not found to prevent timing attacks.
- * Ensures passwordHasher.verify() is always called regardless of user existence.
- */
-const DUMMY_HASH = 'hashed:dummy_value_for_timing';
-
 /** Rate limit configuration for login attempts. */
 const LOGIN_RATE_LIMIT: RateLimitConfig = {
   maxRequests: 5,
@@ -43,6 +37,7 @@ export class LoginUseCase {
   private readonly passwordHasher: PasswordHasher;
   private readonly timeProvider: TimeProvider;
   private readonly rateLimiter: RateLimiter;
+  private dummyHash: string | null = null;
 
   /**
    * Creates a new LoginUseCase instance.
@@ -68,6 +63,16 @@ export class LoginUseCase {
   }
 
   /**
+   * Returns a pre-computed dummy hash, lazily initialized on first use.
+   *
+   * @returns The dummy hash string for timing attack prevention
+   */
+  private async getDummyHash(): Promise<string> {
+    this.dummyHash ??= await this.passwordHasher.hash('__dummy_timing_value__');
+    return this.dummyHash;
+  }
+
+  /**
    * Authenticates a user and creates a new session.
    *
    * @param request - The login request containing credentials and metadata
@@ -89,14 +94,20 @@ export class LoginUseCase {
     try {
       email = Email.create(request.email);
     } catch (error: unknown) {
-      return err(error as ValidationError);
+      if (error instanceof ValidationError) {
+        return err(error);
+      }
+      throw error;
     }
 
     let password: Password;
     try {
       password = Password.createUnchecked(request.password);
     } catch (error: unknown) {
-      return err(error as ValidationError);
+      if (error instanceof ValidationError) {
+        return err(error);
+      }
+      throw error;
     }
 
     const rateLimitResult = await this.rateLimiter.checkLimit(
@@ -110,20 +121,23 @@ export class LoginUseCase {
       );
     }
 
+    const dummyHash = await this.getDummyHash();
+
     const user = await this.userRepository.findByEmail(email);
     if (user === null) {
-      await this.passwordHasher.verify(password.plaintext, DUMMY_HASH);
+      await this.passwordHasher.verify(password.plaintext, dummyHash);
       return err(new UnauthorizedError('Invalid email or password'));
     }
 
     const now = this.timeProvider.now();
     const nowIso = new Date(now).toISOString();
 
-    const passwordValid = await this.passwordHasher.verify(password.plaintext, user.passwordHash);
-
     if (user.isLocked(nowIso)) {
+      await this.passwordHasher.verify(password.plaintext, dummyHash);
       return err(new UnauthorizedError('Invalid email or password'));
     }
+
+    const passwordValid = await this.passwordHasher.verify(password.plaintext, user.passwordHash);
 
     if (!passwordValid) {
       const lockoutExpiry = new Date(now + User.LOCK_DURATION_MS).toISOString();

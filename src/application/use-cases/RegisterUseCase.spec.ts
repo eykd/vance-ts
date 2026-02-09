@@ -2,6 +2,7 @@ import { User } from '../../domain/entities/User';
 import { ConflictError } from '../../domain/errors/ConflictError';
 import { ValidationError } from '../../domain/errors/ValidationError';
 import { Email } from '../../domain/value-objects/Email';
+import { Password } from '../../domain/value-objects/Password';
 import { UserId } from '../../domain/value-objects/UserId';
 import { createRegisterUseCaseDeps } from '../../test-utils/factories/registerUseCaseDepsFactory';
 
@@ -259,5 +260,58 @@ describe('RegisterUseCase', () => {
 
     // Restore for cleanup
     userRepository.save = originalSave;
+  });
+
+  it('propagates non-UNIQUE-constraint errors from save', async () => {
+    const { useCase, userRepository } = createRegisterUseCaseDeps();
+    const originalSave = userRepository.save.bind(userRepository);
+    userRepository.save = (): Promise<void> => Promise.reject(new Error('Connection refused'));
+
+    await expect(
+      useCase.execute({
+        email: VALID_EMAIL,
+        password: VALID_PASSWORD,
+        confirmPassword: VALID_PASSWORD,
+      })
+    ).rejects.toThrow('Connection refused');
+
+    // Restore for cleanup
+    userRepository.save = originalSave;
+  });
+
+  it('propagates non-ValidationError from Email.create', async () => {
+    const spy = jest.spyOn(Email, 'create').mockImplementation((): Email => {
+      throw new Error('Unexpected email error');
+    });
+
+    const { useCase } = createRegisterUseCaseDeps();
+
+    await expect(
+      useCase.execute({
+        email: VALID_EMAIL,
+        password: VALID_PASSWORD,
+        confirmPassword: VALID_PASSWORD,
+      })
+    ).rejects.toThrow('Unexpected email error');
+
+    spy.mockRestore();
+  });
+
+  it('propagates non-ValidationError from Password.create', async () => {
+    const spy = jest.spyOn(Password, 'create').mockImplementation((): Password => {
+      throw new Error('Unexpected password error');
+    });
+
+    const { useCase } = createRegisterUseCaseDeps();
+
+    await expect(
+      useCase.execute({
+        email: VALID_EMAIL,
+        password: VALID_PASSWORD,
+        confirmPassword: VALID_PASSWORD,
+      })
+    ).rejects.toThrow('Unexpected password error');
+
+    spy.mockRestore();
   });
 });

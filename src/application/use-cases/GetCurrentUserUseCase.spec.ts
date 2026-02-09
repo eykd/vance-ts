@@ -33,8 +33,8 @@ describe('GetCurrentUserUseCase', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.value.id.toString()).toBe(USER_ID);
-      expect(result.value.email.value).toBe('alice@example.com');
+      expect(result.value.id).toBe(USER_ID);
+      expect(result.value.email).toBe('alice@example.com');
     }
   });
 
@@ -101,8 +101,8 @@ describe('GetCurrentUserUseCase', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.value.id.toString()).toBe(USER_ID);
-      expect(result.value.email.value).toBe('Bob@Example.COM');
+      expect(result.value.id).toBe(USER_ID);
+      expect(result.value.email).toBe('Bob@Example.COM');
       expect(result.value.createdAt).toBe('2025-01-15T00:00:00.000Z');
       expect(result.value.lastLoginAt).toBe('2025-01-14T12:00:00.000Z');
     }
@@ -170,8 +170,8 @@ describe('GetCurrentUserUseCase', () => {
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.value.id.toString()).toBe(USER_ID);
-        expect(result.value.email.value).toBe('alice@example.com');
+        expect(result.value.id).toBe(USER_ID);
+        expect(result.value.email).toBe('alice@example.com');
       }
 
       // Restore
