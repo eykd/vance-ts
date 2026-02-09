@@ -174,7 +174,7 @@ describe('LoginUseCase', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error).toBeInstanceOf(UnauthorizedError);
-        expect(result.error.message).toBe('Account is temporarily locked');
+        expect(result.error.message).toBe('Invalid email or password');
       }
     });
 

@@ -89,24 +89,14 @@ export class LoginUseCase {
     try {
       email = Email.create(request.email);
     } catch (error: unknown) {
-      /* istanbul ignore else -- Email.create only throws ValidationError */
-      if (error instanceof ValidationError) {
-        return err(error);
-      }
-      /* istanbul ignore next */
-      throw error;
+      return err(error as ValidationError);
     }
 
     let password: Password;
     try {
       password = Password.createUnchecked(request.password);
     } catch (error: unknown) {
-      /* istanbul ignore else -- Password.createUnchecked only throws ValidationError */
-      if (error instanceof ValidationError) {
-        return err(error);
-      }
-      /* istanbul ignore next */
-      throw error;
+      return err(error as ValidationError);
     }
 
     const rateLimitResult = await this.rateLimiter.checkLimit(
@@ -129,12 +119,12 @@ export class LoginUseCase {
     const now = this.timeProvider.now();
     const nowIso = new Date(now).toISOString();
 
+    const passwordValid = await this.passwordHasher.verify(password.plaintext, user.passwordHash);
+
     if (user.isLocked(nowIso)) {
-      await this.passwordHasher.verify(password.plaintext, user.passwordHash);
-      return err(new UnauthorizedError('Account is temporarily locked'));
+      return err(new UnauthorizedError('Invalid email or password'));
     }
 
-    const passwordValid = await this.passwordHasher.verify(password.plaintext, user.passwordHash);
     if (!passwordValid) {
       const lockoutExpiry = new Date(now + User.LOCK_DURATION_MS).toISOString();
       const updatedUser = user.recordFailedLogin(nowIso, lockoutExpiry);
