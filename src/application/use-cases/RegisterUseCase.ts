@@ -60,23 +60,13 @@ export class RegisterUseCase {
     try {
       email = Email.create(request.email);
     } catch (error: unknown) {
-      /* istanbul ignore else -- Email.create only throws ValidationError */
-      if (error instanceof ValidationError) {
-        return err(error);
-      }
-      /* istanbul ignore next */
-      throw error;
+      return err(error as ValidationError);
     }
 
     try {
       Password.create(request.password);
     } catch (error: unknown) {
-      /* istanbul ignore else -- Password.create only throws ValidationError */
-      if (error instanceof ValidationError) {
-        return err(error);
-      }
-      /* istanbul ignore next */
-      throw error;
+      return err(error as ValidationError);
     }
 
     const userId = UserId.generate();
@@ -97,7 +87,11 @@ export class RegisterUseCase {
       now: nowIso,
     });
 
-    await this.userRepository.save(user);
+    try {
+      await this.userRepository.save(user);
+    } catch {
+      return err(new ConflictError('Email is already registered'));
+    }
 
     return ok({ userId });
   }
