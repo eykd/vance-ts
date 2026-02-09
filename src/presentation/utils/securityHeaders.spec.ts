@@ -33,7 +33,7 @@ describe('buildCspHeaderValue', () => {
     expect(csp).toContain('https://unpkg.com');
   });
 
-  it('includes style-src self with unsafe-inline and jsdelivr CDN', () => {
+  it('includes style-src self with unsafe-inline and jsdelivr CDN (required for Tailwind CDN play script)', () => {
     const csp = buildCspHeaderValue();
     expect(csp).toContain("style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net");
   });

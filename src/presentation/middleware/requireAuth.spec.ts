@@ -103,4 +103,54 @@ describe('requireAuth', () => {
       expect(result.response.headers.get('X-Content-Type-Options')).toBe('nosniff');
     }
   });
+
+  it('omits redirectTo when pathname starts with double slash', async () => {
+    const useCase = createMockUseCase();
+
+    const request = new Request('https://example.com//evil.com');
+
+    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
+    expect(result.type).toBe('redirect');
+    if (result.type === 'redirect') {
+      expect(result.response.headers.get('Location')).toBe('/auth/login');
+    }
+  });
+
+  it('omits redirectTo when pathname contains newlines', async () => {
+    const useCase = createMockUseCase();
+
+    const request = new Request('https://example.com/foo%0Abar');
+
+    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
+    expect(result.type).toBe('redirect');
+    if (result.type === 'redirect') {
+      expect(result.response.headers.get('Location')).toBe('/auth/login');
+    }
+  });
+
+  it('includes redirectTo for normal non-auth paths', async () => {
+    const useCase = createMockUseCase();
+
+    const request = new Request('https://example.com/dashboard/tasks');
+
+    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
+    expect(result.type).toBe('redirect');
+    if (result.type === 'redirect') {
+      expect(result.response.headers.get('Location')).toBe(
+        '/auth/login?redirectTo=%2Fdashboard%2Ftasks'
+      );
+    }
+  });
+
+  it('omits redirectTo when pathname contains null bytes', async () => {
+    const useCase = createMockUseCase();
+
+    const request = new Request('https://example.com/foo%00bar');
+
+    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
+    expect(result.type).toBe('redirect');
+    if (result.type === 'redirect') {
+      expect(result.response.headers.get('Location')).toBe('/auth/login');
+    }
+  });
 });

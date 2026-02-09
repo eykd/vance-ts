@@ -226,9 +226,7 @@ export class AuthHandlers {
       const error = result.error;
 
       const errorMessage =
-        error instanceof ValidationError
-          ? error.message
-          : 'Registration failed. Please try again.';
+        error instanceof ValidationError ? error.message : 'Registration failed. Please try again.';
 
       const fieldErrors = error instanceof ValidationError ? error.fields : undefined;
 

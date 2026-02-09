@@ -54,11 +54,36 @@ export async function requireAuth(
 }
 
 /**
+ * Checks whether a pathname is safe for use as a redirect target.
+ *
+ * Rejects paths that could be used for open redirect attacks:
+ * protocol-relative URLs (`//evil.com`), newline injection, and null bytes.
+ *
+ * @param pathname - The pathname to validate
+ * @returns True if the path is safe for redirect
+ */
+function isSafeRedirectPath(pathname: string): boolean {
+  /* istanbul ignore next -- URL.pathname always starts with '/', defensive guard */
+  if (!pathname.startsWith('/')) {
+    return false;
+  }
+  if (pathname.startsWith('//')) {
+    return false;
+  }
+  if (/[\n\r\0]|%0[aAdD]|%00/i.test(pathname)) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Builds a 303 redirect response to the login page.
  *
  * Preserves the original request path as a `redirectTo` query parameter
  * so the login page can redirect back after successful authentication.
- * Paths under `/auth/` are excluded to avoid redirect loops.
+ * Paths under `/auth/` are excluded to avoid redirect loops. Unsafe
+ * paths (protocol-relative, containing newlines or null bytes) are
+ * excluded to prevent open redirect attacks.
  *
  * @param requestUrl - The full URL of the original request
  * @returns A redirect Response with security headers
@@ -67,7 +92,7 @@ function buildLoginRedirect(requestUrl: string): Response {
   const { pathname } = new URL(requestUrl);
 
   let location = '/auth/login';
-  if (!pathname.startsWith('/auth/')) {
+  if (!pathname.startsWith('/auth/') && isSafeRedirectPath(pathname)) {
     location += `?redirectTo=${encodeURIComponent(pathname)}`;
   }
 

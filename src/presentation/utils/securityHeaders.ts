@@ -10,12 +10,19 @@
  * - `frame-ancestors 'none'` — prevents framing (clickjacking)
  * - `form-action 'self'` — forms can only submit to same origin
  *
+ * Note: `'unsafe-inline'` in style-src is required because the Tailwind CDN
+ * play script injects `<style>` elements at runtime. In production, replace
+ * with nonce-based CSP or self-hosted Tailwind.
+ *
  * @returns The CSP header value string
  */
 export function buildCspHeaderValue(): string {
   return [
     "default-src 'self'",
     "script-src 'self' https://cdn.tailwindcss.com https://unpkg.com",
+    // FIXME: 'unsafe-inline' is required for the Tailwind CDN play script which
+    // injects <style> elements. Replace with nonce-based CSP or self-hosted
+    // Tailwind in production.
     "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
     "img-src 'self'",
     "connect-src 'self'",
