@@ -238,4 +238,26 @@ describe('RegisterUseCase', () => {
       expect(result.error.message).toBe('Passwords do not match');
     }
   });
+
+  it('returns ConflictError when save fails due to UNIQUE constraint violation', async () => {
+    const { useCase, userRepository } = createRegisterUseCaseDeps();
+    const originalSave = userRepository.save.bind(userRepository);
+    userRepository.save = (): Promise<void> =>
+      Promise.reject(new Error('UNIQUE constraint failed'));
+
+    const result = await useCase.execute({
+      email: VALID_EMAIL,
+      password: VALID_PASSWORD,
+      confirmPassword: VALID_PASSWORD,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(ConflictError);
+      expect(result.error.message).toBe('Email is already registered');
+    }
+
+    // Restore for cleanup
+    userRepository.save = originalSave;
+  });
 });
