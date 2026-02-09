@@ -46,4 +46,13 @@ describe('redirectResponse', () => {
     const response = redirectResponse(request, '/');
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
   });
+
+  it('includes extra headers when provided', () => {
+    const request = new Request('https://example.com');
+    const extra = new Headers();
+    extra.append('Set-Cookie', 'test=value');
+    const response = redirectResponse(request, '/', extra);
+    expect(response.headers.get('Set-Cookie')).toBe('test=value');
+    expect(response.headers.get('Location')).toBe('/');
+  });
 });

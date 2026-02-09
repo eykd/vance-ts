@@ -18,10 +18,11 @@ export function isHtmxRequest(request: Request): boolean {
  *
  * @param request - The original request (used to detect HTMX)
  * @param url - The URL to redirect to
+ * @param extraHeaders - Optional additional headers (e.g., Set-Cookie)
  * @returns A redirect Response appropriate for the request type
  */
-export function redirectResponse(request: Request, url: string): Response {
-  const headers = new Headers();
+export function redirectResponse(request: Request, url: string, extraHeaders?: Headers): Response {
+  const headers = new Headers(extraHeaders);
   applySecurityHeaders(headers);
 
   if (isHtmxRequest(request)) {
