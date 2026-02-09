@@ -1,0 +1,174 @@
+import { Session } from '../../domain/entities/Session';
+import { User } from '../../domain/entities/User';
+import { UnauthorizedError } from '../../domain/errors/UnauthorizedError';
+import { ValidationError } from '../../domain/errors/ValidationError';
+import type { PasswordHasher } from '../../domain/interfaces/PasswordHasher';
+import type { SessionRepository } from '../../domain/interfaces/SessionRepository';
+import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
+import type { UserRepository } from '../../domain/interfaces/UserRepository';
+import type { Result } from '../../domain/types/Result';
+import { err, ok } from '../../domain/types/Result';
+import { CsrfToken } from '../../domain/value-objects/CsrfToken';
+import { Email } from '../../domain/value-objects/Email';
+import { Password } from '../../domain/value-objects/Password';
+import { SessionId } from '../../domain/value-objects/SessionId';
+import type { AuthResult } from '../dto/AuthResult';
+import type { LoginRequest } from '../dto/LoginRequest';
+
+/**
+ * Use case for authenticating a user with email and password.
+ *
+ * Implements security measures including constant-time comparison,
+ * account lockout, and open redirect prevention.
+ */
+export class LoginUseCase {
+  /**
+   * Dummy hash used when user is not found to prevent timing attacks.
+   * Ensures passwordHasher.verify() is always called regardless of user existence.
+   */
+  private static readonly DUMMY_HASH = 'hashed:dummy_value_for_timing';
+
+  private readonly userRepository: UserRepository;
+  private readonly sessionRepository: SessionRepository;
+  private readonly passwordHasher: PasswordHasher;
+  private readonly timeProvider: TimeProvider;
+
+  /**
+   * Creates a new LoginUseCase instance.
+   *
+   * @param userRepository - Repository for user persistence
+   * @param sessionRepository - Repository for session persistence
+   * @param passwordHasher - Service for password hashing and verification
+   * @param timeProvider - Provider for current time
+   */
+  constructor(
+    userRepository: UserRepository,
+    sessionRepository: SessionRepository,
+    passwordHasher: PasswordHasher,
+    timeProvider: TimeProvider
+  ) {
+    this.userRepository = userRepository;
+    this.sessionRepository = sessionRepository;
+    this.passwordHasher = passwordHasher;
+    this.timeProvider = timeProvider;
+  }
+
+  /**
+   * Authenticates a user and creates a new session.
+   *
+   * @param request - The login request containing credentials and metadata
+   * @returns Authentication result or validation/unauthorized error
+   */
+  async execute(
+    request: LoginRequest
+  ): Promise<Result<AuthResult, ValidationError | UnauthorizedError>> {
+    const redirectTo = this.validateRedirectUrl(request.redirectTo);
+    if (redirectTo === null) {
+      return err(
+        new ValidationError('Invalid redirect URL', {
+          redirectTo: ['Redirect URL must be a relative path'],
+        })
+      );
+    }
+
+    let email: Email;
+    try {
+      email = Email.create(request.email);
+    } catch (error: unknown) {
+      /* istanbul ignore else -- Email.create only throws ValidationError */
+      if (error instanceof ValidationError) {
+        return err(error);
+      }
+      /* istanbul ignore next */
+      throw error;
+    }
+
+    let password: Password;
+    try {
+      password = Password.createUnchecked(request.password);
+    } catch (error: unknown) {
+      /* istanbul ignore else -- Password.createUnchecked only throws ValidationError */
+      if (error instanceof ValidationError) {
+        return err(error);
+      }
+      /* istanbul ignore next */
+      throw error;
+    }
+
+    const user = await this.userRepository.findByEmail(email);
+    if (user === null) {
+      await this.passwordHasher.verify(password.plaintext, LoginUseCase.DUMMY_HASH);
+      return err(new UnauthorizedError('Invalid email or password'));
+    }
+
+    const now = this.timeProvider.now();
+    const nowIso = new Date(now).toISOString();
+
+    if (user.isLocked(nowIso)) {
+      return err(new UnauthorizedError('Account is temporarily locked'));
+    }
+
+    const passwordValid = await this.passwordHasher.verify(password.plaintext, user.passwordHash);
+    if (!passwordValid) {
+      const lockoutExpiry = new Date(now + User.LOCK_DURATION_MS).toISOString();
+      const updatedUser = user.recordFailedLogin(nowIso, lockoutExpiry);
+      await this.userRepository.save(updatedUser);
+      return err(new UnauthorizedError('Invalid email or password'));
+    }
+
+    const updatedUser = user.recordSuccessfulLogin(nowIso, request.ipAddress, request.userAgent);
+    await this.userRepository.save(updatedUser);
+
+    const sessionId = SessionId.generate();
+    const csrfToken = CsrfToken.generate();
+    const expiresAt = new Date(now + Session.SESSION_DURATION_MS).toISOString();
+
+    const session = Session.create({
+      sessionId,
+      userId: user.id,
+      csrfToken,
+      ipAddress: request.ipAddress,
+      userAgent: request.userAgent,
+      now: nowIso,
+      expiresAt,
+    });
+    await this.sessionRepository.save(session);
+
+    return ok({
+      userId: user.id.toString(),
+      sessionId: sessionId.toString(),
+      csrfToken: csrfToken.toString(),
+      redirectTo,
+    });
+  }
+
+  /**
+   * Validates a redirect URL to prevent open redirect attacks.
+   *
+   * @param url - The redirect URL to validate
+   * @returns The validated URL or null if invalid
+   */
+  private validateRedirectUrl(url: string | undefined): string | null {
+    if (url === undefined || url === '') {
+      return '/';
+    }
+
+    if (!url.startsWith('/')) {
+      return null;
+    }
+
+    if (url.startsWith('//')) {
+      return null;
+    }
+
+    if (url.includes('://')) {
+      return null;
+    }
+
+    if (url.includes('\\')) {
+      return null;
+    }
+
+    return url;
+  }
+}

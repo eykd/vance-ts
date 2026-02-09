@@ -1,0 +1,343 @@
+import type { User } from '../../domain/entities/User';
+import { UnauthorizedError } from '../../domain/errors/UnauthorizedError';
+import { ValidationError } from '../../domain/errors/ValidationError';
+import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
+import { UserBuilder } from '../../test-utils/builders/UserBuilder';
+import { MockPasswordHasher } from '../../test-utils/mocks/MockPasswordHasher';
+import { MockSessionRepository } from '../../test-utils/mocks/MockSessionRepository';
+import { MockUserRepository } from '../../test-utils/mocks/MockUserRepository';
+import type { LoginRequest } from '../dto/LoginRequest';
+
+import { LoginUseCase } from './LoginUseCase';
+
+describe('LoginUseCase', () => {
+  const fixedTime = new Date('2025-06-15T10:30:00.000Z').getTime();
+  const fixedIso = '2025-06-15T10:30:00.000Z';
+  const timeProvider: TimeProvider = { now: (): number => fixedTime };
+
+  let userRepository: MockUserRepository;
+  let sessionRepository: MockSessionRepository;
+  let passwordHasher: MockPasswordHasher;
+  let useCase: LoginUseCase;
+
+  beforeEach(() => {
+    userRepository = new MockUserRepository();
+    sessionRepository = new MockSessionRepository();
+    passwordHasher = new MockPasswordHasher();
+    useCase = new LoginUseCase(userRepository, sessionRepository, passwordHasher, timeProvider);
+  });
+
+  /**
+   * Creates a valid login request with sensible defaults.
+   *
+   * @param overrides - Properties to override
+   * @returns A LoginRequest object
+   */
+  function makeRequest(overrides: Partial<LoginRequest> = {}): LoginRequest {
+    return {
+      email: 'alice@example.com',
+      password: 'correct-password',
+      ipAddress: '192.168.1.100',
+      userAgent: 'Mozilla/5.0 TestBrowser',
+      ...overrides,
+    };
+  }
+
+  /**
+   * Creates a user with a password hash matching MockPasswordHasher's format.
+   *
+   * @param overrides - UserBuilder method calls
+   * @param overrides.id - User ID override
+   * @param overrides.email - Email override
+   * @param overrides.passwordHash - Password hash override
+   * @param overrides.failedAttempts - Number of failed login attempts
+   * @param overrides.locked - Whether the account is locked
+   * @returns A User entity
+   */
+  function makeUser(
+    overrides: {
+      id?: string;
+      email?: string;
+      passwordHash?: string;
+      failedAttempts?: number;
+      locked?: boolean;
+    } = {}
+  ): User {
+    let builder = new UserBuilder()
+      .withId(overrides.id ?? '00000000-0000-4000-a000-000000000001')
+      .withEmail(overrides.email ?? 'alice@example.com')
+      .withPasswordHash(overrides.passwordHash ?? 'hashed:correct-password');
+
+    if (overrides.failedAttempts !== undefined) {
+      builder = builder.withFailedAttempts(overrides.failedAttempts);
+    }
+
+    if (overrides.locked === true) {
+      builder = builder.withLockedAccount();
+    }
+
+    return builder.build();
+  }
+
+  describe('happy path', () => {
+    it('returns ok with AuthResult for valid credentials', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeRequest());
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.value.userId).toBe('00000000-0000-4000-a000-000000000001');
+        expect(result.value.sessionId).toBeDefined();
+        expect(result.value.csrfToken).toBeDefined();
+        expect(result.value.redirectTo).toBe('/');
+      }
+    });
+
+    it('returns the specified redirectTo path', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeRequest({ redirectTo: '/dashboard' }));
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.value.redirectTo).toBe('/dashboard');
+      }
+    });
+
+    it('saves a new session', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeRequest());
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const session = sessionRepository.getById(result.value.sessionId);
+        expect(session).toBeDefined();
+      }
+    });
+
+    it('records successful login on the user', async () => {
+      userRepository.addUser(makeUser());
+      await useCase.execute(makeRequest());
+
+      const savedUser = userRepository.getById('00000000-0000-4000-a000-000000000001');
+      expect(savedUser?.lastLoginAt).toBe(fixedIso);
+      expect(savedUser?.lastLoginIp).toBe('192.168.1.100');
+      expect(savedUser?.lastLoginUserAgent).toBe('Mozilla/5.0 TestBrowser');
+      expect(savedUser?.failedLoginAttempts).toBe(0);
+    });
+
+    it('returns correctly structured AuthResult fields', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeRequest());
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(typeof result.value.userId).toBe('string');
+        expect(typeof result.value.sessionId).toBe('string');
+        expect(typeof result.value.csrfToken).toBe('string');
+        expect(typeof result.value.redirectTo).toBe('string');
+        expect(result.value.csrfToken).toHaveLength(64);
+      }
+    });
+  });
+
+  describe('email and password validation', () => {
+    it('returns err for empty email', async () => {
+      const result = await useCase.execute(makeRequest({ email: '' }));
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(ValidationError);
+      }
+    });
+
+    it('returns err for invalid email format', async () => {
+      const result = await useCase.execute(makeRequest({ email: 'not-an-email' }));
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(ValidationError);
+      }
+    });
+
+    it('returns err for empty password', async () => {
+      const result = await useCase.execute(makeRequest({ password: '' }));
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(ValidationError);
+      }
+    });
+  });
+
+  describe('user not found (timing attack prevention)', () => {
+    it('returns UnauthorizedError with generic message', async () => {
+      const result = await useCase.execute(makeRequest({ email: 'unknown@example.com' }));
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(UnauthorizedError);
+        expect(result.error.message).toBe('Invalid email or password');
+      }
+    });
+
+    it('still calls passwordHasher.verify with dummy hash', async () => {
+      await useCase.execute(makeRequest({ email: 'unknown@example.com' }));
+
+      expect(passwordHasher.verifyCalls).toHaveLength(1);
+      expect(passwordHasher.verifyCalls[0]?.hash).toBe('hashed:dummy_value_for_timing');
+    });
+
+    it('uses same error message as wrong password', async () => {
+      const notFoundResult = await useCase.execute(makeRequest({ email: 'unknown@example.com' }));
+
+      userRepository.addUser(makeUser());
+      const wrongPasswordResult = await useCase.execute(
+        makeRequest({ password: 'wrong-password' })
+      );
+
+      expect(notFoundResult.success).toBe(false);
+      expect(wrongPasswordResult.success).toBe(false);
+      if (!notFoundResult.success && !wrongPasswordResult.success) {
+        expect(notFoundResult.error.message).toBe(wrongPasswordResult.error.message);
+      }
+    });
+  });
+
+  describe('account lockout', () => {
+    it('returns UnauthorizedError for locked account', async () => {
+      userRepository.addUser(makeUser({ locked: true }));
+      const result = await useCase.execute(makeRequest());
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(UnauthorizedError);
+        expect(result.error.message).toBe('Account is temporarily locked');
+      }
+    });
+
+    it('proceeds to password check when lockout has expired', async () => {
+      const user = new UserBuilder()
+        .withEmail('alice@example.com')
+        .withPasswordHash('hashed:correct-password')
+        .withFailedAttempts(5)
+        .build();
+      // Default lockedUntil is null from withFailedAttempts alone, so not locked
+      userRepository.addUser(user);
+
+      const result = await useCase.execute(makeRequest());
+
+      expect(result.success).toBe(true);
+    });
+  });
+
+  describe('wrong password', () => {
+    it('returns UnauthorizedError for wrong password', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeRequest({ password: 'wrong-password' }));
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(UnauthorizedError);
+        expect(result.error.message).toBe('Invalid email or password');
+      }
+    });
+
+    it('increments failed login attempts', async () => {
+      userRepository.addUser(makeUser());
+      await useCase.execute(makeRequest({ password: 'wrong-password' }));
+
+      const savedUser = userRepository.getById('00000000-0000-4000-a000-000000000001');
+      expect(savedUser?.failedLoginAttempts).toBe(1);
+    });
+
+    it('triggers lockout after max failed attempts', async () => {
+      userRepository.addUser(makeUser({ failedAttempts: 4 }));
+      await useCase.execute(makeRequest({ password: 'wrong-password' }));
+
+      const savedUser = userRepository.getById('00000000-0000-4000-a000-000000000001');
+      expect(savedUser?.failedLoginAttempts).toBe(5);
+      expect(savedUser?.lockedUntil).not.toBeNull();
+    });
+  });
+
+  describe('redirect validation', () => {
+    it('rejects //evil.com', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeRequest({ redirectTo: '//evil.com' }));
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(ValidationError);
+      }
+    });
+
+    it('rejects https://evil.com', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeRequest({ redirectTo: 'https://evil.com' }));
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(ValidationError);
+      }
+    });
+
+    it('rejects URLs containing ://', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(
+        makeRequest({ redirectTo: '/page?url=http://evil.com' })
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(ValidationError);
+      }
+    });
+
+    it('rejects URLs containing backslash', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeRequest({ redirectTo: '/path\\evil' }));
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(ValidationError);
+      }
+    });
+
+    it('defaults empty string to /', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeRequest({ redirectTo: '' }));
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.value.redirectTo).toBe('/');
+      }
+    });
+
+    it('defaults undefined to /', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeRequest({ redirectTo: undefined }));
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.value.redirectTo).toBe('/');
+      }
+    });
+  });
+
+  describe('timestamps', () => {
+    it('uses TimeProvider for all timestamps', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeRequest());
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        const session = sessionRepository.getById(result.value.sessionId);
+        expect(session?.createdAt).toBe(fixedIso);
+
+        const savedUser = userRepository.getById('00000000-0000-4000-a000-000000000001');
+        expect(savedUser?.lastLoginAt).toBe(fixedIso);
+        expect(savedUser?.updatedAt).toBe(fixedIso);
+      }
+    });
+  });
+});
