@@ -6,6 +6,8 @@ import { ValidationError } from '../../domain/errors/ValidationError';
 import type { Logger } from '../../domain/interfaces/Logger';
 import type { RateLimitConfig, RateLimiter } from '../../domain/interfaces/RateLimiter';
 import { CsrfToken } from '../../domain/value-objects/CsrfToken';
+import type { CookieOptions } from '../../types/CookieOptions';
+import { DEFAULT_COOKIE_OPTIONS } from '../../types/CookieOptions';
 import { validateDoubleSubmitCsrf } from '../middleware/csrfProtection';
 import { checkRateLimit } from '../middleware/rateLimiter';
 import { rateLimitPage } from '../templates/pages/errorPages';
@@ -49,6 +51,7 @@ export class AuthHandlers {
   private readonly logoutUseCase: LogoutUseCase;
   private readonly rateLimiter: RateLimiter;
   private readonly logger: Logger;
+  private readonly cookieOptions: CookieOptions;
 
   /**
    * Creates a new AuthHandlers instance.
@@ -58,19 +61,22 @@ export class AuthHandlers {
    * @param logoutUseCase - Use case for terminating sessions
    * @param rateLimiter - Service for rate limiting requests
    * @param logger - Logger for security and error events
+   * @param cookieOptions - Cookie naming and security options
    */
   constructor(
     loginUseCase: LoginUseCase,
     registerUseCase: RegisterUseCase,
     logoutUseCase: LogoutUseCase,
     rateLimiter: RateLimiter,
-    logger: Logger
+    logger: Logger,
+    cookieOptions: CookieOptions = DEFAULT_COOKIE_OPTIONS
   ) {
     this.loginUseCase = loginUseCase;
     this.registerUseCase = registerUseCase;
     this.logoutUseCase = logoutUseCase;
     this.rateLimiter = rateLimiter;
     this.logger = logger;
+    this.cookieOptions = cookieOptions;
   }
 
   /**
@@ -85,7 +91,10 @@ export class AuthHandlers {
     const redirectTo = url.searchParams.get('redirectTo') ?? undefined;
 
     const headers = new Headers();
-    headers.append('Set-Cookie', buildCsrfCookie(csrfToken.toString()));
+    headers.append(
+      'Set-Cookie',
+      buildCsrfCookie(csrfToken.toString(), undefined, this.cookieOptions)
+    );
 
     return htmlResponse(loginPage({ csrfToken: csrfToken.toString(), redirectTo }), 200, headers);
   }
@@ -100,7 +109,10 @@ export class AuthHandlers {
     const csrfToken = CsrfToken.generate();
 
     const headers = new Headers();
-    headers.append('Set-Cookie', buildCsrfCookie(csrfToken.toString()));
+    headers.append(
+      'Set-Cookie',
+      buildCsrfCookie(csrfToken.toString(), undefined, this.cookieOptions)
+    );
 
     return htmlResponse(registerPage({ csrfToken: csrfToken.toString() }), 200, headers);
   }
@@ -114,7 +126,10 @@ export class AuthHandlers {
   async handlePostLogin(request: Request): Promise<Response> {
     const form = await parseFormBody(request);
     const formCsrf = getFormField(form, '_csrf');
-    const cookieCsrf = extractCsrfTokenFromCookies(request.headers.get('Cookie'));
+    const cookieCsrf = extractCsrfTokenFromCookies(
+      request.headers.get('Cookie'),
+      this.cookieOptions
+    );
 
     const csrfResponse = validateDoubleSubmitCsrf(formCsrf, cookieCsrf);
     if (csrfResponse !== null) {
@@ -161,7 +176,10 @@ export class AuthHandlers {
 
       const newCsrfToken = CsrfToken.generate();
       const headers = new Headers();
-      headers.append('Set-Cookie', buildCsrfCookie(newCsrfToken.toString()));
+      headers.append(
+        'Set-Cookie',
+        buildCsrfCookie(newCsrfToken.toString(), undefined, this.cookieOptions)
+      );
 
       return htmlResponse(
         loginPage({
@@ -176,8 +194,14 @@ export class AuthHandlers {
     }
 
     const headers = new Headers();
-    headers.append('Set-Cookie', buildSessionCookie(result.value.sessionId.toString()));
-    headers.append('Set-Cookie', buildCsrfCookie(result.value.csrfToken.toString()));
+    headers.append(
+      'Set-Cookie',
+      buildSessionCookie(result.value.sessionId.toString(), undefined, this.cookieOptions)
+    );
+    headers.append(
+      'Set-Cookie',
+      buildCsrfCookie(result.value.csrfToken.toString(), undefined, this.cookieOptions)
+    );
     applySecurityHeaders(headers);
 
     return redirectResponse(request, result.value.redirectTo, headers);
@@ -192,7 +216,10 @@ export class AuthHandlers {
   async handlePostRegister(request: Request): Promise<Response> {
     const form = await parseFormBody(request);
     const formCsrf = getFormField(form, '_csrf');
-    const cookieCsrf = extractCsrfTokenFromCookies(request.headers.get('Cookie'));
+    const cookieCsrf = extractCsrfTokenFromCookies(
+      request.headers.get('Cookie'),
+      this.cookieOptions
+    );
 
     const csrfResponse = validateDoubleSubmitCsrf(formCsrf, cookieCsrf);
     if (csrfResponse !== null) {
@@ -229,7 +256,10 @@ export class AuthHandlers {
 
       const newCsrfToken = CsrfToken.generate();
       const headers = new Headers();
-      headers.append('Set-Cookie', buildCsrfCookie(newCsrfToken.toString()));
+      headers.append(
+        'Set-Cookie',
+        buildCsrfCookie(newCsrfToken.toString(), undefined, this.cookieOptions)
+      );
 
       return htmlResponse(
         registerPage({
@@ -259,19 +289,23 @@ export class AuthHandlers {
   async handlePostLogout(request: Request): Promise<Response> {
     const form = await parseFormBody(request);
     const formCsrf = getFormField(form, '_csrf');
-    const cookieCsrf = extractCsrfTokenFromCookies(request.headers.get('Cookie'));
+    const cookieCsrf = extractCsrfTokenFromCookies(
+      request.headers.get('Cookie'),
+      this.cookieOptions
+    );
 
     const csrfResponse = validateDoubleSubmitCsrf(formCsrf, cookieCsrf);
     if (csrfResponse !== null) {
       return csrfResponse;
     }
 
-    const sessionId = extractSessionIdFromCookies(request.headers.get('Cookie')) ?? '';
+    const sessionId =
+      extractSessionIdFromCookies(request.headers.get('Cookie'), this.cookieOptions) ?? '';
     await this.logoutUseCase.execute(sessionId);
 
     const headers = new Headers();
-    headers.append('Set-Cookie', clearSessionCookie());
-    headers.append('Set-Cookie', clearCsrfCookie());
+    headers.append('Set-Cookie', clearSessionCookie(this.cookieOptions));
+    headers.append('Set-Cookie', clearCsrfCookie(this.cookieOptions));
     applySecurityHeaders(headers);
     headers.set('Location', '/auth/login');
 

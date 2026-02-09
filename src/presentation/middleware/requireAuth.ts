@@ -1,12 +1,17 @@
 import type { UserResponse } from '../../application/dto/UserResponse';
 import type { GetCurrentUserUseCase } from '../../application/use-cases/GetCurrentUserUseCase';
+import type { CookieOptions } from '../../types/CookieOptions';
+import { DEFAULT_COOKIE_OPTIONS } from '../../types/CookieOptions';
 import { extractSessionIdFromCookies } from '../utils/cookieBuilder';
 import { applySecurityHeaders } from '../utils/securityHeaders';
 
 /** Dependencies required by the requireAuth middleware. */
-interface RequireAuthDeps {
+export interface RequireAuthDeps {
   /** Use case for validating the session and retrieving user data. */
   readonly getCurrentUserUseCase: GetCurrentUserUseCase;
+
+  /** Cookie naming and security options. */
+  readonly cookieOptions?: CookieOptions;
 }
 
 /** Result when the user is authenticated. */
@@ -38,8 +43,9 @@ export async function requireAuth(
   request: Request,
   deps: RequireAuthDeps
 ): Promise<AuthCheckResult> {
+  const options = deps.cookieOptions ?? DEFAULT_COOKIE_OPTIONS;
   const cookieHeader = request.headers.get('Cookie');
-  const sessionId = extractSessionIdFromCookies(cookieHeader);
+  const sessionId = extractSessionIdFromCookies(cookieHeader, options);
 
   if (sessionId === null) {
     return { type: 'redirect', response: buildLoginRedirect(request.url) };
