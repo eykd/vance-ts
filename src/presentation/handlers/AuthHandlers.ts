@@ -27,18 +27,6 @@ import { redirectResponse } from '../utils/htmxResponse';
 import { getFormField, parseFormBody } from '../utils/parseFormBody';
 import { applySecurityHeaders } from '../utils/securityHeaders';
 
-/** Rate limit configuration for login attempts at presentation level. */
-const LOGIN_RATE_LIMIT: RateLimitConfig = {
-  maxRequests: 10,
-  windowSeconds: 60,
-};
-
-/** Rate limit configuration for registration attempts. */
-const REGISTER_RATE_LIMIT: RateLimitConfig = {
-  maxRequests: 5,
-  windowSeconds: 300,
-};
-
 /**
  * HTTP handlers for authentication routes.
  *
@@ -52,6 +40,8 @@ export class AuthHandlers {
   private readonly rateLimiter: RateLimiter;
   private readonly logger: Logger;
   private readonly cookieOptions: CookieOptions;
+  private readonly loginRateLimit: RateLimitConfig;
+  private readonly registerRateLimit: RateLimitConfig;
 
   /**
    * Creates a new AuthHandlers instance.
@@ -62,6 +52,8 @@ export class AuthHandlers {
    * @param rateLimiter - Service for rate limiting requests
    * @param logger - Logger for security and error events
    * @param cookieOptions - Cookie naming and security options
+   * @param loginRateLimit - Rate limit config for login attempts
+   * @param registerRateLimit - Rate limit config for registration attempts
    */
   constructor(
     loginUseCase: LoginUseCase,
@@ -69,7 +61,9 @@ export class AuthHandlers {
     logoutUseCase: LogoutUseCase,
     rateLimiter: RateLimiter,
     logger: Logger,
-    cookieOptions: CookieOptions = DEFAULT_COOKIE_OPTIONS
+    cookieOptions: CookieOptions = DEFAULT_COOKIE_OPTIONS,
+    loginRateLimit: RateLimitConfig,
+    registerRateLimit: RateLimitConfig
   ) {
     this.loginUseCase = loginUseCase;
     this.registerUseCase = registerUseCase;
@@ -77,6 +71,8 @@ export class AuthHandlers {
     this.rateLimiter = rateLimiter;
     this.logger = logger;
     this.cookieOptions = cookieOptions;
+    this.loginRateLimit = loginRateLimit;
+    this.registerRateLimit = registerRateLimit;
   }
 
   /**
@@ -139,7 +135,7 @@ export class AuthHandlers {
     const rateLimitResponse = await checkRateLimit(
       request,
       { rateLimiter: this.rateLimiter, logger: this.logger },
-      LOGIN_RATE_LIMIT,
+      this.loginRateLimit,
       'login'
     );
     if (rateLimitResponse !== null) {
@@ -229,7 +225,7 @@ export class AuthHandlers {
     const rateLimitResponse = await checkRateLimit(
       request,
       { rateLimiter: this.rateLimiter, logger: this.logger },
-      REGISTER_RATE_LIMIT,
+      this.registerRateLimit,
       'register'
     );
     if (rateLimitResponse !== null) {

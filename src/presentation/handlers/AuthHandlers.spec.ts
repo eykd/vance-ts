@@ -7,7 +7,7 @@ import { RateLimitError } from '../../domain/errors/RateLimitError';
 import { UnauthorizedError } from '../../domain/errors/UnauthorizedError';
 import { ValidationError } from '../../domain/errors/ValidationError';
 import type { Logger } from '../../domain/interfaces/Logger';
-import type { RateLimiter } from '../../domain/interfaces/RateLimiter';
+import type { RateLimitConfig, RateLimiter } from '../../domain/interfaces/RateLimiter';
 import { err, ok } from '../../domain/types/Result';
 import { CsrfToken } from '../../domain/value-objects/CsrfToken';
 import { SessionId } from '../../domain/value-objects/SessionId';
@@ -107,7 +107,10 @@ function createHandlers(overrides?: Partial<TestDeps>): { handlers: AuthHandlers
     deps.registerUseCase,
     deps.logoutUseCase,
     deps.rateLimiter,
-    deps.logger
+    deps.logger,
+    undefined,
+    TEST_LOGIN_RATE_LIMIT,
+    TEST_REGISTER_RATE_LIMIT
   );
   return { handlers, deps };
 }
@@ -139,6 +142,18 @@ function postRequest(
     },
   });
 }
+
+/** Test rate limit config for login. */
+const TEST_LOGIN_RATE_LIMIT: RateLimitConfig = {
+  maxRequests: 10,
+  windowSeconds: 60,
+};
+
+/** Test rate limit config for registration. */
+const TEST_REGISTER_RATE_LIMIT: RateLimitConfig = {
+  maxRequests: 5,
+  windowSeconds: 300,
+};
 
 const MOCK_CSRF_TOKEN = 'a'.repeat(64);
 const MOCK_SESSION_ID = '00000000-0000-4000-a000-000000000001';
