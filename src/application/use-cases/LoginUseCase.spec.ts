@@ -1,3 +1,4 @@
+import { RateLimitError } from '../../domain/errors/RateLimitError';
 import { UnauthorizedError } from '../../domain/errors/UnauthorizedError';
 import { ValidationError } from '../../domain/errors/ValidationError';
 import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
@@ -5,6 +6,7 @@ import { UserBuilder } from '../../test-utils/builders/UserBuilder';
 import { makeLoginRequest } from '../../test-utils/factories/loginRequestFactory';
 import { makeUser } from '../../test-utils/factories/userFactory';
 import { MockPasswordHasher } from '../../test-utils/mocks/MockPasswordHasher';
+import { MockRateLimiter } from '../../test-utils/mocks/MockRateLimiter';
 import { MockSessionRepository } from '../../test-utils/mocks/MockSessionRepository';
 import { MockUserRepository } from '../../test-utils/mocks/MockUserRepository';
 
@@ -18,13 +20,21 @@ describe('LoginUseCase', () => {
   let userRepository: MockUserRepository;
   let sessionRepository: MockSessionRepository;
   let passwordHasher: MockPasswordHasher;
+  let rateLimiter: MockRateLimiter;
   let useCase: LoginUseCase;
 
   beforeEach(() => {
     userRepository = new MockUserRepository();
     sessionRepository = new MockSessionRepository();
     passwordHasher = new MockPasswordHasher();
-    useCase = new LoginUseCase(userRepository, sessionRepository, passwordHasher, timeProvider);
+    rateLimiter = new MockRateLimiter();
+    useCase = new LoginUseCase(
+      userRepository,
+      sessionRepository,
+      passwordHasher,
+      timeProvider,
+      rateLimiter
+    );
   });
 
   describe('happy path', () => {
@@ -288,6 +298,61 @@ describe('LoginUseCase', () => {
         expect(savedUser?.lastLoginAt).toBe(fixedIso);
         expect(savedUser?.updatedAt).toBe(fixedIso);
       }
+    });
+  });
+
+  describe('rate limiting', () => {
+    it('allows login when rate limit not exceeded', async () => {
+      userRepository.addUser(makeUser());
+      const result = await useCase.execute(makeLoginRequest());
+
+      expect(result.success).toBe(true);
+    });
+
+    it('returns RateLimitError when rate limit exceeded', async () => {
+      rateLimiter.allowed = false;
+      rateLimiter.retryAfterSeconds = 120;
+
+      const result = await useCase.execute(makeLoginRequest());
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(RateLimitError);
+        expect(result.error.message).toBe('Too many login attempts');
+        expect((result.error as RateLimitError).retryAfter).toBe(120);
+      }
+    });
+
+    it('defaults retryAfter to 300 when retryAfterSeconds is null', async () => {
+      rateLimiter.allowed = false;
+      rateLimiter.retryAfterSeconds = null;
+
+      const result = await useCase.execute(makeLoginRequest());
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(RateLimitError);
+        expect((result.error as RateLimitError).retryAfter).toBe(300);
+      }
+    });
+
+    it('checks rate limit using email as identifier', async () => {
+      userRepository.addUser(makeUser());
+      await useCase.execute(makeLoginRequest({ email: 'Alice@Example.COM' }));
+
+      expect(rateLimiter.checkLimitCalls).toHaveLength(1);
+      expect(rateLimiter.checkLimitCalls[0]?.identifier).toBe('alice@example.com');
+      expect(rateLimiter.checkLimitCalls[0]?.action).toBe('login');
+    });
+
+    it('checks rate limit before password verification', async () => {
+      rateLimiter.allowed = false;
+      rateLimiter.retryAfterSeconds = 120;
+      userRepository.addUser(makeUser());
+
+      await useCase.execute(makeLoginRequest());
+
+      expect(passwordHasher.verifyCalls).toHaveLength(0);
     });
   });
 });

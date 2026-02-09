@@ -1,8 +1,10 @@
 import { Session } from '../../domain/entities/Session';
 import { User } from '../../domain/entities/User';
+import { RateLimitError } from '../../domain/errors/RateLimitError';
 import { UnauthorizedError } from '../../domain/errors/UnauthorizedError';
 import { ValidationError } from '../../domain/errors/ValidationError';
 import type { PasswordHasher } from '../../domain/interfaces/PasswordHasher';
+import type { RateLimitConfig, RateLimiter } from '../../domain/interfaces/RateLimiter';
 import type { SessionRepository } from '../../domain/interfaces/SessionRepository';
 import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
 import type { UserRepository } from '../../domain/interfaces/UserRepository';
@@ -22,6 +24,13 @@ import { validateRedirectUrl } from '../utils/validateRedirectUrl';
  */
 const DUMMY_HASH = 'hashed:dummy_value_for_timing';
 
+/** Rate limit configuration for login attempts. */
+const LOGIN_RATE_LIMIT: RateLimitConfig = {
+  maxRequests: 5,
+  windowSeconds: 60,
+  blockDurationSeconds: 300,
+};
+
 /**
  * Use case for authenticating a user with email and password.
  *
@@ -33,6 +42,7 @@ export class LoginUseCase {
   private readonly sessionRepository: SessionRepository;
   private readonly passwordHasher: PasswordHasher;
   private readonly timeProvider: TimeProvider;
+  private readonly rateLimiter: RateLimiter;
 
   /**
    * Creates a new LoginUseCase instance.
@@ -41,17 +51,20 @@ export class LoginUseCase {
    * @param sessionRepository - Repository for session persistence
    * @param passwordHasher - Service for password hashing and verification
    * @param timeProvider - Provider for current time
+   * @param rateLimiter - Service for rate limiting login attempts
    */
   constructor(
     userRepository: UserRepository,
     sessionRepository: SessionRepository,
     passwordHasher: PasswordHasher,
-    timeProvider: TimeProvider
+    timeProvider: TimeProvider,
+    rateLimiter: RateLimiter
   ) {
     this.userRepository = userRepository;
     this.sessionRepository = sessionRepository;
     this.passwordHasher = passwordHasher;
     this.timeProvider = timeProvider;
+    this.rateLimiter = rateLimiter;
   }
 
   /**
@@ -62,7 +75,7 @@ export class LoginUseCase {
    */
   async execute(
     request: LoginRequest
-  ): Promise<Result<AuthResult, ValidationError | UnauthorizedError>> {
+  ): Promise<Result<AuthResult, ValidationError | UnauthorizedError | RateLimitError>> {
     const redirectTo = validateRedirectUrl(request.redirectTo);
     if (redirectTo === null) {
       return err(
@@ -94,6 +107,17 @@ export class LoginUseCase {
       }
       /* istanbul ignore next */
       throw error;
+    }
+
+    const rateLimitResult = await this.rateLimiter.checkLimit(
+      email.normalizedValue,
+      'login',
+      LOGIN_RATE_LIMIT
+    );
+    if (!rateLimitResult.allowed) {
+      return err(
+        new RateLimitError('Too many login attempts', rateLimitResult.retryAfterSeconds ?? 300)
+      );
     }
 
     const user = await this.userRepository.findByEmail(email);
