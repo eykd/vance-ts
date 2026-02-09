@@ -1,5 +1,5 @@
-import type { CookieOptions } from '../../types/CookieOptions';
-import { DEFAULT_COOKIE_OPTIONS } from '../../types/CookieOptions';
+import type { CookieOptions } from '../../infrastructure/types/CookieOptions';
+import { DEFAULT_COOKIE_OPTIONS } from '../../infrastructure/types/CookieOptions';
 
 /** Cookie name for the session identifier. Uses `__Host-` prefix for origin binding. */
 export const SESSION_COOKIE_NAME = '__Host-session';

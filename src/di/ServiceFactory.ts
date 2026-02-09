@@ -16,8 +16,8 @@ import { Argon2PasswordHasher } from '../infrastructure/services/Argon2PasswordH
 import { ConsoleLogger } from '../infrastructure/services/ConsoleLogger';
 import { KVRateLimiter } from '../infrastructure/services/KVRateLimiter';
 import { SystemTimeProvider } from '../infrastructure/services/SystemTimeProvider';
+import type { CookieOptions } from '../infrastructure/types/CookieOptions';
 import { AuthHandlers } from '../presentation/handlers/AuthHandlers';
-import type { CookieOptions } from '../types/CookieOptions';
 import type { Env } from '../types/env';
 
 /**
