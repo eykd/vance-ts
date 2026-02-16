@@ -7,6 +7,8 @@
  *
  * Intended to run after `npx hugo --minify` (see justfile hugo-build).
  * No-ops when the path has not changed (avoids spurious git diffs).
+ *
+ * NOTE: This is a Node.js build-time script, NOT Cloudflare Workers runtime code.
  */
 
 const fs = require('fs');
@@ -22,6 +24,10 @@ const OUTPUT_FILE = path.join(
   'assetPaths.ts',
 );
 
+/**
+ * Finds the fingerprinted styles CSS file in Hugo's build output directory.
+ * @returns {string} The public URL path to the styles CSS file (e.g. `/css/styles.abc123.css`).
+ */
 function findStylesCss() {
   if (!fs.existsSync(PUBLIC_CSS_DIR)) {
     console.error(`ERROR: ${PUBLIC_CSS_DIR} does not exist. Run Hugo build first.`);
@@ -43,6 +49,10 @@ function findStylesCss() {
   return `/css/${files[0]}`;
 }
 
+/**
+ * Writes the generated assetPaths.ts file only if the CSS path has changed.
+ * @param {string} cssPath - The public URL path to the fingerprinted CSS file.
+ */
 function writeIfChanged(cssPath) {
   const content =
     `/** AUTO-GENERATED — run \`just hugo-build\` to update. */\n` +
