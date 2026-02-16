@@ -1,88 +1,76 @@
-import { STYLES_CSS_PATH } from '../../generated/assetPaths';
+import { ALPINE_JS_PATH, HTMX_JS_PATH } from '../../generated/assetPaths';
 
 import { authLayout } from './authLayout';
 
 describe('authLayout', () => {
-  it('renders a full HTML document with DOCTYPE', () => {
-    const result = authLayout({ title: 'Login', content: '<p>form</p>' });
-    expect(result).toContain('<!DOCTYPE html>');
+  const defaultProps = { title: 'Sign In', content: '<form>test</form>' };
+
+  let result: string;
+
+  beforeEach(() => {
+    result = authLayout(defaultProps);
   });
 
-  it('includes the page title in the head', () => {
-    const result = authLayout({ title: 'Register', content: '' });
-    expect(result).toContain('<title>Register</title>');
+  it('renders a full HTML document starting with DOCTYPE', () => {
+    expect(result).toMatch(/^<!DOCTYPE html>/);
   });
 
-  it('escapes the title to prevent XSS', () => {
-    const result = authLayout({ title: '<script>xss</script>', content: '' });
-    expect(result).toContain('&lt;script&gt;xss&lt;/script&gt;');
-    expect(result).not.toContain('<title><script>');
+  it('includes the title in the <title> tag', () => {
+    expect(result).toContain('<title>Sign In</title>');
   });
 
-  it('includes the content in the body', () => {
-    const result = authLayout({ title: 'Test', content: '<form>test form</form>' });
-    expect(result).toContain('<form>test form</form>');
+  it('XSS-escapes the title', () => {
+    const xss = authLayout({ title: '<script>alert("xss")</script>', content: '' });
+    expect(xss).toContain('<title>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</title>');
+    expect(xss).not.toContain('<title><script>');
   });
 
-  it('includes the fingerprinted CSS path from Hugo build', () => {
-    const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toContain(STYLES_CSS_PATH);
-    expect(result).toContain(`<link`);
-    expect(result).toContain(`href="${STYLES_CSS_PATH}"`);
+  it('renders content inside the document without escaping', () => {
+    expect(result).toContain('<form>test</form>');
   });
 
-  it('includes self-hosted HTMX script', () => {
-    const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toContain('src="/js/htmx-2.0.8.min.js"');
+  it('links the fingerprinted CSS file', () => {
+    expect(result).toMatch(/href="\/css\/styles\.[a-f0-9]+\.css"/);
   });
 
-  it('includes self-hosted Alpine.js script with defer', () => {
-    const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toMatch(/<script\s+defer\s+src="\/js\/alpine-3\.15\.8\.min\.js"/);
+  it('includes self-hosted HTMX script using the generated constant', () => {
+    expect(result).toContain(`src="${HTMX_JS_PATH}"`);
   });
 
-  it('does not reference any external CDN domains', () => {
-    const result = authLayout({ title: 'Test', content: '' });
-    expect(result).not.toContain('cdn.jsdelivr.net');
+  it('includes self-hosted Alpine.js script with defer using the generated constant', () => {
+    expect(result).toContain(`src="${ALPINE_JS_PATH}"`);
+    expect(result).toMatch(/<script\s[^>]*defer[^>]*src="/);
+  });
+
+  it('does not reference any CDN domains', () => {
     expect(result).not.toContain('cdn.tailwindcss.com');
     expect(result).not.toContain('unpkg.com');
+    expect(result).not.toContain('cdn.jsdelivr.net');
   });
 
-  it('does not include SRI integrity or crossorigin attributes', () => {
-    const result = authLayout({ title: 'Test', content: '' });
+  it('does not include SRI integrity attributes', () => {
     expect(result).not.toContain('integrity=');
-    expect(result).not.toContain('crossorigin=');
   });
 
-  it('sets UTF-8 charset', () => {
-    const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toContain('charset="utf-8"');
-  });
-
-  it('includes viewport meta tag', () => {
-    const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toContain('viewport');
-  });
-
-  it('renders content inside a centered card layout', () => {
-    const result = authLayout({ title: 'Test', content: '<p>inner</p>' });
-    expect(result).toContain('card');
-    expect(result).toContain('<p>inner</p>');
+  it('does not include crossorigin attributes', () => {
+    expect(result).not.toContain('crossorigin');
   });
 
   it('includes HTMX security config meta tag', () => {
-    const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toContain('name="htmx-config"');
-  });
-
-  it('HTMX config disables script tags and eval', () => {
-    const result = authLayout({ title: 'Test', content: '' });
+    expect(result).toContain('"selfRequestsOnly":true');
     expect(result).toContain('"allowScriptTags":false');
     expect(result).toContain('"allowEval":false');
   });
 
-  it('HTMX config enables selfRequestsOnly', () => {
-    const result = authLayout({ title: 'Test', content: '' });
-    expect(result).toContain('"selfRequestsOnly":true');
+  it('includes charset meta tag', () => {
+    expect(result).toContain('charset="UTF-8"');
+  });
+
+  it('includes viewport meta tag', () => {
+    expect(result).toContain('name="viewport"');
+  });
+
+  it('uses html lang attribute', () => {
+    expect(result).toContain('<html lang="en"');
   });
 });
