@@ -1,7 +1,7 @@
 const CSP_DIRECTIVES: readonly string[] = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
   "img-src 'self'",
   "font-src 'self'",
   "connect-src 'self'",
@@ -23,7 +23,8 @@ export function buildCspHeaderValue(): string {
  * Applies a full set of security headers to the given Headers object.
  *
  * Sets Content-Security-Policy, X-Content-Type-Options, X-Frame-Options,
- * and Referrer-Policy. Existing headers on the object are preserved.
+ * Referrer-Policy, Strict-Transport-Security, and X-Permitted-Cross-Domain-Policies.
+ * Existing headers on the object are preserved.
  *
  * @param headers - The Headers object to mutate
  */
@@ -32,4 +33,6 @@ export function applySecurityHeaders(headers: Headers): void {
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('X-Frame-Options', 'DENY');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  headers.set('X-Permitted-Cross-Domain-Policies', 'none');
 }

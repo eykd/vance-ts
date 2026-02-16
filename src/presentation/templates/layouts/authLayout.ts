@@ -5,7 +5,13 @@ import { html, safe } from '../../utils/html';
 export interface AuthLayoutProps {
   /** Page title (auto-escaped for XSS safety). */
   readonly title: string;
-  /** Inner HTML content (pre-escaped by caller). */
+  /**
+   * Inner HTML content (pre-escaped by caller).
+   *
+   * **Security**: Never interpolate user input into Alpine.js directives
+   * (x-data, x-bind, \@click, etc.) as this enables arbitrary JS execution (XSS).
+   * Only pass developer-controlled HTML via safe().
+   */
   readonly content: string;
 }
 

@@ -17,14 +17,15 @@ describe('buildCspHeaderValue', () => {
   });
 
   it("includes script-src 'self' without unsafe-inline or unsafe-eval", () => {
-    expect(csp).toContain("script-src 'self'");
-    expect(csp).not.toContain('unsafe-inline');
-    expect(csp).not.toContain('unsafe-eval');
+    const scriptDirective = csp
+      .split(';')
+      .map((d) => d.trim())
+      .find((d) => d.startsWith('script-src'));
+    expect(scriptDirective).toBe("script-src 'self'");
   });
 
-  it("includes style-src 'self' without unsafe-inline", () => {
-    expect(csp).toContain("style-src 'self'");
-    expect(csp).not.toContain('unsafe-inline');
+  it("includes style-src 'self' 'unsafe-inline' for Alpine.js compatibility", () => {
+    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
   });
 
   it("includes frame-ancestors 'none'", () => {
@@ -64,6 +65,14 @@ describe('applySecurityHeaders', () => {
 
   it('sets Referrer-Policy to strict-origin-when-cross-origin', () => {
     expect(headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+  });
+
+  it('sets Strict-Transport-Security with max-age and includeSubDomains', () => {
+    expect(headers.get('Strict-Transport-Security')).toBe('max-age=31536000; includeSubDomains');
+  });
+
+  it('sets X-Permitted-Cross-Domain-Policies to none', () => {
+    expect(headers.get('X-Permitted-Cross-Domain-Policies')).toBe('none');
   });
 
   it('preserves existing headers', () => {
