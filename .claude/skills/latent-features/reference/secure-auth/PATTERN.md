@@ -1,6 +1,6 @@
 # Secure Session-Based Authentication Pattern
 
-**Purpose**: OWASP-compliant session-based authentication for Cloudflare Workers with HTMX/Alpine.js
+**Purpose**: OWASP-compliant session-based authentication for Cloudflare Workers using better-auth + Hono
 
 **Trigger keywords**: authentication, login, logout, session, password, user registration, auth
 
@@ -10,46 +10,58 @@
 
 **What this pattern provides**:
 
-- OWASP-compliant security architecture (January 2026)
-- Session-based auth for Cloudflare Workers
+- OWASP-compliant security architecture (February 2026)
+- Session-based auth via better-auth (library-managed)
+- Hono HTTP framework with type-safe middleware
 - Defense-in-depth with multiple security layers
-- Domain-driven design patterns for auth
 - Complete implementation examples with tests
 
 **Technologies**:
 
-- Cloudflare Workers (TypeScript)
-- D1 Database (user storage)
-- KV Storage (sessions, rate limits)
+- [better-auth](https://www.better-auth.com) (authentication library)
+- [better-auth-cloudflare](https://github.com/zpg6/better-auth-cloudflare) (D1/KV adapters)
+- [Hono](https://hono.dev) (HTTP framework for Cloudflare Workers)
+- Cloudflare D1 (user, session, account, verification tables)
+- Cloudflare KV (secondary storage for session cache + rate limits)
 - HTMX + Alpine.js (frontend)
-- Argon2id or PBKDF2 (password hashing)
 
-**Security features**:
+**What better-auth handles** (you don't write this code):
 
-- Password hashing with Argon2id/PBKDF2
-- Session management with KV storage
-- CSRF protection (signed double-submit cookie)
-- XSS prevention (output encoding, safe templates)
-- Rate limiting and account lockout
-- Secure cookie configuration
+- User registration and storage (email, password, account linking)
+- Password hashing (scrypt default, or custom Argon2id/PBKDF2)
+- Session creation, validation, refresh, and revocation
+- Cookie management (HttpOnly, Secure, SameSite, configurable prefix)
+- Rate limiting with IP detection and IPv6 subnet normalization
+- Email verification and password reset token flows
+- Database schema and migrations
+
+**What you still implement** (custom code):
+
+- CSRF protection middleware (better-auth doesn't cover HTMX forms)
+- XSS prevention and safe HTML templates (server-rendered output encoding)
+- Security headers (CSP, HSTS, X-Frame-Options)
+- HTML templates for login, register, error pages (HTMX + Alpine.js)
+- Hono app wiring and auth middleware (per-request auth instance)
+- Open redirect prevention on login/register callbacks
 
 **Routing boundary**:
 
 This pattern uses a static-first routing model:
 
 - `/auth/*` routes are public (login, logout, register)
+- `/api/auth/*` routes are better-auth API endpoints
 - `/app/*` routes are authenticated (require valid session)
 - `/app/_/*` routes are HTMX partials (also authenticated)
 - `/webhooks/*` routes use signature verification (no session auth)
 - `/` and other static routes are served by Cloudflare Pages (no Worker involvement)
 
-Auth middleware is applied at the `/app/*` boundary in the router, not at individual handlers.
+Auth middleware is applied at the `/app/*` boundary in the Hono router, not at individual handlers.
 
 ---
 
 ## Progressive Disclosure Path
 
-### Level 1: Architecture Overview (~120 lines)
+### Level 1: Architecture Overview (~130 lines)
 
 **File**: `architecture/overview.md`
 
@@ -58,9 +70,10 @@ Auth middleware is applied at the `/app/*` boundary in the router, not at indivi
 **What you get**:
 
 - Defense-in-depth security model (5 layers)
-- Threat model for authentication (credential attacks, session attacks, XSS, CSRF)
+- Threat model for authentication
 - Browser-to-server security flow diagrams
-- Data storage architecture (D1 for users, KV for sessions)
+- Data storage architecture (better-auth managed tables in D1, KV for cache)
+- What better-auth handles vs what you implement
 - Key architectural decisions
 
 **Use this when**:
@@ -71,79 +84,56 @@ Auth middleware is applied at the `/app/*` boundary in the router, not at indivi
 
 ---
 
-### Level 2: Domain Design (~504 lines)
+### Level 2: Core Setup (~250 lines)
 
-**File**: `implementation/domain-entities.md`
+**File**: `implementation/better-auth-setup.md`
 
-**When to read**: Planning phase, domain modeling
+**When to read**: Planning phase, initial setup
 
 **What you get**:
 
-- Email value object (validation, normalization)
-- Password value object (strength validation, constant-time comparison)
-- User entity (account lockout, login tracking)
-- Session entity (expiration, CSRF binding)
-- Repository interfaces (UserRepository, SessionRepository)
-- Testing strategies for domain layer
+- Installing dependencies
+- Configuring wrangler.jsonc bindings (D1, KV, secrets)
+- Creating the better-auth instance with Cloudflare adapters
+- Mounting auth routes in Hono
+- Database schema generation and migrations
+- Custom password hasher (Argon2id via Web Crypto) if needed
+- Testing strategy
 
 **Use this when**:
 
-- Designing domain model structure
-- Planning entity relationships
-- Setting up repository interfaces
+- Setting up auth infrastructure for the first time
+- Planning implementation phases
+- Understanding better-auth configuration options
 
 ---
 
 ### Level 3: Implementation Details (choose based on current work)
 
-#### Password Security (~295 lines)
+#### Hono Auth Middleware (~150 lines)
 
-**File**: `implementation/password-security.md`
+**File**: `implementation/hono-auth-middleware.md`
 
-**When to read**: Implementing user registration or login
-
-**What you get**:
-
-- Argon2id implementation with OWASP parameters
-- PBKDF2 fallback (Web Crypto API)
-- Unified password service with algorithm detection
-- Hash format specifications
-- Migration strategy (PBKDF2 → Argon2id)
-- Testing patterns for password hashing
-
-**Use this when**:
-
-- Implementing user registration
-- Implementing login verification
-- Setting up password hashing infrastructure
-
----
-
-#### Session Management (~373 lines)
-
-**File**: `implementation/session-management.md`
-
-**When to read**: Implementing session persistence
+**When to read**: Implementing route protection
 
 **What you get**:
 
-- KV session repository implementation
-- Session data structure
-- Cookie security configuration (\_\_Host- prefix, HttpOnly, Secure, SameSite)
-- Session lifecycle (create, validate, destroy, revoke all)
-- Session ID generation (256-bit entropy)
-- Testing patterns for session storage
+- Session extraction middleware for Hono
+- Type-safe Hono context variables
+- Route protection patterns (public vs authenticated vs admin)
+- HTMX-aware redirects (HX-Redirect header)
+- Logout handler pattern
+- Testing middleware with mock sessions
 
 **Use this when**:
 
-- Implementing session storage layer
-- Setting up session cookies
+- Protecting authenticated routes
+- Accessing user/session in handlers
 - Building logout functionality
-- Implementing "logout everywhere" feature
 
 ---
 
-#### CSRF Protection (~384 lines)
+#### CSRF Protection (~200 lines)
 
 **File**: `implementation/csrf-protection.md`
 
@@ -151,24 +141,21 @@ Auth middleware is applied at the `/app/*` boundary in the router, not at indivi
 
 **What you get**:
 
-- Signed double-submit cookie pattern
-- CSRF middleware implementation
-- CSRF token generation
+- Standalone Hono CSRF middleware
+- Token generation with `crypto.getRandomValues()`
 - HTMX integration (global headers, event listeners)
-- Traditional form integration (hidden fields)
-- Origin/Referer validation
-- Testing patterns for CSRF protection
+- Origin/Referer validation for defense-in-depth
+- Testing patterns
 
 **Use this when**:
 
 - Implementing POST/PUT/PATCH/DELETE endpoints
 - Setting up HTMX forms
-- Building traditional HTML forms
 - Configuring middleware stack
 
 ---
 
-#### XSS Prevention (~458 lines)
+#### XSS Prevention (~460 lines)
 
 **File**: `implementation/xss-prevention.md`
 
@@ -178,34 +165,56 @@ Auth middleware is applied at the `/app/*` boundary in the router, not at indivi
 
 - HTML encoder (context-specific encoding)
 - Safe HTML tagged template literal system
-- HTMX security configuration (hx-disable, allowScriptTags: false)
+- HTMX security configuration
 - Content Security Policy (CSP) setup
 - URL validation patterns
-- Testing patterns for XSS prevention
+- Testing patterns
 
 **Use this when**:
 
 - Building HTML templates
 - Rendering user-provided content
-- Setting up HTMX responses
 - Configuring security headers
+
+---
+
+#### Auth Templates (~200 lines)
+
+**File**: `implementation/auth-templates.md`
+
+**When to read**: Building login/register UI
+
+**What you get**:
+
+- Login form (HTMX + Alpine.js)
+- Register form with validation
+- Password reset request form
+- Error page templates (401, 403, 429)
+- Mapping better-auth errors to user-friendly messages
+- HTMX partial patterns for inline error display
+
+**Use this when**:
+
+- Building auth UI pages
+- Handling form submissions
+- Displaying auth errors
 
 ---
 
 ## Usage by Phase
 
-### Specification Phase (`/sp:02-specify`)
+### Specification Phase (`/sp:01-specify`)
 
 **Goal**: Identify security requirements for feature spec
 
 **Steps**:
 
 1. Load: `architecture/overview.md`
-2. Extract: Threat model, security layers
+2. Extract: Threat model, security layers, better-auth vs custom boundary
 3. Document: Security requirements in spec
 4. Note: Implementation details deferred to planning
 
-**Token cost**: ~120 lines
+**Token cost**: ~130 lines
 
 **Example output for spec**:
 
@@ -214,65 +223,62 @@ Auth middleware is applied at the `/app/*` boundary in the router, not at indivi
 
 This feature requires authentication following OWASP guidelines:
 
-- Password security: Argon2id hashing with 19 MiB memory cost
-- Session management: KV-based storage with TTL
-- CSRF protection: Signed double-submit cookie pattern
+- Authentication: better-auth library with email/password
+- Session management: better-auth managed (D1 + KV cache)
+- Password security: scrypt (default) or Argon2id (custom hasher)
+- Rate limiting: better-auth built-in (IP-based, configurable per-endpoint)
+- CSRF protection: Custom double-submit cookie middleware (for HTMX forms)
 - XSS prevention: Output encoding for all user data
-- Rate limiting: Account lockout after 5 failed attempts
+- Future: Email verification, password reset, 2FA (better-auth plugins)
 
 See latent-features/secure-auth for implementation patterns.
 ```
 
 ---
 
-### Planning Phase (`/sp:04-plan`)
+### Planning Phase (`/sp:03-plan`)
 
-**Goal**: Create implementation plan with domain structure
+**Goal**: Create implementation plan with setup structure
 
 **Steps**:
 
 1. Load: `architecture/overview.md` (if not already loaded)
-2. Load: `implementation/domain-entities.md`
-3. Extract: Entity structure, repository interfaces
+2. Load: `implementation/better-auth-setup.md`
+3. Extract: Configuration, wiring, migration steps
 4. Create: Implementation phases
 5. Reference: Specific implementation files for each phase
 
-**Token cost**: ~620 lines (architecture + domain)
+**Token cost**: ~380 lines (architecture + setup)
 
 **Example plan structure**:
 
 ```markdown
 ## Implementation Plan
 
-### Phase 1: Domain Layer
+### Phase 1: Infrastructure Setup
 
-- Reference: domain-entities.md
-- Implement: Email, Password value objects
-- Implement: User, Session entities
-- Define: Repository interfaces
+- Reference: better-auth-setup.md
+- Install: better-auth, better-auth-cloudflare, hono, kysely, kysely-d1
+- Configure: wrangler.jsonc (D1, KV, secrets)
+- Create: Auth instance factory, mount routes in Hono
 
-### Phase 2: Password Security
+### Phase 2: Route Protection
 
-- Reference: password-security.md
-- Implement: Argon2Hasher service
-- Implement: PasswordService with algorithm detection
+- Reference: hono-auth-middleware.md
+- Implement: Session extraction middleware
+- Configure: Public vs authenticated route boundaries
 
-### Phase 3: Session Management
-
-- Reference: session-management.md
-- Implement: KVSessionRepository
-- Implement: Session cookie handling
-
-### Phase 4: CSRF Protection
+### Phase 3: CSRF Protection
 
 - Reference: csrf-protection.md
-- Implement: CSRF middleware
+- Implement: CSRF middleware for Hono
 - Configure: HTMX integration
 
-### Phase 5: XSS Prevention
+### Phase 4: Templates & XSS Prevention
 
-- Reference: xss-prevention.md
+- Reference: xss-prevention.md + auth-templates.md
 - Implement: Safe HTML template system
+- Build: Login, register, error page templates
 - Configure: Security headers (CSP)
 ```
 
@@ -287,38 +293,19 @@ See latent-features/secure-auth for implementation patterns.
 **Examples**:
 
 ```
-Task: Implement user registration
-→ Load: implementation/password-security.md
-→ Token cost: ~295 lines
+Task: Set up auth infrastructure
+→ Load: implementation/better-auth-setup.md
+→ Token cost: ~250 lines
 
-Task: Implement session storage
-→ Load: implementation/session-management.md
-→ Token cost: ~373 lines
+Task: Protect app routes
+→ Load: implementation/hono-auth-middleware.md
+→ Token cost: ~150 lines
 
 Task: Build login form
+→ Load: implementation/auth-templates.md
 → Load: implementation/csrf-protection.md
-→ Load: implementation/xss-prevention.md
-→ Token cost: ~842 lines
+→ Token cost: ~400 lines
 ```
-
----
-
-## Complete Reference
-
-**File**: `docs/secure-authentication-guide.md` (~3,818 lines)
-
-**When to use**: Rarely - only when focused reference files are insufficient
-
-**Contains**:
-
-- Complete implementation examples
-- Infrastructure setup (wrangler.jsonc, database migrations)
-- Detailed code samples for all components
-- Edge cases and advanced scenarios
-- Integration patterns
-- Complete testing suites
-
-**Prefer**: Focused reference files above for 75% token savings
 
 ---
 
@@ -327,23 +314,22 @@ Task: Build login form
 ### Progressive Disclosure Approach
 
 ```
-Session 1 (Specification): 120 lines
-Session 2 (Planning): 504 lines
-Session 3 (Password impl): 295 lines
-Session 4 (Session impl): 373 lines
-Session 5 (CSRF impl): 384 lines
+Session 1 (Specification): 130 lines
+Session 2 (Planning):      250 lines
+Session 3 (Middleware):     150 lines
+Session 4 (CSRF impl):     200 lines
+Session 5 (Templates):     200 lines
 
-Total: ~1,676 lines across 5 sessions
+Total: ~930 lines across 5 sessions
 ```
 
-### Monolithic Approach
+### Monolithic Approach (old hand-rolled pattern)
 
 ```
-Session 1: Load entire guide (3,818 lines)
-Total: 3,818 lines
+All files combined: ~2,500+ lines
 ```
 
-**Token savings**: 56% reduction through progressive disclosure
+**Token savings**: ~63% reduction through progressive disclosure + library delegation
 
 ---
 
@@ -351,11 +337,11 @@ Total: 3,818 lines
 
 Each reference file includes testing patterns:
 
-- **domain-entities.md**: Unit tests for value objects and entities
-- **password-security.md**: Hash/verify tests, constant-time comparison tests
-- **session-management.md**: Repository tests, TTL expiration tests
+- **better-auth-setup.md**: Mock better-auth in unit tests, real D1 in integration tests
+- **hono-auth-middleware.md**: Mock session extraction, test route protection
 - **csrf-protection.md**: Middleware tests, token validation tests
 - **xss-prevention.md**: Template encoding tests, XSS attack prevention tests
+- **auth-templates.md**: Form rendering tests, error message mapping tests
 
 ---
 
@@ -364,7 +350,11 @@ Each reference file includes testing patterns:
 ```json
 {
   "dependencies": {
-    "@noble/hashes": "^1.3.0" // For Argon2id (optional, can use PBKDF2 instead)
+    "better-auth": "^1.x",
+    "better-auth-cloudflare": "^0.x",
+    "hono": "^4.x",
+    "kysely": "^0.x",
+    "kysely-d1": "^0.x"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.0.0",
@@ -375,19 +365,33 @@ Each reference file includes testing patterns:
 
 ---
 
+## Future Extensions (better-auth plugins)
+
+better-auth supports these as drop-in plugins when needed:
+
+- **Email verification**: `emailVerification` config with `sendVerificationEmail` callback
+- **Password reset**: `sendResetPassword` callback + token-based flow
+- **Two-factor authentication**: `twoFactor` plugin (TOTP, OTP, backup codes)
+- **Social login**: `socialProviders` config (GitHub, Google, etc.)
+- **Account linking**: `accountLinking` config for multi-provider accounts
+
+These require no architectural changes — add plugin config and implement the UI.
+
+---
+
 ## Next Steps After Reading This Pattern
 
 1. **For architecture understanding** → Read `architecture/overview.md`
-2. **For domain modeling** → Read `implementation/domain-entities.md`
-3. **For implementation** → Choose specific implementation file based on current task
-4. **For complete examples** → Refer to `docs/secure-authentication-guide.md` (use sparingly)
+2. **For initial setup** → Read `implementation/better-auth-setup.md`
+3. **For route protection** → Read `implementation/hono-auth-middleware.md`
+4. **For specific implementation** → Choose from remaining implementation files
 
 ---
 
 ## Notes
 
-- All patterns follow OWASP guidelines (January 2026)
+- All patterns follow OWASP guidelines (February 2026)
 - Security uses defense-in-depth (multiple overlapping layers)
-- Implementation examples target Cloudflare Workers (TypeScript)
-- Architecture assumes DDD/Clean Architecture approach
-- All patterns include comprehensive testing strategies
+- Implementation targets Cloudflare Workers (TypeScript)
+- better-auth eliminates ~70% of hand-rolled auth code
+- Custom code focuses on CSRF, XSS, templates, and Hono wiring

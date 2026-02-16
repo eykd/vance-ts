@@ -15,12 +15,7 @@ When using this skill to guide users, you MUST ask only one question per message
 
 **SECURITY RULE**: You must NEVER ask users to paste secret values (API keys, tokens, passwords, DSNs) in the chat. This is a severe security risk.
 
-**For the Cloudflare API token** (needed so Claude can run wrangler commands):
-
-- **DO**: Guide users to set `CLOUDFLARE_API_TOKEN` as an environment variable
-- **DO**: For Claude Code for the Web users, guide them to create a "cloudflare" environment
-- **DO**: For local users, guide them to use a `.env` file or shell export
-- See `references/prerequisites.md` for detailed environment setup instructions
+**For Cloudflare authentication**: Credentials are pre-provisioned on the Sprites.dev box. Claude verifies them with `npx wrangler whoami`. If authentication fails, use the `wrangler-sprite-auth` skill as a fallback.
 
 **For application secrets** (Resend API key, Sentry DSN, etc.):
 
@@ -41,10 +36,10 @@ Think of it like this: Cloudflare Workers is your application running at hundred
 
 ## Time Investment
 
-- **First-time setup**: About 30-35 minutes
-- **Most of that time** is creating accounts (Cloudflare, Resend, Sentry)
-- **Choosing a Worker name**: 2 minutes (Claude updates wrangler.toml)
-- **Initial deployment**: 2-3 minutes (Claude runs wrangler deploy)
+- **First-time setup**: About 15-20 minutes (Cloudflare credentials are pre-provisioned)
+- **Choosing a project name**: 2 minutes (Claude updates wrangler.toml)
+- **Initial deployment**: 2-3 minutes (Claude runs wrangler pages deploy)
+- **GitHub secrets**: 5 minutes (for CI/CD automation)
 - **Setting up email (Resend)**: 10 minutes (optional)
 - **Setting up error tracking (Sentry)**: 5 minutes (optional)
 - **Once set up**: Future changes deploy in under 30 seconds
@@ -67,24 +62,19 @@ Think of it like this: Cloudflare Workers is your application running at hundred
 
 You'll need:
 
-1. **An email address** for creating accounts
-2. **About 30-35 minutes** of uninterrupted time
+1. **A Sprites.dev development box** — Where Claude Code CLI runs with pre-provisioned Cloudflare credentials
+2. **About 15-20 minutes** of uninterrupted time
 3. **No credit card required** — All services (Cloudflare, Resend, Sentry) offer free tiers without payment info
-4. **Claude Code running** in a cloud environment where Claude can execute commands
 
-**Note**: Since you're using Claude Code, Claude will handle all terminal commands. Your role is to create accounts and set up credentials as environment variables (never paste secrets in chat).
+**Note**: Since you're running Claude Code CLI on a Sprites.dev box, Cloudflare credentials are already set up. Claude will handle all terminal commands. Your role is to answer questions and make decisions — Claude does the rest.
 
 ## The Journey
 
-### Phase 1: Prerequisites (10 minutes)
+### Phase 1: Verify Credentials (1 minute)
 
-You already have a GitHub account (since you're using this repository). You need:
+Your Sprites.dev box comes with Cloudflare credentials pre-provisioned. Claude verifies they're working by running `npx wrangler whoami`.
 
-1. **Cloudflare account** — Where your Worker runs
-2. **Cloudflare API token** — Set as `CLOUDFLARE_API_TOKEN` environment variable so Claude can deploy on your behalf
-3. **Cloudflare Account ID** — Set as `CLOUDFLARE_ACCOUNT_ID` environment variable (required for Cloudflare Pages deployment)
-
-**Important**: Set both environment variables at the same time, then restart your session once. See `references/prerequisites.md` for detailed instructions.
+If authentication fails, Claude uses the `wrangler-sprite-auth` skill to authenticate via OAuth. See `references/prerequisites.md` for details.
 
 ### Phase 2: Choose Your Worker Name (2 minutes)
 
@@ -234,7 +224,7 @@ No code changes needed—it's all done through the Cloudflare interface.
 
 ## Reference Files
 
-- `references/prerequisites.md` — Creating Cloudflare account and API token
+- `references/prerequisites.md` — Verifying Cloudflare credentials on Sprites.dev
 - `references/wrangler-deploy.md` — How Claude deploys your Worker
 - `references/email-setup.md` — Setting up Resend (optional)
 - `references/sentry-setup.md` — Setting up error tracking (optional)
