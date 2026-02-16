@@ -642,6 +642,52 @@ get_in_progress_task() {
     echo "$in_progress_tasks" | jq -r '.[0] // empty'
 }
 
+# Check if a task has children (is a parent container)
+task_has_children() {
+    local task_id="$1"
+    local child_count
+    child_count=$(npx bd list --parent "$task_id" --limit 1 --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    [[ "$child_count" -gt 0 ]]
+}
+
+# Check if all direct children of a task are closed
+all_children_closed() {
+    local task_id="$1"
+    local open_count
+    open_count=$(npx bd list --parent "$task_id" --status open --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    [[ "$open_count" -eq 0 ]]
+}
+
+# Auto-close parent container tasks when all their children are completed.
+# Walks up from the given task ID, closing ancestors bottom-up.
+auto_close_completed_parents() {
+    local task_id="$1"
+    local epic_id="$2"
+    local current_id="$task_id"
+
+    while true; do
+        # Remove last ID segment to get parent
+        local parent_id="${current_id%.*}"
+
+        # Stop if we can't go higher or reached the epic
+        [[ "$parent_id" == "$current_id" ]] && break
+        [[ "$parent_id" == "$epic_id" ]] && break
+
+        # Check if parent has children and all are closed
+        if task_has_children "$parent_id" && all_children_closed "$parent_id"; then
+            log INFO "Auto-closing completed parent task: $parent_id"
+            npx bd close "$parent_id" 2>/dev/null || {
+                log WARN "Failed to auto-close parent task: $parent_id"
+                break
+            }
+        else
+            break  # If this parent can't close, no ancestor can either
+        fi
+
+        current_id="$parent_id"
+    done
+}
+
 # Get ready tasks for the epic (returns JSON array)
 get_ready_tasks() {
     local epic_id="$1"
@@ -653,9 +699,35 @@ get_ready_tasks() {
     }
 
     # Filter out the epic itself and event tasks
-    # (bd ready --parent already returns only child tasks)
-    echo "$ready_json" | jq --arg epic "$epic_id" \
-        '[.[] | select(.id != $epic and .issue_type != "event")]'
+    local filtered
+    filtered=$(echo "$ready_json" | jq --arg epic "$epic_id" \
+        '[.[] | select(.id != $epic and .issue_type != "event")]')
+
+    # Filter out parent container tasks (tasks that have children).
+    # Parent tasks are not work items; ralph processes their children individually.
+    local leaf_ids=()
+    local task_id
+    while IFS= read -r task_id; do
+        [[ -z "$task_id" ]] && continue
+        if task_has_children "$task_id"; then
+            log DEBUG "Skipping parent container task: $task_id"
+        else
+            leaf_ids+=("$task_id")
+        fi
+    done < <(echo "$filtered" | jq -r '.[].id')
+
+    if [[ ${#leaf_ids[@]} -eq 0 ]]; then
+        echo "[]"
+        return 0
+    fi
+
+    # Rebuild JSON array with only leaf tasks
+    local id_array
+    id_array=$(printf '"%s",' "${leaf_ids[@]}")
+    id_array="[${id_array%,}]"
+
+    echo "$filtered" | jq --argjson ids "$id_array" \
+        '[.[] | select(.id | IN($ids[]))]'
 }
 
 # Check if there are ready tasks remaining
@@ -1153,6 +1225,11 @@ $task_description"
         # Invoke Claude CLI with retry logic
         if invoke_claude_with_retry "$focused_prompt"; then
             log INFO "Task processing completed successfully"
+
+            # Auto-close parent container tasks if all children are now completed.
+            # Walks up from the processed task, closing each ancestor whose
+            # children are all closed. This unblocks dependents of the parent.
+            auto_close_completed_parents "$task_id" "$epic_id"
         else
             log ERROR "Task processing failed after $MAX_RETRIES retries"
             return "$EXIT_FAILURE"
