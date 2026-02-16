@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+/* Scan Worker presentation templates so TailwindCSS includes classes used in server-rendered HTML. */
 @source "../../src/presentation/templates";
 @plugin "@tailwindcss/typography";
 @plugin "daisyui";
