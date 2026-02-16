@@ -7,6 +7,8 @@
  * 1. Hugo builds successfully without errors
  * 2. Required files exist after build (index.html, CSS files)
  * 3. Build output directory structure is correct
+ *
+ * NOTE: This is a Node.js build-time script, NOT Cloudflare Workers runtime code.
  */
 
 const { execSync } = require('child_process');
@@ -22,18 +24,35 @@ const colors = {
   blue: '\x1b[34m',
 };
 
+/**
+ * Logs a message to the console with optional ANSI color.
+ * @param {string} message - The message to log.
+ * @param {string} color - ANSI color code to apply (defaults to reset).
+ */
 function log(message, color = colors.reset) {
   console.log(`${color}${message}${colors.reset}`);
 }
 
+/**
+ * Logs a success message in green with a checkmark prefix.
+ * @param {string} message - The success message to log.
+ */
 function logSuccess(message) {
   log(`✅ ${message}`, colors.green);
 }
 
+/**
+ * Logs an error message in red with a cross prefix.
+ * @param {string} message - The error message to log.
+ */
 function logError(message) {
   log(`❌ ${message}`, colors.red);
 }
 
+/**
+ * Logs an informational message in blue with an info prefix.
+ * @param {string} message - The info message to log.
+ */
 function logInfo(message) {
   log(`ℹ️  ${message}`, colors.blue);
 }
@@ -140,6 +159,47 @@ try {
   } else {
     logError('public/404.html not found');
     exitCode = 1;
+  }
+
+  // Test 6: Verify assetPaths.ts matches Hugo build output
+  logInfo('\nTest 6: Checking assetPaths.ts is in sync with build...');
+  const assetPathsFile = path.join(__dirname, '..', 'src', 'presentation', 'generated', 'assetPaths.ts');
+  if (fs.existsSync(assetPathsFile)) {
+    const assetContent = fs.readFileSync(assetPathsFile, 'utf-8');
+    const match = assetContent.match(/STYLES_CSS_PATH\s*=\s*'([^']+)'/);
+    if (match) {
+      const cssPath = match[1];
+      const cssFilename = cssPath.replace(/^\/css\//, '');
+      const fullCssPath = path.join(publicDir, 'css', cssFilename);
+      if (fs.existsSync(fullCssPath)) {
+        logSuccess(`assetPaths.ts CSS path matches build output: ${cssFilename}`);
+      } else {
+        logError(`assetPaths.ts references ${cssPath} but file not found in build output`);
+        logError('Run "just hugo-build" to regenerate assetPaths.ts');
+        exitCode = 1;
+      }
+    } else {
+      logError('Could not extract STYLES_CSS_PATH from assetPaths.ts');
+      exitCode = 1;
+    }
+  } else {
+    logError('src/presentation/generated/assetPaths.ts not found');
+    exitCode = 1;
+  }
+
+  // Test 7: Verify vendored JS files exist
+  logInfo('\nTest 7: Checking vendored JS files...');
+  const jsDir = path.join(publicDir, 'js');
+  const requiredJsFiles = ['htmx-2.0.8.min.js', 'alpine-3.15.8.min.js'];
+  for (const jsFile of requiredJsFiles) {
+    const jsPath = path.join(jsDir, jsFile);
+    if (fs.existsSync(jsPath)) {
+      const stats = fs.statSync(jsPath);
+      logSuccess(`${jsFile} exists (${stats.size} bytes)`);
+    } else {
+      logError(`${jsFile} not found in public/js/`);
+      exitCode = 1;
+    }
   }
 
   // Summary

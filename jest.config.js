@@ -1,12 +1,39 @@
-module.exports = {
+/** Shared settings for all Jest projects. */
+const baseConfig = {
   preset: 'ts-jest',
-  testEnvironment: 'node',
-  roots: ['<rootDir>/src', '<rootDir>/.claude'],
-  testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
   transformIgnorePatterns: ['node_modules/(?!(better-sqlite3)/)'],
+  moduleFileExtensions: ['ts', 'js', 'json'],
+  testTimeout: 10000,
+};
+
+module.exports = {
+  /**
+   * Workers project: src/ code targeting the Cloudflare Workers runtime.
+   * Uses a custom environment that strips Node-specific globals (Buffer,
+   * setImmediate, clearImmediate) to catch accidental Node.js usage.
+   *
+   * Node project: scripts/ and .claude/ tooling that runs in Node.js
+   * at build time. Full Node.js globals available.
+   */
+  projects: [
+    {
+      ...baseConfig,
+      displayName: 'workers',
+      testEnvironment: '<rootDir>/jest.env.worker.js',
+      roots: ['<rootDir>/src'],
+      testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
+    },
+    {
+      ...baseConfig,
+      displayName: 'node',
+      testEnvironment: 'node',
+      roots: ['<rootDir>/scripts', '<rootDir>/.claude'],
+      testMatch: ['**/?(*.)+(spec|test).{ts,js}'],
+    },
+  ],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
@@ -14,6 +41,7 @@ module.exports = {
     '!src/**/*.test.ts',
     '!src/**/index.ts',
     '!src/types/**/*.ts',
+    '!src/presentation/generated/**/*.ts',
   ],
   coverageThreshold: {
     global: {
@@ -25,7 +53,4 @@ module.exports = {
   },
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  moduleFileExtensions: ['ts', 'js', 'json'],
-  verbose: true,
-  testTimeout: 10000,
 };
