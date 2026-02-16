@@ -5,9 +5,11 @@ const CSP_DIRECTIVES: readonly string[] = [
   "img-src 'self'",
   "font-src 'self'",
   "connect-src 'self'",
+  "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
   "base-uri 'self'",
+  'upgrade-insecure-requests',
 ];
 
 /**
@@ -33,6 +35,7 @@ export function applySecurityHeaders(headers: Headers): void {
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('X-Frame-Options', 'DENY');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   headers.set('X-Permitted-Cross-Domain-Policies', 'none');
+  headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
 }

@@ -28,12 +28,20 @@ describe('buildCspHeaderValue', () => {
     expect(csp).toContain("style-src 'self' 'unsafe-inline'");
   });
 
+  it("includes object-src 'none' to block plugin content", () => {
+    expect(csp).toContain("object-src 'none'");
+  });
+
   it("includes frame-ancestors 'none'", () => {
     expect(csp).toContain("frame-ancestors 'none'");
   });
 
   it("includes form-action 'self'", () => {
     expect(csp).toContain("form-action 'self'");
+  });
+
+  it('includes upgrade-insecure-requests directive', () => {
+    expect(csp).toContain('upgrade-insecure-requests');
   });
 
   it('does not reference any CDN domains', () => {
@@ -67,12 +75,18 @@ describe('applySecurityHeaders', () => {
     expect(headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
   });
 
-  it('sets Strict-Transport-Security with max-age and includeSubDomains', () => {
-    expect(headers.get('Strict-Transport-Security')).toBe('max-age=31536000; includeSubDomains');
+  it('sets HSTS with 2-year max-age, includeSubDomains, and preload', () => {
+    expect(headers.get('Strict-Transport-Security')).toBe(
+      'max-age=63072000; includeSubDomains; preload'
+    );
   });
 
   it('sets X-Permitted-Cross-Domain-Policies to none', () => {
     expect(headers.get('X-Permitted-Cross-Domain-Policies')).toBe('none');
+  });
+
+  it('sets Permissions-Policy restricting sensitive APIs', () => {
+    expect(headers.get('Permissions-Policy')).toBe('geolocation=(), microphone=(), camera=()');
   });
 
   it('preserves existing headers', () => {

@@ -1,3 +1,5 @@
+import { ALPINE_JS_PATH, HTMX_JS_PATH } from '../../generated/assetPaths';
+
 import { authLayout } from './authLayout';
 
 describe('authLayout', () => {
@@ -31,12 +33,13 @@ describe('authLayout', () => {
     expect(result).toMatch(/href="\/css\/styles\.[a-f0-9]+\.css"/);
   });
 
-  it('includes self-hosted HTMX script', () => {
-    expect(result).toContain('src="/js/htmx-2.0.8.min.js"');
+  it('includes self-hosted HTMX script using the generated constant', () => {
+    expect(result).toContain(`src="${HTMX_JS_PATH}"`);
   });
 
-  it('includes self-hosted Alpine.js script with defer', () => {
-    expect(result).toMatch(/<script\s[^>]*defer[^>]*src="\/js\/alpine-3\.15\.8\.min\.js"/);
+  it('includes self-hosted Alpine.js script with defer using the generated constant', () => {
+    expect(result).toContain(`src="${ALPINE_JS_PATH}"`);
+    expect(result).toMatch(/<script\s[^>]*defer[^>]*src="/);
   });
 
   it('does not reference any CDN domains', () => {

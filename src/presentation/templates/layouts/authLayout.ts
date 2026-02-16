@@ -1,4 +1,4 @@
-import { STYLES_CSS_PATH } from '../../generated/assetPaths';
+import { ALPINE_JS_PATH, HTMX_JS_PATH, STYLES_CSS_PATH } from '../../generated/assetPaths';
 import { html, safe } from '../../utils/html';
 
 /** Props for the auth layout template. */
@@ -36,8 +36,8 @@ export function authLayout(props: AuthLayoutProps): string {
         />
         <title>${props.title}</title>
         <link rel="stylesheet" href="${safe(STYLES_CSS_PATH)}" />
-        <script src="/js/htmx-2.0.8.min.js"></script>
-        <script defer src="/js/alpine-3.15.8.min.js"></script>
+        <script src="${safe(HTMX_JS_PATH)}"></script>
+        <script defer src="${safe(ALPINE_JS_PATH)}"></script>
       </head>
       <body class="min-h-screen bg-base-200 flex items-center justify-center">
         <div class="card w-full max-w-md bg-base-100 shadow-xl">
