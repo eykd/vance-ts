@@ -176,6 +176,90 @@ function roll4dF(rng: Prng): number;
 function rollNdS(rng: Prng, count: number, sides: number): number;
 ```
 
+## Galaxy Generator Interfaces
+
+These interfaces live in the generator tool directory (`tools/galaxy-generator/src/galaxy/`) since they are specific to the galaxy generation algorithm, not shared domain types. They are documented here for completeness.
+
+```typescript
+// tools/galaxy-generator/src/galaxy/elliptic-starfield.ts
+
+/** Parameters for the elliptic starfield generator (Level 3). */
+interface EllipticStarfieldParams {
+  /** Number of stars to place in this cloud. */
+  readonly amount: number;
+  /** Center position of the elliptical cloud [x, y]. */
+  readonly center: readonly [number, number];
+  /** Ellipse radii [rx, ry] — typically the rotated arm position. */
+  readonly radius: readonly [number, number];
+  /** Rotation angle for the starfield (radians). 0 = no rotation. */
+  readonly turn: number;
+  /** Output coordinate scaling factor. 1 = no scaling. */
+  readonly multiplier: number;
+  /** Shared PRNG instance. State advances with each star placed. */
+  readonly rng: Prng;
+}
+```
+
+```typescript
+// tools/galaxy-generator/src/galaxy/spiral-arm-generator.ts
+
+/** Parameters for the spiral arm generator (Level 2). Pre-computed at galaxy level. */
+interface SpiralArmParams {
+  /** Galaxy center position [x, y]. */
+  readonly center: readonly [number, number];
+  /** Size converted to radians: 2.0 * size[0] * π / 360.0. */
+  readonly sx: number;
+  /** Size converted to radians: 2.0 * size[1] * π / 360.0. */
+  readonly sy: number;
+  /** Angular offset for this arm: (arm / arms) * 2 * π. */
+  readonly shift: number;
+  /** Base rotation angle (radians). */
+  readonly turn: number;
+  /** Spiral extent in degrees. Walk continues while n <= deg. */
+  readonly deg: number;
+  /** Cloud x-radius: round(deg / π * sx / 1.7) * dynSizeFactor. */
+  readonly xp1: number;
+  /** Cloud y-radius: round(deg / π * sy / 1.7) * dynSizeFactor. */
+  readonly yp1: number;
+  /** Stars-per-cloud factor: (xp1 + yp1) / spcFactor. */
+  readonly mulStarAmount: number;
+  /** Distance scaling factor. */
+  readonly dynSizeFactor: number;
+  /** Output coordinate scaling factor. */
+  readonly multiplier: number;
+  /** Shared PRNG instance. */
+  readonly rng: Prng;
+}
+```
+
+```typescript
+// tools/galaxy-generator/src/galaxy/galaxy-generator.ts
+
+/** Top-level configuration for the galaxy generator (Level 1). */
+interface GalaxyGeneratorConfig {
+  /** Galaxy center position [x, y]. Default: [0, 0]. */
+  readonly center: readonly [number, number];
+  /** Input size (converted internally to radians). Default: [4000, 4000]. */
+  readonly size: readonly [number, number];
+  /** Base rotation angle (radians). Default: 0. */
+  readonly turn: number;
+  /** Spiral extent in degrees. Default: 5. */
+  readonly deg: number;
+  /** Distance scaling factor. Default: 1. */
+  readonly dynSizeFactor: number;
+  /** Stars-per-cloud divisor. Higher = fewer stars per cloud. Default: 8. */
+  readonly spcFactor: number;
+  /** Number of spiral arms. Default: 4. */
+  readonly arms: number;
+  /** Output coordinate scaling factor. Default: 1. */
+  readonly multiplier: number;
+  /** Maximum total star count, or null for unlimited. Default: null. */
+  readonly limit: number | null;
+  /** Shared PRNG instance. */
+  readonly rng: Prng;
+}
+```
+
 ## Portability Contract
 
 All types in `src/domain/galaxy/` MUST:

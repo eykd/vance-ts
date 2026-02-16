@@ -143,14 +143,108 @@ Set up the project structure and shared domain types.
 8. Create `src/domain/galaxy/prng.ts` — PRNG interface + Mulberry32
 9. Create `src/domain/galaxy/dice.ts` — 4dF and NdS utilities
 
-### Stage 1: Galaxy Generation (FR-002, FR-003, FR-013)
+### Stage 1: Galaxy Generation (FR-002, FR-002a, FR-003, FR-013)
 
-Spiral galaxy star placement, coordinate deduplication.
+Three-level spiral galaxy star placement matching the algorithm in game design spec §3.1, followed by coordinate deduplication.
 
-1. `tools/galaxy-generator/src/galaxy/elliptic-starfield.ts` — cloud-level star placement
-2. `tools/galaxy-generator/src/galaxy/spiral-arm-generator.ts` — arm-level generation
-3. `tools/galaxy-generator/src/galaxy/galaxy-generator.ts` — top-level generator, deduplication
-4. Tests verify: ~12,000 systems, unique integer coordinates, determinism from seed
+#### 1a. `tools/galaxy-generator/src/galaxy/elliptic-starfield.ts`
+
+**Signature**: `function* generateEllipticStarfieldCoords(params: EllipticStarfieldParams): Generator<Coordinate>`
+
+**Parameters**: `amount`, `center: [number, number]`, `radius: [number, number]` (rx, ry), `turn`, `multiplier`, `rng: Prng`
+
+**Pseudocode** (must match game design spec §3.1.3 exactly):
+
+```
+for i in 0..amount-1:
+    degree = rng.randint(0, 360)
+    insideFactor = (rng.randint(0, 10000) / 10000) ^ 2   // quadratic center bias
+    posX = sin(degree) * round(insideFactor * rx)          // NOTE: sin for x
+    posY = cos(degree) * round(insideFactor * ry)          // NOTE: cos for y
+    if turn != 0: apply 2D rotation by turn angle
+    yield { x: round((center[0] + posX) * multiplier), y: round((center[1] + posY) * multiplier) }
+```
+
+**Key implementation details**:
+
+- **sin for x, cos for y**: Intentionally swapped from typical convention. Must be preserved exactly.
+- **Rounding before trig**: `round(insideFactor * rx)` happens before the `sin` multiplication.
+- **Quadratic bias**: `insideFactor²` clusters most stars near the cloud center.
+- Trig functions operate on degrees (use `degree * π / 180` conversion).
+
+**Test requirements**: Deterministic output with fixed seed, center-biased distribution (verify more points near center than edges), correct sin/cos swap, turn rotation correctness.
+
+#### 1b. `tools/galaxy-generator/src/galaxy/spiral-arm-generator.ts`
+
+**Signature**: `function* generateSpiralArmCoords(params: SpiralArmParams): Generator<Coordinate>`
+
+**Parameters** (pre-computed at galaxy level): `center: [number, number]`, `sx`, `sy` (radians-converted size), `shift` (arm angular offset), `turn`, `deg`, `xp1`, `yp1`, `mulStarAmount`, `dynSizeFactor`, `multiplier`, `rng: Prng`
+
+**Pseudocode** (must match game design spec §3.1.2 exactly):
+
+```
+n = 0
+while n <= deg:
+    rawX = cos(n) * (n * sx) * dynSizeFactor
+    rawY = sin(n) * (n * sy) * dynSizeFactor
+    armAngle = shift + turn
+    rotatedX = round(rawX * cos(armAngle) - rawY * sin(armAngle))
+    rotatedY = round(rawX * sin(armAngle) + rawY * cos(armAngle))
+    dist = sqrt(rotatedX² + rotatedY²)
+    sizeTemp = 2 + (mulStarAmount * n) / ((dist / 200) || 1)    // div-by-zero guard
+    starCount = floor(sizeTemp / (n || 2))                        // div-by-zero guard
+    yield* generateEllipticStarfieldCoords({
+        amount: starCount,
+        center: [center[0] + rotatedX, center[1] + rotatedY],
+        radius: [rotatedX, rotatedY],
+        turn: 0, multiplier, rng
+    })
+    n += rng.randint(0, 4) + 1    // random 1-5 degree step
+```
+
+**Key implementation details**:
+
+- **Variable naming**: Python code shadows the galaxy-level `xp1`/`yp1` with local rotation results. TypeScript MUST use distinct names (e.g., `rotatedX`/`rotatedY`) to avoid confusion.
+- **Division-by-zero guards**: `(dist / 200) || 1` and `(n || 2)` — use logical OR to default to safe values.
+- **Trig on degrees**: `cos(n)` and `sin(n)` operate on `n` in degrees.
+- The `radius` passed to elliptic starfield uses the rotated position, not the galaxy-level `xp1`/`yp1`.
+
+**Test requirements**: Deterministic output, stars placed along a spiral curve, cloud sizes decrease with distance from center, random step produces variable spacing.
+
+#### 1c. `tools/galaxy-generator/src/galaxy/galaxy-generator.ts`
+
+**Generator signature**: `function* generateSpiralGalaxyCoords(config: GalaxyGeneratorConfig): Generator<Coordinate>`
+
+**Collector signature**: `function generateGalaxy(config: GalaxyGeneratorConfig): Coordinate[]`
+
+**Galaxy generator pseudocode** (must match game design spec §3.1.1 exactly):
+
+```
+sx = 2.0 * size[0] * π / 360.0       // ≈ 69.8 for default 4000
+sy = 2.0 * size[1] * π / 360.0
+xp1 = round(deg / π * sx / 1.7) * dynSizeFactor
+yp1 = round(deg / π * sy / 1.7) * dynSizeFactor
+mulStarAmount = (xp1 + yp1) / spcFactor
+
+count = 0
+for arm in 0..arms-1:
+    shift = (arm / arms) * 2 * π
+    for coord of generateSpiralArmCoords({ center, sx, sy, shift, turn, deg, xp1, yp1, mulStarAmount, dynSizeFactor, multiplier, rng }):
+        yield coord
+        count++
+        if limit != null && count >= limit: return
+```
+
+**Collector (`generateGalaxy`)**: Calls `generateSpiralGalaxyCoords`, collects all coordinates, deduplicates using a `Set<string>` keyed by `"x,y"` string, returns unique `Coordinate[]`.
+
+**Test requirements**:
+
+- Default config produces ~12,000 raw coordinates, ~10,000–14,000 after deduplication.
+- Coordinates span approximately ±400 in each axis.
+- Deterministic: same seed produces identical output.
+- Four-arm structure visible (coordinates cluster along 4 spiral arms).
+- Limit parameter correctly caps output.
+- Deduplication removes exact duplicate integer coordinates.
 
 ### Stage 2: Cost Map Generation (FR-004, FR-015)
 
