@@ -93,6 +93,7 @@ hugo-dev:
 # Build Hugo site for production (output in hugo/public/)
 hugo-build:
     cd hugo && npx hugo --minify
+    node scripts/sync-asset-paths.js
 
 # Run Hugo build smoke test
 hugo-test:

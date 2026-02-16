@@ -142,6 +142,47 @@ try {
     exitCode = 1;
   }
 
+  // Test 6: Verify assetPaths.ts matches Hugo build output
+  logInfo('\nTest 6: Checking assetPaths.ts is in sync with build...');
+  const assetPathsFile = path.join(__dirname, '..', 'src', 'presentation', 'generated', 'assetPaths.ts');
+  if (fs.existsSync(assetPathsFile)) {
+    const assetContent = fs.readFileSync(assetPathsFile, 'utf-8');
+    const match = assetContent.match(/STYLES_CSS_PATH\s*=\s*'([^']+)'/);
+    if (match) {
+      const cssPath = match[1];
+      const cssFilename = cssPath.replace(/^\/css\//, '');
+      const fullCssPath = path.join(publicDir, 'css', cssFilename);
+      if (fs.existsSync(fullCssPath)) {
+        logSuccess(`assetPaths.ts CSS path matches build output: ${cssFilename}`);
+      } else {
+        logError(`assetPaths.ts references ${cssPath} but file not found in build output`);
+        logError('Run "just hugo-build" to regenerate assetPaths.ts');
+        exitCode = 1;
+      }
+    } else {
+      logError('Could not extract STYLES_CSS_PATH from assetPaths.ts');
+      exitCode = 1;
+    }
+  } else {
+    logError('src/presentation/generated/assetPaths.ts not found');
+    exitCode = 1;
+  }
+
+  // Test 7: Verify vendored JS files exist
+  logInfo('\nTest 7: Checking vendored JS files...');
+  const jsDir = path.join(publicDir, 'js');
+  const requiredJsFiles = ['htmx-2.0.8.min.js', 'alpine-3.15.8.min.js'];
+  for (const jsFile of requiredJsFiles) {
+    const jsPath = path.join(jsDir, jsFile);
+    if (fs.existsSync(jsPath)) {
+      const stats = fs.statSync(jsPath);
+      logSuccess(`${jsFile} exists (${stats.size} bytes)`);
+    } else {
+      logError(`${jsFile} not found in public/js/`);
+      exitCode = 1;
+    }
+  }
+
   // Summary
   console.log('\n' + '='.repeat(50));
   if (exitCode === 0) {
