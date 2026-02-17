@@ -829,6 +829,13 @@ describe('runPipeline', () => {
       const writerInput: GalaxyOutputInput = mockWriteGalaxyOutput.mock.calls[0]![0];
       expect(writerInput.routeConfig.maxRange).toBe(40);
     });
+
+    it('passes density radius to file writer', async () => {
+      await runPipeline(makeConfig({ densityRadius: 30 }));
+
+      const writerInput: GalaxyOutputInput = mockWriteGalaxyOutput.mock.calls[0]![0];
+      expect(writerInput.densityRadius).toBe(30);
+    });
   });
 
   describe('oikumene system extraction for routes', () => {

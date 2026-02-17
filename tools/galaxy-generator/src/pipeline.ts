@@ -346,6 +346,7 @@ export async function runPipeline(
       caConfig,
       oikumeneConfig: config.oikumene,
       routeConfig: config.route,
+      densityRadius: config.densityRadius,
       stats,
       generatedAt: new Date().toISOString(),
     });

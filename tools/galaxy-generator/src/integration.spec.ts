@@ -158,13 +158,56 @@ describe('Galaxy Generation Integration', () => {
       expect(galaxyConfig['limit']).toBe(50);
     });
 
-    it('contains cost map config with quantization', async () => {
+    it('contains cost map config with quantization and tunable parameters', async () => {
       const metadata = (await readOutputJson('metadata.json')) as Record<string, unknown>;
       const costMapConfig = metadata['costMapConfig'] as Record<string, unknown>;
       expect(costMapConfig).toBeDefined();
       expect(costMapConfig['quantization']).toBe('uint8_linear');
       expect(typeof costMapConfig['gridWidth']).toBe('number');
       expect(typeof costMapConfig['gridHeight']).toBe('number');
+      expect(costMapConfig['padding']).toBe(5);
+      expect(costMapConfig['baseOpenCost']).toBe(1);
+      expect(costMapConfig['openNoiseWeight']).toBe(2);
+      expect(costMapConfig['baseWallCost']).toBe(15);
+      expect(costMapConfig['wallNoiseWeight']).toBe(15);
+    });
+
+    it('contains perlin config', async () => {
+      const metadata = (await readOutputJson('metadata.json')) as Record<string, unknown>;
+      const perlinConfig = metadata['perlinConfig'] as Record<string, unknown>;
+      expect(perlinConfig).toBeDefined();
+      const baseLayer = perlinConfig['baseLayer'] as Record<string, unknown>;
+      expect(baseLayer['frequency']).toBe(0.03);
+      expect(baseLayer['octaves']).toBe(4);
+    });
+
+    it('contains cellular automata config', async () => {
+      const metadata = (await readOutputJson('metadata.json')) as Record<string, unknown>;
+      const caConfig = metadata['caConfig'] as Record<string, unknown>;
+      expect(caConfig).toBeDefined();
+      expect(caConfig['fillProbability']).toBe(0.45);
+      expect(caConfig['iterations']).toBe(5);
+    });
+
+    it('contains oikumene config', async () => {
+      const metadata = (await readOutputJson('metadata.json')) as Record<string, unknown>;
+      const oikumeneConfig = metadata['oikumeneConfig'] as Record<string, unknown>;
+      expect(oikumeneConfig).toBeDefined();
+      expect(oikumeneConfig['coreExclusionRadius']).toBe(10);
+      expect(oikumeneConfig['clusterRadius']).toBe(50);
+      expect(oikumeneConfig['targetCount']).toBe(5);
+    });
+
+    it('contains route config', async () => {
+      const metadata = (await readOutputJson('metadata.json')) as Record<string, unknown>;
+      const routeConfig = metadata['routeConfig'] as Record<string, unknown>;
+      expect(routeConfig).toBeDefined();
+      expect(routeConfig['maxRange']).toBe(80);
+    });
+
+    it('contains density radius', async () => {
+      const metadata = (await readOutputJson('metadata.json')) as Record<string, unknown>;
+      expect(metadata['densityRadius']).toBe(25);
     });
 
     it('contains generation statistics', async () => {

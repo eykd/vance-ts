@@ -135,6 +135,7 @@ function makeInput(overrides: Partial<GalaxyOutputInput> = {}): GalaxyOutputInpu
       oikumeneRoutes: 1,
       averageRouteCost: 42.5,
     },
+    densityRadius: 25,
     generatedAt: '2026-01-15T12:00:00.000Z',
     ...overrides,
   };
@@ -182,20 +183,18 @@ describe('buildMetadata', () => {
     });
   });
 
-  it('includes cost map config with quantization type', () => {
+  it('includes cost map config with quantization type and grid dimensions', () => {
     const input = makeInput();
 
     const metadata = buildMetadata(input);
 
-    expect(metadata.costMapConfig).toEqual({
-      gridOriginX: -410,
-      gridOriginY: -410,
-      gridWidth: 820,
-      gridHeight: 820,
-      minCost: 1,
-      maxCost: 100,
-      quantization: 'uint8_linear',
-    });
+    expect(metadata.costMapConfig.gridOriginX).toBe(-410);
+    expect(metadata.costMapConfig.gridOriginY).toBe(-410);
+    expect(metadata.costMapConfig.gridWidth).toBe(820);
+    expect(metadata.costMapConfig.gridHeight).toBe(820);
+    expect(metadata.costMapConfig.minCost).toBe(1);
+    expect(metadata.costMapConfig.maxCost).toBe(100);
+    expect(metadata.costMapConfig.quantization).toBe('uint8_linear');
   });
 
   it('includes perlin config', () => {
@@ -240,6 +239,35 @@ describe('buildMetadata', () => {
 
     expect(metadata.routeConfig).toEqual({
       maxRange: 200,
+    });
+  });
+
+  it('includes density radius', () => {
+    const input = makeInput({ densityRadius: 30 });
+
+    const metadata = buildMetadata(input);
+
+    expect(metadata.densityRadius).toBe(30);
+  });
+
+  it('includes cost map config with padding and cost weights', () => {
+    const input = makeInput();
+
+    const metadata = buildMetadata(input);
+
+    expect(metadata.costMapConfig).toEqual({
+      gridOriginX: -410,
+      gridOriginY: -410,
+      gridWidth: 820,
+      gridHeight: 820,
+      padding: 10,
+      minCost: 1,
+      maxCost: 100,
+      baseOpenCost: 5,
+      openNoiseWeight: 0.3,
+      baseWallCost: 80,
+      wallNoiseWeight: 0.2,
+      quantization: 'uint8_linear',
     });
   });
 

@@ -42,6 +42,7 @@ export interface GalaxyOutputInput {
   readonly caConfig: CaConfig;
   readonly oikumeneConfig: OikumeneConfig;
   readonly routeConfig: RouteConfig;
+  readonly densityRadius: number;
   readonly stats: GenerationStats;
   readonly generatedAt: string;
 }
@@ -66,14 +67,20 @@ export interface GalaxyMetadata {
     readonly gridOriginY: number;
     readonly gridWidth: number;
     readonly gridHeight: number;
+    readonly padding: number;
     readonly minCost: number;
     readonly maxCost: number;
+    readonly baseOpenCost: number;
+    readonly openNoiseWeight: number;
+    readonly baseWallCost: number;
+    readonly wallNoiseWeight: number;
     readonly quantization: 'uint8_linear';
   };
   readonly perlinConfig: PerlinConfig;
   readonly caConfig: CaConfig;
   readonly oikumeneConfig: OikumeneConfig;
   readonly routeConfig: RouteConfig;
+  readonly densityRadius: number;
   readonly stats: GenerationStats;
 }
 
@@ -117,14 +124,20 @@ export function buildMetadata(input: GalaxyOutputInput): GalaxyMetadata {
       gridOriginY: costMapConfig.gridOriginY,
       gridWidth: costMapConfig.gridWidth,
       gridHeight: costMapConfig.gridHeight,
+      padding: costMapConfig.padding,
       minCost: costMapConfig.minCost,
       maxCost: costMapConfig.maxCost,
+      baseOpenCost: costMapConfig.baseOpenCost,
+      openNoiseWeight: costMapConfig.openNoiseWeight,
+      baseWallCost: costMapConfig.baseWallCost,
+      wallNoiseWeight: costMapConfig.wallNoiseWeight,
       quantization: 'uint8_linear',
     },
     perlinConfig: input.perlinConfig,
     caConfig: input.caConfig,
     oikumeneConfig: input.oikumeneConfig,
     routeConfig: input.routeConfig,
+    densityRadius: input.densityRadius,
     stats: input.stats,
   };
 }
