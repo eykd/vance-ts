@@ -14,7 +14,7 @@
 import type { CliArgs, PipelineConfig } from './config';
 import { loadConfigFile, resolveConfig, validateConfig } from './config';
 import type { PipelineLogger, PipelineResult } from './pipeline';
-import { runPipeline } from './pipeline';
+import { extractErrorMessage, runPipeline } from './pipeline';
 
 /** Exit code for successful pipeline completion. */
 const EXIT_SUCCESS = 0;
@@ -291,16 +291,6 @@ export function createConsoleLogger(verbose: boolean): PipelineLogger {
 }
 
 /**
- * Extracts an error message from an unknown thrown value.
- *
- * @param error - the caught error value
- * @returns error message string
- */
-function extractError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-/**
  * Determines if an error is a validation error (exit code 3).
  *
  * @param error - the caught error value
@@ -328,7 +318,7 @@ export async function main(argv: readonly string[]): Promise<number> {
   try {
     fileOverrides = await loadConfigFile(parsed.configPath);
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractError(error)}\n`);
+    process.stderr.write(`Error: ${extractErrorMessage(error)}\n`);
     return EXIT_INVALID_ARGS;
   }
 
@@ -337,7 +327,7 @@ export async function main(argv: readonly string[]): Promise<number> {
   try {
     validateConfig(config);
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractError(error)}\n`);
+    process.stderr.write(`Error: ${extractErrorMessage(error)}\n`);
     return EXIT_INVALID_ARGS;
   }
 
@@ -348,7 +338,7 @@ export async function main(argv: readonly string[]): Promise<number> {
     process.stdout.write(formatSummary(result, config));
     return EXIT_SUCCESS;
   } catch (error: unknown) {
-    process.stderr.write(`Error: ${extractError(error)}\n`);
+    process.stderr.write(`Error: ${extractErrorMessage(error)}\n`);
     if (isValidationError(error)) {
       return EXIT_VALIDATION_FAILURE;
     }

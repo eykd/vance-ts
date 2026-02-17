@@ -19,7 +19,9 @@ jest.mock('./config', () => ({
   validateConfig: jest.fn(),
 }));
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 jest.mock('./pipeline', () => ({
+  ...jest.requireActual('./pipeline'),
   runPipeline: jest.fn(),
 }));
 
