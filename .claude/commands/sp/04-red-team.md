@@ -61,7 +61,17 @@ If plan.md doesn't exist:
 
 - ERROR: "No plan.md found. Run `/sp:03-plan` first."
 
-### 3. Perform Adversarial Analysis
+### 3. Check Prior Learnings for Known Vulnerability Patterns
+
+Before performing adversarial analysis, search `.specify/solutions/` for previously documented issues. If the directory does not exist, skip this step silently.
+
+1. Search `.specify/solutions/security/` and `.specify/solutions/clean-architecture/` for solutions matching the feature's domain.
+2. For each match, check if plan.md already addresses the concern.
+3. If the plan does NOT address a previously documented pattern, include it as a **HIGH severity** finding in Step 4, referencing the original solution document.
+
+This ensures the team does not repeat previously solved problems.
+
+### 4. Perform Adversarial Analysis
 
 Analyze the spec and plan from an adversarial perspective across these categories:
 
@@ -136,7 +146,7 @@ Think like someone trying to break it:
 - Are there DoS attack vectors?
 - How could users bypass intended workflows?
 
-### 4. Generate Structured Findings
+### 5. Generate Structured Findings
 
 For each concern identified, create a structured finding:
 
@@ -167,7 +177,7 @@ interface Finding {
 - For simple features: may find minimal issues (that's OK!)
 - For complex features: should find substantial concerns
 
-### 5. Enhance plan.md
+### 6. Enhance plan.md
 
 For each category with findings, add or enhance sections in plan.md:
 
@@ -258,7 +268,7 @@ For each category with findings, add or enhance sections in plan.md:
 - Group related findings together
 - Preserve existing plan content
 
-### 6. Close Phase Task
+### 7. Close Phase Task
 
 After enhancing plan.md, close the red team phase task:
 
@@ -280,7 +290,7 @@ c. Close the task with summary:
 npx bd close <red-team-task-id> --reason "Red team review complete: Enhanced plan with <N> findings (<Critical>C/<High>H/<Medium>M/<Low>L) across <X> categories"
 ```
 
-### 7. Report Completion
+### 8. Report Completion
 
 Output a comprehensive summary:
 
