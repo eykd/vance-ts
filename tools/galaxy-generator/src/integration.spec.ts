@@ -7,8 +7,8 @@
  * @module integration.spec
  */
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 
 import type { PipelineConfig } from './config';
 import type { PipelineResult } from './pipeline';
