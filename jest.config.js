@@ -6,7 +6,7 @@ const baseConfig = {
     '^.+\\.js$': 'ts-jest',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(better-sqlite3|@noble/hashes|simplex-noise|fast-png)/)',
+    'node_modules/(?!(better-sqlite3|@noble/hashes|simplex-noise|fast-png|iobuffer)/)',
   ],
   moduleFileExtensions: ['ts', 'js', 'json'],
   testTimeout: 10000,
