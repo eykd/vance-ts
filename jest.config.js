@@ -5,7 +5,9 @@ const baseConfig = {
     '^.+\\.ts$': 'ts-jest',
     '^.+\\.js$': 'ts-jest',
   },
-  transformIgnorePatterns: ['node_modules/(?!(better-sqlite3|@noble/hashes)/)'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(better-sqlite3|@noble/hashes|simplex-noise|fast-png)/)',
+  ],
   moduleFileExtensions: ['ts', 'js', 'json'],
   testTimeout: 10000,
 };
@@ -34,15 +36,26 @@ module.exports = {
       roots: ['<rootDir>/scripts', '<rootDir>/.claude'],
       testMatch: ['**/?(*.)+(spec|test).{ts,js}'],
     },
+    {
+      ...baseConfig,
+      displayName: 'tools',
+      testEnvironment: 'node',
+      roots: ['<rootDir>/tools'],
+      testMatch: ['**/?(*.)+(spec|test).ts'],
+    },
   ],
   collectCoverageFrom: [
     'src/**/*.ts',
+    'tools/**/src/**/*.ts',
     '!src/**/*.d.ts',
     '!src/**/*.spec.ts',
     '!src/**/*.test.ts',
     '!src/**/index.ts',
     '!src/types/**/*.ts',
     '!src/presentation/generated/**/*.ts',
+    '!tools/**/*.d.ts',
+    '!tools/**/*.spec.ts',
+    '!tools/**/*.test.ts',
   ],
   coverageThreshold: {
     global: {
