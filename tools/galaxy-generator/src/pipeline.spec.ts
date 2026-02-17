@@ -772,11 +772,21 @@ describe('runPipeline', () => {
   });
 
   describe('file writer input', () => {
-    it('passes generatedAt as an ISO 8601 UTC string', async () => {
+    it('passes generatedAt as an ISO 8601 UTC string when no getNow provided', async () => {
       await runPipeline(makeConfig());
 
       const writerInput: GalaxyOutputInput = mockWriteGalaxyOutput.mock.calls[0]![0];
       expect(writerInput.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    });
+
+    it('uses injected getNow callback for generatedAt timestamp', async () => {
+      const fixedTimestamp = '2025-06-15T12:00:00.000Z';
+      const getNow = (): string => fixedTimestamp;
+
+      await runPipeline(makeConfig(), undefined, getNow);
+
+      const writerInput: GalaxyOutputInput = mockWriteGalaxyOutput.mock.calls[0]![0];
+      expect(writerInput.generatedAt).toBe(fixedTimestamp);
     });
 
     it('passes galaxy config with seed to file writer', async () => {

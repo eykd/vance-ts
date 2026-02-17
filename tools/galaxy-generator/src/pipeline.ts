@@ -149,6 +149,16 @@ function computeStats(
   };
 }
 
+/** Callback that returns the current UTC timestamp as an ISO 8601 string. */
+export type GetNow = () => string;
+
+/**
+ * Default getNow implementation using the system clock.
+ *
+ * @returns current UTC timestamp as ISO 8601 string
+ */
+const defaultGetNow: GetNow = (): string => new Date().toISOString();
+
 /**
  * Runs the complete galaxy generation pipeline.
  *
@@ -163,12 +173,14 @@ function computeStats(
  *
  * @param config - fully resolved pipeline configuration
  * @param logger - optional logger for progress reporting
+ * @param getNow - optional callback returning current UTC timestamp as ISO 8601 string
  * @returns pipeline execution result
  * @throws {Error} wraps stage errors with stage context
  */
 export async function runPipeline(
   config: PipelineConfig,
-  logger?: PipelineLogger
+  logger?: PipelineLogger,
+  getNow: GetNow = defaultGetNow
 ): Promise<PipelineResult> {
   const pipelineStart = performance.now();
   const rng = new Mulberry32(hashSeed(config.seed));
@@ -348,7 +360,7 @@ export async function runPipeline(
       routeConfig: config.route,
       densityRadius: config.densityRadius,
       stats,
-      generatedAt: new Date().toISOString(),
+      generatedAt: getNow(),
     });
   } catch (error: unknown) {
     const message = extractErrorMessage(error);
