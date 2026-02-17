@@ -686,6 +686,7 @@ export default [
         setInterval: 'readonly',
         clearTimeout: 'readonly',
         clearInterval: 'readonly',
+        performance: 'readonly',
         // Jest globals for test files
         describe: 'readonly',
         test: 'readonly',
