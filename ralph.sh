@@ -816,10 +816,8 @@ generate_focused_prompt() {
         comments_text=""
     fi
 
-    # Start with base prompt
+    # Start with base prompt (no /sp:next — ralph already resolved the task)
     cat <<EOF
-/sp:next
-
 ## Non-Interactive Mode
 You are running in ralph's automation loop (non-interactive).
 You CANNOT ask questions or wait for user input.
@@ -979,10 +977,23 @@ invoke_claude() {
     local temp_output
     temp_output=$(mktemp)
 
-    # Start claude in background so we can capture its PID
-    # This allows us to kill it explicitly on SIGINT
-    timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" 2>&1 | tee "$temp_output" &
+    # Write prompt to a temp file to avoid shell quoting issues with script -c
+    local prompt_file
+    prompt_file=$(mktemp)
+    printf '%s' "$prompt" > "$prompt_file"
+
+    # Use script(1) to provide a PTY — claude -p hangs when stdout is not a
+    # terminal because its tool-execution framework requires a TTY.  Wrapping
+    # with `script -qc` gives claude a pseudo-terminal while still capturing
+    # output to a file.  We strip ANSI escape sequences afterwards.
+    #
+    # timeout -k 10: send SIGKILL 10s after SIGTERM if process ignores it.
+    timeout -k 10 "$CLAUDE_TIMEOUT" \
+        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format text" "$temp_output" &
     CLAUDE_PID=$!
+
+    # Clean up prompt file when no longer needed (after claude reads it)
+    ( sleep 5; rm -f "$prompt_file" ) &
 
     # Wait for the background process to complete
     if wait "$CLAUDE_PID"; then
@@ -1005,8 +1016,16 @@ invoke_claude() {
 
     CLAUDE_PID=""
 
-    # Log the output
-    claude_output=$(cat "$temp_output")
+    # Log the output (strip ANSI/terminal escapes and script(1) header/footer)
+    claude_output=$(sed -e 's/\x1b\[[0-9;?]*[a-zA-Z]//g' \
+                        -e 's/\x1b\][^\x1b]*\x07//g' \
+                        -e 's/\x1b\][0-9;]*[^\a]*//g' \
+                        -e 's/\x1b(B//g' \
+                        -e 's/\r//g' \
+                        -e '/^Script started on/d' \
+                        -e '/^Script done on/d' \
+                        -e '/^\[COMMAND/d' \
+                        "$temp_output")
     log_block "Claude Output" "$claude_output"
     rm -f "$temp_output"
 
@@ -1258,16 +1277,17 @@ handle_sigint() {
     echo ""
     log INFO "Received SIGINT, cleaning up..."
 
-    # If Claude is running, kill it explicitly to prevent hanging
+    # Kill the entire process group rooted at CLAUDE_PID (script -> claude -> node)
     if [[ -n "$CLAUDE_PID" ]] && kill -0 "$CLAUDE_PID" 2>/dev/null; then
         log INFO "Terminating Claude subprocess (PID: $CLAUDE_PID)"
-        kill -TERM "$CLAUDE_PID" 2>/dev/null || true
+        # Kill the process group (negative PID) to catch script + all children
+        kill -TERM -- -"$CLAUDE_PID" 2>/dev/null || kill -TERM "$CLAUDE_PID" 2>/dev/null || true
         # Give it a moment to terminate gracefully
         sleep 1
         # Force kill if still running
         if kill -0 "$CLAUDE_PID" 2>/dev/null; then
             log WARN "Force killing Claude subprocess"
-            kill -KILL "$CLAUDE_PID" 2>/dev/null || true
+            kill -KILL -- -"$CLAUDE_PID" 2>/dev/null || kill -KILL "$CLAUDE_PID" 2>/dev/null || true
         fi
     fi
 
