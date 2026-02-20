@@ -282,15 +282,21 @@ app.use("/app/_/*", async (c, next) => {
   c.res.headers.set("X-Content-Type-Options", "nosniff");
   c.res.headers.set("X-Frame-Options", "DENY");
 });
+app.use("/auth/*", async (c, next) => {
+  await next();
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("X-Frame-Options", "DENY");
+});
 
 // Health check
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
 // Auth routes
 app.get("/auth/login", (c) => c.html("Login page - implement auth"));
-app.post("/auth/login", (c) => c.redirect("/app", 303));
-app.post("/auth/logout", (c) => c.redirect("/", 303));
+app.post("/auth/login", (c) => c.redirect("/app", 303)); // TODO: validate CSRF token
+app.post("/auth/logout", (c) => c.redirect("/", 303)); // TODO: validate CSRF token
 
+// TODO: add auth guard - redirect to /auth/login if no session
 // Application pages (authenticated)
 app.get("/app", (c) => {
   return c.html(`<!DOCTYPE html>
@@ -298,6 +304,7 @@ app.get("/app", (c) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="htmx-config" content='{"selfRequestsOnly":true}'>
   <title>Dashboard</title>
   <link href="/css/app.css" rel="stylesheet">
   <script src="/js/htmx.min.js" defer></script>
