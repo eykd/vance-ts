@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'hugo', 'public');
-const RESERVED_PREFIXES = ['api', path.join('app', '_')];
+const RESERVED_PREFIXES = ['api', 'app/_'];
 
 /**
  * Recursively collects all file paths under a directory.

@@ -60,7 +60,7 @@ describe('check-route-collisions', () => {
 
     const result = runScript();
     expect(result.status).toBe(1);
-    expect(result.stdout).toContain('app/_/');
+    expect(result.stdout).toContain('app/_/partial.html');
   });
 
   it('lists all colliding files in output', () => {
