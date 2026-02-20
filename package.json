@@ -7,10 +7,10 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "clean": "rm -rf dist coverage",
-    "lint": "eslint src .claude/memory .claude/types --ext .ts",
-    "lint:fix": "eslint src .claude/memory .claude/types --ext .ts --fix",
-    "format": "prettier --write \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\"",
+    "lint": "eslint src .claude/memory .claude/types tools --ext .ts --no-error-on-unmatched-pattern",
+    "lint:fix": "eslint src .claude/memory .claude/types tools --ext .ts --fix --no-error-on-unmatched-pattern",
+    "format": "prettier --write --no-error-on-unmatched-pattern \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\" \"tools/**/*.ts\"",
+    "format:check": "prettier --check --no-error-on-unmatched-pattern \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\" \"tools/**/*.ts\"",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -37,10 +37,22 @@
   },
   "homepage": "https://github.com/turtlebased/turtlebased-ts#readme",
   "lint-staged": {
-    "*.ts": [
+    "src/**/*.ts": [
       "prettier --write",
       "eslint --fix --max-warnings 0",
       "bash -c 'tsc --noEmit'",
+      "jest --bail --findRelatedTests --passWithNoTests"
+    ],
+    ".claude/**/*.ts": [
+      "prettier --write",
+      "eslint --fix --max-warnings 0",
+      "bash -c 'tsc --noEmit'",
+      "jest --bail --findRelatedTests --passWithNoTests"
+    ],
+    "tools/**/*.ts": [
+      "prettier --write",
+      "eslint --fix --max-warnings 0",
+      "bash -c 'tsc --noEmit -p tools/galaxy-generator/tsconfig.json'",
       "jest --bail --findRelatedTests --passWithNoTests"
     ],
     "hugo/**/*.html": [
@@ -61,6 +73,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@tktco/node-actionlint": "^1.6.0",
     "@types/jest": "^30.0.0",
+    "@types/node": "^25.2.3",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.52.0",
     "better-sqlite3": "^12.6.2",
@@ -69,12 +82,14 @@
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsdoc": "^62.5.4",
     "eslint-plugin-prettier": "^5.5.5",
+    "fast-png": "^8.0.0",
     "husky": "^9.1.7",
     "jest": "^30.2.0",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
     "prettier-plugin-go-template": "^0.0.15",
     "prettier-plugin-tailwindcss": "^0.7.2",
+    "simplex-noise": "^4.0.3",
     "ts-jest": "^29.4.6",
     "typescript": "^5.9.3"
   },

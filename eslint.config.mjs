@@ -671,6 +671,43 @@ export default [
   //   },
   // },
 
+  // Galaxy generator and tools in tools/ directory run on Node.js
+  {
+    files: ['tools/**/*.ts'],
+    languageOptions: {
+      globals: {
+        // Node.js globals needed for CLI tools and file I/O
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        performance: 'readonly',
+        // Jest globals for test files
+        describe: 'readonly',
+        test: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        jest: 'readonly',
+      },
+    },
+    rules: {
+      // Allow Node.js imports in tools (fs, path, process needed for CLI/file I/O)
+      'no-restricted-imports': 'off',
+      'no-restricted-globals': 'off',
+      // Allow console.log in CLI tools
+      'no-console': 'off',
+    },
+  },
+
   // Development tooling in .claude/ directory can use Node.js APIs
   {
     files: ['.claude/**/*.ts'],

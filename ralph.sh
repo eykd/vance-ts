@@ -642,6 +642,52 @@ get_in_progress_task() {
     echo "$in_progress_tasks" | jq -r '.[0] // empty'
 }
 
+# Check if a task has children (is a parent container)
+task_has_children() {
+    local task_id="$1"
+    local child_count
+    child_count=$(npx bd list --parent "$task_id" --limit 1 --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    [[ "$child_count" -gt 0 ]]
+}
+
+# Check if all direct children of a task are closed
+all_children_closed() {
+    local task_id="$1"
+    local open_count
+    open_count=$(npx bd list --parent "$task_id" --status open --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    [[ "$open_count" -eq 0 ]]
+}
+
+# Auto-close parent container tasks when all their children are completed.
+# Walks up from the given task ID, closing ancestors bottom-up.
+auto_close_completed_parents() {
+    local task_id="$1"
+    local epic_id="$2"
+    local current_id="$task_id"
+
+    while true; do
+        # Remove last ID segment to get parent
+        local parent_id="${current_id%.*}"
+
+        # Stop if we can't go higher or reached the epic
+        [[ "$parent_id" == "$current_id" ]] && break
+        [[ "$parent_id" == "$epic_id" ]] && break
+
+        # Check if parent has children and all are closed
+        if task_has_children "$parent_id" && all_children_closed "$parent_id"; then
+            log INFO "Auto-closing completed parent task: $parent_id"
+            npx bd close "$parent_id" 2>/dev/null || {
+                log WARN "Failed to auto-close parent task: $parent_id"
+                break
+            }
+        else
+            break  # If this parent can't close, no ancestor can either
+        fi
+
+        current_id="$parent_id"
+    done
+}
+
 # Get ready tasks for the epic (returns JSON array)
 get_ready_tasks() {
     local epic_id="$1"
@@ -653,9 +699,35 @@ get_ready_tasks() {
     }
 
     # Filter out the epic itself and event tasks
-    # (bd ready --parent already returns only child tasks)
-    echo "$ready_json" | jq --arg epic "$epic_id" \
-        '[.[] | select(.id != $epic and .issue_type != "event")]'
+    local filtered
+    filtered=$(echo "$ready_json" | jq --arg epic "$epic_id" \
+        '[.[] | select(.id != $epic and .issue_type != "event")]')
+
+    # Filter out parent container tasks (tasks that have children).
+    # Parent tasks are not work items; ralph processes their children individually.
+    local leaf_ids=()
+    local task_id
+    while IFS= read -r task_id; do
+        [[ -z "$task_id" ]] && continue
+        if task_has_children "$task_id"; then
+            log DEBUG "Skipping parent container task: $task_id"
+        else
+            leaf_ids+=("$task_id")
+        fi
+    done < <(echo "$filtered" | jq -r '.[].id')
+
+    if [[ ${#leaf_ids[@]} -eq 0 ]]; then
+        echo "[]"
+        return 0
+    fi
+
+    # Rebuild JSON array with only leaf tasks
+    local id_array
+    id_array=$(printf '"%s",' "${leaf_ids[@]}")
+    id_array="[${id_array%,}]"
+
+    echo "$filtered" | jq --argjson ids "$id_array" \
+        '[.[] | select(.id | IN($ids[]))]'
 }
 
 # Check if there are ready tasks remaining
@@ -744,10 +816,8 @@ generate_focused_prompt() {
         comments_text=""
     fi
 
-    # Start with base prompt
+    # Start with base prompt (no /sp:next — ralph already resolved the task)
     cat <<EOF
-/sp:next
-
 ## Non-Interactive Mode
 You are running in ralph's automation loop (non-interactive).
 You CANNOT ask questions or wait for user input.
@@ -794,9 +864,11 @@ Do NOT explore unrelated code or work on other tasks.
 ## Bead Lifecycle Management (REQUIRED)
 1. Start task: npx bd start $task_id
 2. Track progress: npx bd comment $task_id "status update message"
-3. If blocked: npx bd comment $task_id "BLOCKED: reason" (do NOT close)
+3. Complete task: npx bd close $task_id
+4. If blocked: npx bd comment $task_id "BLOCKED: reason" (do NOT close)
 
-Bead close happens in Phase 4 of the Agent Team Workflow below.
+CRITICAL: You MUST close the bead when the task is complete.
+If you do not close it, ralph will run this task again.
 EOF
 
     # Add testing instructions based on task type
@@ -820,112 +892,66 @@ Run: npx jest --watch
 EOF
     fi
 
-    # Add agent team workflow and commit instructions
+    # Always add commit instructions
     cat <<EOF
 
-## Agent Team Workflow
+## After Task Completion - COMMITTING IS MANDATORY
 
-You MUST use a team of sub-agents to complete this task.
-If agent teams (Task tool) are not available in your environment, see the
-Fallback section below.
+YOU MUST COMMIT YOUR WORK. This is NON-NEGOTIABLE.
 
-### Phase 1: Implementation
+### Why Committing Is Critical
 
-Spawn an implementation agent (Task tool, subagent_type: general-purpose):
-- Pass it the full task details, description, and testing instructions above
-- Agent must: start the bead (\`npx bd start $task_id\`), implement the task using TDD, ensure all tests pass
-- Agent must: commit its implementation using /commit skill
-- Agent must: ensure pre-commit hooks pass before considering Phase 1 complete
-- DO NOT close the bead in this phase
-
-### Phase 2: Review (3 agents in parallel)
-
-After Phase 1 completes, spawn 3 review agents IN PARALLEL using a single
-message with 3 Task tool calls:
-
-1. **Quality Review Agent** (subagent_type: general-purpose):
-   - Invoke /quality-review skill
-   - Review all files changed in the most recent commit (use git diff HEAD~1)
-   - Return compressed findings by severity
-
-2. **Security Review Agent** (subagent_type: general-purpose):
-   - Invoke /security-review skill
-   - Review all files changed in the most recent commit (use git diff HEAD~1)
-   - Return compressed findings by severity
-
-3. **Architecture Review Agent** (subagent_type: general-purpose):
-   - Invoke /clean-architecture-validator skill
-   - Review all files changed in the most recent commit (use git diff HEAD~1)
-   - Return compressed findings by severity
-
-### Phase 3: Remediation (conditional)
-
-If ANY review agent returned findings:
-- Spawn a remediation agent (Task tool, subagent_type: general-purpose)
-- Pass it ALL findings from all 3 reviewers, consolidated
-- Agent must: fix issues in priority order (Critical > High > Medium > Low)
-- Agent must: run tests to ensure fixes don't break anything
-- Agent must: commit fixes using /commit skill
-- Agent must: ensure pre-commit hooks pass
-
-If NO review agent found issues, skip this phase.
-
-### Phase 4: Close & Verify
-
-After all phases complete (or after Phase 1 if no reviews needed):
-1. Close the bead: \`npx bd close $task_id\`
-2. Commit bead state: /commit
-3. Verify: confirm all commits succeeded
-
-CRITICAL: You MUST close the bead in Phase 4. If you do not close it,
-ralph will run this task again.
-
-### Fallback: No Agent Teams Available
-
-If the Task tool is not available or spawning sub-agents fails:
-1. Implement the task directly (Phase 1 work, as a single agent)
-2. Commit implementation using /commit
-3. Self-review: run /quality-review, /security-review, and
-   /clean-architecture-validator sequentially on changed files
-4. Fix any findings found during self-review
-5. Commit fixes using /commit (if there were fixes)
-6. Close bead: \`npx bd close $task_id\`
-7. Commit bead state: /commit
-
-## COMMITTING IS MANDATORY — NON-NEGOTIABLE
-
-Every phase that produces changes MUST end with a successful commit.
-Without commits:
+Without a successful commit:
 - Your work will be LOST if the next task modifies the same files
 - Ralph will repeat this task thinking it wasn't completed
 - The .beads state won't be saved, causing task tracking failures
 - Pre-commit hooks won't validate your changes
 
-### Commit Rules
+### Exact Commit Sequence (REQUIRED)
+
+1. **Close bead FIRST**: \`npx bd close $task_id\`
+   - This updates .beads state which MUST be included in the commit
+   - Marks task as complete in beads tracking
+
+2. **Commit ALL changes**: Run \`/commit\` skill
+   - Stages ALL modified files (.beads state + your code changes)
+   - Creates conventional commit message
+   - Runs pre-commit hooks (prettier, ESLint, type-check, tests)
+   - **PRE-COMMIT HOOKS MUST PASS - NO EXCEPTIONS**
+
+3. **If pre-commit hooks FAIL**:
+   - READ the error message carefully
+   - FIX the issues (formatting, linting, type errors, test failures)
+   - Run \`/commit\` again
+   - REPEAT until commit succeeds
+
+4. **Verify commit succeeded**:
+   - You should see "committed successfully" message
+   - If not, the task is NOT complete - keep fixing and retrying
+
+### Critical Rules
 
 ✅ REQUIRED:
-- Create a commit at the end of EVERY phase that produces changes
-- Use the /commit skill for every commit
-- Fix ALL pre-commit hook failures — REPEAT until commit succeeds
-- Include .beads/ state changes in the appropriate commit
-- Verify each commit succeeded before proceeding to the next phase
+- Create a commit for EVERY completed task
+- Fix ALL pre-commit hook failures
+- Include .beads state changes in commit
+- Verify commit succeeded before moving on
 
 ❌ FORBIDDEN:
-- Skipping commit after completing a phase
-- Using --no-verify, --no-hooks, or similar flags to skip hooks
+- Skipping commit after completing task
+- Using --no-verify, --no-hooks, or similar flags
 - Leaving task closed but changes uncommitted
-- Moving to next phase without successful commit
+- Moving to next iteration without successful commit
 
 ### Success Criteria
 
-The task is ONLY complete when ALL of these are true:
-1. Implementation committed with passing pre-commit hooks
-2. Reviews completed (or skipped if agent teams unavailable — use self-review)
-3. Remediation committed (if reviewers found issues)
-4. Bead closed (\`npx bd close $task_id\`) and bead state committed
-5. All commits succeeded (you saw success messages)
+The task is ONLY complete when:
+1. ✓ Bead is closed (\`npx bd close $task_id\`)
+2. ✓ All changes are committed (including .beads/)
+3. ✓ Pre-commit hooks passed (100% tests, no lint errors, type-check passed)
+4. ✓ Commit succeeded (you saw success message)
 
-If ANY of these are false, the task is INCOMPLETE — keep working.
+If ANY of these are false, the task is INCOMPLETE - keep working until all pass.
 
 Ralph will create a series of commits across iterations.
 User will push all commits manually when the feature is ready.
@@ -951,10 +977,23 @@ invoke_claude() {
     local temp_output
     temp_output=$(mktemp)
 
-    # Start claude in background so we can capture its PID
-    # This allows us to kill it explicitly on SIGINT
-    timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" 2>&1 | tee "$temp_output" &
+    # Write prompt to a temp file to avoid shell quoting issues with script -c
+    local prompt_file
+    prompt_file=$(mktemp)
+    printf '%s' "$prompt" > "$prompt_file"
+
+    # Use script(1) to provide a PTY — claude -p hangs when stdout is not a
+    # terminal because its tool-execution framework requires a TTY.  Wrapping
+    # with `script -qc` gives claude a pseudo-terminal while still capturing
+    # output to a file.  We strip ANSI escape sequences afterwards.
+    #
+    # timeout -k 10: send SIGKILL 10s after SIGTERM if process ignores it.
+    timeout -k 10 "$CLAUDE_TIMEOUT" \
+        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format text" "$temp_output" &
     CLAUDE_PID=$!
+
+    # Clean up prompt file when no longer needed (after claude reads it)
+    ( sleep 5; rm -f "$prompt_file" ) &
 
     # Wait for the background process to complete
     if wait "$CLAUDE_PID"; then
@@ -977,8 +1016,16 @@ invoke_claude() {
 
     CLAUDE_PID=""
 
-    # Log the output
-    claude_output=$(cat "$temp_output")
+    # Log the output (strip ANSI/terminal escapes and script(1) header/footer)
+    claude_output=$(sed -e 's/\x1b\[[0-9;?]*[a-zA-Z]//g' \
+                        -e 's/\x1b\][^\x1b]*\x07//g' \
+                        -e 's/\x1b\][0-9;]*[^\a]*//g' \
+                        -e 's/\x1b(B//g' \
+                        -e 's/\r//g' \
+                        -e '/^Script started on/d' \
+                        -e '/^Script done on/d' \
+                        -e '/^\[COMMAND/d' \
+                        "$temp_output")
     log_block "Claude Output" "$claude_output"
     rm -f "$temp_output"
 
@@ -1153,6 +1200,11 @@ $task_description"
         # Invoke Claude CLI with retry logic
         if invoke_claude_with_retry "$focused_prompt"; then
             log INFO "Task processing completed successfully"
+
+            # Auto-close parent container tasks if all children are now completed.
+            # Walks up from the processed task, closing each ancestor whose
+            # children are all closed. This unblocks dependents of the parent.
+            auto_close_completed_parents "$task_id" "$epic_id"
         else
             log ERROR "Task processing failed after $MAX_RETRIES retries"
             return "$EXIT_FAILURE"
@@ -1225,16 +1277,17 @@ handle_sigint() {
     echo ""
     log INFO "Received SIGINT, cleaning up..."
 
-    # If Claude is running, kill it explicitly to prevent hanging
+    # Kill the entire process group rooted at CLAUDE_PID (script -> claude -> node)
     if [[ -n "$CLAUDE_PID" ]] && kill -0 "$CLAUDE_PID" 2>/dev/null; then
         log INFO "Terminating Claude subprocess (PID: $CLAUDE_PID)"
-        kill -TERM "$CLAUDE_PID" 2>/dev/null || true
+        # Kill the process group (negative PID) to catch script + all children
+        kill -TERM -- -"$CLAUDE_PID" 2>/dev/null || kill -TERM "$CLAUDE_PID" 2>/dev/null || true
         # Give it a moment to terminate gracefully
         sleep 1
         # Force kill if still running
         if kill -0 "$CLAUDE_PID" 2>/dev/null; then
             log WARN "Force killing Claude subprocess"
-            kill -KILL "$CLAUDE_PID" 2>/dev/null || true
+            kill -KILL -- -"$CLAUDE_PID" 2>/dev/null || kill -KILL "$CLAUDE_PID" 2>/dev/null || true
         fi
     fi
 

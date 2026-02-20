@@ -303,6 +303,9 @@ Build verification is required for all Hugo changes:
 
 ## Active Technologies
 
+- TypeScript 5.9 / Node.js >= 22.0.0 + `simplex-noise` (Perlin/Simplex noise with seedable PRNG), `fast-png` (grayscale PNG encoding). Custom implementations for PRNG (Mulberry32), A\* pathfinding, cellular automata, spatial hashing, and name generation. (010-galaxy-generation)
+- File system output (JSON + PNG + binary). No database in the generator. (010-galaxy-generation)
+
 Do not track active technologies in CLAUDE.md.
 
 ## Recent Changes

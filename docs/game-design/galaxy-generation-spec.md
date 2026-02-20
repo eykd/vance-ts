@@ -2,7 +2,7 @@
 
 ## Specification for Star System and Route Generation
 
-*For a text-based MMORPG inspired by Jack Vance's Oikumene*
+_For a text-based MMORPG inspired by Jack Vance's Oikumene_
 
 ---
 
@@ -37,11 +37,11 @@ The galaxy is divided into two political/narrative regions:
 
 This document reconciles and unifies three prior specifications:
 
-| Source | Contribution |
-|---|---|
-| Galaxy Generator Spec | Spiral galaxy star placement algorithm |
-| Star Cluster Guide | System attribute generation (TER ratings, planetary characteristics, trade codes, economics) |
-| Cavern Cellular Automata | Cellular automata technique for carving navigable corridors |
+| Source                   | Contribution                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------- |
+| Galaxy Generator Spec    | Spiral galaxy star placement algorithm                                                       |
+| Star Cluster Guide       | System attribute generation (TER ratings, planetary characteristics, trade codes, economics) |
+| Cavern Cellular Automata | Cellular automata technique for carving navigable corridors                                  |
 
 ---
 
@@ -67,29 +67,138 @@ Each stage is detailed in the sections that follow.
 
 ### 3.1 Algorithm
 
-Use the spiral galaxy generator as specified in the Galaxy Generator Spec (and implemented in `galaxies.py`). The algorithm places stars by walking along spiral arms, depositing elliptical clouds of stars at intervals. Cloud density is biased toward the center, producing a dense core and progressively sparser arms.
+The spiral galaxy generator uses a three-level hierarchy to place stars: the **galaxy generator** iterates over spiral arms, each **spiral arm generator** walks along a spiral curve depositing star clouds, and each cloud is an **elliptic starfield generator** that places individual stars within an elliptical region biased toward the center. All three levels share a single PRNG instance whose state advances sequentially through the entire generation process.
 
 The generator must be:
 
 - **Seedable and deterministic.** Given the same seed, the same coordinates are produced in the same order.
 - **Lazy.** Uses generator functions (`function*` / `yield`) to avoid materializing all coordinates in memory simultaneously, though in practice all coordinates will be collected for subsequent stages.
+- **Three-level hierarchy.** `generateSpiralGalaxyCoords` → `generateSpiralArmCoords` → `generateEllipticStarfieldCoords`, each implemented as a generator function.
+
+#### 3.1.1 Level 1: Galaxy Generator (`generateSpiralGalaxyCoords`)
+
+The galaxy generator converts the input `size` to radians, computes cloud size parameters, and iterates over each arm:
+
+```
+sx = 2.0 * size[0] * π / 360.0       // ≈ 69.8 for default size 4000
+sy = 2.0 * size[1] * π / 360.0
+
+xp1 = round(deg / π * sx / 1.7) * dynSizeFactor   // cloud x-radius
+yp1 = round(deg / π * sy / 1.7) * dynSizeFactor   // cloud y-radius
+
+mulStarAmount = (xp1 + yp1) / spcFactor            // stars-per-cloud factor
+```
+
+For each arm `arm` in `0..arms-1`:
+
+```
+shift = (arm / arms) * 2 * π          // angular offset for this arm
+```
+
+Delegate to the spiral arm generator with `shift` as the arm's turn angle (added to the base `turn`). Pass the pre-computed `sx`, `sy`, `xp1`, `yp1`, `mulStarAmount`, and `dynSizeFactor` to the arm generator.
+
+If a `limit` is specified, track the total number of yielded coordinates across all arms and stop when the limit is reached. The limit is tracked per-coordinate (each yielded `{x, y}` counts as one), not per-cloud.
+
+#### 3.1.2 Level 2: Spiral Arm Generator (`generateSpiralArmCoords`)
+
+The spiral arm generator walks along the spiral curve from angle `n = 0` until `n > deg` (in degrees), placing a star cloud at each step:
+
+```
+n = 0
+while n <= deg:
+    // Raw spiral position
+    rawX = cos(n) * (n * sx) * dynSizeFactor
+    rawY = sin(n) * (n * sy) * dynSizeFactor
+
+    // 2D rotation by arm turn angle (shift + turn)
+    armAngle = shift + turn
+    rotatedX = round(rawX * cos(armAngle) - rawY * sin(armAngle))
+    rotatedY = round(rawX * sin(armAngle) + rawY * cos(armAngle))
+
+    // Distance from center (for cloud size scaling)
+    dist = sqrt(rotatedX² + rotatedY²)
+
+    // Cloud size at this point along the arm
+    sizeTemp = 2 + (mulStarAmount * n) / ((dist / 200) || 1)
+
+    // Number of stars in this cloud
+    starCount = floor(sizeTemp / (n || 2))
+
+    // Place a cloud of stars at (center + rotated position)
+    yield* generateEllipticStarfieldCoords({
+        amount: starCount,
+        center: [center[0] + rotatedX, center[1] + rotatedY],
+        radius: [rotatedX, rotatedY],   // note: uses rotated position as radius
+        turn: 0,
+        multiplier: multiplier,
+        rng: rng
+    })
+
+    // Random angular step: 1-5 degrees
+    n += rng.randint(0, 4) + 1
+```
+
+**Key details:**
+
+- The `cos`/`sin` functions operate on `n` in degrees (converted internally or using degree-mode functions).
+- `rotatedX`/`rotatedY` are rounded to integers after rotation — TypeScript should use distinct variable names (not shadow the galaxy-level `xp1`/`yp1` as the Python code does).
+- Division-by-zero guards: `(dist / 200) || 1` ensures a minimum divisor of 1; `(n || 2)` ensures the first step doesn't divide by zero.
+- The random step `rng.randint(0, 4) + 1` produces 1–5 degrees, creating variable spacing along the arm.
+
+#### 3.1.3 Level 3: Elliptic Starfield Generator (`generateEllipticStarfieldCoords`)
+
+The elliptic starfield generator places individual stars within an elliptical region using a center-biased radial distribution:
+
+```
+for i in 0..amount-1:
+    // Random angle in degrees
+    degree = rng.randint(0, 360)
+
+    // Quadratic center-biased radial distribution
+    insideFactor = (rng.randint(0, 10000) / 10000) ^ 2
+
+    // Position within ellipse (NOTE: sin for x, cos for y — swapped from typical convention)
+    posX = sin(degree) * round(insideFactor * rx)
+    posY = cos(degree) * round(insideFactor * ry)
+
+    // Optional rotation by turn angle (if turn != 0)
+    if turn != 0:
+        rotX = posX * cos(turn) - posY * sin(turn)
+        rotY = posX * sin(turn) + posY * cos(turn)
+    else:
+        rotX = posX
+        rotY = posY
+
+    // Final coordinate: offset from center, scaled by multiplier
+    x = round((center[0] + rotX) * multiplier)
+    y = round((center[1] + rotY) * multiplier)
+
+    yield {x, y}
+```
+
+**Key details:**
+
+- **sin for x, cos for y**: The coordinate mapping is intentionally swapped from the typical `cos→x, sin→y` convention. This must be preserved exactly to match the reference output.
+- **Quadratic bias**: `insideFactor = (random_0_to_1)²` produces a center-biased distribution — most stars cluster near the center of each cloud, with fewer toward the edges.
+- **Rounding before trig**: The `round(insideFactor * rx)` is applied before the `sin`/`cos` multiplication, not after. This produces the characteristic "banded" appearance of the starfield.
+- **Integer output**: The final `x` and `y` are both rounded to integers.
 
 ### 3.2 Configuration
 
 Use configuration values that produce approximately 12,000 star systems across a coordinate space of roughly ±400 in each axis (approximately 800×800). The exact defaults from the Python implementation should be preserved:
 
-| Parameter | Value | Notes |
-|---|---|---|
-| `center` | `[0, 0]` | Galaxy origin |
-| `size` | `[4000, 4000]` | Input size (converted internally to radians) |
-| `turn` | `0` | No base rotation |
-| `deg` | `5` | Spiral extent |
-| `dynSizeFactor` | `1` | Distance scaling |
-| `spcFactor` | `8` | Stars per cloud |
-| `arms` | `4` | Four spiral arms |
-| `multiplier` | `1` | No output scaling |
-| `limit` | `null` | No hard cap |
-| `seed` | (configurable) | Must be specified for reproducibility |
+| Parameter       | Value          | Notes                                        |
+| --------------- | -------------- | -------------------------------------------- |
+| `center`        | `[0, 0]`       | Galaxy origin                                |
+| `size`          | `[4000, 4000]` | Input size (converted internally to radians) |
+| `turn`          | `0`            | No base rotation                             |
+| `deg`           | `5`            | Spiral extent                                |
+| `dynSizeFactor` | `1`            | Distance scaling                             |
+| `spcFactor`     | `8`            | Stars per cloud                              |
+| `arms`          | `4`            | Four spiral arms                             |
+| `multiplier`    | `1`            | No output scaling                            |
+| `limit`         | `null`         | No hard cap                                  |
+| `seed`          | (configurable) | Must be specified for reproducibility        |
 
 ### 3.3 Coordinate Handling
 
@@ -102,6 +211,8 @@ An array of unique `{x, y}` integer coordinate pairs, each representing the posi
 ### 3.5 PRNG
 
 The PRNG must be seedable and deterministic. A single PRNG instance is shared across all three levels of the generator (galaxy → arm → cloud) to ensure reproducibility. See the Galaxy Generator Spec §5 for full details.
+
+**Critical: single-instance sharing.** The galaxy generator creates one PRNG instance and passes the same instance to all arm generators and all elliptic starfield generators. The PRNG state advances sequentially as the generator walks through arms and clouds. This means the order of PRNG calls is: galaxy setup → arm 0 cloud 0 stars → arm 0 cloud 1 stars → ... → arm 0 cloud N stars → arm 1 cloud 0 stars → ... etc. Any change to the call order (e.g., parallelizing arms) would produce different output. The single-instance sequential advancement is what makes the output deterministic from a single seed.
 
 Any seedable algorithm is acceptable (Mersenne Twister, xoshiro256, mulberry32). Cross-language reproducibility with the Python implementation is not required. The PRNG must provide a `randint(min, max)` method returning a uniform random integer in `[min, max]` inclusive, matching Python's `random.randint` semantics.
 
@@ -119,11 +230,11 @@ The cost map grid covers the bounding box of all generated star coordinates, wit
 
 Generate a Perlin noise layer across the entire grid. This provides gentle, organic variation in traversal cost everywhere — even within open corridors, some paths are naturally preferred over others.
 
-| Parameter | Suggested Value | Purpose |
-|---|---|---|
-| Scale/frequency | 0.01–0.03 | Controls feature size of the noise |
-| Octaves | 3–4 | Adds detail at multiple scales |
-| Output range | 0.0–1.0 | Normalized |
+| Parameter       | Suggested Value | Purpose                            |
+| --------------- | --------------- | ---------------------------------- |
+| Scale/frequency | 0.01–0.03       | Controls feature size of the noise |
+| Octaves         | 3–4             | Adds detail at multiple scales     |
+| Output range    | 0.0–1.0         | Normalized                         |
 
 The output is a 2D array of floats, one per grid cell.
 
@@ -147,11 +258,11 @@ The CA may produce disconnected open regions. For this use case, disconnected re
 
 Generate a second, independent Perlin noise layer applied only to cells that the CA marked as walls. This creates a gradient within the occluded regions: some wall areas are merely difficult, others are nearly impenetrable.
 
-| Parameter | Suggested Value | Purpose |
-|---|---|---|
-| Scale/frequency | 0.02–0.05 | Finer detail than base layer |
-| Octaves | 2–3 | Moderate detail |
-| Output range | 0.0–1.0 | Normalized |
+| Parameter       | Suggested Value | Purpose                      |
+| --------------- | --------------- | ---------------------------- |
+| Scale/frequency | 0.02–0.05       | Finer detail than base layer |
+| Octaves         | 2–3             | Moderate detail              |
+| Output range    | 0.0–1.0         | Normalized                   |
 
 ### 4.5 Cost Composition
 
@@ -166,12 +277,12 @@ else (cell is WALL):
 
 Suggested constants (to be tuned):
 
-| Constant | Suggested Value | Purpose |
-|---|---|---|
-| `BASE_OPEN_COST` | 1 | Minimum cost for corridor cells |
-| `OPEN_NOISE_WEIGHT` | 2 | How much Perlin varies corridor costs (range 1–3) |
-| `BASE_WALL_COST` | 10 | Minimum cost for occluded cells |
-| `WALL_NOISE_WEIGHT` | 20 | How much Perlin varies wall costs (range 10–30) |
+| Constant            | Suggested Value | Purpose                                           |
+| ------------------- | --------------- | ------------------------------------------------- |
+| `BASE_OPEN_COST`    | 1               | Minimum cost for corridor cells                   |
+| `OPEN_NOISE_WEIGHT` | 2               | How much Perlin varies corridor costs (range 1–3) |
+| `BASE_WALL_COST`    | 10              | Minimum cost for occluded cells                   |
+| `WALL_NOISE_WEIGHT` | 20              | How much Perlin varies wall costs (range 10–30)   |
 
 These values mean corridor traversal costs range from 1–3, while wall traversal costs range from 10–30. A path through 10 cells of corridor costs roughly 10–30 units; the same distance through dense wall costs 100–300. This makes wall traversal possible but expensive.
 
@@ -191,9 +302,9 @@ For each star system, compute a local stellar density score by counting how many
 
 For each system at position `(x, y)`, count the number of other systems within a Euclidean distance of `DENSITY_RADIUS`. A spatial index (e.g., a simple grid-based spatial hash) makes this efficient for 12,000 systems.
 
-| Parameter | Suggested Value | Purpose |
-|---|---|---|
-| `DENSITY_RADIUS` | 20–30 | Radius in coordinate units for neighbor counting |
+| Parameter        | Suggested Value | Purpose                                          |
+| ---------------- | --------------- | ------------------------------------------------ |
+| `DENSITY_RADIUS` | 20–30           | Radius in coordinate units for neighbor counting |
 
 ### 5.2 Environment Modifier
 
@@ -235,11 +346,11 @@ Among the remaining systems, identify the densest cluster of approximately 250 s
 
 The spiral arm structure will naturally cause this cluster to follow an arm.
 
-| Parameter | Suggested Value | Purpose |
-|---|---|---|
-| `CORE_EXCLUSION_RADIUS` | 120–150 | Keeps Oikumene out of the dense core |
-| `OIKUMENE_CLUSTER_RADIUS` | 50–80 | Neighborhood score radius |
-| `OIKUMENE_TARGET_COUNT` | 250 | Approximate number of Oikumene systems |
+| Parameter                 | Suggested Value | Purpose                                |
+| ------------------------- | --------------- | -------------------------------------- |
+| `CORE_EXCLUSION_RADIUS`   | 120–150         | Keeps Oikumene out of the dense core   |
+| `OIKUMENE_CLUSTER_RADIUS` | 50–80           | Neighborhood score radius              |
+| `OIKUMENE_TARGET_COUNT`   | 250             | Approximate number of Oikumene systems |
 
 ### 6.3 Output
 
@@ -278,45 +389,45 @@ See the Star Cluster Guide §§2–9 for the full details of each step. The form
 
 #### Oikumene Systems
 
-| Attribute | Bias |
-|---|---|
-| Technology | Roll 4dF, then clamp to minimum +1 (reroll or add floor) |
-| Population | Roll normally, then clamp to minimum 6 |
+| Attribute   | Bias                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------- |
+| Technology  | Roll 4dF, then clamp to minimum +1 (reroll or add floor)                                                |
+| Population  | Roll normally, then clamp to minimum 6                                                                  |
 | Environment | Roll 4dF + density penalty (may be very negative, but Oikumene populations live in habitats regardless) |
-| Resources | Roll normally (no bias) |
+| Resources   | Roll normally (no bias)                                                                                 |
 
 Oikumene systems are always high-tech and well-populated, even if the local environment is hostile. A system with Environment -4 and Population 8 simply means billions of people living in orbital habitats and sealed arcologies.
 
 #### Beyond Systems — Uninhabited (default)
 
-| Attribute | Bias |
-|---|---|
-| Technology | Not meaningful (no population to use it); roll normally but effectively irrelevant |
-| Population | Set to 0 |
-| Environment | Roll 4dF + density penalty |
-| Resources | Roll normally |
+| Attribute   | Bias                                                                               |
+| ----------- | ---------------------------------------------------------------------------------- |
+| Technology  | Not meaningful (no population to use it); roll normally but effectively irrelevant |
+| Population  | Set to 0                                                                           |
+| Environment | Roll 4dF + density penalty                                                         |
+| Resources   | Roll normally                                                                      |
 
 The vast majority (~85%) of Beyond systems. Empty, waiting to be explored and possibly colonized.
 
 #### Beyond Systems — Lost Colony
 
-| Attribute | Bias |
-|---|---|
-| Technology | Roll 4dF, then clamp to maximum -2 |
-| Population | Roll normally, allow full range (can be high) |
-| Environment | Roll 4dF + density penalty |
-| Resources | Roll normally |
+| Attribute   | Bias                                          |
+| ----------- | --------------------------------------------- |
+| Technology  | Roll 4dF, then clamp to maximum -2            |
+| Population  | Roll normally, allow full range (can be high) |
+| Environment | Roll 4dF + density penalty                    |
+| Resources   | Roll normally                                 |
 
 Roughly 5–8% of Beyond systems. Civilizations that were cut off from the Oikumene and regressed technologically. Might have large populations living at medieval or industrial tech levels.
 
 #### Beyond Systems — Hidden Enclave
 
-| Attribute | Bias |
-|---|---|
-| Technology | Roll 4dF, then clamp to minimum +2 |
-| Population | Roll normally, then clamp to maximum 4 |
-| Environment | Roll 4dF + density penalty |
-| Resources | Roll normally |
+| Attribute   | Bias                                   |
+| ----------- | -------------------------------------- |
+| Technology  | Roll 4dF, then clamp to minimum +2     |
+| Population  | Roll normally, then clamp to maximum 4 |
+| Environment | Roll 4dF + density penalty             |
+| Resources   | Roll normally                          |
 
 Roughly 5–8% of Beyond systems. Small, secretive, technologically advanced outposts — pirate havens, research stations, reclusive enclaves.
 
@@ -354,13 +465,13 @@ Pre-compute routes only between Oikumene system pairs that are within the maximu
 
 Define a maximum range `MAX_ROUTE_RANGE` (in coordinate units of Euclidean distance) for a single route leg. Only system pairs within this range are candidates for route computation. The exact value should be tuned to produce a well-connected Oikumene network without computing unnecessary long-distance routes.
 
-| Parameter | Suggested Value | Purpose |
-|---|---|---|
-| `MAX_ROUTE_RANGE` | 30–50 | Maximum Euclidean distance for a single route |
+| Parameter         | Suggested Value | Purpose                                       |
+| ----------------- | --------------- | --------------------------------------------- |
+| `MAX_ROUTE_RANGE` | 30–50           | Maximum Euclidean distance for a single route |
 
 ### 8.3 Pathfinding Algorithm
 
-For each candidate pair, run A* on the cost map grid from the origin system's coordinates to the destination system's coordinates. The heuristic is Euclidean distance scaled by the minimum possible cell cost.
+For each candidate pair, run A\* on the cost map grid from the origin system's coordinates to the destination system's coordinates. The heuristic is Euclidean distance scaled by the minimum possible cell cost.
 
 Movement is 8-directional (including diagonals). Diagonal moves cost `cellCost * √2`; cardinal moves cost `cellCost * 1`.
 
@@ -368,22 +479,22 @@ Movement is 8-directional (including diagonals). Diagonal moves cost `cellCost *
 
 Each computed route stores:
 
-| Field | Type | Description |
-|---|---|---|
-| `originId` | string | ID of the origin system |
-| `destinationId` | string | ID of the destination system |
-| `cost` | number | Total traversal cost along the path |
-| `path` | `[number, number][]` | Ordered array of `[x, y]` grid coordinates from origin to destination |
+| Field           | Type                 | Description                                                           |
+| --------------- | -------------------- | --------------------------------------------------------------------- |
+| `originId`      | string               | ID of the origin system                                               |
+| `destinationId` | string               | ID of the destination system                                          |
+| `cost`          | number               | Total traversal cost along the path                                   |
+| `path`          | `[number, number][]` | Ordered array of `[x, y]` grid coordinates from origin to destination |
 
 Routes are bidirectional: if A→B is computed, B→A is the same path reversed with the same cost.
 
 ### 8.5 Network Validation
 
-After all routes are computed, verify that the Oikumene network is fully connected — every Oikumene system must be reachable from every other via some sequence of route legs. If the network is disconnected, either increase `MAX_ROUTE_RANGE` or add bridge routes between the disconnected components using A* at the full distance.
+After all routes are computed, verify that the Oikumene network is fully connected — every Oikumene system must be reachable from every other via some sequence of route legs. If the network is disconnected, either increase `MAX_ROUTE_RANGE` or add bridge routes between the disconnected components using A\* at the full distance.
 
 ### 8.6 Player-Discovered Routes
 
-At runtime, players exploring the Beyond will compute routes on-demand using the same A* algorithm against the stored cost map. Successfully traversed routes are saved to the database as player-discovered routes with the same record structure. These are associated with the discovering player and may be shared or sold to other players.
+At runtime, players exploring the Beyond will compute routes on-demand using the same A\* algorithm against the stored cost map. Successfully traversed routes are saved to the database as player-discovered routes with the same record structure. These are associated with the discovering player and may be shared or sold to other players.
 
 Player-discovered route computation is performed by the Cloudflare Worker. The cost map PNG is loaded, decoded to a uint8 array, and used for pathfinding. At ~640KB for the PNG, this is well within Worker memory limits.
 
@@ -560,7 +671,7 @@ The 4dF roll used throughout the Star Cluster Guide is implemented as:
 function roll4dF(rng: PRNG): number {
   let total = 0;
   for (let i = 0; i < 4; i++) {
-    total += rng.randint(0, 2) - 1;  // produces -1, 0, or +1
+    total += rng.randint(0, 2) - 1; // produces -1, 0, or +1
   }
   return total;
 }
@@ -584,9 +695,9 @@ The CA implementation follows the standard approach from the cavern spec:
 
 The extended rule (also considering the 5×5 neighborhood, as described in the cavern spec) can be used for additional control over cavern character, but the basic 4-5 rule is sufficient for an initial implementation.
 
-### 11.3 A* Pathfinding
+### 11.3 A\* Pathfinding
 
-Standard A* with 8-directional movement. The heuristic is octile distance (accounts for diagonal moves) scaled by the minimum cell cost:
+Standard A\* with 8-directional movement. The heuristic is octile distance (accounts for diagonal moves) scaled by the minimum cell cost:
 
 ```typescript
 function heuristic(ax: number, ay: number, bx: number, by: number, minCost: number): number {
@@ -596,7 +707,7 @@ function heuristic(ax: number, ay: number, bx: number, by: number, minCost: numb
 }
 ```
 
-Use a binary heap priority queue for the open set. At 800×800 grid size, A* between systems within a 40-unit range will complete in milliseconds.
+Use a binary heap priority queue for the open set. At 800×800 grid size, A\* between systems within a 40-unit range will complete in milliseconds.
 
 ### 11.4 Spatial Indexing
 
@@ -606,15 +717,15 @@ For density calculation (Stage 3) and Oikumene selection (Stage 4), a grid-based
 
 On an Apple M3 MacBook Pro with 16GB RAM, the full pipeline should complete in well under a minute:
 
-| Stage | Expected Time |
-|---|---|
-| Galaxy generation | < 1 second |
-| Cost map (Perlin + CA) | 1–3 seconds |
-| Density calculation | < 1 second |
-| Oikumene selection | < 1 second |
-| System attributes | 1–2 seconds |
-| Route pre-computation | 5–15 seconds (depends on route count) |
-| File output | 2–5 seconds (12,000 JSON files) |
+| Stage                  | Expected Time                         |
+| ---------------------- | ------------------------------------- |
+| Galaxy generation      | < 1 second                            |
+| Cost map (Perlin + CA) | 1–3 seconds                           |
+| Density calculation    | < 1 second                            |
+| Oikumene selection     | < 1 second                            |
+| System attributes      | 1–2 seconds                           |
+| Route pre-computation  | 5–15 seconds (depends on route count) |
+| File output            | 2–5 seconds (12,000 JSON files)       |
 
 ### 11.6 Project Structure (Recommended)
 
@@ -676,7 +787,7 @@ When a player in the Beyond specifies a destination within range, the Worker:
 
 1. Loads the cost map from cache or D1.
 2. Decodes the PNG to a uint8 array.
-3. Runs A* from the player's current system coordinates to the destination coordinates.
+3. Runs A\* from the player's current system coordinates to the destination coordinates.
 4. Returns the route cost and path.
 5. If the player successfully traverses the route, stores it as a player-discovered route.
 

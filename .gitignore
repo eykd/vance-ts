@@ -6,6 +6,9 @@ dist/
 .wrangler/
 *.tsbuildinfo
 
+# Galaxy generator output
+galaxy-output/
+
 # Python cache
 __pycache__/
 

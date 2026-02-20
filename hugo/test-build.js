@@ -7,6 +7,8 @@
  * 1. Hugo builds successfully without errors
  * 2. Required files exist after build (index.html, CSS files)
  * 3. Build output directory structure is correct
+ *
+ * NOTE: This is a Node.js build-time script, NOT Cloudflare Workers runtime code.
  */
 
 const { execSync } = require('child_process');
@@ -22,18 +24,35 @@ const colors = {
   blue: '\x1b[34m',
 };
 
+/**
+ * Logs a message to the console with optional ANSI color.
+ * @param {string} message - The message to log.
+ * @param {string} color - ANSI color code to apply (defaults to reset).
+ */
 function log(message, color = colors.reset) {
   console.log(`${color}${message}${colors.reset}`);
 }
 
+/**
+ * Logs a success message in green with a checkmark prefix.
+ * @param {string} message - The success message to log.
+ */
 function logSuccess(message) {
   log(`✅ ${message}`, colors.green);
 }
 
+/**
+ * Logs an error message in red with a cross prefix.
+ * @param {string} message - The error message to log.
+ */
 function logError(message) {
   log(`❌ ${message}`, colors.red);
 }
 
+/**
+ * Logs an informational message in blue with an info prefix.
+ * @param {string} message - The info message to log.
+ */
 function logInfo(message) {
   log(`ℹ️  ${message}`, colors.blue);
 }
