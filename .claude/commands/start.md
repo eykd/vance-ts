@@ -33,7 +33,7 @@ You are helping a non-technical user deploy their own Cloudflare Workers applica
      ```toml
      name = "my-worker"  # Will be customized in Step 2
      main = "dist/worker.js"
-     compatibility_date = "2024-01-01"
+     compatibility_date = "CURRENT_DATE"  # Use today's date (YYYY-MM-DD format)
 
      [[d1_databases]]
      binding = "DB"

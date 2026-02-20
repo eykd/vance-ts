@@ -9,6 +9,7 @@ Generates a project with DDD/Clean Architecture structure using:
 """
 
 import argparse
+import datetime
 import json
 import os
 from pathlib import Path
@@ -25,6 +26,7 @@ def scaffold_project(project_name: str, output_dir: Path, db_name: str = None):
     """Generate the complete project structure."""
     root = output_dir / project_name
     db = db_name or f"{project_name}-db"
+    today = datetime.date.today().isoformat()
     
     print(f"\n🚀 Scaffolding Cloudflare project: {project_name}")
     print(f"   Output: {root}\n")
@@ -68,7 +70,7 @@ def scaffold_project(project_name: str, output_dir: Path, db_name: str = None):
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "{project_name}",
   "main": "src/index.ts",
-  "compatibility_date": "2025-01-01",
+  "compatibility_date": "{today}",
   "compatibility_flags": ["nodejs_compat"],
 
   "observability": {{
@@ -148,7 +150,7 @@ export default defineWorkersConfig({
           configPath: "./wrangler.jsonc"
         },
         miniflare: {
-          compatibilityDate: "2025-01-01",
+          compatibilityDate: "''' + today + '''",
           compatibilityFlags: ["nodejs_compat"]
         }
       }
