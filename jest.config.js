@@ -40,7 +40,7 @@ module.exports = {
     '!src/**/*.spec.ts',
     '!src/**/*.test.ts',
     '!src/**/index.ts',
-    '!src/types/**/*.ts',
+    '!src/infrastructure/env.ts',
     '!src/presentation/generated/**/*.ts',
   ],
   coverageThreshold: {

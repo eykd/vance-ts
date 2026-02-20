@@ -1,7 +1,9 @@
 import { Hono } from 'hono/tiny';
 
+import type { Env } from './infrastructure/env';
+import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
+import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
 import { applySecurityHeaders } from './presentation/utils/securityHeaders';
-import type { Env } from './types/env';
 
 /** Hono environment type binding Cloudflare Workers env. */
 type AppEnv = { Bindings: Env };
@@ -23,13 +25,13 @@ app.use('/app/_/*', async (c, next) => {
 });
 
 /** Health check endpoint. */
-app.get('/api/health', (c) => c.json({ status: 'ok' }));
+app.get('/api/health', healthCheck);
 
 /** Catch-all for unimplemented API routes. */
-app.all('/api/*', (c) => c.json({ error: 'Not found' }, 404));
+app.all('/api/*', apiNotFound);
 
 /** Catch-all for unimplemented app partial routes. */
-app.all('/app/_/*', (c) => c.json({ error: 'Not found' }, 404));
+app.all('/app/_/*', appPartialNotFound);
 
 /**
  * Static asset fallthrough.

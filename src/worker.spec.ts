@@ -1,5 +1,5 @@
 /* eslint-disable no-undef -- Fetcher is a @cloudflare/workers-types ambient global */
-import type { Env } from './types/env';
+import type { Env } from './infrastructure/env';
 import app from './worker';
 
 /**
