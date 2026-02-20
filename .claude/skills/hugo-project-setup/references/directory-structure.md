@@ -1,6 +1,6 @@
 # Directory Structure
 
-Complete project layout for Hugo + Cloudflare Pages hybrid architecture.
+Complete project layout for Hugo + Cloudflare Workers Static Assets architecture.
 
 ## Full Project Structure
 
@@ -36,17 +36,8 @@ my-hugo-site/
 │   │   └── images/
 │   └── hugo.toml                  # Hugo configuration
 │
-├── functions/                     # Cloudflare Pages Functions
-│   ├── api/                       # /api/* routes (legacy)
-│   └── app/
-│       └── _/                     # /app/_/* HTMX endpoints
-│           ├── contact.ts         # POST /app/_/contact
-│           ├── comments/
-│           │   └── [[id]].ts      # GET/POST /app/_/comments
-│           ├── search.ts          # GET /app/_/search
-│           └── newsletter.ts      # POST /app/_/newsletter
-│
-├── src/                           # Shared TypeScript source
+├── src/                           # TypeScript source
+│   ├── worker.ts                  # Hono Worker entry point (routes /api/*, /app/_/*)
 │   ├── domain/                    # Pure business logic
 │   │   ├── entities/
 │   │   │   └── Comment.ts
@@ -69,9 +60,7 @@ my-hugo-site/
 │   ├── integration/
 │   └── acceptance/
 │
-├── dist/                          # Hugo build output (gitignored)
-│
-├── wrangler.toml                  # Cloudflare configuration
+├── wrangler.toml                  # Cloudflare Workers config (generated at deploy, not checked in)
 ├── vitest.config.ts               # Test configuration
 ├── tailwind.config.ts             # TailwindCSS configuration
 ├── package.json
@@ -82,9 +71,9 @@ my-hugo-site/
 
 ### 1. Separation of Concerns
 
-- **Hugo** (`hugo/`) → Static content generation
-- **Functions** (`functions/`) → Dynamic endpoints
-- **Source** (`src/`) → Shared domain logic
+- **Hugo** (`hugo/`) → Static content generation (served via Workers Static Assets)
+- **Worker** (`src/worker.ts`) → Hono route handlers for dynamic endpoints
+- **Source** (`src/`) → Domain logic, application use cases, infrastructure
 
 ### 2. Hugo-First Organization
 
@@ -94,15 +83,15 @@ The `hugo/` directory is a complete Hugo project that can be developed and previ
 cd hugo && hugo server -D
 ```
 
-### 3. Functions Mirror URL Structure
+### 3. Hono Route Handlers in Worker
 
-Files in `functions/` directly map to URL paths:
+Dynamic routes are defined in `src/worker.ts` using Hono, configured via `run_worker_first` in `wrangler.toml`:
 
-| File                                 | URL                                         |
-| ------------------------------------ | ------------------------------------------- |
-| `functions/app/_/contact.ts`         | `/app/_/contact`                            |
-| `functions/app/_/comments/[[id]].ts` | `/app/_/comments` and `/app/_/comments/:id` |
-| `functions/api/search.ts`            | `/api/search`                               |
+| Hono route definition                  | URL                                         |
+| -------------------------------------- | ------------------------------------------- |
+| `app.post('/app/_/contact', ...)`      | `/app/_/contact`                            |
+| `app.all('/app/_/comments/:id?', ...)` | `/app/_/comments` and `/app/_/comments/:id` |
+| `app.get('/api/search', ...)`          | `/api/search`                               |
 
 ### 4. Domain Independence
 
@@ -123,12 +112,12 @@ The `_` indicates "partial" - these return HTML fragments, not full pages.
 
 ## Assets Strategy
 
-| Asset Type                | Location              | Served From       |
-| ------------------------- | --------------------- | ----------------- |
-| TailwindCSS source        | `hugo/assets/css/`    | Processed by Hugo |
-| Compiled CSS              | `dist/css/`           | CDN               |
-| JavaScript (HTMX, Alpine) | `hugo/static/js/`     | CDN               |
-| Images                    | `hugo/static/images/` | CDN               |
+| Asset Type                | Location              | Served From           |
+| ------------------------- | --------------------- | --------------------- |
+| TailwindCSS source        | `hugo/assets/css/`    | Processed by Hugo     |
+| Compiled CSS              | `hugo/public/css/`    | Workers Static Assets |
+| JavaScript (HTMX, Alpine) | `hugo/static/js/`     | Workers Static Assets |
+| Images                    | `hugo/static/images/` | Workers Static Assets |
 
 ## See Also
 

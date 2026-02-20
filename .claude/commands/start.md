@@ -32,24 +32,18 @@ You are helping a non-technical user deploy their own Cloudflare Workers applica
 
      ```toml
      name = "my-worker"  # Will be customized in Step 2
-     main = "dist/worker.js"
      compatibility_date = "CURRENT_DATE"  # Use today's date (YYYY-MM-DD format)
+     main = "./src/index.ts"
 
-     [[d1_databases]]
-     binding = "DB"
-     database_name = "my-worker-db"
-     database_id = ""  # Will be auto-populated on first deploy
-
-     [[kv_namespaces]]
-     binding = "KV"
-     id = ""  # Will be auto-populated on first deploy
-
-     [[r2_buckets]]
-     binding = "R2"
-     bucket_name = "my-worker-storage"
+     [assets]
+     directory = "./hugo/public/"
+     binding = "ASSETS"
+     html_handling = "auto-trailing-slash"
+     not_found_handling = "404-page"
+     run_worker_first = ["/api/*", "/app/_/*"]
      ```
 
-     **Note**: The `name`, `database_name`, and `bucket_name` will be customized in Step 2 when you ask the user for their project name.
+     **Note**: The `name` will be customized in Step 2 when you ask the user for their project name. D1/KV/R2 bindings are added later when features require them.
 
 2. **Check for .github/workflows/ci.yml**: The CI workflow handles automated deployments after GitHub secrets are configured
 
@@ -71,7 +65,7 @@ Start with a brief, encouraging welcome. Then immediately verify that Cloudflare
 
 ### Step 2: Ask for Project Name
 
-Ask: "What would you like to name your project? This will become part of your site's URL (like `yourname.pages.dev`). Use lowercase letters, numbers, and hyphens only."
+Ask: "What would you like to name your project? This will become part of your site's URL (like `yourname.workers.dev`). Use lowercase letters, numbers, and hyphens only."
 
 **Validate the name**:
 
@@ -82,62 +76,50 @@ Ask: "What would you like to name your project? This will become part of your si
 
 **Handle validation errors**: If the name doesn't meet requirements, explain the constraints and ask for a different name.
 
-**Update wrangler.toml**: Edit the `name` field (and related resource names) with the user's chosen name. Also update `database_name` and `bucket_name` to match (e.g., `user-chosen-name-db`, `user-chosen-name-storage`).
+**Update wrangler.toml**: Edit the `name` field with the user's chosen name.
 
 ### Step 3: Deploy
 
-**This boilerplate uses Cloudflare Pages** (Hugo static site + Pages Functions for dynamic endpoints).
+**This boilerplate uses Cloudflare Workers Static Assets** (Hugo static site + Hono Worker for dynamic endpoints).
 
-**CRITICAL: Always use `wrangler pages deploy`, NOT `wrangler deploy`!**
-
-1. **RUN the deployment** — This creates the actual infrastructure in Cloudflare:
+1. **RUN the deployment** — This creates the Worker and serves static assets from Hugo:
 
    ```bash
    # Build Hugo first
    cd hugo && npm ci && npx hugo --minify && cd ..
 
-   # Create and deploy the Pages project
-   npx wrangler pages deploy hugo/public --project-name={user-chosen-name}
+   # Deploy the Worker (auto-creates on first deploy)
+   npx wrangler deploy
    ```
 
 2. **Show the live URL** to the user and confirm it's working
 
-3. **Update CI workflow** (if needed): In `.github/workflows/ci.yml`, update the `projectName` if there's a Cloudflare Pages deployment step.
-
-4. **Commit and push**:
+3. **Commit and push**:
    - Use a clear commit message: "feat: customize project name to {user-name}"
    - Commit directly to the `master` branch
    - Push to GitHub
 
-5. **Confirm completion**: "Your site is now live! I've also pushed the configuration to GitHub."
+4. **Confirm completion**: "Your site is now live! I've also pushed the configuration to GitHub."
 
 See `references/wrangler-deploy.md` for what happens during deployment.
 
 ### IMPORTANT: Preview Deployments vs. Production Deployments
 
-**When deploying from a branch (not master)**, Cloudflare creates a **preview deployment**:
+**Production deployment** (push to master): Deploys the Worker with its configured name, accessible at `https://{project-name}.workers.dev`.
 
-- **Production URL** (e.g., `https://{project-name}.pages.dev`) — **Will NOT work** until you deploy from the production branch (master). This URL only serves content deployed from master.
-- **Deployment-specific URL** (e.g., `https://abc123def.{project-name}.pages.dev`) — **Works immediately**. This hash-based URL points to this specific deployment.
-- **Branch alias URL** (e.g., `https://my-branch-name.{project-name}.pages.dev`) — **Works immediately**. This URL always points to the latest deployment from that branch.
+**Preview deployment** (pull requests): The CI/CD pipeline deploys a branch-suffixed Worker (e.g., `{project-name}-pr-123`) accessible at `https://{project-name}-pr-123.workers.dev`. These are fully functional, isolated environments perfect for testing.
 
 **When reporting deployment success to the user:**
 
-1. Tell them the **deployment-specific URL** (the hash URL) is live and working NOW
-2. Explain that the **main production URL** won't work until the branch is merged to master and deployed
-3. If they want the production URL working immediately, offer to merge the branch to master
-
-**TLS Certificate Provisioning**: New preview URLs may show TLS/SSL errors for 1-3 minutes while Cloudflare provisions the certificate. Warn the user this is normal and to wait a few minutes before trying again.
+1. Tell them the Worker URL is live and working NOW
+2. For PR previews, explain the branch-suffixed URL
+3. TLS certificates may take 1-3 minutes to provision on new Workers
 
 **Example message:**
 
-> "Your site is deployed! You can preview it now at `https://abc123.yourproject.pages.dev`.
+> "Your site is deployed! You can see it live at `https://yourproject.workers.dev`.
 >
-> Note: It may take 1-3 minutes for the TLS certificate to be provisioned — if you see a security error, wait a moment and refresh.
->
-> The main URL (`https://yourproject.pages.dev`) won't be active until we merge this branch to master. Would you like me to merge and deploy to production now?"
-
-Preview deployments include all Pages Functions and infrastructure — they're complete, isolated environments perfect for testing before going to production.
+> Note: It may take 1-3 minutes for the TLS certificate to be provisioned — if you see a security error, wait a moment and refresh."
 
 ### Step 4: Set Up GitHub Secrets for CI/CD
 
@@ -224,7 +206,7 @@ Help the user customize their site by addressing STARTUPFIXME placeholders:
 5. **After all items are addressed**: Rebuild and redeploy to apply changes:
    ```bash
    cd hugo && npm ci && npx hugo --minify && cd ..
-   npx wrangler pages deploy hugo/public --project-name=<project-name>
+   npx wrangler deploy
    ```
 
 **Example flow**:
@@ -273,7 +255,7 @@ When they complete deployment:
 - **Offer escape hatches** — If they're stuck, offer to help troubleshoot or suggest taking a break
 - **Time awareness** — If they mention being short on time, help them find a good stopping point
 - **Explain automation** — When running wrangler commands, explain that it's automatically creating infrastructure so they understand what's happening
-- **ALWAYS deploy manually before relying on CI/CD** — The first deployment MUST be done manually to create the Cloudflare projects. Run `wrangler pages deploy` for Hugo/Pages. The GitHub Actions do NOT auto-create these projects — they will fail with "Project not found" if you skip this step.
+- **ALWAYS deploy manually before relying on CI/CD** — The first deployment MUST be done manually to create the Cloudflare projects. Run `wrangler deploy` for Hugo/Pages. The GitHub Actions do NOT auto-create these projects — they will fail with "Project not found" if you skip this step.
 
 ## Example Opening
 

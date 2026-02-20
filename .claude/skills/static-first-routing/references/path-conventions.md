@@ -98,24 +98,19 @@ The `_` prefix indicates "partial" - these routes return HTML fragments for HTMX
 | `/app/_/comments/:id` | Single | —           | Update | Delete |
 | `/app/_/search`       | Query  | —           | —      | —      |
 
-## Function File Patterns
+## Worker Route Patterns
 
-**Simple endpoint:**
+Routes are registered in `src/worker.ts` using Hono:
 
-```
-functions/app/_/contact.ts → /app/_/contact
-```
-
-**Dynamic route:**
-
-```
-functions/app/_/comments/[id].ts → /app/_/comments/:id
-```
-
-**Catch-all (GET + POST + PUT + DELETE):**
-
-```
-functions/app/_/comments/[[id]].ts → /app/_/comments and /app/_/comments/:id
+```typescript
+// src/worker.ts - Hono route registration
+app.post('/app/_/contact', handleContactPost);
+app.get('/app/_/comments', handleCommentsList);
+app.post('/app/_/comments', handleCommentsCreate);
+app.get('/app/_/comments/:id', handleCommentsGet);
+app.put('/app/_/comments/:id', handleCommentsUpdate);
+app.delete('/app/_/comments/:id', handleCommentsDelete);
+app.get('/app/_/search', handleSearch);
 ```
 
 ## Static Asset Paths

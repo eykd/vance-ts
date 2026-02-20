@@ -1956,7 +1956,7 @@ export class Router {
     this.post('/webhooks/stripe', (req) => this.webhookHandlers.handleStripeWebhook(req, this.env));
 
     // Note: Static pages (/, /pricing, /success, /cancel) are served by
-    // Cloudflare Pages from public/, NOT by the Worker
+    // Workers Static Assets from public/, NOT by the Worker
   }
 
   private addRoute(method: string, path: string, handler: RouteHandler): void {

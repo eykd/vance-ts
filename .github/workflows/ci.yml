@@ -96,55 +96,40 @@ jobs:
           node-version: 24.x
           cache: 'npm'
 
-      # Deploy Hugo to Cloudflare Pages (if hugo/ exists AND wrangler.toml exists)
-      - name: Extract Pages project name from wrangler.toml
-        id: pages-project
-        if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
+      # Extract Worker name from wrangler.toml for preview deployments
+      - name: Extract Worker name from wrangler.toml
+        id: worker-name
+        if: steps.check-wrangler.outputs.exists == 'true'
         run: |
           PROJECT_NAME=$(grep -E '^name\s*=' wrangler.toml | head -1 | sed 's/^name\s*=\s*"\([^"]*\)".*/\1/')
           echo "name=$PROJECT_NAME" >> $GITHUB_OUTPUT
 
-      - name: Ensure Pages project exists
-        if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          PROJECT_NAME="${{ steps.pages-project.outputs.name }}"
-          # Try to create; if it fails with "already exists", that's fine
-          if npx wrangler pages project create "$PROJECT_NAME" --production-branch master 2>&1; then
-            echo "Created Pages project '$PROJECT_NAME'"
-          else
-            # Check if failure was due to project already existing
-            if npx wrangler pages project list 2>/dev/null | grep -qw "$PROJECT_NAME"; then
-              echo "Pages project '$PROJECT_NAME' already exists"
-            else
-              echo "Failed to create Pages project '$PROJECT_NAME'"
-              exit 1
-            fi
-          fi
-
-      - name: Install Hugo dependencies
-        if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
-        run: |
-          cd hugo
-          npm install
+      - name: Install dependencies
+        if: steps.check-wrangler.outputs.exists == 'true'
+        run: npm ci
 
       - name: Build Hugo site
         if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
         run: |
-          cd hugo
-          npx hugo --minify
+          cd hugo && npm install && npx hugo --minify && cd ..
+          node scripts/sync-asset-paths.js
+          node scripts/check-route-collisions.js
 
-      - name: Deploy Hugo to Cloudflare Pages
-        if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
+      - name: Deploy to Cloudflare Workers
+        if: steps.check-wrangler.outputs.exists == 'true' && github.event_name == 'push'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          # Project name and output dir are read from wrangler.toml
-          command: pages deploy hugo/public
+          command: deploy
+
+      - name: Deploy Preview (PR)
+        if: steps.check-wrangler.outputs.exists == 'true' && github.event_name == 'pull_request'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --name ${{ steps.worker-name.outputs.name }}-pr-${{ github.event.pull_request.number }}
 
       # Deploy Worker for scheduled tasks (if wrangler.worker.toml exists)
       - name: Check for wrangler.worker.toml

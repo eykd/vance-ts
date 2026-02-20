@@ -2106,18 +2106,18 @@ export class JobAuditLogger {
 
 **Cloudflare has two distinct platforms** with different cron capabilities:
 
-| Platform               | Cron Support                         | Configuration Method                           |
-| ---------------------- | ------------------------------------ | ---------------------------------------------- |
-| **Cloudflare Workers** | Native `triggers` in `wrangler.toml` | See "Cloudflare Workers (Cron Triggers)" below |
-| **Cloudflare Pages**   | **NOT supported via `triggers`**     | See "Cloudflare Pages (Scheduled Tasks)" below |
+| Platform                      | Cron Support                         | Configuration Method                           |
+| ----------------------------- | ------------------------------------ | ---------------------------------------------- |
+| **Cloudflare Workers**        | Native `triggers` in `wrangler.toml` | See "Cloudflare Workers (Cron Triggers)" below |
+| **Cloudflare Pages** (legacy) | **NOT supported via `triggers`**     | See "Cloudflare Pages (Scheduled Tasks)" below |
 
-⚠️ **CRITICAL**: If you add `triggers` to a Cloudflare Pages project's `wrangler.toml`, deployment will fail with:
+⚠️ **NOTE**: If using legacy Cloudflare Pages and you add `triggers` to the project's `wrangler.toml`, deployment will fail with:
 
 ```
 Configuration file for Pages projects does not support "triggers"
 ```
 
-This boilerplate is a **Cloudflare Pages** project (Hugo + Pages Functions). If you need scheduled tasks, see the "Cloudflare Pages" section below.
+This boilerplate now uses **Cloudflare Workers** with Static Assets. Workers support native cron triggers via `triggers` in `wrangler.toml`. See the "Cloudflare Workers (Cron Triggers)" section below.
 
 ---
 
@@ -2184,15 +2184,15 @@ export default {
 
 ---
 
-### Cloudflare Pages (Scheduled Tasks)
+### Cloudflare Pages (Scheduled Tasks) -- Legacy
 
-**FOR CLOUDFLARE PAGES PROJECTS** (Hugo + Pages Functions, like this boilerplate).
+**FOR LEGACY CLOUDFLARE PAGES PROJECTS** (Hugo + Pages Functions). This section is preserved for reference; this boilerplate now uses Cloudflare Workers.
 
-Cloudflare Pages **does not support** the `triggers` configuration. Instead, you have three options:
+Cloudflare Pages **does not support** the `triggers` configuration. If you are still on Pages, you have three options:
 
 #### Option 1: Separate Worker with HTTP Calls (Recommended)
 
-Create a **separate Cloudflare Worker** with cron triggers that calls your Pages Functions via HTTP:
+Create a **separate Cloudflare Worker** with cron triggers that calls your Worker endpoints via HTTP:
 
 **Step 1: Create a Worker project** (in a separate directory):
 
@@ -2201,8 +2201,8 @@ Create a **separate Cloudflare Worker** with cron triggers that calls your Pages
 export default {
   async scheduled(event: ScheduledEvent, env: Env): Promise<void> {
     const tasks = [
-      { url: 'https://your-site.pages.dev/api/cron/daily-report', cron: '0 6 * * *' },
-      { url: 'https://your-site.pages.dev/api/cron/cleanup', cron: '0 3 * * *' },
+      { url: 'https://your-site.workers.dev/api/cron/daily-report', cron: '0 6 * * *' },
+      { url: 'https://your-site.workers.dev/api/cron/cleanup', cron: '0 3 * * *' },
     ];
 
     const now = new Date(event.scheduledTime);
@@ -2234,7 +2234,7 @@ CRON_SECRET = "use-a-strong-secret-here"
 */
 ```
 
-**Step 2: Create Pages Functions** to handle the HTTP calls:
+**Step 2: Create route handlers** to handle the HTTP calls:
 
 ```typescript
 // functions/api/cron/daily-report.ts
@@ -2257,13 +2257,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 **Benefits**:
 
 - Keeps scheduler logic separate from application code
-- Easy to add/remove scheduled tasks without redeploying Pages
-- Can trigger multiple Pages sites from one Worker
+- Easy to add/remove scheduled tasks without redeploying the main Worker
+- Can trigger multiple Workers from one scheduler
 - Proper authentication via shared secret
 
 #### Option 2: Cloudflare Dashboard (Cron Triggers for Pages)
 
-**Note**: As of January 2025, Cloudflare is testing cron triggers for Pages Functions via the dashboard. Check the [Cloudflare Pages documentation](https://developers.cloudflare.com/pages/) for the latest availability.
+**Note**: Cloudflare Workers natively support cron triggers. If you have migrated from Pages to Workers, use the `triggers` configuration in `wrangler.toml` directly. Check the [Cloudflare Workers documentation](https://developers.cloudflare.com/workers/) for the latest availability.
 
 If available in your account:
 

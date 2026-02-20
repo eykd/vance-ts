@@ -1,6 +1,6 @@
 # Configuration
 
-Hugo and Cloudflare configuration files for the hybrid architecture.
+Hugo and Cloudflare Workers configuration files for the hybrid architecture.
 
 ## Hugo Configuration
 
@@ -44,15 +44,21 @@ title = 'My Hugo Site'
 
 ## Wrangler Configuration
 
-**wrangler.toml:**
+**wrangler.toml** (generated at deploy time, not checked in):
 
 ```toml
 name = "my-hugo-app"
+main = "src/worker.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Pages build output
-pages_build_output_dir = "dist"
+# Workers Static Assets - serves Hugo output
+[assets]
+directory = "./hugo/public/"
+binding = "ASSETS"
+
+[assets.routing]
+run_worker_first = ["/api/*", "/app/_/*"]
 
 # D1 Database
 [[d1_databases]]
@@ -68,39 +74,11 @@ pages_build_output_dir = "dist"
 # Environment variables
 [vars]
   ENVIRONMENT = "development"
-```
 
-## Wrangler Worker Configuration (Optional)
-
-**wrangler.worker.toml** (for scheduled tasks only):
-
-```toml
-# Separate Worker for cron triggers
-# Pages does NOT support [triggers] - use this file for scheduled tasks
-
-name = "my-hugo-app-cron"
-main = "functions/cron/example-task.ts"
-compatibility_date = "2024-01-01"
-compatibility_flags = ["nodejs_compat"]
-
-# Cron triggers
+# Cron triggers (Workers supports this directly, unlike Pages)
 [triggers]
 crons = ["0 6 * * *"]  # Daily at 6 AM UTC
-
-# Share bindings with Pages deployment
-[[d1_databases]]
-binding = "DB"
-database_name = "my-hugo-app-db"
-database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # Same as Pages
 ```
-
-**Deploy separately:**
-
-```bash
-wrangler deploy --config wrangler.worker.toml
-```
-
-See `docs/cron-scheduled-tasks-guide.md` for complete patterns.
 
 ## TypeScript Configuration
 
@@ -123,7 +101,7 @@ See `docs/cron-scheduled-tasks-guide.md` for complete patterns.
       "@infrastructure/*": ["src/infrastructure/*"]
     }
   },
-  "include": ["src/**/*", "functions/**/*", "tests/**/*"],
+  "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist", "hugo"]
 }
 ```
@@ -153,13 +131,13 @@ export default {
 ```json
 {
   "scripts": {
-    "dev": "wrangler pages dev dist --compatibility-flags=nodejs_compat",
+    "dev": "wrangler dev",
     "build": "npm run build:hugo && npm run build:css",
-    "build:hugo": "cd hugo && hugo --minify -d ../dist",
-    "build:css": "npx @tailwindcss/cli -i hugo/assets/css/main.css -o dist/css/app.css --minify",
+    "build:hugo": "cd hugo && hugo --minify",
+    "build:css": "npx @tailwindcss/cli -i hugo/assets/css/main.css -o hugo/public/css/app.css --minify",
     "css:watch": "npx @tailwindcss/cli -i hugo/assets/css/main.css -o hugo/static/css/app.css --watch",
     "test": "vitest",
-    "deploy": "npm run build && wrangler pages deploy dist"
+    "deploy": "npm run build && wrangler deploy"
   }
 }
 ```

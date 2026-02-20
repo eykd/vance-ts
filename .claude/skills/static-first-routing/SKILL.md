@@ -1,19 +1,19 @@
 ---
 name: static-first-routing
-description: 'Use when: (1) understanding CDN vs Pages Functions routing, (2) configuring URL structure for Hugo + Workers hybrid, (3) deciding which requests need dynamic handling, (4) implementing /app/_/* endpoint conventions.'
+description: 'Use when: (1) understanding CDN vs Worker routing, (2) configuring URL structure for Hugo + Workers hybrid, (3) deciding which requests need dynamic handling, (4) implementing /app/_/* endpoint conventions.'
 ---
 
 # Static-First Routing
 
-Understand and configure routing for Hugo + Cloudflare Pages hybrid architecture.
+Understand and configure routing for Hugo + Cloudflare Workers Static Assets hybrid architecture.
 
 ## Quick Reference
 
 | Request Pattern                | Handled By        | Response              |
 | ------------------------------ | ----------------- | --------------------- |
 | `/`, `/about`, `/blog/*`       | CDN (Hugo static) | Pre-rendered HTML     |
-| `/app/_/*`                     | Pages Functions   | Dynamic HTML partials |
-| `/api/*`                       | Pages Functions   | JSON (if needed)      |
+| `/app/_/*`                     | Worker (Hono)     | Dynamic HTML partials |
+| `/api/*`                       | Worker (Hono)     | JSON (if needed)      |
 | `/css/*`, `/js/*`, `/images/*` | CDN               | Static assets         |
 
 ## Core Concept
@@ -35,13 +35,14 @@ User Request
      ▼
 Cloudflare Edge Network
      │
-     ├─ Is /app/* or /api/*?
-     │   └─ YES → Execute Pages Function
-     │            ├─ Access D1/KV
-     │            └─ Return HTML/JSON
+     ├─ Is static file? (Hugo output, CSS, JS, images)
+     │   └─ YES → Serve from CDN
+     │            (Hugo-generated static files, <50ms)
      │
-     └─ NO → Serve from CDN
-             (Hugo-generated static files)
+     └─ NO → Execute Worker (Hono)
+              ├─ Match /app/* or /api/* route
+              ├─ Access D1/KV
+              └─ Return HTML/JSON
 ```
 
 ## Path Conventions
@@ -56,7 +57,7 @@ Cloudflare Edge Network
 | `/blog/my-post` | Individual post                         |
 | `/contact`      | Contact page (static form, HTMX action) |
 
-### Dynamic Paths (Pages Functions)
+### Dynamic Paths (Worker)
 
 | Path                | Purpose                 |
 | ------------------- | ----------------------- |
@@ -74,7 +75,7 @@ Cloudflare Edge Network
 ## Workflow
 
 1. **New page?** → Create in `hugo/content/` (static)
-2. **Need runtime data?** → Create Pages Function at `/app/_/*`
+2. **Need runtime data?** → Create Hono route handler at `/app/_/*`
 3. **HTMX form action?** → Point to `/app/_/endpoint`
 4. **Full page from Worker?** → Use `/app/page` (no underscore)
 
@@ -85,6 +86,6 @@ Cloudflare Edge Network
 
 ## Related Skills
 
-- [worker-request-handler](../worker-request-handler/SKILL.md) - Building Pages Function handlers
+- [worker-request-handler](../worker-request-handler/SKILL.md) - Building Hono route handlers
 - [cloudflare-project-scaffolding](../cloudflare-project-scaffolding/SKILL.md) - Project structure
 - [hugo-project-setup](../hugo-project-setup/SKILL.md) - Hugo directory layout

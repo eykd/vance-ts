@@ -13,37 +13,27 @@
 
 ```typescript
 // src/presentation/middleware/errorHandler.ts
-export function errorHandler(error: unknown): Response {
+import type { Context } from 'hono';
+
+export function errorHandler(error: unknown, c: Context): Response {
   console.error('Unhandled error:', error);
 
   if (error instanceof ValidationError) {
-    return new Response(`<div class="alert alert-error">${escapeHtml(error.message)}</div>`, {
-      status: 400,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    });
+    return c.html(`<div class="alert alert-error">${escapeHtml(error.message)}</div>`, 400);
   }
 
   if (error instanceof NotFoundError) {
-    return new Response(`<div class="alert alert-warning">${escapeHtml(error.message)}</div>`, {
-      status: 404,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    });
+    return c.html(`<div class="alert alert-warning">${escapeHtml(error.message)}</div>`, 404);
   }
 
   if (error instanceof UnauthorizedError) {
-    return new Response(null, {
-      status: 302,
-      headers: { Location: '/auth/login' },
-    });
+    return c.redirect('/auth/login', 302);
   }
 
   // Generic server error
-  return new Response(
+  return c.html(
     `<div class="alert alert-error">Something went wrong. Please try again.</div>`,
-    {
-      status: 500,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    }
+    500
   );
 }
 ```
@@ -68,9 +58,9 @@ export class ForbiddenError extends DomainError {}
 ### Error Handler with Request Context
 
 ```typescript
-export function errorHandler(error: unknown, request: Request): Response {
+export function errorHandler(error: unknown, c: Context): Response {
   const requestId = crypto.randomUUID();
-  const url = new URL(request.url);
+  const url = new URL(c.req.url);
 
   // Log error with context
   console.error(
@@ -80,21 +70,18 @@ export function errorHandler(error: unknown, request: Request): Response {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
       path: url.pathname,
-      method: request.method,
+      method: c.req.method,
     })
   );
 
   // Include requestId in response for debugging
   if (error instanceof Error && !(error instanceof DomainError)) {
-    return new Response(
+    return c.html(
       `<div class="alert alert-error">
         <p>Something went wrong. Please try again.</p>
         <p class="text-xs opacity-60">Reference: ${requestId}</p>
       </div>`,
-      {
-        status: 500,
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
-      }
+      500
     );
   }
 
@@ -108,13 +95,14 @@ export function errorHandler(error: unknown, request: Request): Response {
 
 ```typescript
 // src/presentation/middleware/auth.ts
+import type { Context, Next } from 'hono';
 import type { KVSessionStore, Session } from '@infrastructure/cache/KVSessionStore';
 
 export class AuthMiddleware {
   constructor(private sessionStore: KVSessionStore) {}
 
-  async getSession(request: Request): Promise<Session | null> {
-    const cookie = request.headers.get('Cookie');
+  async getSession(c: Context): Promise<Session | null> {
+    const cookie = c.req.header('Cookie');
     if (!cookie) return null;
 
     const sessionId = this.extractSessionId(cookie);
@@ -123,8 +111,8 @@ export class AuthMiddleware {
     return await this.sessionStore.get(sessionId);
   }
 
-  async requireAuth(request: Request): Promise<Session> {
-    const session = await this.getSession(request);
+  async requireAuth(c: Context): Promise<Session> {
+    const session = await this.getSession(c);
     if (!session) {
       throw new UnauthorizedError('Authentication required');
     }
@@ -141,74 +129,69 @@ export class AuthMiddleware {
 ### Usage in Handlers
 
 ```typescript
-export class TaskHandlers {
-  constructor(
-    private createTaskUseCase: CreateTask,
-    private taskRepository: TaskRepository,
-    private auth: AuthMiddleware
-  ) {}
+// src/presentation/handlers/taskHandlers.ts
+import type { Context } from 'hono';
+import type { Env } from '../../types/env';
 
-  // Public endpoint
-  async tasksPage(request: Request): Promise<Response> {
-    const session = await this.auth.getSession(request);
-    const tasks = session ? await this.taskRepository.findByUserId(session.userId) : [];
-    return this.htmlResponse(tasksPageTemplate(tasks, session));
-  }
+type AppContext = Context<{ Bindings: Env }>;
 
-  // Protected endpoint
-  async createTask(request: Request): Promise<Response> {
-    const session = await this.auth.requireAuth(request);
-    // ... create task with session.userId
-  }
+export function createTaskHandlers(
+  createTaskUseCase: CreateTask,
+  taskRepository: TaskRepository,
+  auth: AuthMiddleware
+) {
+  return {
+    // Public endpoint
+    async tasksPage(c: AppContext): Promise<Response> {
+      const session = await auth.getSession(c);
+      const tasks = session ? await taskRepository.findByUserId(session.userId) : [];
+      return c.html(tasksPageTemplate(tasks, session));
+    },
+
+    // Protected endpoint
+    async createTask(c: AppContext): Promise<Response> {
+      const session = await auth.requireAuth(c);
+      // ... create task with session.userId
+    },
+  };
 }
 ```
 
 ### Login/Logout Handlers
 
 ```typescript
-export class AuthHandlers {
-  constructor(
-    private sessionStore: KVSessionStore,
-    private userRepository: UserRepository
-  ) {}
+export function createAuthHandlers(sessionStore: KVSessionStore, userRepository: UserRepository) {
+  return {
+    async login(c: AppContext): Promise<Response> {
+      const formData = await c.req.formData();
+      const email = formData.get('email') as string;
+      const password = formData.get('password') as string;
 
-  async login(request: Request): Promise<Response> {
-    const formData = await request.formData();
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
+      const user = await userRepository.findByEmail(email);
+      if (!user || !(await user.verifyPassword(password))) {
+        return c.html(loginForm({ email }, { form: 'Invalid email or password' }), 401);
+      }
 
-    const user = await this.userRepository.findByEmail(email);
-    if (!user || !(await user.verifyPassword(password))) {
-      return this.htmlResponse(loginForm({ email }, { form: 'Invalid email or password' }), 401);
-    }
+      const sessionId = await sessionStore.create(user.id, user.email);
 
-    const sessionId = await this.sessionStore.create(user.id, user.email);
-
-    return new Response(null, {
-      status: 303,
-      headers: {
-        Location: '/app/tasks',
+      return c.redirect('/app/tasks', 303, {
         'Set-Cookie': `session=${sessionId}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${7 * 24 * 60 * 60}`,
-      },
-    });
-  }
+      });
+    },
 
-  async logout(request: Request): Promise<Response> {
-    const cookie = request.headers.get('Cookie');
-    const sessionId = cookie?.match(/session=([^;]+)/)?.[1];
+    async logout(c: AppContext): Promise<Response> {
+      const cookie = c.req.header('Cookie');
+      const sessionId = cookie?.match(/session=([^;]+)/)?.[1];
 
-    if (sessionId) {
-      await this.sessionStore.delete(sessionId);
-    }
+      if (sessionId) {
+        await sessionStore.delete(sessionId);
+      }
 
-    return new Response(null, {
-      status: 303,
-      headers: {
-        Location: '/',
+      return c.redirect('/', 303, {
         'Set-Cookie': 'session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0',
-      },
-    });
-  }
+      });
+    },
+  };
 }
 ```
 
@@ -283,26 +266,19 @@ export function deleteCookie(name: string, path: string = '/'): string {
 
 ```typescript
 // Login - set session cookie
-const sessionId = await this.sessionStore.create(user.id, user.email);
+const sessionId = await sessionStore.create(user.id, user.email);
 
-return new Response(null, {
-  status: 303,
-  headers: {
-    Location: '/app/tasks',
-    'Set-Cookie': createSecureCookie('session', sessionId, {
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-    }),
-  },
-});
+c.header(
+  'Set-Cookie',
+  createSecureCookie('session', sessionId, {
+    maxAge: 7 * 24 * 60 * 60, // 7 days
+  })
+);
+return c.redirect('/app/tasks', 303);
 
 // Logout - delete session cookie
-return new Response(null, {
-  status: 303,
-  headers: {
-    Location: '/',
-    'Set-Cookie': deleteCookie('session'),
-  },
-});
+c.header('Set-Cookie', deleteCookie('session'));
+return c.redirect('/', 303);
 ```
 
 **Security flag reference:**
@@ -325,7 +301,7 @@ return new Response(null, {
 - **Development exception**: `Secure` flag requires HTTPS, which may not work in local development. Consider environment-based configuration:
 
 ```typescript
-const isProduction = env.ENVIRONMENT === 'production';
+const isProduction = c.env.ENVIRONMENT === 'production';
 const secureCookie = isProduction
   ? createSecureCookie('session', sessionId)
   : createSecureCookie('session', sessionId).replace('Secure; ', ''); // Remove Secure for local dev
@@ -333,66 +309,51 @@ const secureCookie = isProduction
 
 ## Logging
 
-### Request Logging
+### Request Logging via Hono Middleware
 
 ```typescript
 // src/presentation/middleware/logging.ts
-export function logRequest(request: Request): void {
-  const url = new URL(request.url);
+import type { Context, Next } from 'hono';
+
+export async function requestLogger(c: Context, next: Next): Promise<void> {
+  const start = performance.now();
+  const url = new URL(c.req.url);
+
   console.log(
     JSON.stringify({
       timestamp: new Date().toISOString(),
-      method: request.method,
+      method: c.req.method,
       path: url.pathname,
       query: url.search,
-      userAgent: request.headers.get('user-agent'),
-      cfRay: request.headers.get('cf-ray'),
+      userAgent: c.req.header('user-agent'),
+      cfRay: c.req.header('cf-ray'),
     })
   );
-}
 
-export function logResponse(request: Request, response: Response, durationMs: number): void {
-  const url = new URL(request.url);
+  await next();
+
   console.log(
     JSON.stringify({
       timestamp: new Date().toISOString(),
-      method: request.method,
+      method: c.req.method,
       path: url.pathname,
-      status: response.status,
-      durationMs: Math.round(durationMs),
+      status: c.res.status,
+      durationMs: Math.round(performance.now() - start),
     })
   );
 }
 
-export function logError(error: Error, request: Request): void {
-  const url = new URL(request.url);
+export function logError(error: Error, c: Context): void {
+  const url = new URL(c.req.url);
   console.error(
     JSON.stringify({
       timestamp: new Date().toISOString(),
       error: error.message,
       stack: error.stack,
-      method: request.method,
+      method: c.req.method,
       path: url.pathname,
     })
   );
-}
-```
-
-### Structured Logging Wrapper
-
-```typescript
-async function withLogging(request: Request, handler: () => Promise<Response>): Promise<Response> {
-  const start = performance.now();
-  logRequest(request);
-
-  try {
-    const response = await handler();
-    logResponse(request, response, performance.now() - start);
-    return response;
-  } catch (error) {
-    logError(error as Error, request);
-    throw error;
-  }
 }
 ```
 
@@ -415,106 +376,94 @@ For dynamic Worker responses (HTMX partials, API responses), use **nonce-based C
 
 ```typescript
 // src/presentation/middleware/securityHeaders.ts
+import type { Context, Next } from 'hono';
 
 /**
- * Security headers middleware with nonce-based CSP
+ * Hono middleware that adds security headers with nonce-based CSP.
  */
-export function withSecurityHeaders(
-  handler: (request: Request, nonce: string) => Promise<Response>
-): (request: Request) => Promise<Response> {
-  return async (request: Request): Promise<Response> => {
-    // Generate unique nonce for this request
-    const nonce = crypto.randomUUID();
+export async function securityHeaders(c: Context, next: Next): Promise<void> {
+  // Generate unique nonce for this request
+  const nonce = crypto.randomUUID();
+  c.set('nonce', nonce);
 
-    // Execute handler with nonce
-    const response = await handler(request, nonce);
+  await next();
 
-    // Add security headers to response
-    const headers = new Headers(response.headers);
-
-    // CSP with nonce for inline scripts
-    headers.set(
-      'Content-Security-Policy',
-      [
-        "default-src 'self'",
-        `script-src 'self' 'nonce-${nonce}' https://cdn.jsdelivr.net`, // Alpine.js from CDN
-        "style-src 'self' 'unsafe-inline'", // Tailwind utility classes
-        "img-src 'self' data: https:",
-        "font-src 'self' data:",
-        "connect-src 'self'",
-        "object-src 'none'",
-        "base-uri 'self'",
-        "form-action 'self'",
-        "frame-ancestors 'none'",
-        'upgrade-insecure-requests',
-      ].join('; ')
-    );
-
-    // HSTS: Force HTTPS for 2 years
-    headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
-
-    // Frame protection
-    headers.set('X-Frame-Options', 'DENY');
-
-    // MIME type sniffing protection
-    headers.set('X-Content-Type-Options', 'nosniff');
-
-    // Referrer policy
-    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-
-    // Permissions policy
-    headers.set(
-      'Permissions-Policy',
-      'geolocation=(), microphone=(), camera=(), payment=(), usb=()'
-    );
-
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
-  };
+  // Add security headers to response
+  applySecurityHeaders(c.res.headers, nonce);
 }
 
-/**
- * Build CSP string with nonce
- */
-export function buildCsp(nonce: string): string {
-  return [
-    "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' https://cdn.jsdelivr.net`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https:",
-    "font-src 'self' data:",
-    "connect-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-    'upgrade-insecure-requests',
-  ].join('; ');
+function applySecurityHeaders(headers: Headers, nonce?: string): void {
+  // CSP with nonce for inline scripts
+  const scriptSrc = nonce
+    ? `script-src 'self' 'nonce-${nonce}' https://cdn.jsdelivr.net`
+    : "script-src 'self'";
+
+  headers.set(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      scriptSrc,
+      "style-src 'self' 'unsafe-inline'", // Tailwind utility classes
+      "img-src 'self' data: https:",
+      "font-src 'self' data:",
+      "connect-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      'upgrade-insecure-requests',
+    ].join('; ')
+  );
+
+  // HSTS: Force HTTPS for 2 years
+  headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+
+  // Frame protection
+  headers.set('X-Frame-Options', 'DENY');
+
+  // MIME type sniffing protection
+  headers.set('X-Content-Type-Options', 'nosniff');
+
+  // Referrer policy
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // Permissions policy
+  headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=(), usb=()');
 }
 ```
 
-### Usage in Handlers
+### Usage in Hono App
+
+```typescript
+// src/worker.ts
+import { Hono } from 'hono';
+import { securityHeaders } from './presentation/middleware/securityHeaders';
+import { requestLogger } from './presentation/middleware/logging';
+
+const app = new Hono<{ Bindings: Env }>();
+
+// Apply middleware to all dynamic routes
+app.use('/app/*', requestLogger);
+app.use('/app/*', securityHeaders);
+app.use('/api/*', requestLogger);
+app.use('/api/*', securityHeaders);
+```
 
 **HTMX partial with inline Alpine.js:**
 
 ```typescript
-// src/presentation/handlers/TaskHandlers.ts
-export class TaskHandlers {
-  // Wrap handler with security headers middleware
-  listTasks = withSecurityHeaders(async (request: Request, nonce: string): Promise<Response> => {
-    const session = await this.auth.requireAuth(request);
-    const tasks = await this.taskRepository.findByUserId(session.userId);
+// src/presentation/handlers/taskHandlers.ts
+async function listTasks(c: AppContext): Promise<Response> {
+  const session = await auth.requireAuth(c);
+  const tasks = await taskRepository.findByUserId(session.userId);
 
-    // Use nonce in template for inline scripts
-    const html = taskListPartial(tasks, nonce);
+  // Retrieve nonce set by middleware
+  const nonce = c.get('nonce');
 
-    return new Response(html, {
-      headers: { 'Content-Type': 'text/html; charset=utf-8' },
-    });
-  });
+  // Use nonce in template for inline scripts
+  const html = taskListPartial(tasks, nonce);
+
+  return c.html(html);
 }
 ```
 
@@ -548,49 +497,14 @@ export function taskListPartial(tasks: Task[], nonce: string): string {
 
 ### CSP Without Nonces (Simpler)
 
-For responses without inline scripts (JSON API, simple HTML), use a simpler CSP without nonces:
+For responses without inline scripts (JSON API, simple HTML), use the middleware without setting a nonce:
 
 ```typescript
-/**
- * Security headers for API responses (no inline scripts)
- */
-export function withApiSecurityHeaders(
-  handler: (request: Request) => Promise<Response>
-): (request: Request) => Promise<Response> {
-  return async (request: Request): Promise<Response> => {
-    const response = await handler(request);
-    const headers = new Headers(response.headers);
-
-    // Simpler CSP without nonces
-    headers.set(
-      'Content-Security-Policy',
-      [
-        "default-src 'self'",
-        "script-src 'self'", // No inline scripts allowed
-        "style-src 'self'",
-        "img-src 'self' data: https:",
-        "font-src 'self' data:",
-        "connect-src 'self'",
-        "object-src 'none'",
-        "base-uri 'self'",
-        "form-action 'self'",
-        "frame-ancestors 'none'",
-        'upgrade-insecure-requests',
-      ].join('; ')
-    );
-
-    headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
-    headers.set('X-Frame-Options', 'DENY');
-    headers.set('X-Content-Type-Options', 'nosniff');
-    headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-
-    return new Response(response.body, {
-      status: response.status,
-      headers,
-    });
-  };
-}
+// API routes get simpler CSP automatically (no nonce set)
+app.use('/api/*', async (c, next) => {
+  await next();
+  applySecurityHeaders(c.res.headers); // No nonce passed
+});
 ```
 
 ### Rate Limit Headers
@@ -599,60 +513,57 @@ For endpoints with rate limiting, include rate limit information in headers:
 
 ```typescript
 /**
- * Add rate limit headers to response
+ * Add rate limit headers to Hono response
  */
-export function withRateLimitHeaders(
-  response: Response,
+export function setRateLimitHeaders(
+  c: Context,
   config: RateLimitConfig,
   result: RateLimitResult
-): Response {
-  const headers = new Headers(response.headers);
-
-  headers.set('X-RateLimit-Limit', String(config.maxAttempts));
-  headers.set('X-RateLimit-Remaining', String(result.remaining));
-  headers.set('X-RateLimit-Reset', String(Math.floor(result.resetAt / 1000)));
-
-  return new Response(response.body, {
-    status: response.status,
-    headers,
-  });
+): void {
+  c.header('X-RateLimit-Limit', String(config.maxAttempts));
+  c.header('X-RateLimit-Remaining', String(result.remaining));
+  c.header('X-RateLimit-Reset', String(Math.floor(result.resetAt / 1000)));
 }
 ```
 
 ### Testing Security Headers
 
 ```typescript
-describe('withSecurityHeaders', () => {
+describe('securityHeaders middleware', () => {
   it('adds CSP header with nonce', async () => {
-    const handler = withSecurityHeaders(async (request, nonce) => {
-      return new Response(`<script nonce="${nonce}">console.log('test')</script>`, {
-        headers: { 'Content-Type': 'text/html' },
-      });
+    const app = new Hono();
+    app.use('*', securityHeaders);
+    app.get('/', (c) => {
+      const nonce = c.get('nonce');
+      return c.html(`<script nonce="${nonce}">console.log('test')</script>`);
     });
 
-    const response = await handler(new Request('http://localhost'));
+    const response = await app.request('/');
 
     expect(response.headers.get('Content-Security-Policy')).toContain("script-src 'self' 'nonce-");
   });
 
   it('adds HSTS header', async () => {
-    const handler = withSecurityHeaders(async () => {
-      return new Response('test');
-    });
+    const app = new Hono();
+    app.use('*', securityHeaders);
+    app.get('/', (c) => c.text('test'));
 
-    const response = await handler(new Request('http://localhost'));
+    const response = await app.request('/');
 
     expect(response.headers.get('Strict-Transport-Security')).toBe(
       'max-age=63072000; includeSubDomains; preload'
     );
   });
 
-  it('includes nonce in response body', async () => {
-    const handler = withSecurityHeaders(async (request, nonce) => {
-      return new Response(`<script nonce="${nonce}">test</script>`);
+  it('includes nonce in response body matching CSP', async () => {
+    const app = new Hono();
+    app.use('*', securityHeaders);
+    app.get('/', (c) => {
+      const nonce = c.get('nonce');
+      return c.html(`<script nonce="${nonce}">test</script>`);
     });
 
-    const response = await handler(new Request('http://localhost'));
+    const response = await app.request('/');
     const body = await response.text();
     const csp = response.headers.get('Content-Security-Policy');
 
@@ -669,16 +580,15 @@ describe('withSecurityHeaders', () => {
 ## Integration in Entry Point
 
 ```typescript
-// src/index.ts
-import { Router } from './router';
-import { errorHandler } from './presentation/middleware/errorHandler';
-import { logRequest, logError } from './presentation/middleware/logging';
-import { withSecurityHeaders } from './presentation/middleware/securityHeaders';
-import { AuthMiddleware } from './presentation/middleware/auth';
-import { TaskHandlers } from './presentation/handlers/TaskHandlers';
-import { AuthHandlers } from './presentation/handlers/AuthHandlers';
+// src/worker.ts
+import { Hono } from 'hono';
+import { requestLogger } from './presentation/middleware/logging';
+import { securityHeaders } from './presentation/middleware/securityHeaders';
+import { createTaskHandlers } from './presentation/handlers/taskHandlers';
+import { createAuthHandlers } from './presentation/handlers/authHandlers';
 import { D1TaskRepository } from './infrastructure/repositories/D1TaskRepository';
 import { KVSessionStore } from './infrastructure/cache/KVSessionStore';
+import { AuthMiddleware } from './presentation/middleware/auth';
 import { CreateTask } from './application/use-cases/CreateTask';
 
 export interface Env {
@@ -687,76 +597,56 @@ export interface Env {
   ASSETS: Fetcher;
 }
 
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const start = performance.now();
-    logRequest(request);
+const app = new Hono<{ Bindings: Env }>();
 
-    try {
-      // Wire up dependencies
-      const taskRepository = new D1TaskRepository(env.DB);
-      const sessionStore = new KVSessionStore(env.SESSIONS);
-      const auth = new AuthMiddleware(sessionStore);
+// Global middleware
+app.use('*', requestLogger);
 
-      const createTask = new CreateTask(taskRepository);
-      const taskHandlers = new TaskHandlers(createTask, taskRepository, auth);
-      const authHandlers = new AuthHandlers(sessionStore, userRepository);
+// Security headers for dynamic routes
+app.use('/app/*', securityHeaders);
+app.use('/api/*', securityHeaders);
 
-      const router = new Router(env, taskHandlers, authHandlers);
-      const response = await router.handle(request);
+// Error handling
+app.onError((error, c) => {
+  logError(error as Error, c);
+  return errorHandler(error, c);
+});
 
-      console.log(
-        JSON.stringify({
-          method: request.method,
-          path: new URL(request.url).pathname,
-          status: response.status,
-          durationMs: Math.round(performance.now() - start),
-        })
-      );
+// Auth routes (public)
+app.get('/auth/login', async (c) => {
+  const handlers = createAuthHandlers(new KVSessionStore(c.env.SESSIONS), userRepository);
+  return handlers.loginPage(c);
+});
+app.post('/auth/login', async (c) => {
+  const handlers = createAuthHandlers(new KVSessionStore(c.env.SESSIONS), userRepository);
+  return handlers.login(c);
+});
+app.post('/auth/logout', async (c) => {
+  const handlers = createAuthHandlers(new KVSessionStore(c.env.SESSIONS), userRepository);
+  return handlers.logout(c);
+});
 
-      return response;
-    } catch (error) {
-      logError(error as Error, request);
-      return errorHandler(error, request);
-    }
-  },
-};
-```
+// HTMX partials (authenticated) - all under /app/_
+app.get('/app/_/tasks', async (c) => {
+  const taskRepository = new D1TaskRepository(c.env.DB);
+  const sessionStore = new KVSessionStore(c.env.SESSIONS);
+  const auth = new AuthMiddleware(sessionStore);
+  const createTask = new CreateTask(taskRepository);
+  const handlers = createTaskHandlers(createTask, taskRepository, auth);
+  return handlers.listTasks(c);
+});
 
-### Router with Static-First Routing
+app.post('/app/_/tasks', async (c) => {
+  const taskRepository = new D1TaskRepository(c.env.DB);
+  const sessionStore = new KVSessionStore(c.env.SESSIONS);
+  const auth = new AuthMiddleware(sessionStore);
+  const createTask = new CreateTask(taskRepository);
+  const handlers = createTaskHandlers(createTask, taskRepository, auth);
+  return handlers.createTask(c);
+});
 
-The Worker handles only `/app/*`, `/auth/*`, and `/webhooks/*` routes. Static pages are served by Cloudflare Pages.
+// Note: Static pages (/, /about, /pricing) are served by Workers Static Assets, NOT by the Worker
+// Workers Static Assets checks for static files FIRST, then falls through to Hono routes
 
-```typescript
-// src/router.ts
-export class Router {
-  constructor(
-    private env: Env,
-    private taskHandlers: TaskHandlers,
-    private authHandlers: AuthHandlers
-  ) {
-    this.registerRoutes();
-  }
-
-  private registerRoutes(): void {
-    // Auth routes (public)
-    this.get('/auth/login', (req) => this.authHandlers.loginPage(req));
-    this.post('/auth/login', (req) => this.authHandlers.login(req));
-    this.post('/auth/logout', (req) => this.authHandlers.logout(req));
-
-    // Application pages (authenticated) - all under /app
-    this.get('/app', (req) => this.taskHandlers.dashboardPage(req));
-    this.get('/app/tasks', (req) => this.taskHandlers.tasksPage(req));
-
-    // HTMX partials (authenticated) - all under /app/_
-    this.get('/app/_/tasks', (req) => this.taskHandlers.listTasks(req));
-    this.post('/app/_/tasks', (req) => this.taskHandlers.createTask(req));
-    this.patch('/app/_/tasks/:id', (req, p) => this.taskHandlers.updateTask(req, p.id));
-    this.delete('/app/_/tasks/:id', (req, p) => this.taskHandlers.deleteTask(req, p.id));
-
-    // Note: Static pages (/, /about, /pricing) are served by Cloudflare Pages, NOT by Worker
-  }
-
-  // ... route registration methods
-}
+export default app;
 ```

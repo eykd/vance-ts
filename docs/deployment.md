@@ -19,7 +19,7 @@ This project uses GitHub Actions to deploy both the Cloudflare Workers API and t
                 │                               │
                 ▼                               ▼
     ┌───────────────────────┐       ┌───────────────────────┐
-    │  Cloudflare Workers   │       │  Cloudflare Pages     │
+    │  Cloudflare Workers   │       │  Workers Static Assets│
     │  (TypeScript API)     │       │  (Hugo Static Site)   │
     └───────────────────────┘       └───────────────────────┘
 ```
@@ -42,10 +42,10 @@ This project uses GitHub Actions to deploy both the Cloudflare Workers API and t
    - Build TypeScript API
    - Deploy via `wrangler deploy`
 
-3. **Deploy Hugo to Cloudflare Pages** (if hugo/ exists)
+3. **Deploy Hugo to Cloudflare Workers** (if hugo/ exists)
    - Install Hugo dependencies
    - Build Hugo site with `npx hugo --minify`
-   - Deploy to Cloudflare Pages using `cloudflare/pages-action`
+   - Deploy to Cloudflare Workers using `wrangler deploy`
 
 ## Required GitHub Configuration
 
@@ -61,14 +61,14 @@ Configure these secrets in your GitHub repository settings:
 2. Click "Create Token"
 3. Use "Edit Cloudflare Workers" template
 4. Add permissions:
-   - Account → Cloudflare Pages → Edit
+   - Account → Cloudflare Workers Scripts → Edit
    - Zone → Workers Scripts → Edit
 5. Save the token
 
 **What it's used for:**
 
 - Deploying Workers via wrangler
-- Deploying Pages via GitHub Action
+- Deploying Workers via GitHub Action
 
 ### 2. CLOUDFLARE_ACCOUNT_ID
 
@@ -95,7 +95,7 @@ You can also configure these repository variables in your GitHub repository sett
 
 **What it's used for:**
 
-- Sets the Cloudflare Pages project name for deployment
+- Sets the Cloudflare Workers project name for deployment
 - Defaults to `turtlebased-site` if not configured
 
 **How to set:**
@@ -106,7 +106,7 @@ You can also configure these repository variables in your GitHub repository sett
 4. Click **New repository variable**
 5. Add variable:
    - Name: `CLOUDFLARE_PAGES_PROJECT`
-   - Value: Your desired Cloudflare Pages project name
+   - Value: Your desired Cloudflare Workers project name
    - Click **Add variable**
 
 ## Setting Up Secrets
@@ -120,11 +120,11 @@ You can also configure these repository variables in your GitHub repository sett
    - Click **Add secret**
 5. Repeat for `CLOUDFLARE_ACCOUNT_ID`
 
-## Cloudflare Pages Configuration
+## Cloudflare Workers Configuration
 
 ### Project Name
 
-The CI workflow deploys to a Cloudflare Pages project. The project name is configurable:
+The CI workflow deploys to a Cloudflare Workers project. The project name is configurable:
 
 **Option 1: Use Repository Variable (Recommended)**
 
@@ -140,19 +140,18 @@ The CI workflow deploys to a Cloudflare Pages project. The project name is confi
 **Option 3: Edit Workflow File Directly**
 
 1. Edit `.github/workflows/ci.yml`
-2. Find the `Deploy Hugo to Cloudflare Pages` step
+2. Find the `Deploy Hugo to Cloudflare Workers` step
 3. Change the default value in `projectName: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'turtlebased-site' }}`
 
 ### First-Time Setup
 
-If the Cloudflare Pages project doesn't exist yet, the `cloudflare/pages-action` will create it automatically on first deployment.
+If the Cloudflare Workers project doesn't exist yet, `wrangler deploy` will create it automatically on first deployment.
 
 Alternatively, you can pre-create the project:
 
-1. Go to [Cloudflare Dashboard → Pages](https://dash.cloudflare.com/pages)
-2. Click "Create a project"
-3. Choose "Direct Upload"
-4. Name it `turtlebased-site` (or match your CI config)
+1. Go to [Cloudflare Dashboard → Workers & Pages](https://dash.cloudflare.com/workers-and-pages)
+2. Click "Create"
+3. Name it `turtlebased-site` (or match your CI config)
 
 ## Manual Deployment
 
@@ -171,9 +170,8 @@ cd hugo
 npm install
 npx hugo --minify
 
-# Then manually upload hugo/public/ to Cloudflare Pages
-# Or use wrangler pages publish:
-npx wrangler pages deploy hugo/public --project-name=turtlebased-site
+# Then deploy via wrangler:
+npx wrangler deploy
 ```
 
 ## Deployment Verification
@@ -184,11 +182,11 @@ npx wrangler pages deploy hugo/public --project-name=turtlebased-site
 2. Test your Workers endpoint
 3. Check [Cloudflare Dashboard → Workers & Pages](https://dash.cloudflare.com/workers-and-pages)
 
-### Check Pages Deployment
+### Check Workers Deployment (Static Site)
 
 1. View logs in GitHub Actions
-2. Visit your Pages URL: `https://turtlebased-site.pages.dev`
-3. Check [Cloudflare Dashboard → Pages](https://dash.cloudflare.com/pages)
+2. Visit your Workers URL: `https://turtlebased-site.workers.dev`
+3. Check [Cloudflare Dashboard → Workers & Pages](https://dash.cloudflare.com/workers-and-pages)
 
 ## Troubleshooting
 
@@ -209,7 +207,7 @@ npx wrangler pages deploy hugo/public --project-name=turtlebased-site
 **Error: "Unauthorized"**
 
 - Check both `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` are set
-- Verify token has Pages permissions
+- Verify token has Workers permissions
 
 **Error: "Hugo build failed"**
 
@@ -240,7 +238,7 @@ npx wrangler pages deploy hugo/public --project-name=turtlebased-site
 **Conditional Deployments**:
 
 - Workers deploys if `wrangler.toml` exists
-- Pages deploys if `hugo/` directory exists
+- Workers deploys if `hugo/` directory exists
 - Both can run in the same deployment
 
 ## Environment URLs
@@ -248,14 +246,14 @@ npx wrangler pages deploy hugo/public --project-name=turtlebased-site
 ### Production
 
 - **Workers API**: `https://your-worker-name.your-subdomain.workers.dev`
-- **Hugo Site**: `https://turtlebased-site.pages.dev`
+- **Hugo Site**: `https://turtlebased-site.workers.dev`
 
 ### Custom Domains
 
 Configure custom domains in Cloudflare Dashboard:
 
 - Workers: Dashboard → Workers & Pages → Your Worker → Settings → Domains
-- Pages: Dashboard → Pages → Your Project → Custom domains
+- Workers: Dashboard → Workers & Pages → Your Worker → Settings → Domains
 
 ## Cost Considerations
 
@@ -264,9 +262,9 @@ Configure custom domains in Cloudflare Dashboard:
 - Free tier: 100,000 requests/day
 - Paid: $5/month for 10 million requests
 
-**Pages**:
+**Workers Static Assets**:
 
-- Free tier: Unlimited sites, 500 builds/month
-- Paid: $20/month for 5,000 builds/month
+- Included in Workers free tier
+- No separate build limits
 
 Both deployments use the free tier by default.
