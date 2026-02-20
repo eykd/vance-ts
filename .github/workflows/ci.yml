@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Use Node.js 24.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
           node-version: 24.x
           cache: 'npm'
@@ -35,7 +35,7 @@ jobs:
         run: npm run test:coverage
 
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
         with:
           files: ./coverage/lcov.info
           flags: unittests
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Check for wrangler.toml
         id: check-wrangler
@@ -91,7 +91,7 @@ jobs:
           fi
 
       - name: Use Node.js 24.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
           node-version: 24.x
           cache: 'npm'
@@ -116,7 +116,7 @@ jobs:
           node scripts/check-route-collisions.js
 
       - name: Deploy to Cloudflare Workers
-        if: steps.check-wrangler.outputs.exists == 'true' && github.event_name == 'push'
+        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-hugo.outputs.exists == 'true' && github.event_name == 'push'
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -124,7 +124,7 @@ jobs:
           command: deploy
 
       - name: Deploy Preview (PR)
-        if: steps.check-wrangler.outputs.exists == 'true' && github.event_name == 'pull_request'
+        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-hugo.outputs.exists == 'true' && github.event_name == 'pull_request'
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

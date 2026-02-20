@@ -15,11 +15,11 @@ const app = new Hono<AppEnv>();
  *
  * Static assets served via the [assets] config use the _headers file instead.
  */
-app.use('/api/*', async (c, next) => {
+app.use('/api/*', async (c, next): Promise<void> => {
   await next();
   applySecurityHeaders(c.res.headers);
 });
-app.use('/app/_/*', async (c, next) => {
+app.use('/app/_/*', async (c, next): Promise<void> => {
   await next();
   applySecurityHeaders(c.res.headers);
 });
@@ -39,6 +39,6 @@ app.all('/app/_/*', appPartialNotFound);
  * Only reached if run_worker_first did not match the request path.
  * Delegates to the ASSETS binding which serves from hugo/public/.
  */
-app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw));
+app.all('*', (c): Promise<Response> => c.env.ASSETS.fetch(c.req.raw));
 
 export default app;
