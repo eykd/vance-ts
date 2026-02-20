@@ -86,7 +86,9 @@ describe('applySecurityHeaders', () => {
   });
 
   it('sets Permissions-Policy restricting sensitive APIs', () => {
-    expect(headers.get('Permissions-Policy')).toBe('geolocation=(), microphone=(), camera=()');
+    expect(headers.get('Permissions-Policy')).toBe(
+      'geolocation=(), microphone=(), camera=(), payment=(), usb=()'
+    );
   });
 
   it('preserves existing headers', () => {
