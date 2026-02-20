@@ -56,8 +56,6 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = "./hugo/public/"
 binding = "ASSETS"
-
-[assets.routing]
 run_worker_first = ["/api/*", "/app/_/*"]
 
 # D1 Database

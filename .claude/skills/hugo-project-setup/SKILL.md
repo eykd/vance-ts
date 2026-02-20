@@ -69,8 +69,6 @@ compatibility_date = "2024-01-01"
 [assets]
 directory = "./hugo/public/"
 binding = "ASSETS"
-
-[assets.routing]
 run_worker_first = ["/api/*", "/app/_/*"]
 ```
 

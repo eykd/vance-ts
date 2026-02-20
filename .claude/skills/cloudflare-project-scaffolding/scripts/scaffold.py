@@ -69,7 +69,7 @@ def scaffold_project(project_name: str, output_dir: Path, db_name: str = None):
   }}
 }}''')
 
-    create_file(root / "wrangler.toml", f'''{{
+    create_file(root / "wrangler.jsonc", f'''{{
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "{project_name}",
   "main": "src/index.ts",
@@ -145,7 +145,7 @@ export default defineWorkersConfig({
     poolOptions: {
       workers: {
         wrangler: {
-          configPath: "./wrangler.toml"
+          configPath: "./wrangler.jsonc"
         },
         miniflare: {
           compatibilityDate: "''' + today + '''",
@@ -272,21 +272,14 @@ type AppEnv = { Bindings: Env };
 const app = new Hono<AppEnv>();
 
 // Security headers middleware for Worker-handled routes
-app.use("/api/*", async (c, next) => {
+const securityHeaders = async (c, next) => {
   await next();
   c.res.headers.set("X-Content-Type-Options", "nosniff");
   c.res.headers.set("X-Frame-Options", "DENY");
-});
-app.use("/app/_/*", async (c, next) => {
-  await next();
-  c.res.headers.set("X-Content-Type-Options", "nosniff");
-  c.res.headers.set("X-Frame-Options", "DENY");
-});
-app.use("/auth/*", async (c, next) => {
-  await next();
-  c.res.headers.set("X-Content-Type-Options", "nosniff");
-  c.res.headers.set("X-Frame-Options", "DENY");
-});
+};
+app.use("/api/*", securityHeaders);
+app.use("/app/_/*", securityHeaders);
+app.use("/auth/*", securityHeaders);
 
 // Health check
 app.get("/api/health", (c) => c.json({ status: "ok" }));
@@ -368,7 +361,7 @@ public/css/app.css''')
     print(f"  3. Download HTMX and Alpine.js to public/js/")
     print(f"  4. npm run css:build")
     print(f"  5. wrangler d1 create {db}")
-    print(f"  6. Update database_id in wrangler.toml")
+    print(f"  6. Update database_id in wrangler.jsonc")
     print(f"  7. npm run dev")
 
 

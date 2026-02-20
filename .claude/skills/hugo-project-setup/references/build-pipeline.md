@@ -188,7 +188,7 @@ cd hugo && hugo server
 
 ### Worker Routes Not Working
 
-Check that `[assets.routing] run_worker_first` in `wrangler.toml` includes the route patterns for your dynamic endpoints (e.g., `"/api/*"`, `"/app/_/*"`).
+Check that `[assets] run_worker_first` in `wrangler.toml` includes the route patterns for your dynamic endpoints (e.g., `"/api/*"`, `"/app/_/*"`).
 
 ### TailwindCSS Not Updating
 
