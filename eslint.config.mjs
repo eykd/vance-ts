@@ -39,6 +39,10 @@ export default [
       // ESLint recommended rules
       ...js.configs.recommended.rules,
 
+      // TypeScript handles undefined-variable checking; no-undef causes
+      // false positives on ambient types like Fetcher from workers-types.
+      'no-undef': 'off',
+
       // TypeScript ESLint recommended rules
       ...tsPlugin.configs.recommended.rules,
       ...tsPlugin.configs['recommended-requiring-type-checking'].rules,
@@ -341,6 +345,10 @@ export default [
     rules: {
       // ESLint recommended rules
       ...js.configs.recommended.rules,
+
+      // TypeScript handles undefined-variable checking; no-undef causes
+      // false positives on ambient types like Fetcher from workers-types.
+      'no-undef': 'off',
 
       // TypeScript ESLint recommended rules
       ...tsPlugin.configs.recommended.rules,

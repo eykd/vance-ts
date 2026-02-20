@@ -1,7 +1,5 @@
 /// <reference types="@cloudflare/workers-types" />
 
-/* eslint-disable no-undef -- Fetcher is a @cloudflare/workers-types ambient global */
-
 /**
  * Cloudflare Workers environment bindings.
  *
