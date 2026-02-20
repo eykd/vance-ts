@@ -4,7 +4,6 @@ const baseConfig = {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
-  transformIgnorePatterns: ['node_modules/(?!(better-sqlite3)/)'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   testTimeout: 10000,
 };
