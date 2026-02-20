@@ -9,7 +9,7 @@ describe('buildCspHeaderValue', () => {
 
   it('returns semicolon-separated directives', () => {
     const directives = csp.split(';').map((d) => d.trim());
-    expect(directives.length).toBeGreaterThanOrEqual(4);
+    expect(directives.length).toBe(11);
   });
 
   it("includes default-src 'self'", () => {
