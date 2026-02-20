@@ -39,24 +39,36 @@ function listFiles(dir, files = []) {
   return files;
 }
 
-let collisions = [];
+/**
+ * Scans Hugo public output for files under reserved Worker paths.
+ * Exits non-zero if any collisions are found.
+ */
+function checkCollisions() {
+  let collisions = [];
 
-for (const prefix of RESERVED_PREFIXES) {
-  const dir = path.join(PUBLIC_DIR, prefix);
-  const found = listFiles(dir);
-  if (found.length > 0) {
-    collisions = collisions.concat(found);
+  for (const prefix of RESERVED_PREFIXES) {
+    const dir = path.join(PUBLIC_DIR, prefix);
+    const found = listFiles(dir);
+    if (found.length > 0) {
+      collisions = collisions.concat(found);
+    }
+  }
+
+  if (collisions.length > 0) {
+    console.log(`ERROR: Route collisions detected! Hugo output contains files under reserved Worker paths:\n`);
+    for (const file of collisions) {
+      console.log(`  ${file}`);
+    }
+    console.log(`\nReserved prefixes: ${RESERVED_PREFIXES.map((p) => p + '/').join(', ')}`);
+    console.log('Move or rename these Hugo content files to avoid shadowing Worker routes.');
+    process.exit(1);
+  } else {
+    console.log('No route collisions detected.');
   }
 }
 
-if (collisions.length > 0) {
-  console.log(`ERROR: Route collisions detected! Hugo output contains files under reserved Worker paths:\n`);
-  for (const file of collisions) {
-    console.log(`  ${file}`);
-  }
-  console.log(`\nReserved prefixes: ${RESERVED_PREFIXES.map((p) => p + '/').join(', ')}`);
-  console.log('Move or rename these Hugo content files to avoid shadowing Worker routes.');
-  process.exit(1);
-} else {
-  console.log('No route collisions detected.');
+module.exports = { listFiles, checkCollisions };
+
+if (require.main === module) {
+  checkCollisions();
 }

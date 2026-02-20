@@ -37,6 +37,11 @@ describe('check-route-collisions', () => {
     if (fs.existsSync(appDir)) {
       fs.rmSync(appDir, { recursive: true });
     }
+    // Remove empty parent directory left behind after app/_/ cleanup
+    const appParent = path.join(PUBLIC_DIR, 'app');
+    if (fs.existsSync(appParent) && fs.readdirSync(appParent).length === 0) {
+      fs.rmdirSync(appParent);
+    }
   });
 
   it('exits 0 when no collisions exist', () => {
