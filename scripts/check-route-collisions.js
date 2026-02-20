@@ -15,7 +15,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const PUBLIC_DIR = path.join(__dirname, '..', 'hugo', 'public');
+const PUBLIC_DIR =
+  process.env.COLLISION_CHECK_PUBLIC_DIR ||
+  path.join(__dirname, '..', 'hugo', 'public');
 const RESERVED_PREFIXES = ['api', 'app/_'];
 
 /**

@@ -69,7 +69,7 @@ def scaffold_project(project_name: str, output_dir: Path, db_name: str = None):
   }}
 }}''')
 
-    create_file(root / "wrangler.jsonc", f'''{{
+    create_file(root / "wrangler.toml", f'''{{
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "{project_name}",
   "main": "src/index.ts",
@@ -145,7 +145,7 @@ export default defineWorkersConfig({
     poolOptions: {
       workers: {
         wrangler: {
-          configPath: "./wrangler.jsonc"
+          configPath: "./wrangler.toml"
         },
         miniflare: {
           compatibilityDate: "''' + today + '''",
@@ -368,7 +368,7 @@ public/css/app.css''')
     print(f"  3. Download HTMX and Alpine.js to public/js/")
     print(f"  4. npm run css:build")
     print(f"  5. wrangler d1 create {db}")
-    print(f"  6. Update database_id in wrangler.jsonc")
+    print(f"  6. Update database_id in wrangler.toml")
     print(f"  7. npm run dev")
 
 
