@@ -3,6 +3,7 @@ import { Hono } from 'hono/tiny';
 import type { Env } from './infrastructure/env';
 import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
 import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
+import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandler';
 import { applySecurityHeaders } from './presentation/utils/securityHeaders';
 
 /** Hono environment type binding Cloudflare Workers env. */
@@ -39,6 +40,6 @@ app.all('/app/_/*', appPartialNotFound);
  * Only reached if run_worker_first did not match the request path.
  * Delegates to the ASSETS binding which serves from hugo/public/.
  */
-app.all('*', (c): Promise<Response> => c.env.ASSETS.fetch(c.req.raw));
+app.all('*', staticAssetFallthrough);
 
 export default app;
