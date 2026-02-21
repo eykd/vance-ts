@@ -4,6 +4,8 @@
 
 Remember: D1 is SQLite — no PostgreSQL/MySQL syntax.
 
+> **Note:** The examples below show the raw D1 API for quick reference. In production, use the Repository pattern — see the `d1-repository-implementation` skill. Handlers should call use cases, not DB directly — see `cloudflare-use-case-creator`.
+
 ### Basic Queries
 
 ```typescript
@@ -51,18 +53,7 @@ await c.env.DB.batch(statements);
 
 ## KV Store
 
-### Session Management Middleware
-
-```typescript
-app.use('/app/*', async (c, next) => {
-  const sessionId = c.req.header('X-Session-Id');
-  if (sessionId) {
-    const session = await c.env.SESSIONS.get(sessionId, 'json');
-    if (session) c.set('user', session as UserSession);
-  }
-  await next();
-});
-```
+> **Session management:** For production session handling (cookie-based, sliding expiration, Clean Architecture placement), see the `kv-session-management` skill. The examples below cover the raw KV API.
 
 ### KV Operations
 

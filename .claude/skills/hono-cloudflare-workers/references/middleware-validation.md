@@ -75,7 +75,7 @@ app.use('/app/*', cors({ origin: ['https://example.com'], credentials: true }));
 import { createMiddleware } from 'hono/factory';
 
 const authMiddleware = createMiddleware<{
-  Bindings: Bindings;
+  Bindings: Env;
   Variables: Variables;
 }>(async (c, next) => {
   const token = c.req.header('Authorization')?.replace('Bearer ', '');
@@ -229,3 +229,13 @@ app.notFound((c) => c.json({ error: 'Not Found', path: c.req.path }, 404));
 - Don't throw plain `Error` for HTTP errors.
 - Use `app.onError` as centralized safety net.
 - Don't try/catch around `next()` — Hono routes errors to `onError` internally.
+
+### Layered Error Handling (Clean Architecture)
+
+In a layered architecture, errors propagate outward:
+
+1. **Domain layer** — Domain-specific errors or Result types (never HTTP concepts)
+2. **Application layer** — Catches domain errors, returns Result objects
+3. **Presentation layer** — Maps Results/domain errors to `HTTPException`
+
+Only the presentation layer (Hono handlers/middleware) should throw `HTTPException`. See `cloudflare-use-case-creator` for the Result/error pattern.

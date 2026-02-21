@@ -9,7 +9,7 @@ Share API types between server and client — no codegen.
 Chain routes and export the type:
 
 ```typescript
-// src/routes/users.ts
+// src/presentation/handlers/users.ts
 const app = new Hono()
   .get('/', (c) => c.json({ users: [] }))
   .post('/', zValidator('json', z.object({ name: z.string(), email: z.string().email() })), (c) => {
@@ -68,11 +68,11 @@ Workers support more than HTTP. Export `app.fetch` alongside others:
 export default {
   fetch: app.fetch,
 
-  async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(runScheduledTask(env));
   },
 
-  async queue(batch: MessageBatch, env: Bindings, ctx: ExecutionContext) {
+  async queue(batch: MessageBatch, env: Env, ctx: ExecutionContext) {
     for (const message of batch.messages) {
       await processMessage(message, env);
     }
@@ -108,12 +108,15 @@ app.get(
 ## HTMX Fragment Responses
 
 ```typescript
+// See typescript-html-templates skill for the escapeHtml utility
+import { escapeHtml } from '../lib/html';
+
 app.get('/app/_/user-card/:id', async (c) => {
   const user = await getUser(c.env.DB, c.req.param('id'));
   return c.html(`
-    <div class="card" id="user-${user.id}">
-      <h2>${user.name}</h2>
-      <p>${user.email}</p>
+    <div class="card" id="user-${escapeHtml(user.id)}">
+      <h2>${escapeHtml(user.name)}</h2>
+      <p>${escapeHtml(user.email)}</p>
     </div>
   `);
 });
@@ -154,14 +157,15 @@ jobs:
 ```
 src/
 ├── index.ts                   # Entry, middleware stack, route mounting
-├── routes/
-│   ├── users.ts               # /app/users routes
-│   ├── auth.ts                # /auth routes
-│   └── webhooks.ts            # /webhooks routes
-├── middleware/
-│   ├── auth.ts                # Authentication
-│   ├── tenant.ts              # Multi-tenant isolation
-│   └── logging.ts             # Structured logging
+├── presentation/
+│   ├── handlers/
+│   │   ├── users.ts           # /app/users routes
+│   │   ├── auth.ts            # /auth routes
+│   │   └── webhooks.ts        # /webhooks routes
+│   └── middleware/
+│       ├── auth.ts            # Authentication
+│       ├── tenant.ts          # Multi-tenant isolation
+│       └── logging.ts         # Structured logging
 ├── domain/
 │   ├── user/
 │   │   ├── user.ts            # Entity
@@ -177,7 +181,7 @@ src/
 ├── lib/
 │   ├── validator.ts           # Reusable zValidator wrapper
 │   └── errors.ts              # Error types
-└── types.ts                   # Bindings, Variables, shared types
+└── types.ts                   # Env, Variables, shared types
 ```
 
 ### Static-First Routing Strategy

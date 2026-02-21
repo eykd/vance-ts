@@ -20,7 +20,7 @@ Greenfield: `npm create hono@latest my-app` → select `cloudflare-workers`.
 
 ```typescript
 // src/types.ts
-type Bindings = {
+type Env = {
   DB: D1Database;
   SESSIONS: KVNamespace;
   ENVIRONMENT: string;
@@ -35,7 +35,7 @@ type Variables = {
 // src/index.ts
 import { Hono } from 'hono';
 
-const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 app.get('/', (c) => c.text('Hello!'));
 
@@ -102,3 +102,12 @@ For separate handler files, use `createFactory()` from `hono/factory`.
 | D1 database & KV store operations                            | [references/storage.md](references/storage.md)                             |
 | Testing patterns & Vitest config                             | [references/testing.md](references/testing.md)                             |
 | RPC, deployment, project structure, WebSockets               | [references/rpc-deployment.md](references/rpc-deployment.md)               |
+
+## Related Skills
+
+- `worker-request-handler` — Clean Architecture handler patterns
+- `typescript-html-templates` — HTML output with XSS prevention (`escapeHtml`)
+- `d1-repository-implementation` — Repository pattern for D1
+- `kv-session-management` — Session management patterns
+- `static-first-routing` — URL path conventions
+- `cloudflare-use-case-creator` — Application layer use cases

@@ -47,18 +47,18 @@ app.get('/search', (c) => {
 ## Route Grouping with `app.route()`
 
 ```typescript
-// src/routes/users.ts
-const users = new Hono<{ Bindings: Bindings }>();
+// src/presentation/handlers/users.ts
+const users = new Hono<{ Bindings: Env }>();
 users.get('/', (c) => c.json({ users: [] }));
 users.get('/:id', (c) => c.json({ id: c.req.param('id') }));
 users.post('/', (c) => c.json({ created: true }, 201));
 export default users;
 
 // src/index.ts
-import users from './routes/users';
-import auth from './routes/auth';
+import users from './presentation/handlers/users';
+import auth from './presentation/handlers/auth';
 
-const app = new Hono<{ Bindings: Bindings }>();
+const app = new Hono<{ Bindings: Env }>();
 app.route('/app/users', users);
 app.route('/auth', auth);
 export default app;
@@ -129,7 +129,7 @@ Variables are scoped to a single request.
 ```typescript
 import { createFactory } from 'hono/factory';
 
-const factory = createFactory<{ Bindings: Bindings }>();
+const factory = createFactory<{ Bindings: Env }>();
 
 const handlers = factory.createHandlers((c) => {
   return c.json({ message: 'typed!' });
