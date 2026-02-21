@@ -69,45 +69,35 @@ def scaffold_project(project_name: str, output_dir: Path, db_name: str = None):
   }}
 }}''')
 
-    create_file(root / "wrangler.jsonc", f'''{{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "{project_name}",
-  "main": "src/index.ts",
-  "compatibility_date": "{today}",
-  "compatibility_flags": ["nodejs_compat"],
+    create_file(root / "wrangler.toml", f'''"$schema" = "node_modules/wrangler/config-schema.json"
+name = "{project_name}"
+main = "src/index.ts"
+compatibility_date = "{today}"
+compatibility_flags = ["nodejs_compat"]
 
-  "observability": {{
-    "enabled": true
-  }},
+[observability]
+enabled = true
 
-  // Static-first routing: static assets served from CDN, Worker handles dynamic routes
-  "assets": {{
-    "directory": "./public",
-    "binding": "ASSETS",
-    "html_handling": "auto-trailing-slash",
-    "not_found_handling": "404-page",
-    "run_worker_first": ["/api/*", "/app/_/*", "/auth/*", "/webhooks/*"]
-  }},
+# Static-first routing: static assets served from CDN, Worker handles dynamic routes
+[assets]
+directory = "./public"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"
+run_worker_first = ["/api/*", "/app/_/*", "/auth/*", "/webhooks/*"]
 
-  "d1_databases": [
-    {{
-      "binding": "DB",
-      "database_name": "{db}",
-      "database_id": "TODO-run-wrangler-d1-create-{db}"
-    }}
-  ],
+[[d1_databases]]
+binding = "DB"
+database_name = "{db}"
+database_id = "TODO-run-wrangler-d1-create-{db}"
 
-  "kv_namespaces": [
-    {{
-      "binding": "SESSIONS",
-      "id": "TODO-run-wrangler-kv-namespace-create-sessions"
-    }}
-  ],
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "TODO-run-wrangler-kv-namespace-create-sessions"
 
-  "vars": {{
-    "ENVIRONMENT": "development"
-  }}
-}}''')
+[vars]
+ENVIRONMENT = "development"
+''')
 
     create_file(root / "tsconfig.json", '''{
   "compilerOptions": {
@@ -145,7 +135,7 @@ export default defineWorkersConfig({
     poolOptions: {
       workers: {
         wrangler: {
-          configPath: "./wrangler.jsonc"
+          configPath: "./wrangler.toml"
         },
         miniflare: {
           compatibilityDate: "''' + today + '''",
@@ -368,7 +358,7 @@ public/css/app.css''')
     print(f"  3. Download HTMX and Alpine.js to public/js/")
     print(f"  4. npm run css:build")
     print(f"  5. wrangler d1 create {db}")
-    print(f"  6. Update database_id in wrangler.jsonc")
+    print(f"  6. Update database_id in wrangler.toml")
     print(f"  7. npm run dev")
 
 

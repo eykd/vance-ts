@@ -147,7 +147,7 @@ Unauthenticated Zone                 │  Authenticated Zone
 | HTMX partial | Underscore prefix, resource/action | `/app/_/tasks/create-form`            |
 | Webhook      | Service name                       | `/webhooks/stripe`, `/webhooks/slack` |
 
-## wrangler.jsonc Configuration
+## wrangler.toml Configuration
 
 ```jsonc
 {

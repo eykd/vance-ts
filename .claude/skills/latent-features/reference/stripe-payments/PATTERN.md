@@ -241,7 +241,7 @@ See latent-features/stripe-payments for implementation patterns.
 ### Phase 1: Infrastructure Setup
 
 - Reference: architecture/overview.md
-- Configure: wrangler.jsonc with D1, KV bindings
+- Configure: wrangler.toml with D1, KV bindings
 - Add: Stripe secrets (wrangler secret put)
 - Create: Database migrations for customers, subscriptions, payments
 

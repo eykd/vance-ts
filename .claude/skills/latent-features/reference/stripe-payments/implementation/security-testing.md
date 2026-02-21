@@ -338,7 +338,7 @@ wrangler secret put STRIPE_WEBHOOK_SECRET --env production
 # Enter: whsec_your_live_webhook_secret
 ```
 
-Update publishable key in wrangler.jsonc:
+Update publishable key in wrangler.toml:
 
 ```jsonc
 {

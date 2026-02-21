@@ -16,7 +16,7 @@ npm install better-auth better-auth-cloudflare hono kysely kysely-d1
 
 ## Wrangler Configuration
 
-**File**: `wrangler.jsonc`
+**File**: `wrangler.toml`
 
 ```jsonc
 {

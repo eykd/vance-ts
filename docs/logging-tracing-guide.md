@@ -528,7 +528,7 @@ Cloudflare provides built-in observability that captures logs and traces with ze
 
 ### Enabling Workers Logs
 
-Add to your `wrangler.jsonc`:
+Add to your `wrangler.toml`:
 
 ```jsonc
 {
@@ -870,7 +870,7 @@ For automatic trace and log export without the SDK:
 - Endpoint: `https://{HOST}/api/{PROJECT_ID}/integration/otlp/v1/logs`
 - Header: `sentry sentry_key={SENTRY_PUBLIC_KEY}`
 
-3. Update `wrangler.jsonc`:
+3. Update `wrangler.toml`:
 
 ```jsonc
 {

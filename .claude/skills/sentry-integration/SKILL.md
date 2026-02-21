@@ -80,7 +80,7 @@ export default Sentry.withSentry(
 
 ## Reference Files
 
-- [references/withsentry-setup.md](./references/withsentry-setup.md) - Configure withSentry wrapper with environment-specific settings and wrangler.jsonc
+- [references/withsentry-setup.md](./references/withsentry-setup.md) - Configure withSentry wrapper with environment-specific settings and wrangler.toml
 - [references/context-management.md](./references/context-management.md) - Set user context, tags, and custom context for error correlation
 - [references/breadcrumbs.md](./references/breadcrumbs.md) - Add breadcrumbs to track event sequences and user actions
 - [references/error-capture.md](./references/error-capture.md) - Manually capture exceptions with tags, extra data, and severity levels

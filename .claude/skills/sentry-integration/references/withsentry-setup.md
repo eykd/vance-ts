@@ -79,7 +79,7 @@ function redactHeaders(headers: Record<string, string>): Record<string, string> 
 ## Wrangler Configuration
 
 ```jsonc
-// wrangler.jsonc
+// wrangler.toml
 {
   "name": "my-worker",
   "main": "src/index.ts",

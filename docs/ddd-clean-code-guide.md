@@ -1286,7 +1286,7 @@ project-root/
 │   ├── 0001_initial.sql
 │   └── 0002_add_tasks.sql
 │
-├── wrangler.jsonc                 # Cloudflare configuration
+├── wrangler.toml                 # Cloudflare configuration
 ├── vitest.config.ts               # Test configuration
 ├── tsconfig.json                  # TypeScript configuration
 ├── package.json

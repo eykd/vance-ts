@@ -159,7 +159,7 @@ project/
 │   │           ├── tasks.ts
 │   │           └── partials/  # /app/_/* fragments
 │   └── index.ts           # Worker entry
-└── wrangler.jsonc
+└── wrangler.toml
 
 INCORRECT Structure:
 project/

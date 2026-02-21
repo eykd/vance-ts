@@ -246,7 +246,7 @@ src/
 
 ### Environment Bindings
 
-Add to `wrangler.jsonc`:
+Add to `wrangler.toml`:
 
 ```jsonc
 {
@@ -3323,7 +3323,7 @@ function routeHealthEndpoint(
 ### Wrangler Configuration
 
 ```jsonc
-// wrangler.jsonc
+// wrangler.toml
 {
   "name": "my-app",
   "main": "src/index.ts",

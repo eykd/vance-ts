@@ -278,7 +278,7 @@
 
 1. Create SlackRequestVerifier
 2. Set up verification middleware
-3. Configure wrangler.jsonc secrets
+3. Configure wrangler.toml secrets
 
 ### Phase 2: Event Handling
 

@@ -31,7 +31,7 @@ export default defineWorkersConfig(async () => {
       poolOptions: {
         workers: {
           wrangler: {
-            configPath: './wrangler.jsonc',
+            configPath: './wrangler.toml',
           },
           miniflare: {
             d1Databases: {

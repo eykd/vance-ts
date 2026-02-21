@@ -356,7 +356,7 @@ project-root/
 │   ├── 0001_initial.sql
 │   └── 0002_add_tasks.sql
 │
-├── wrangler.jsonc                # Cloudflare configuration
+├── wrangler.toml                # Cloudflare configuration
 ├── vitest.config.ts              # Test configuration
 ├── tailwind.config.ts            # TailwindCSS configuration (if needed)
 ├── package.json
@@ -595,7 +595,7 @@ npm install -D vitest @cloudflare/vitest-pool-workers
 
 ### Wrangler Configuration
 
-Create or update `wrangler.jsonc`:
+Create or update `wrangler.toml`:
 
 ```jsonc
 {
@@ -696,7 +696,7 @@ export default defineWorkersConfig({
     poolOptions: {
       workers: {
         wrangler: {
-          configPath: './wrangler.jsonc',
+          configPath: './wrangler.toml',
         },
         miniflare: {
           compatibilityDate: '2025-01-01',
@@ -2152,7 +2152,7 @@ export default defineWorkersConfig(async () => {
       poolOptions: {
         workers: {
           wrangler: {
-            configPath: './wrangler.jsonc',
+            configPath: './wrangler.toml',
           },
           miniflare: {
             d1Databases: {
@@ -2648,7 +2648,7 @@ wrangler tail
 ### Environment Configuration
 
 ```jsonc
-// wrangler.jsonc
+// wrangler.toml
 {
   "name": "my-app",
   "main": "src/index.ts",
