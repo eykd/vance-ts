@@ -45,7 +45,7 @@ python3 scripts/scaffold.py my-app --output /home/claude
 
 ## Generated Structure
 
-The project follows a **static-first routing model**: Workers Static Assets serves static content from `public/`, while the Worker handles only `/app/*`, `/auth/*`, and `/webhooks/*` routes (configured via `run_worker_first` in `wrangler.toml`).
+The project follows a **static-first routing model**: Workers Static Assets serves static content from `public/`, while the Worker handles only `/app/*`, `/auth/*`, and `/webhooks/*` routes (configured via `run_worker_first` in `wrangler.jsonc`).
 
 ```
 project-name/
@@ -82,7 +82,7 @@ project-name/
 ├── tests/
 ├── migrations/           # D1 SQL migrations
 ├── package.json
-├── wrangler.toml         # Workers config with [assets] and run_worker_first routing
+├── wrangler.jsonc         # Workers config with [assets] and run_worker_first routing
 ├── tsconfig.json
 └── vitest.config.ts
 ```
@@ -95,7 +95,7 @@ project-name/
    - `curl -o public/js/alpine.min.js https://unpkg.com/alpinejs@3/dist/cdn.min.js`
 3. `npm run css:build`
 4. Create D1 database: `wrangler d1 create <db-name>`
-5. Update `database_id` in `wrangler.toml`
+5. Update `database_id` in `wrangler.jsonc`
 6. `npm run dev`
 
 ## Key Patterns

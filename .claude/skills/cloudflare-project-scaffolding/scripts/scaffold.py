@@ -272,14 +272,21 @@ type AppEnv = { Bindings: Env };
 const app = new Hono<AppEnv>();
 
 // Security headers middleware for Worker-handled routes
-const securityHeaders = async (c, next) => {
+app.use("/api/*", async (c, next): Promise<void> => {
   await next();
   c.res.headers.set("X-Content-Type-Options", "nosniff");
   c.res.headers.set("X-Frame-Options", "DENY");
-};
-app.use("/api/*", securityHeaders);
-app.use("/app/_/*", securityHeaders);
-app.use("/auth/*", securityHeaders);
+});
+app.use("/app/_/*", async (c, next): Promise<void> => {
+  await next();
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("X-Frame-Options", "DENY");
+});
+app.use("/auth/*", async (c, next): Promise<void> => {
+  await next();
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("X-Frame-Options", "DENY");
+});
 
 // Health check
 app.get("/api/health", (c) => c.json({ status: "ok" }));
