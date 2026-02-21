@@ -94,6 +94,7 @@ hugo-dev:
 hugo-build:
     cd hugo && npx hugo --minify
     node scripts/sync-asset-paths.js
+    node scripts/check-route-collisions.js
 
 # Run Hugo build smoke test
 hugo-test:
@@ -114,6 +115,18 @@ hugo-check:
     @echo "\nChecking Hugo dependencies..."
     @cd hugo && npm list --depth=0
     @echo "\n✅ Hugo setup verified!"
+
+# ============================================================================
+# Worker Development Commands
+# ============================================================================
+
+# Start local dev server with Workers runtime + static assets
+dev-worker:
+    npx wrangler dev
+
+# Build and deploy to Cloudflare Workers
+deploy: hugo-build
+    npx wrangler deploy
 
 # ============================================================================
 # Template Builder Commands

@@ -13,12 +13,12 @@ Modern static website built with Hugo, TailwindCSS 4, and DaisyUI 5.
    - `CLOUDFLARE_ACCOUNT_ID` - Your Cloudflare account ID
 
 2. **Repository Variable** (Optional but recommended):
-   - `CLOUDFLARE_PAGES_PROJECT` - Your Cloudflare Pages project name
+   - `CLOUDFLARE_PAGES_PROJECT` - Your Cloudflare Workers project name
    - Defaults to `turtlebased-site` if not set
 
-3. **Cloudflare Pages Project**:
+3. **Cloudflare Workers Project**:
    - Will be created automatically on first deployment
-   - Or pre-create at [Cloudflare Dashboard → Pages](https://dash.cloudflare.com/pages)
+   - Or pre-create at [Cloudflare Dashboard → Workers & Pages](https://dash.cloudflare.com/workers-and-pages)
 
 ### Deployment Checklist
 
@@ -221,11 +221,11 @@ npm install
 
 ### Automatic Deployment (Recommended)
 
-The Hugo site automatically deploys to **Cloudflare Pages** via GitHub Actions on every push to `main`:
+The Hugo site automatically deploys to **Cloudflare Workers** via GitHub Actions on every push to `main`:
 
 1. Quality checks pass
 2. Hugo site builds with `npx hugo --minify`
-3. Deploys to Cloudflare Pages
+3. Deploys to Cloudflare Workers
 
 **Setup**: See [Deployment Guide](../docs/deployment.md) for required GitHub secrets.
 
@@ -233,13 +233,13 @@ The Hugo site automatically deploys to **Cloudflare Pages** via GitHub Actions o
 
 The `hugo/public/` directory contains the production-ready static site.
 
-**Cloudflare Pages** (using Wrangler):
+**Cloudflare Workers** (using Wrangler):
 
 ```bash
 cd hugo
 npm install
 npx hugo --minify
-npx wrangler pages deploy public --project-name=turtlebased-site
+npx wrangler deploy
 ```
 
 **Other Platforms**:
@@ -254,7 +254,7 @@ npx wrangler pages deploy public --project-name=turtlebased-site
 
 ## Security Headers
 
-The site includes security headers configured via `static/_headers` for Cloudflare Pages deployment.
+The site includes security headers configured via `static/_headers` for Cloudflare Workers deployment.
 
 ### Headers Applied
 
@@ -283,7 +283,7 @@ The site includes security headers configured via `static/_headers` for Cloudfla
 
 Edit `static/_headers` to customize security policies. Changes deploy automatically via CI/CD.
 
-**Note**: Headers apply to static pages only. If you add Pages Functions later, those must set headers programmatically.
+**Note**: Headers apply to static pages only. If you add Hono route handlers later, those must set headers programmatically.
 
 ## Performance
 

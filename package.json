@@ -18,6 +18,7 @@
     "check": "npm run type-check && npm run lint && npm run test",
     "validate": "npm run type-check && npm run lint && npm run format:check && npm run test:coverage && npm run build",
     "fix": "npm run format && npm run lint:fix",
+    "dev:worker": "wrangler dev",
     "actionlint": "npx -y @tktco/node-actionlint",
     "prepare": "husky"
   },
@@ -56,6 +57,7 @@
   },
   "devDependencies": {
     "@beads/bd": "^0.49.6",
+    "@cloudflare/workers-types": "^4.20260227.0",
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -76,6 +78,10 @@
     "prettier-plugin-go-template": "^0.0.15",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "wrangler": "^4.67.0"
+  },
+  "dependencies": {
+    "hono": "^4.12.0"
   }
 }

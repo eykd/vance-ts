@@ -38,7 +38,7 @@ Think of it like this: Cloudflare Workers is your application running at hundred
 
 - **First-time setup**: About 15-20 minutes (Cloudflare credentials are pre-provisioned)
 - **Choosing a project name**: 2 minutes (Claude updates wrangler.toml)
-- **Initial deployment**: 2-3 minutes (Claude runs wrangler pages deploy)
+- **Initial deployment**: 2-3 minutes (Claude runs wrangler deploy)
 - **GitHub secrets**: 5 minutes (for CI/CD automation)
 - **Setting up email (Resend)**: 10 minutes (optional)
 - **Setting up error tracking (Sentry)**: 5 minutes (optional)
@@ -86,15 +86,13 @@ Claude handles this by editing wrangler.toml, committing, and pushing to GitHub.
 
 ### Phase 3: Deploy Your Application (3 minutes)
 
-**This boilerplate uses Cloudflare Pages** (Hugo static site + Pages Functions for dynamic endpoints).
-
-**CRITICAL: Always use `wrangler pages deploy`, NOT `wrangler deploy`!**
+This boilerplate uses **Cloudflare Workers with Static Assets** (Hugo generates static HTML, a Worker handles dynamic endpoints via a Hono router).
 
 ```bash
-wrangler pages deploy dist --project-name=<project-name>
+wrangler deploy
 ```
 
-Using `wrangler deploy` will fail with: **"Missing entry-point to Worker script"**
+Wrangler reads `wrangler.toml` (which includes an `[assets]` section pointing to `./hugo/public/`) and deploys both the static site and the Worker together.
 
 Claude deploys which automatically:
 
@@ -160,7 +158,7 @@ Not really! The worst that can happen:
 
 Once deployed:
 
-- Your Worker is live at `https://yourname.your-account.workers.dev`
+- Your application is live at `https://yourname.your-account.workers.dev`
 - It runs globally at hundreds of Cloudflare data centers
 - Any changes you push to GitHub can be redeployed instantly
 - Cloudflare handles all infrastructure, security, and scaling
@@ -171,32 +169,34 @@ Once deployed:
 After deployment, you can:
 
 1. **Ask Claude to help you** make changes via Claude Code
-2. **Claude redeploys** by running `wrangler pages deploy` (takes <30 seconds)
+2. **Claude redeploys** by running `wrangler deploy` (takes <30 seconds)
 3. **Edit code directly on GitHub** then tell Claude to redeploy
 
 ### "What are preview deployments?"
 
-When deploying from a branch other than master, Cloudflare creates a **preview deployment**:
+For testing changes before they go live, you can deploy branch-specific Workers:
 
-- **Production URL** (`yourproject.pages.dev`) — Only works after deploying from master
-- **Branch alias URL** (`my-branch.yourproject.pages.dev`) — Works immediately, always points to latest deployment from that branch
-- **Deployment-specific URL** (`abc123.yourproject.pages.dev`) — Works immediately, permanent link to this specific deployment
+- **Production URL** (`yourproject.workers.dev`) — Your main Worker deployed from master
+- **Branch preview URL** (`yourproject-my-branch.workers.dev`) — A separate Worker deployed from a feature branch for testing
 
-Preview deployments are fully functional — they include all Pages Functions and infrastructure. TLS certificates may take 1-3 minutes to provision on new URLs.
+Preview Workers are fully functional — they include all bindings (D1, KV, R2) and infrastructure. TLS certificates may take 1-3 minutes to provision on new URLs.
 
-### "How do I clean up old preview deployments?"
+### "How do I clean up old preview Workers?"
 
-Preview deployments persist indefinitely. Claude can help clean them up:
+Branch-specific preview Workers persist until deleted. Claude can help clean them up:
 
 ```bash
-# List all deployments
-npx wrangler pages deployment list --project-name=<name>
+# List all versions of a Worker
+npx wrangler versions list
 
-# Delete a specific deployment
-npx wrangler pages deployment delete <id> --project-name=<name>
+# Roll back to a previous version
+npx wrangler versions rollback <version-id>
+
+# Delete a branch-specific preview Worker entirely
+npx wrangler delete --name yourproject-my-branch
 ```
 
-Claude will offer to clean up old preview deployments after merging branches or periodically during maintenance.
+Claude will offer to clean up old preview Workers after merging branches or periodically during maintenance.
 
 ### "How do I add a custom domain?"
 

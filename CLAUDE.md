@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/claude-code) when working 
 
 ## Project Overview
 
-A static-first Typescript web application targeting the Cloudflare Pages & Workers environment, using Hugo for building the static pages.
+A static-first Typescript web application targeting the Cloudflare Workers environment, using Hugo for building the static pages.
 
 ## Runtime Environment
 

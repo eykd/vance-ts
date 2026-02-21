@@ -1,6 +1,6 @@
 # Comprehensive Guide: Hugo Static Sites with Dynamic Cloudflare Workers
 
-**Building Modern Hybrid Applications with Hugo, Cloudflare Pages, and TypeScript Workers**
+**Building Modern Hybrid Applications with Hugo, Cloudflare Workers, and TypeScript**
 
 _Combining Static Site Generation with Edge-Powered Dynamic Endpoints Using Domain-Driven Design, Clean Architecture, and GOOS/TDD Testing Principles_
 
@@ -14,7 +14,7 @@ _Combining Static Site Generation with Edge-Powered Dynamic Endpoints Using Doma
 4. [Setting Up the Development Environment](#setting-up-the-development-environment)
 5. [Hugo Configuration and Content](#hugo-configuration-and-content)
 6. [Frontend Interactivity: HTMX and Alpine.js](#frontend-interactivity)
-7. [Cloudflare Pages Functions](#cloudflare-pages-functions)
+7. [Cloudflare Worker Route Handlers](#cloudflare-worker-route-handlers)
 8. [Data Layer: D1 and KV](#data-layer)
 9. [Domain-Driven Design and Clean Architecture](#domain-driven-design)
 10. [Testing with GOOS/TDD Principles](#testing-with-goos-tdd)
@@ -28,13 +28,13 @@ _Combining Static Site Generation with Edge-Powered Dynamic Endpoints Using Doma
 
 This guide presents a modern approach to building hybrid web applications that combine Hugo's powerful static site generation with Cloudflare's edge computing platform. The result is a site that delivers static content at CDN speeds while supporting dynamic functionality through serverless Workers.
 
-### Why Hugo + Cloudflare Pages + Workers?
+### Why Hugo + Cloudflare Workers?
 
 This architecture offers compelling advantages over both traditional server-rendered applications and pure JavaScript SPAs:
 
 **Static-First Performance**: Hugo pre-renders pages at build time, resulting in instant page loads from Cloudflare's global CDN. Static HTML requires no server processing and caches indefinitely at edge locations worldwide.
 
-**Dynamic When Needed**: Cloudflare Pages Functions (built on Workers) run at the edge to handle forms, API calls, authentication, and any server-side logic. You get the benefits of static sites without sacrificing interactivity.
+**Dynamic When Needed**: Cloudflare Workers run at the edge to handle forms, API calls, authentication, and any server-side logic. You get the benefits of static sites without sacrificing interactivity.
 
 **Content Management Excellence**: Hugo's content-centric architecture with Markdown files, front matter, taxonomies, and templating provides an exceptional authoring experience. Content lives in version control, enabling collaborative workflows.
 
@@ -50,10 +50,10 @@ This architecture offers compelling advantages over both traditional server-rend
 | Styling              | TailwindCSS 4 + DaisyUI 5                | Utility-first CSS with semantic components |
 | Server Communication | HTMX                                     | Hypermedia-driven interactions             |
 | Client State         | Alpine.js                                | Lightweight reactivity for UI-only state   |
-| Dynamic Endpoints    | Cloudflare Pages Functions               | Edge-based TypeScript execution            |
+| Dynamic Endpoints    | Cloudflare Workers (Hono)                | Edge-based TypeScript execution            |
 | Relational Data      | D1                                       | SQLite database at the edge                |
 | Cache/Sessions       | KV                                       | Distributed key-value storage              |
-| Static Hosting       | Cloudflare Pages                         | CDN-backed static file hosting             |
+| Static Hosting       | Workers Static Assets                    | CDN-backed static file hosting             |
 | Testing              | Vitest + @cloudflare/vitest-pool-workers | Runtime-accurate testing                   |
 
 ### When to Choose This Architecture
@@ -71,12 +71,12 @@ This stack excels for:
 
 ## Quick Start
 
-This guide shows how to build hybrid applications combining Hugo's static site generation with Cloudflare's edge computing. You'll learn to configure Hugo with TailwindCSS 4 and DaisyUI 5, layer HTMX and Alpine.js for progressive enhancement, implement Cloudflare Pages Functions for dynamic endpoints, integrate D1 and KV for data persistence, and apply Domain-Driven Design with Clean Architecture for maintainable TypeScript backends—all while following GOOS/TDD testing principles for confidence in edge deployments.
+This guide shows how to build hybrid applications combining Hugo's static site generation with Cloudflare's edge computing. You'll learn to configure Hugo with TailwindCSS 4 and DaisyUI 5, layer HTMX and Alpine.js for progressive enhancement, implement Cloudflare Worker route handlers for dynamic endpoints, integrate D1 and KV for data persistence, and apply Domain-Driven Design with Clean Architecture for maintainable TypeScript backends—all while following GOOS/TDD testing principles for confidence in edge deployments.
 
 ### Minimal Example: Hugo Site with Dynamic Form
 
 ```bash
-# Create Hugo site with Cloudflare Pages Functions
+# Create Hugo site with Cloudflare Workers
 hugo new site my-site && cd my-site
 mkdir -p functions/api
 
@@ -111,7 +111,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
 - [Hugo Configuration and Content](#hugo-configuration-and-content) - Setting up static generation
 - [Frontend Interactivity](#frontend-interactivity) - HTMX and Alpine.js patterns
-- [Cloudflare Pages Functions](#cloudflare-pages-functions) - TypeScript edge endpoints
+- [Cloudflare Worker Route Handlers](#cloudflare-worker-route-handlers) - TypeScript edge endpoints
 - [Domain-Driven Design](#domain-driven-design) - Clean Architecture for complex logic
 
 ---
@@ -123,7 +123,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 Traditional static sites are limited to pre-rendered content. SPAs ship heavy JavaScript bundles and require complex state management. This hybrid approach takes the best of both:
 
 ```
-Static Content (Hugo → Cloudflare Pages CDN):
+Static Content (Hugo → Workers Static Assets CDN):
 ┌─────────────────────────────────────────────────────────────────┐
 │  • HTML pages pre-rendered at build time                        │
 │  • CSS, JS, images served from global CDN                       │
@@ -132,7 +132,7 @@ Static Content (Hugo → Cloudflare Pages CDN):
                               │
                               │ HTMX requests for dynamic features
                               ▼
-Dynamic Endpoints (Cloudflare Pages Functions):
+Dynamic Endpoints (Cloudflare Workers):
 ┌─────────────────────────────────────────────────────────────────┐
 │  • Form submissions and validation                               │
 │  • Search and filtering                                          │
@@ -176,7 +176,7 @@ Even in a hybrid static/dynamic architecture, Clean Architecture principles appl
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Presentation Layer                            │
 │   Static: Hugo templates with HTMX/Alpine.js integration        │
-│   Dynamic: Pages Functions returning HTML partials              │
+│   Dynamic: Worker route handlers returning HTML partials        │
 ├─────────────────────────────────────────────────────────────────┤
 │                    Application Layer                             │
 │   Use Cases, DTOs, Request/Response mapping                     │
@@ -238,7 +238,7 @@ project-root/
 │   │   └── images/
 │   └── hugo.toml                  # Hugo configuration
 │
-├── functions/                     # Cloudflare Pages Functions
+├── functions/                     # Cloudflare Worker route handlers
 │   ├── api/                       # /api/* routes
 │   │   ├── contact.ts             # POST /api/contact
 │   │   ├── comments/
@@ -307,7 +307,7 @@ project-root/
 
 2. **Hugo-First Organization**: The `hugo/` directory is a complete Hugo project that can be developed and previewed independently.
 
-3. **Functions Mirror URL Structure**: Files in `functions/` directly map to URL paths, following Cloudflare Pages conventions.
+3. **Functions Mirror URL Structure**: Files in `functions/` directly map to URL paths, following Cloudflare Workers conventions.
 
 4. **Domain Independence**: The `src/domain/` folder has zero dependencies on Cloudflare, Hugo, or any framework.
 
@@ -485,12 +485,12 @@ Add to `package.json`:
   "scripts": {
     "dev": "npm run dev:all",
     "dev:hugo": "cd hugo && npx hugo server --buildDrafts",
-    "dev:functions": "npx wrangler pages dev dist --live-reload",
-    "dev:all": "npm run build:hugo && npx wrangler pages dev dist --live-reload",
+    "dev:functions": "npx wrangler dev",
+    "dev:all": "npm run build:hugo && npx wrangler dev",
     "build": "npm run build:css && npm run build:hugo",
     "build:hugo": "cd hugo && npx hugo --minify -d ../dist",
     "build:css": "npx @tailwindcss/cli -i ./hugo/assets/css/main.css -o ./hugo/static/css/app.css --minify",
-    "deploy": "npm run build && npx wrangler pages deploy dist",
+    "deploy": "npm run build && npx wrangler deploy",
     "test": "vitest",
     "test:run": "vitest run",
     "test:unit": "vitest run --testPathPattern='\\.spec\\.ts$'",
@@ -1252,7 +1252,7 @@ In `hugo/layouts/blog/list.html`:
 
 ---
 
-## Cloudflare Pages Functions
+## Cloudflare Worker Route Handlers
 
 ### Environment Types
 
@@ -2523,7 +2523,7 @@ npm run deploy
 # Or step by step:
 npm run build:css      # Compile TailwindCSS
 npm run build:hugo     # Build Hugo site
-wrangler pages deploy dist
+wrangler deploy
 ```
 
 ### CI/CD with GitHub Actions
@@ -2531,7 +2531,7 @@ wrangler pages deploy dist
 Create `.github/workflows/deploy.yml`:
 
 ```yaml
-name: Deploy to Cloudflare Pages
+name: Deploy to Cloudflare Workers
 
 on:
   push:
@@ -2569,12 +2569,12 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      - name: Deploy to Cloudflare Pages
+      - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=my-hugo-app
+          command: deploy
 ```
 
 > **Note:** Hugo is installed automatically via `npm ci` since it's included as a dev dependency via `hugo-bin`. No separate Hugo installation step is needed.
@@ -2963,7 +2963,7 @@ Key takeaways:
 
 1. **Hugo generates static content** that serves instantly from Cloudflare's global CDN, providing excellent performance and SEO.
 
-2. **Pages Functions handle dynamic features** like forms, comments, and search, running at the edge close to users.
+2. **Worker route handlers handle dynamic features** like forms, comments, and search, running at the edge close to users.
 
 3. **HTMX and Alpine.js provide interactivity** without heavy JavaScript bundles, following progressive enhancement principles.
 
@@ -2977,4 +2977,4 @@ This stack is ideal for content-driven sites that need selective dynamic functio
 
 ---
 
-_This guide reflects best practices as of January 2026. For the latest documentation, consult the official Hugo, Cloudflare Pages, HTMX, and Alpine.js documentation._
+_This guide reflects best practices as of January 2026. For the latest documentation, consult the official Hugo, Cloudflare Workers, HTMX, and Alpine.js documentation._
