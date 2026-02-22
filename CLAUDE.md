@@ -1,7 +1,3 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/claude-code) when working with code in this repository.
-
 ## Project Overview
 
 A static-first Typescript web application targeting the Cloudflare Workers environment, using Hugo for building the static pages.
@@ -340,3 +336,7 @@ Do not track active technologies in CLAUDE.md.
 ## Recent Changes
 
 Do not track recent changes in CLAUDE.md.
+
+---
+
+Always use subagents liberally and aggressively to conserve the main context window.
