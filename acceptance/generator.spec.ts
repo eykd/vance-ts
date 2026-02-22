@@ -131,6 +131,16 @@ describe('extractBoundFunctions', () => {
     expect(result.has("User's profile.")).toBe(true);
     expect(result.get("User's profile.")).toBe(source);
   });
+
+  it('preserves a bound function whose description contains escaped double quotes', () => {
+    // generateTests escapes " to \" in it() descriptions.
+    // extractBoundFunctions must match and unescape so the map key
+    // matches the unescaped Feature IR description.
+    const source = `it("User enters \\"hello\\".", async () => {\n  expect(1).toBe(1);\n});`;
+    const result = extractBoundFunctions(source);
+    expect(result.has('User enters "hello".')).toBe(true);
+    expect(result.get('User enters "hello".')).toBe(source);
+  });
 });
 
 describe('generateTests', () => {
@@ -200,6 +210,18 @@ describe('generateTests', () => {
     const output = generateTests(feature, existingSource);
     expect(output).toContain(boundImpl);
     expect(output).not.toContain(UnboundSentinel);
+  });
+
+  it('round-trips a bound implementation whose description contains escaped double quotes', () => {
+    const feature: Feature = {
+      sourceFile: 'specs/US01.txt',
+      scenarios: [{ description: 'User enters "hello".', line: 2, steps: [] }],
+    };
+    const boundImpl = `it("User enters \\"hello\\".", async () => {\n  expect(1).toBe(1);\n});`;
+    const existingSource = `// header\n${boundImpl}`;
+    const output = generateTests(feature, existingSource);
+    expect(output).toContain(boundImpl);
+    expect(output).not.toContain('throw new Error');
   });
 
   it('emits orphaned bound functions with a warning comment', () => {

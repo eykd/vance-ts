@@ -926,7 +926,7 @@ find_spec_for_task() {
 
     # Extract US<N> from title (e.g. "US03: View the list" → "US03")
     local us_number
-    us_number=$(echo "$task_title" | grep -oP 'US\d+' | head -1)
+    us_number=$(echo "$task_title" | grep -oE 'US[0-9]+' | head -1)
     if [[ -z "$us_number" ]]; then
         echo ""
         return

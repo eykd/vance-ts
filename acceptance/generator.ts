@@ -18,7 +18,11 @@ export const UnboundSentinel = 'throw new Error("acceptance test not yet bound")
  * Only top-level it() calls (no leading whitespace) are recognised.
  *
  * The brace counter handles basic string literal detection to avoid counting
- * braces inside strings.
+ * braces inside strings. Template literals (backtick strings) are tracked as
+ * opaque strings: braces inside `${}` expressions within a template literal
+ * are not counted correctly if those expressions contain nested string literals
+ * (e.g. `` `value: ${"a" + "b"}` ``). This is a known limitation. Generated
+ * test files do not produce this pattern in practice.
  *
  * @param source - The full text of the existing generated test file.
  * @returns A Map from test description to the full it() block text.
@@ -32,12 +36,12 @@ export function extractBoundFunctions(source: string): Map<string, string> {
     /* c8 ignore next */
     const line = lines[i] ?? '';
     const match =
-      /^it\("([^"]+)", async \(\) => \{/.exec(line) ??
-      /^it\('([^']+)', async \(\) => \{/.exec(line);
+      /^it\("((?:[^"\\]|\\.)+)", async \(\) => \{/.exec(line) ??
+      /^it\('((?:[^'\\]|\\.)+)', async \(\) => \{/.exec(line);
 
     if (match !== null) {
       /* c8 ignore next */
-      const description = match[1] ?? '';
+      const description = (match[1] ?? '').replace(/\\(.)/g, '$1');
       const startLine = i;
       let depth = 0;
       let endLine = -1;

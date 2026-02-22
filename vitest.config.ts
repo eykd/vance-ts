@@ -29,6 +29,7 @@ export default defineConfig({
           name: 'acceptance',
           globals: true,
           include: ['generated-acceptance-tests/**/*.spec.ts'],
+          setupFiles: ['./generated-acceptance-tests/setup.ts'],
           poolOptions: {
             workers: {
               wrangler: { configPath: './wrangler.toml' },
