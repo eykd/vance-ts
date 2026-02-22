@@ -124,6 +124,13 @@ describe('extractBoundFunctions', () => {
     expect(result.has('my test')).toBe(true);
     expect(result.get('my test')).toBe(source);
   });
+
+  it('preserves a bound implementation with apostrophe in double-quoted description', () => {
+    const source = `it("User's profile.", async () => {\n  expect(1).toBe(1);\n});`;
+    const result = extractBoundFunctions(source);
+    expect(result.has("User's profile.")).toBe(true);
+    expect(result.get("User's profile.")).toBe(source);
+  });
 });
 
 describe('generateTests', () => {
@@ -142,7 +149,7 @@ describe('generateTests', () => {
 
   it('generates correct imports', () => {
     const output = generateTests(emptyFeature, '');
-    expect(output).toContain('import { env, SELF } from "cloudflare:test";');
+    expect(output).toContain('import { SELF } from "cloudflare:test";');
     expect(output).toContain('import { describe, it, expect } from "vitest";');
   });
 
@@ -238,5 +245,35 @@ describe('generateTests', () => {
     };
     const output = generateTests(feature, '');
     expect(output).not.toContain('\nevil code');
+  });
+
+  it('escapes double-quotes in sourceFile basename in describe block', () => {
+    const feature: Feature = {
+      sourceFile: 'specs/US01-foo"bar.txt',
+      scenarios: [],
+    };
+    const output = generateTests(feature, '');
+    expect(output).toContain('describe("US01-foo\\"bar", () => {');
+  });
+
+  it('strips newlines from step keyword and text in step comments', () => {
+    const feature: Feature = {
+      sourceFile: 'specs/US01.txt',
+      scenarios: [
+        {
+          description: 'Something.',
+          line: 2,
+          steps: [{ keyword: 'GIVEN\nevil', text: 'step\nevil', line: 3 }],
+        },
+      ],
+    };
+    const output = generateTests(feature, '');
+    expect(output).not.toContain('GIVEN\nevil');
+    expect(output).not.toContain('step\nevil');
+  });
+
+  it('output ends with a trailing newline', () => {
+    const output = generateTests(emptyFeature, '');
+    expect(output.endsWith('\n')).toBe(true);
   });
 });

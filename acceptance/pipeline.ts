@@ -54,14 +54,14 @@ async function actionGenerate(): Promise<void> {
   const jsonFiles = entries.filter((f) => f.endsWith('.json'));
 
   for (const file of jsonFiles) {
+    if (file.includes('/') || file.includes('\\') || file.includes('..')) {
+      console.error(`Skipping IR file with unsafe name: ${file}`);
+      continue;
+    }
     const irPath = join(IR_DIR, file);
     const json = await readFile(irPath, 'utf-8');
     const feature = deserializeIR(json);
     const specName = basename(file, extname(file));
-    if (specName.includes('/') || specName.includes('\\') || specName.includes('..')) {
-      console.error(`Skipping IR file with unsafe name: ${file}`);
-      continue;
-    }
     const testPath = join(TESTS_DIR, `${specName}.spec.ts`);
 
     let existingSource = '';

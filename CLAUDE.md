@@ -193,6 +193,11 @@ ESLint enforces Clean Architecture layer boundaries (once enabled in `eslint.con
 - **100% coverage threshold** (branches, functions, lines, statements)
 - Tests use `.spec.ts` or `.test.ts` suffix
 - Vitest enforces comprehensive coverage
+- **Exception**: Workers source code (`src/`) is tested via the `workers` vitest project
+  but cannot contribute to v8 coverage reports — the Workers runtime does not support
+  `node:inspector`. The 100% threshold enforced by `test:coverage` applies to
+  `acceptance/**/*.ts` (Node.js pipeline code) only. This is a runtime constraint,
+  not an oversight (see `vitest.config.ts` for details).
 
 ### Pre-commit Validation
 

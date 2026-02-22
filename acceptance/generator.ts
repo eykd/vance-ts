@@ -31,11 +31,13 @@ export function extractBoundFunctions(source: string): Map<string, string> {
   while (i < lines.length) {
     /* c8 ignore next */
     const line = lines[i] ?? '';
-    const match = /^it\((['"])([^'"]+)\1, async \(\) => \{/.exec(line);
+    const match =
+      /^it\("([^"]+)", async \(\) => \{/.exec(line) ??
+      /^it\('([^']+)', async \(\) => \{/.exec(line);
 
     if (match !== null) {
       /* c8 ignore next */
-      const description = match[2] ?? '';
+      const description = match[1] ?? '';
       const startLine = i;
       let depth = 0;
       let endLine = -1;
@@ -128,12 +130,12 @@ export function generateTests(feature: Feature, existingSource: string): string 
   lines.push('');
 
   // Imports
-  lines.push('import { env, SELF } from "cloudflare:test";');
+  lines.push('import { SELF } from "cloudflare:test";');
   lines.push('import { describe, it, expect } from "vitest";');
   lines.push('');
 
   // Describe block opening
-  lines.push(`describe("${specName}", () => {`);
+  lines.push(`describe("${specName.replace(/"/g, '\\"')}", () => {`);
   lines.push('');
 
   const emittedDescriptions = new Set<string>();
@@ -151,7 +153,9 @@ export function generateTests(feature: Feature, existingSource: string): string 
       lines.push(boundBlock);
     } else {
       // Generate stub
-      const stepComments = steps.map((s) => `  // ${s.keyword} ${s.text}`);
+      const stepComments = steps.map(
+        (s) => `  // ${s.keyword.replace(/[\r\n]/g, '')} ${s.text.replace(/[\r\n]/g, '')}`
+      );
       lines.push(`it("${description.replace(/"/g, '\\"')}", async () => {`);
       for (const comment of stepComments) {
         lines.push(comment);
@@ -176,7 +180,7 @@ export function generateTests(feature: Feature, existingSource: string): string 
 
   lines.push('}); // end describe');
 
-  return lines.join('\n');
+  return lines.join('\n') + '\n';
 }
 
 /* c8 ignore start */
