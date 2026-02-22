@@ -28,15 +28,15 @@ format:
 
 # Run all tests
 test:
-    npx jest
+    npx vitest run
 
 # Run tests in watch mode
 test-watch:
-    npx jest --watch
+    npx vitest
 
-# Run tests with coverage
+# Run tests with coverage (node project only; workers runtime does not support v8 coverage)
 test-coverage:
-    npx jest --coverage
+    npx vitest run --coverage --project=node
 
 # Build the project
 build:
@@ -139,3 +139,32 @@ build-template:
 # Install tmplr binary for template instantiation
 install-tmplr:
     ./scripts/install-tmplr.sh
+
+# ============================================================================
+# Acceptance Test Pipeline
+# ============================================================================
+
+# Full acceptance pipeline: parse GWT specs → generate Vitest stubs → run tests
+acceptance:
+    rm -rf acceptance-pipeline/ir/
+    npx tsx acceptance/pipeline.ts --action=run
+
+# Parse GWT specs to IR JSON only
+acceptance-parse:
+    npx tsx acceptance/pipeline.ts --action=parse
+
+# Generate Vitest stubs from IR only
+acceptance-generate:
+    npx tsx acceptance/pipeline.ts --action=generate
+
+# Run generated acceptance tests only (skips parse/generate)
+acceptance-run:
+    npx vitest run generated-acceptance-tests/
+
+# Force-regenerate all stubs — DESTROYS bound implementations!
+acceptance-regen:
+    rm -rf acceptance-pipeline/ir/ generated-acceptance-tests/*.spec.ts
+    npx tsx acceptance/pipeline.ts --action=run
+
+# Run both unit tests and acceptance tests
+test-all: test acceptance-run

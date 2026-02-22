@@ -11,9 +11,9 @@
     "lint:fix": "eslint src .claude/memory .claude/types --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\"",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage --project=node",
     "type-check": "tsc --noEmit",
     "check": "npm run type-check && npm run lint && npm run test",
     "validate": "npm run type-check && npm run lint && npm run format:check && npm run test:coverage && npm run build",
@@ -40,9 +40,9 @@
   "lint-staged": {
     "*.ts": [
       "prettier --write",
-      "eslint --fix --max-warnings 0",
+      "eslint --fix --max-warnings 0 --no-warn-ignored",
       "bash -c 'tsc --noEmit'",
-      "jest --bail --findRelatedTests --passWithNoTests"
+      "vitest related --run"
     ],
     "hugo/**/*.html": [
       "bash -c 'cd hugo && npm test'"
@@ -57,14 +57,14 @@
   },
   "devDependencies": {
     "@beads/bd": "^0.55.4",
+    "@cloudflare/vitest-pool-workers": "^0.12.14",
     "@cloudflare/workers-types": "^4.20260227.0",
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
-    "@testing-library/jest-dom": "^6.9.1",
     "@tktco/node-actionlint": "^1.6.0",
-    "@types/jest": "^30.0.0",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.52.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "better-sqlite3": "^12.6.2",
     "eslint": "^9.39.3",
     "eslint-config-prettier": "^10.1.8",
@@ -72,13 +72,13 @@
     "eslint-plugin-jsdoc": "^62.7.0",
     "eslint-plugin-prettier": "^5.5.5",
     "husky": "^9.1.7",
-    "jest": "^30.2.0",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
     "prettier-plugin-go-template": "^0.0.15",
     "prettier-plugin-tailwindcss": "^0.7.2",
-    "ts-jest": "^29.4.6",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
+    "vitest": "^3.2.4",
     "wrangler": "^4.67.0"
   },
   "dependencies": {

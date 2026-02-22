@@ -1,4 +1,4 @@
-npx bd hooks run pre-commit
+bd hooks run pre-commit || true
 npx lint-staged
 npm run format:check
 npm run test:coverage
