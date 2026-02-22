@@ -8,7 +8,16 @@ import prettierConfig from 'eslint-config-prettier';
 export default [
   // Ignore patterns
   {
-    ignores: ['dist/', 'node_modules/', 'coverage/', '*.js', '!.claude/'],
+    ignores: [
+      'dist/',
+      'node_modules/',
+      'coverage/',
+      '*.js',
+      '!.claude/',
+      // Generated acceptance tests use cloudflare:test imports only valid in
+      // the Workers vitest pool — exclude from standard TypeScript linting.
+      'generated-acceptance-tests/',
+    ],
   },
 
   // Base configuration for all TypeScript files
@@ -707,6 +716,39 @@ export default [
       // Allow Node.js imports in development tooling
       'no-restricted-imports': 'off',
       'no-restricted-globals': 'off',
+    },
+  },
+
+  // Acceptance pipeline in acceptance/ directory can use Node.js APIs
+  // (runs via tsx in Node.js, not in Cloudflare Workers)
+  {
+    files: ['acceptance/**/*.ts'],
+    languageOptions: {
+      globals: {
+        // Node.js globals needed for acceptance pipeline
+        process: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        // Vitest globals for test files
+        describe: 'readonly',
+        test: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+      },
+    },
+    rules: {
+      // Allow Node.js imports in acceptance pipeline (runs in Node.js, not Workers)
+      'no-restricted-imports': 'off',
+      'no-restricted-globals': 'off',
+      // Allow console.log in pipeline CLI
+      'no-console': 'off',
     },
   },
 ];

@@ -1,0 +1,7 @@
+;=============================================
+; API returns structured error for unknown routes.
+;=============================================
+GIVEN the service is running.
+WHEN the user requests an unknown API endpoint.
+THEN the response has status 404.
+THEN the response body shows an error message.

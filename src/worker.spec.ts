@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from 'vitest';
+
 import type { Env } from './infrastructure/env';
 import app from './worker';
 
@@ -5,13 +7,13 @@ import app from './worker';
  * Builds a mock Env with a spy for ASSETS.fetch.
  *
  * @param assetResponse - Optional Response to return from ASSETS.fetch.
- * @returns A mock Env with ASSETS.fetch as a Jest spy.
+ * @returns A mock Env with ASSETS.fetch as a Vitest spy.
  */
 function mockEnv(assetResponse?: Response): Env {
   return {
     ASSETS: {
-      fetch: jest.fn().mockResolvedValue(assetResponse ?? new Response('static')),
-      connect: jest.fn(),
+      fetch: vi.fn().mockResolvedValue(assetResponse ?? new Response('static')),
+      connect: vi.fn(),
     } as unknown as Fetcher,
   };
 }
@@ -94,11 +96,11 @@ describe('Worker', () => {
       const assetResponse = new Response('<html>homepage</html>', {
         headers: { 'Content-Type': 'text/html' },
       });
-      const fetchSpy = jest.fn().mockResolvedValue(assetResponse);
+      const fetchSpy = vi.fn().mockResolvedValue(assetResponse);
       const env: Env = {
         ASSETS: {
           fetch: fetchSpy,
-          connect: jest.fn(),
+          connect: vi.fn(),
         } as unknown as Fetcher,
       };
       const req = new Request('https://example.com/about');

@@ -27,10 +27,10 @@ A static-first Typescript web application targeting the Cloudflare Workers envir
 All code changes must be tested:
 
 - **TypeScript/JavaScript**: Strict red-green-refactor TDD practice (**100% coverage - non-negotiable**)
-  - Jest enforces 100% threshold for branches, functions, lines, statements
+  - Vitest enforces 100% threshold for branches, functions, lines, statements
   - Pre-commit hooks will fail on less than 100% coverage
   - Use istanbul ignore comments ONLY for truly untestable edge cases (see typescript-unit-testing skill)
-  - Run `npx jest --coverage` to verify before committing
+  - Run `npx vitest run --coverage` to verify before committing
 - **Hugo static site**: Build verification tests (zero errors, zero warnings)
 
 ## Getting Started
@@ -96,10 +96,10 @@ These files demonstrate proper audience awareness, plain language, and step-by-s
 
 ```bash
 # Run a single test file
-npx jest src/path/to/file.spec.ts
+npx vitest run src/path/to/file.spec.ts
 
 # Watch mode for TDD
-npx jest --watch
+npx vitest
 
 # Full validation before commit
 npm run check  # type-check + lint + test
@@ -119,6 +119,8 @@ just test-watch    # TDD watch mode
 just check         # type-check + lint + test
 just fix           # format + lint-fix
 just ci            # Full CI pipeline locally
+just acceptance        # Full acceptance pipeline: parse specs → generate → run
+just test-all          # Unit tests + acceptance tests
 ```
 
 ### Hugo Static Site Commands
@@ -190,7 +192,12 @@ ESLint enforces Clean Architecture layer boundaries (once enabled in `eslint.con
 
 - **100% coverage threshold** (branches, functions, lines, statements)
 - Tests use `.spec.ts` or `.test.ts` suffix
-- Jest configuration enforces comprehensive coverage
+- Vitest enforces comprehensive coverage
+- **Exception**: Workers source code (`src/`) is tested via the `workers` vitest project
+  but cannot contribute to v8 coverage reports — the Workers runtime does not support
+  `node:inspector`. The 100% threshold enforced by `test:coverage` applies to
+  `acceptance/**/*.ts` (Node.js pipeline code) only. This is a runtime constraint,
+  not an oversight (see `vitest.config.ts` for details).
 
 ### Pre-commit Validation
 
@@ -199,7 +206,7 @@ Husky + lint-staged enforces:
 - Prettier formatting
 - ESLint (max-warnings: 0)
 - TypeScript type checking
-- Jest tests for changed files
+- Vitest tests for changed files
 
 ### Commit Message Format
 
@@ -247,10 +254,10 @@ When adding new functionality:
 
 1. Create `.spec.ts` file first
 2. Write test cases covering all paths
-3. Run `npx jest --watch` or `just test-watch`
+3. Run `npx vitest` or `just test-watch`
 4. Implement code to pass tests
 5. Ensure 100% coverage maintained
-   - Run `npx jest --coverage` to verify
+   - Run `npx vitest run --coverage` to verify
    - All four metrics must show 100%: branches, functions, lines, statements
    - If stuck below 100%, ask: "Can I mock the dependency?" before using istanbul ignore
    - See `/typescript-unit-testing` skill for guidance on achieving 100%
@@ -300,6 +307,31 @@ Build verification is required for all Hugo changes:
 - **Specification**: Identifying and clarifying domain terms (sp:01-specify)
 - **Planning**: Ensuring architecture uses canonical terminology (sp:03-plan)
 - **Quality Review**: Validating naming matches glossary (sp:10-code-quality-review)
+
+## ATDD Workflow
+
+User story tasks (with `US<N>` prefix, e.g. `US03: View the list`) use Acceptance
+Test-Driven Development via a two-stream test approach:
+
+| Stream           | Purpose              | Location                      | Run with              |
+| ---------------- | -------------------- | ----------------------------- | --------------------- |
+| Acceptance tests | What the system does | `generated-acceptance-tests/` | `just acceptance-run` |
+| Unit tests       | How it does it       | Alongside source code         | `npx vitest run`      |
+
+### GWT Spec Files
+
+Write acceptance criteria as Given-When-Then specs before implementation:
+
+```
+specs/acceptance-specs/US<N>-<kebab-title>.txt
+```
+
+Use `/spec-check` to audit specs for implementation leakage.
+Use the `/acceptance-tests` skill when writing specs or binding stubs.
+Use the `/atdd` skill for full workflow details.
+
+**Acceptance tests define done.** A user story task is not complete until its
+acceptance tests pass. `ralph.sh` enforces this automatically.
 
 ## Active Technologies
 

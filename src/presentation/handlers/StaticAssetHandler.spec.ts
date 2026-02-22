@@ -1,4 +1,5 @@
 import { Hono } from 'hono/tiny';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { Env } from '../../infrastructure/env';
 
@@ -10,7 +11,7 @@ describe('StaticAssetHandler', () => {
       const assetResponse = new Response('<html>page</html>', {
         headers: { 'Content-Type': 'text/html' },
       });
-      const fetchSpy = jest.fn().mockResolvedValue(assetResponse);
+      const fetchSpy = vi.fn().mockResolvedValue(assetResponse);
 
       const app = new Hono<{ Bindings: Env }>();
       app.all('*', staticAssetFallthrough);
@@ -18,7 +19,7 @@ describe('StaticAssetHandler', () => {
       const env: Env = {
         ASSETS: {
           fetch: fetchSpy,
-          connect: jest.fn(),
+          connect: vi.fn(),
         } as unknown as Fetcher,
       };
       const req = new Request('https://example.com/about');

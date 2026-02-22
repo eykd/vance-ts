@@ -1,0 +1,7 @@
+;=============================================
+; Service reports healthy status.
+;=============================================
+GIVEN the service is running.
+WHEN the user requests the health endpoint.
+THEN the response has status 200.
+THEN the response body shows status ok.
