@@ -31,11 +31,11 @@ export function extractBoundFunctions(source: string): Map<string, string> {
   while (i < lines.length) {
     /* c8 ignore next */
     const line = lines[i] ?? '';
-    const match = /^it\("([^"]+)", async \(\) => \{/.exec(line);
+    const match = /^it\((['"])([^'"]+)\1, async \(\) => \{/.exec(line);
 
     if (match !== null) {
       /* c8 ignore next */
-      const description = match[1] ?? '';
+      const description = match[2] ?? '';
       const startLine = i;
       let depth = 0;
       let endLine = -1;

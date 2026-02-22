@@ -5,3 +5,4 @@ node_modules
 *.json
 pnpm-lock.yaml
 package-lock.json
+generated-acceptance-tests/

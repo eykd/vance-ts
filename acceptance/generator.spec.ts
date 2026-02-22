@@ -117,6 +117,13 @@ describe('extractBoundFunctions', () => {
     const result = extractBoundFunctions(source);
     expect(result.has('comment break test.')).toBe(true);
   });
+
+  it('preserves a bound implementation with single-quoted description', () => {
+    const source = `it('my test', async () => {\n  expect(1).toBe(1);\n});`;
+    const result = extractBoundFunctions(source);
+    expect(result.has('my test')).toBe(true);
+    expect(result.get('my test')).toBe(source);
+  });
 });
 
 describe('generateTests', () => {
