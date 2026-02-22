@@ -215,4 +215,28 @@ describe('generateTests', () => {
     const output = generateTests(feature, '');
     expect(output).toContain('// Source: specs/acceptance-specs/US05-example.txt:7');
   });
+
+  it('escapes double-quotes in description to prevent string breakout', () => {
+    const feature: Feature = {
+      sourceFile: 'specs/US01.txt',
+      scenarios: [
+        {
+          description: 'User enters "hello".',
+          line: 2,
+          steps: [],
+        },
+      ],
+    };
+    const output = generateTests(feature, '');
+    expect(output).toContain('it("User enters \\"hello\\".", async () => {');
+  });
+
+  it('strips newlines from sourceFile in file header comment', () => {
+    const feature: Feature = {
+      sourceFile: 'specs/US01.txt\nevil code',
+      scenarios: [],
+    };
+    const output = generateTests(feature, '');
+    expect(output).not.toContain('\nevil code');
+  });
 });

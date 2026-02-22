@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { deserializeIR, serializeIR } from './ir';
-import type { Feature } from './types';
+import { deserializeIR, serializeIR } from './ir.js';
+import type { Feature } from './types.js';
 
 describe('serializeIR / deserializeIR', () => {
   it('round-trips a Feature with no scenarios', () => {
@@ -36,5 +36,21 @@ describe('serializeIR / deserializeIR', () => {
     const json = serializeIR(feature);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     expect(() => JSON.parse(json)).not.toThrow();
+  });
+
+  it('throws for JSON that does not match Feature shape', () => {
+    expect(() => deserializeIR('{"foo":1}')).toThrow('Invalid IR');
+  });
+
+  it('throws for null JSON', () => {
+    expect(() => deserializeIR('null')).toThrow('Invalid IR');
+  });
+
+  it('throws when sourceFile is a string but scenarios is not an array', () => {
+    expect(() => deserializeIR('{"sourceFile":"x","scenarios":"bad"}')).toThrow('Invalid IR');
+  });
+
+  it('throws for non-object JSON', () => {
+    expect(() => deserializeIR('"just a string"')).toThrow('Invalid IR');
   });
 });

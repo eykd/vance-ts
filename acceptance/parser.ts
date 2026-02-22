@@ -1,4 +1,4 @@
-import type { Feature, Scenario, Step } from './types';
+import type { Feature, Scenario, Step } from './types.js';
 
 /**
  * Determines whether a line is a separator line.

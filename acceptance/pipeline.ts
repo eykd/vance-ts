@@ -1,4 +1,3 @@
-/* istanbul ignore file */
 /**
  * Acceptance test pipeline CLI.
  *
@@ -59,6 +58,10 @@ async function actionGenerate(): Promise<void> {
     const json = await readFile(irPath, 'utf-8');
     const feature = deserializeIR(json);
     const specName = basename(file, extname(file));
+    if (specName.includes('/') || specName.includes('\\') || specName.includes('..')) {
+      console.error(`Skipping IR file with unsafe name: ${file}`);
+      continue;
+    }
     const testPath = join(TESTS_DIR, `${specName}.spec.ts`);
 
     let existingSource = '';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseSpec } from './parser';
+import { parseSpec } from './parser.js';
 
 describe('parseSpec', () => {
   it('returns empty scenarios for empty content', () => {

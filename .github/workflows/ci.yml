@@ -90,6 +90,17 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Check for Cloudflare credentials
+        id: check-credentials
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "configured=true" >> $GITHUB_OUTPUT
+          else
+            echo "configured=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
       - name: Use Node.js 24.x
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
@@ -105,18 +116,18 @@ jobs:
           echo "name=$PROJECT_NAME" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
-        if: steps.check-wrangler.outputs.exists == 'true'
+        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true'
         run: npm ci
 
       - name: Build Hugo site
-        if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true'
+        if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true'
         run: |
           cd hugo && npm install && npx hugo --minify && cd ..
           node scripts/sync-asset-paths.js
           node scripts/check-route-collisions.js
 
       - name: Deploy to Cloudflare Workers
-        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-hugo.outputs.exists == 'true' && github.event_name == 'push'
+        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-hugo.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true' && github.event_name == 'push'
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -124,7 +135,7 @@ jobs:
           command: deploy
 
       - name: Deploy Preview (PR)
-        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-hugo.outputs.exists == 'true' && github.event_name == 'pull_request'
+        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-hugo.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true' && github.event_name == 'pull_request'
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -142,7 +153,7 @@ jobs:
           fi
 
       - name: Deploy Cron Worker
-        if: steps.check-worker.outputs.exists == 'true' && github.ref == 'refs/heads/master'
+        if: steps.check-worker.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true' && github.ref == 'refs/heads/master'
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
