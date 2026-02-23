@@ -31,8 +31,14 @@ jobs:
       - name: Format check
         run: npm run format:check
 
-      - name: Test
+      - name: Test (workers)
+        run: npm run test:workers
+
+      - name: Test (node + coverage)
         run: npm run test:coverage
+
+      - name: Test (acceptance)
+        run: npm run test:acceptance
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5

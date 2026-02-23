@@ -26,7 +26,7 @@ All code changes must be tested:
   - Vitest enforces 100% threshold for branches, functions, lines, statements
   - Pre-commit hooks will fail on less than 100% coverage
   - Use istanbul ignore comments ONLY for truly untestable edge cases (see typescript-unit-testing skill)
-  - Run `npx vitest run --coverage` to verify before committing
+  - Run `npx vitest run --coverage --project=node` to verify before committing
 - **Hugo static site**: Build verification tests (zero errors, zero warnings)
 
 ## Getting Started
@@ -110,7 +110,8 @@ npm run build
 ### Using Just (Alternative Task Runner)
 
 ```bash
-just test          # Run all tests
+just test          # Run all tests concurrently (not safe on resource-constrained hosts)
+just test-serial   # Run all tests serially — preferred default on this host
 just test-watch    # TDD watch mode
 just check         # type-check + lint + test
 just fix           # format + lint-fix
@@ -195,6 +196,10 @@ ESLint enforces Clean Architecture layer boundaries (once enabled in `eslint.con
   `acceptance/**/*.ts` (Node.js pipeline code) only. This is a runtime constraint,
   not an oversight (see `vitest.config.ts` for details).
 
+> **Resource Constraint**: Running all three Vitest projects concurrently (`vitest run`)
+> causes `Timeout calling "fetch"` errors on this host. Use `just test-serial` or
+> `npm test` (which runs projects sequentially) instead of bare `vitest run`.
+
 ### Pre-commit Validation
 
 Husky + lint-staged enforces:
@@ -253,7 +258,8 @@ When adding new functionality:
 3. Run `npx vitest` or `just test-watch`
 4. Implement code to pass tests
 5. Ensure 100% coverage maintained
-   - Run `npx vitest run --coverage` to verify
+   - Run `npx vitest run --coverage --project=node` to verify (workers can't produce v8 coverage)
+   - On resource-constrained hosts, use `just test-serial` to run all three projects
    - All four metrics must show 100%: branches, functions, lines, statements
    - If stuck below 100%, ask: "Can I mock the dependency?" before using istanbul ignore
    - See `/typescript-unit-testing` skill for guidance on achieving 100%

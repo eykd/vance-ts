@@ -91,8 +91,9 @@ This project REQUIRES 100% test coverage. Not 95%. Not 99%. **100%**.
 **Run coverage report to identify gaps**:
 
 ```bash
-npx vitest run --coverage
+npx vitest run --coverage --project=node
 # Look for uncovered lines in the report
+# (Workers tests must be run separately: npx vitest run --project=workers)
 ```
 
 **For each uncovered line, ask**:
@@ -149,7 +150,7 @@ catch (error) {
 
 Before marking implementation complete:
 
-- [ ] Run `npx vitest run --coverage`
+- [ ] Run `npx vitest run --coverage --project=node`
 - [ ] Verify all four metrics show 100%: branches, functions, lines, statements
 - [ ] If using istanbul ignore, document WHY in code comment
 - [ ] If stuck below 100%, ask yourself: "Can I mock the dependency causing this?"
