@@ -56,9 +56,9 @@
     ]
   },
   "devDependencies": {
-    "@beads/bd": "^0.55.4",
+    "@beads/bd": "^0.56.1",
     "@cloudflare/vitest-pool-workers": "^0.12.14",
-    "@cloudflare/workers-types": "^4.20260227.0",
+    "@cloudflare/workers-types": "^4.20260302.0",
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
     "@tktco/node-actionlint": "^1.6.0",
