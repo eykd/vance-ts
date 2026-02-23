@@ -132,13 +132,13 @@ describe('generateSpiralArmCoords', () => {
     it('places stars along a spiral path with increasing distance from center', () => {
       // With shift=0, turn=0, the spiral should produce positions
       // that move outward as n increases.
-      // We use a mock PRNG that always returns step=1 (rng.randint(0,4)+1 = 0+1 = 1)
-      // so n increments by exactly 1 each iteration.
+      // We use a mock PRNG that always returns step angle=1 (rng.randint(0,4)+1 = 0+1 = 1)
+      // so n increments by (2*1*π)/360 = π/180 radians each iteration.
       const mockRng: Prng = {
         random: vi.fn(() => 0.5),
         randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
-            return 0; // step = 0 + 1 = 1
+            return 0; // angle = 0 + 1 = 1, step = π/180 radians
           }
           if (min === 0 && max === 360) {
             return 0; // degree=0 → sin=0, cos=1
@@ -154,7 +154,7 @@ describe('generateSpiralArmCoords', () => {
         center: [0, 0],
         shift: 0,
         turn: 0,
-        deg: 5,
+        deg: 0.3, // ~17 radians steps of π/180 each
         multiplier: 1,
         rng: mockRng,
       });
@@ -280,7 +280,7 @@ describe('generateSpiralArmCoords', () => {
         random: vi.fn(() => 0.5),
         randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
-            return 4; // step=5
+            return 4; // angle=5, step=(2*5*π)/360=π/36 radians
           }
           if (min === 0 && max === 360) {
             return 0;
@@ -298,7 +298,7 @@ describe('generateSpiralArmCoords', () => {
         sy: 10,
         shift: 0,
         turn: 0,
-        deg: 3,
+        deg: 0.09, // just past one step of π/36 ≈ 0.0873 radians
         mulStarAmount: 100,
         dynSizeFactor: 1,
         rng: mockRng,
@@ -312,7 +312,7 @@ describe('generateSpiralArmCoords', () => {
 
   describe('cloud size decreases with distance', () => {
     it('produces fewer stars per cloud at greater distances from center', () => {
-      // The formula: starCount = floor(sizeTemp / (n || 2))
+      // The formula: starCount = floor(sizeTemp / (n !== 0 ? n : 2))
       // where sizeTemp = 2 + (mulStarAmount * n) / ((dist/200) || 1)
       // As dist grows faster than n, the denominator grows and starCount decreases.
       // Additionally, dividing by n means later iterations produce fewer stars.
@@ -330,7 +330,7 @@ describe('generateSpiralArmCoords', () => {
           if (min === 0 && max === 4) {
             stepCalls.push(totalRandintCalls - lastStepCallIndex - 1);
             lastStepCallIndex = totalRandintCalls;
-            return 0; // step=1, steady increment
+            return 4; // angle=5, step=π/36 radians (larger step → fewer iterations)
           }
           if (min === 0 && max === 360) {
             return 0;
@@ -348,8 +348,8 @@ describe('generateSpiralArmCoords', () => {
         sy: 10,
         shift: 0,
         turn: 0,
-        deg: 10,
-        mulStarAmount: 200,
+        deg: 0.09, // just past one step of π/36≈0.0873 radians
+        mulStarAmount: 1, // keep sizeTemp small to avoid large star counts
         dynSizeFactor: 1,
         multiplier: 1,
         rng: mockRng,
@@ -387,7 +387,7 @@ describe('generateSpiralArmCoords', () => {
       };
 
       const params = makeParams({
-        deg: 15,
+        deg: 0.3, // ~5 steps using cycling increments
         rng: mockRng,
       });
 
@@ -399,13 +399,13 @@ describe('generateSpiralArmCoords', () => {
 
     it('produces non-uniform step sizes with real PRNG', () => {
       // Run the generator and track the n values at each iteration.
-      // With a real PRNG, steps should vary between 1 and 5.
+      // With a real PRNG, steps vary between 1–5 degrees (in radians: π/180–5π/180).
       const rng = new Mulberry32(42);
 
       // We'll observe the step behavior indirectly: the number of iterations
-      // should be fewer than deg+1 (since steps are >1 on average).
+      // should be fewer than deg/(π/180)+1 (since average step > min step).
       const params = makeParams({
-        deg: 20,
+        deg: 1, // 1 radian ≈ 57 degrees; expect ~19 iterations with avg step ~3°
         sx: 1,
         sy: 1,
         mulStarAmount: 1,
@@ -415,29 +415,25 @@ describe('generateSpiralArmCoords', () => {
 
       const coords = [...generateSpiralArmCoords(params)];
 
-      // With deg=20 and random steps 1-5 (avg 3), we expect roughly 7 iterations
-      // (20/3 ≈ 7), certainly fewer than 21 iterations (which would be all step=1).
-      // We just verify the generator produces output and doesn't have uniform spacing.
+      // With deg=1 radian and random steps averaging ~3*π/180≈0.052 rad,
+      // we expect roughly 19 iterations — well above 0.
       expect(coords.length).toBeGreaterThan(0);
     });
   });
 
-  describe('trig on degrees', () => {
-    it('converts n from degrees to radians for cos/sin calculations', () => {
-      // At n=0: cos(0°)=1, sin(0°)=0
+  describe('n in radians', () => {
+    it('uses n directly in radians for cos/sin calculations', () => {
+      // n starts at 0.0 radians and is used directly in trig — no conversion.
+      // At n=0.0: cos(0)=1, sin(0)=0
       // rawX = cos(0) * (0 * sx) * dynSizeFactor = 0
       // rawY = sin(0) * (0 * sy) * dynSizeFactor = 0
-      // (Both zero because n multiplied in)
-      //
-      // At n=90: cos(90°)=0, sin(90°)=1
-      // rawX = cos(90°) * (90 * sx) * dynSizeFactor = 0
-      // rawY = sin(90°) * (90 * sy) * dynSizeFactor = 90 * sy * 1
+      // (Both zero because n multiplied into position scale)
 
       const mockRng: Prng = {
         random: vi.fn(() => 0.5),
         randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
-            return 4; // step=5 to jump from 0 to 5 immediately
+            return 4; // angle=5, step=(2*5*π)/360=π/36 radians
           }
           if (min === 0 && max === 360) {
             return 0;
@@ -449,8 +445,7 @@ describe('generateSpiralArmCoords', () => {
         }),
       };
 
-      // Use deg=90 so we get n=0 only (step=5 would push past deg=5)
-      // Let's use deg=0 first to check n=0 behavior
+      // deg=0: only n=0.0 runs (step of π/36 pushes past deg=0)
       const params = makeParams({
         center: [0, 0],
         sx: 1,
@@ -465,29 +460,29 @@ describe('generateSpiralArmCoords', () => {
 
       const coords = [...generateSpiralArmCoords(params)];
 
-      // At n=0, rawX = cos(0)*0*sx*dyn = 0, rawY = sin(0)*0*sy*dyn = 0
-      // rotatedX = 0, rotatedY = 0
-      // Cloud center = [0+0, 0+0] = [0, 0]
-      // insideFactor=0, so star at exactly cloud center = [0, 0]
+      // At n=0.0: rawX=cos(0)*(0*sx)*dyn=0, rawY=sin(0)*(0*sy)*dyn=0
+      // armX=0, armY=0 → cloud center = [0, 0]
+      // insideFactor=0, turn=armAngle=0 → star exactly at cloud center = [0, 0]
       if (coords.length > 0) {
         expect(coords[0]?.x).toBe(0);
         expect(coords[0]?.y).toBe(0);
       }
     });
 
-    it('correctly computes spiral position at n=1 degree', () => {
-      // At n=1: cos(1°)≈0.9998, sin(1°)≈0.01745
-      // rawX = cos(1°) * (1 * sx) * 1 ≈ 0.9998 * sx
-      // rawY = sin(1°) * (1 * sy) * 1 ≈ 0.01745 * sy
-      // With shift=0, turn=0, armAngle=0
-      // rotatedX = round(rawX*1 - rawY*0) = round(rawX)
-      // rotatedY = round(rawX*0 + rawY*1) = round(rawY)
+    it('correctly computes spiral position with n in radians', () => {
+      // n is in radians throughout — no degree conversion.
+      // After first step (angle=5): n = (2*5*π)/360 = π/36 ≈ 0.0873 radians
+      // rawX = cos(π/36) * (π/36 * sx) * 1 ≈ 0.9962 * (0.0873 * sx)
+      // rawY = sin(π/36) * (π/36 * sy) * 1 ≈ 0.0872 * (0.0873 * sy)
+      // With shift=0, turn=0, armAngle=0 (Python clockwise identity):
+      //   armX = 1*rawX + 0*rawY = rawX
+      //   armY = -0*rawX + 1*rawY = rawY
 
       const mockRng: Prng = {
         random: vi.fn(() => 0.5),
         randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
-            return 4; // step=5 to exit after n=1
+            return 4; // angle=5, step=π/36 radians
           }
           if (min === 0 && max === 360) {
             return 0;
@@ -506,7 +501,7 @@ describe('generateSpiralArmCoords', () => {
         sy: 10,
         shift: 0,
         turn: 0,
-        deg: 1,
+        deg: 0.09, // runs n=0.0 and n=π/36≈0.0873, exits at n≈0.1745
         dynSizeFactor: 1,
         multiplier: 1,
         rng: mockRng,
@@ -514,11 +509,9 @@ describe('generateSpiralArmCoords', () => {
 
       const coords = [...generateSpiralArmCoords(params)];
 
-      // n=0: rawX=0, rawY=0 (both multiplied by n=0)
-      // n=1: rawX = cos(π/180) * 1 * 10 * 1 ≈ 9.998, rawY = sin(π/180) * 1 * 10 * 1 ≈ 0.1745
-      // rotatedX = round(9.998) = 10, rotatedY = round(0.1745) = 0
-      // Cloud center = [0+10, 0+0] = [10, 0]
-      // insideFactor=0 → star at cloud center
+      // n=0.0: rawX=0, rawY=0 → cloud at center, produces 1 star
+      // n=π/36: rawX≈0.0869*sx, rawY≈0.0076*sy → cloud slightly off center
+      // insideFactor=0 → stars at cloud center positions
       expect(coords.length).toBeGreaterThan(0);
     });
   });
@@ -527,8 +520,9 @@ describe('generateSpiralArmCoords', () => {
     it('applies armAngle = shift + turn for rotation', () => {
       // With shift=π/2 and turn=0, armAngle=π/2
       // cos(π/2)≈0, sin(π/2)=1
-      // rotatedX = round(rawX * 0 - rawY * 1) = round(-rawY)
-      // rotatedY = round(rawX * 1 + rawY * 0) = round(rawX)
+      // Python clockwise rotation:
+      //   armX = 0*rawX + 1*rawY = rawY
+      //   armY = -1*rawX + 0*rawY = -rawX
 
       const mockRng: Prng = {
         random: vi.fn(() => 0.5),
@@ -552,7 +546,7 @@ describe('generateSpiralArmCoords', () => {
         sy: 10,
         shift: Math.PI / 2,
         turn: 0,
-        deg: 1,
+        deg: 0.09, // two steps of π/36 to exercise the rotation
         dynSizeFactor: 1,
         multiplier: 1,
         rng: mockRng,
@@ -564,7 +558,7 @@ describe('generateSpiralArmCoords', () => {
         sy: 10,
         shift: 0,
         turn: 0,
-        deg: 1,
+        deg: 0.09,
         dynSizeFactor: 1,
         multiplier: 1,
         rng: {
@@ -587,10 +581,10 @@ describe('generateSpiralArmCoords', () => {
       const coordsShifted = [...generateSpiralArmCoords(params)];
       const coordsUnshifted = [...generateSpiralArmCoords(paramsNoShift)];
 
-      // With shift=π/2, the arm should be rotated differently
+      // With shift=π/2, the arm should be rotated differently (Python clockwise).
       // The coords should differ (unless they're both at origin from n=0)
-      // At n=1: unshifted rawX≈10, rawY≈0.17 → rotatedX=10, rotatedY=0
-      // shifted: rotatedX = round(10*0 - 0.17*1)=0, rotatedY = round(10*1 + 0.17*0)=10
+      // At n=π/36: unshifted → armX≈rawX, armY≈rawY (armAngle=0)
+      //   shifted (armAngle=π/2): armX=rawY, armY=-rawX
       expect(coordsShifted.length).toBeGreaterThan(0);
       expect(coordsUnshifted.length).toBeGreaterThan(0);
     });
@@ -632,7 +626,7 @@ describe('generateSpiralArmCoords', () => {
       const params1 = makeParams({
         shift: Math.PI / 4,
         turn: Math.PI / 4,
-        deg: 2,
+        deg: 0.09, // two steps of π/36 to exercise rotation
         sx: 10,
         sy: 10,
         rng: mockRng1,
@@ -641,7 +635,7 @@ describe('generateSpiralArmCoords', () => {
       const params2 = makeParams({
         shift: Math.PI / 2,
         turn: 0,
-        deg: 2,
+        deg: 0.09,
         sx: 10,
         sy: 10,
         rng: mockRng2,
@@ -655,16 +649,18 @@ describe('generateSpiralArmCoords', () => {
   });
 
   describe('elliptic starfield integration', () => {
-    it('passes rotated position as radius to elliptic starfield', () => {
+    it('passes [sizeTemp, sizeTemp] as radius to elliptic starfield', () => {
       // The radius parameter to generateEllipticStarfieldCoords should be
-      // [rotatedX, rotatedY], NOT [xp1, yp1]
-      // We verify by checking that cloud spread depends on position, not xp1/yp1.
+      // [sizeTemp, sizeTemp], NOT [armX, armY] and NOT [xp1, yp1].
+      // At n=0: sizeTemp = 2, armX=armY=0, cloud center = galaxy center.
+      // With degree=90, insideFactor=1: posX = sin(90°)*round(1*sizeTemp) = sizeTemp.
+      // So the star lands at x = 0 + sizeTemp = 2 (not at 0 as armX-radius would give).
 
       const mockRng: Prng = {
         random: vi.fn(() => 0.5),
         randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
-            return 4; // step=5
+            return 4; // angle=5, step=π/36 radians
           }
           if (min === 0 && max === 360) {
             return 90; // degree=90 → sin=1, cos=0 → posX = rx, posY = 0
@@ -676,15 +672,18 @@ describe('generateSpiralArmCoords', () => {
         }),
       };
 
+      // deg=0: only n=0 runs. sizeTemp=2+0=2 (mulStarAmount*0=0).
+      // xp1=1000 should NOT affect the radius passed to elliptic starfield.
       const params = makeParams({
         center: [0, 0],
         sx: 10,
         sy: 10,
         shift: 0,
         turn: 0,
-        deg: 2,
-        xp1: 1000, // Large xp1 that should NOT affect radius
+        deg: 0,
+        xp1: 1000, // large xp1 — must NOT appear as radius
         yp1: 1000,
+        mulStarAmount: 0, // ensures sizeTemp = 2 at n=0
         dynSizeFactor: 1,
         multiplier: 1,
         rng: mockRng,
@@ -692,28 +691,31 @@ describe('generateSpiralArmCoords', () => {
 
       const coords = [...generateSpiralArmCoords(params)];
 
-      // If radius were [xp1, yp1]=[1000, 1000], stars would spread up to 1000.
-      // With radius = [rotatedX, rotatedY], spread is limited to ~rotatedX/rotatedY
-      // which for small n and sx=10 would be much smaller than 1000.
-      // Verify no coordinate exceeds a reasonable bound based on position, not xp1.
-      for (const coord of coords) {
-        // With sx=10, deg=2, n goes 0→2, positions are small
-        // rotatedX at n=2: cos(2°)*20*1 ≈ 20, so radius is ~20, not 1000
-        expect(Math.abs(coord.x)).toBeLessThan(500);
-        expect(Math.abs(coord.y)).toBeLessThan(500);
-      }
+      // At n=0: sizeTemp=2, armX=0, armY=0 → cloud at center [0, 0]
+      // degree=90, insideFactor=1 → posX = sin(90°)*round(1*2) = 2, posY=0
+      // No rotation (armAngle=0), so star lands at (0+2, 0+0) = (2, 0)
+      expect(coords.length).toBeGreaterThan(0);
+      expect(coords[0]?.x).toBe(2);
+      expect(coords[0]?.y).toBe(0);
     });
 
-    it('passes turn=0 to the elliptic starfield generator', () => {
-      // The task description says turn: 0 is always passed to generateEllipticStarfieldCoords.
-      // We verify indirectly: if turn were non-zero, the stars would be rotated
-      // relative to the cloud center. With turn=0, stars align with axes.
+    it('passes armAngle as turn to the elliptic starfield generator', () => {
+      // armAngle = shift + turn is forwarded as the turn parameter to
+      // generateEllipticStarfieldCoords so stars within each cloud are rotated
+      // by the arm's orientation.
+      // At n=0: armX=0, armY=0, sizeTemp=2, armAngle = shift + turn = π/6.
+      // With degree=90, insideFactor=1: posX = sin(90°)*round(2) = 2, posY = 0.
+      // After Python clockwise rotation by π/6:
+      //   rotX = 2*cos(π/6) + 0*sin(π/6) = 2*0.866 ≈ 1.732 → round = 2
+      //   rotY = -2*sin(π/6) + 0*cos(π/6) = -2*0.5 = -1 → round = -1
+      // Star lands at (0+2, 0-1) = (2, -1).
+      // If turn=0 were passed instead, rotX=2, rotY=0 → star at (2, 0).
 
       const mockRng: Prng = {
         random: vi.fn(() => 0.5),
         randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
-            return 4;
+            return 4; // step past deg=0 immediately
           }
           if (min === 0 && max === 360) {
             return 90; // sin=1 → posX = rx, posY = 0
@@ -728,10 +730,11 @@ describe('generateSpiralArmCoords', () => {
       const params = makeParams({
         center: [0, 0],
         sx: 10,
-        sy: 5,
-        shift: 0,
-        turn: 0.5, // non-zero turn at spiral level
-        deg: 1,
+        sy: 10,
+        shift: Math.PI / 6,
+        turn: 0,
+        deg: 0,
+        mulStarAmount: 0, // sizeTemp = 2 at n=0
         dynSizeFactor: 1,
         multiplier: 1,
         rng: mockRng,
@@ -739,8 +742,12 @@ describe('generateSpiralArmCoords', () => {
 
       const coords = [...generateSpiralArmCoords(params)];
 
-      // Verify the generator still works with non-zero turn
+      // armAngle=π/6 is passed as turn. Star is rotated by π/6 (clockwise).
+      // rotX = 2*cos(π/6) ≈ 1.732 → round = 2
+      // rotY = -2*sin(π/6) = -1.0 → round = -1
       expect(coords.length).toBeGreaterThan(0);
+      expect(coords[0]?.x).toBe(2);
+      expect(coords[0]?.y).toBe(-1);
     });
 
     it('passes multiplier through to the elliptic starfield generator', () => {
@@ -777,7 +784,7 @@ describe('generateSpiralArmCoords', () => {
       };
 
       const params1 = makeParams({
-        deg: 1,
+        deg: 0.09, // two steps of π/36 to show multiplier effect
         sx: 10,
         sy: 10,
         multiplier: 1,
@@ -785,7 +792,7 @@ describe('generateSpiralArmCoords', () => {
       });
 
       const params3 = makeParams({
-        deg: 1,
+        deg: 0.09,
         sx: 10,
         sy: 10,
         multiplier: 3,
@@ -850,7 +857,7 @@ describe('generateSpiralArmCoords', () => {
         center: [0, 0],
         sx: 10,
         sy: 10,
-        deg: 2,
+        deg: 0.09, // two steps of π/36 to show dynSizeFactor effect
         dynSizeFactor: 1,
         multiplier: 1,
         rng: mockRng1,
@@ -860,7 +867,7 @@ describe('generateSpiralArmCoords', () => {
         center: [0, 0],
         sx: 10,
         sy: 10,
-        deg: 2,
+        deg: 0.09,
         dynSizeFactor: 2,
         multiplier: 1,
         rng: mockRng2,
@@ -953,43 +960,28 @@ describe('generateSpiralArmCoords', () => {
   });
 
   describe('starCount formula verification', () => {
-    it('computes correct starCount from sizeTemp and n', () => {
-      // Use controlled inputs to verify the exact formula:
-      // At n=2, with specific sx/sy/shift/turn to produce known dist:
-      // rawX = cos(2°) * (2 * sx) * dynSizeFactor
-      // rawY = sin(2°) * (2 * sy) * dynSizeFactor
-      // With shift=0, turn=0: rotatedX = round(rawX), rotatedY = round(rawY)
-      // dist = sqrt(rotatedX² + rotatedY²)
-      // sizeTemp = 2 + (mulStarAmount * 2) / ((dist/200) || 1)
-      // starCount = floor(sizeTemp / 2)
+    it('computes correct starCount from sizeTemp and n in radians', () => {
+      // With mulStarAmount=0, sizeTemp = 2 + 0 = 2 for all iterations.
+      // starCount = floor(2 / n) for n > 0, or floor(2/2) = 1 for n=0.
+      //
+      // With mock always returning angle=5 (randint(0,4)=4):
+      //   step = (2*5*π)/360 = π/36 ≈ 0.0873 radians
+      //   n=0.0:    starCount = floor(2 / 2) = 1
+      //   n=π/36:   starCount = floor(2 / (π/36)) = floor(72/π) = 22
+      //
+      // deg = step * 1.5 → iterations at n=0 and n=π/36, exits at n=2*(π/36).
 
-      const sx = 10;
-      const sy = 10;
-      const dynSizeFactor = 1;
-      const mulStarAmount = 100;
-      const n = 2;
+      const step = (2.0 * 5 * Math.PI) / 360.0; // π/36, angle=5 when randint returns 4
+      const n1 = step;
 
-      const rad = (n * Math.PI) / 180;
-      const rawX = Math.cos(rad) * (n * sx) * dynSizeFactor;
-      const rawY = Math.sin(rad) * (n * sy) * dynSizeFactor;
-      const rotatedX = Math.round(rawX);
-      const rotatedY = Math.round(rawY);
-      const dist = Math.sqrt(rotatedX * rotatedX + rotatedY * rotatedY);
-      const distDivisor = dist / 200;
-      const sizeTemp = 2 + (mulStarAmount * n) / (distDivisor !== 0 ? distDivisor : 1);
-      const expectedStarCount = Math.floor(sizeTemp / n);
-
-      let iterationCount = 0;
+      const expectedAtN0 = Math.floor(2 / 2); // 1
+      const expectedAtN1 = Math.floor(2 / n1); // floor(72/π) = 22
 
       const mockRng: Prng = {
         random: vi.fn(() => 0.5),
         randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
-            iterationCount++;
-            if (iterationCount === 1) {
-              return 1; // step=2, n goes 0→2
-            }
-            return 4; // step=5, exit
+            return 4; // angle=5, step=π/36 always
           }
           if (min === 0 && max === 360) {
             return 0;
@@ -1003,23 +995,20 @@ describe('generateSpiralArmCoords', () => {
 
       const params = makeParams({
         center: [0, 0],
-        sx,
-        sy,
+        sx: 10,
+        sy: 10,
         shift: 0,
         turn: 0,
-        deg: 2,
-        dynSizeFactor,
-        mulStarAmount,
+        deg: step * 1.5, // runs at n=0 and n=step, exits at n=2*step
+        dynSizeFactor: 1,
+        mulStarAmount: 0, // sizeTemp = 2 always, simplifies formula
         multiplier: 1,
         rng: mockRng,
       });
 
       const coords = [...generateSpiralArmCoords(params)];
 
-      // Verify the formula produces the expected count of stars at n=2
-      // The n=0 iteration also generates stars (1 star from sizeTemp=2, starCount=floor(2/2)=1)
-      // n=2 iteration generates expectedStarCount stars
-      expect(coords.length).toBe(1 + expectedStarCount);
+      expect(coords.length).toBe(expectedAtN0 + expectedAtN1);
     });
   });
 
@@ -1038,7 +1027,7 @@ describe('generateSpiralArmCoords', () => {
         sy: 10,
         shift: 0,
         turn: 0,
-        deg: 3,
+        deg: 0.1, // small deg: randint always returns 0 → angle=1, step=π/180≈0.01745
         xp1: 100,
         yp1: 100,
         mulStarAmount: 10,
@@ -1048,7 +1037,7 @@ describe('generateSpiralArmCoords', () => {
       };
 
       // randint always returns min, so:
-      // step = 0 + 1 = 1 each time
+      // angle = 0+1=1, step = (2*1*π)/360 = π/180 ≈ 0.01745 radians each time
       // degree = 0, insideFactor = 0
       const coords = [...generateSpiralArmCoords(params)];
 

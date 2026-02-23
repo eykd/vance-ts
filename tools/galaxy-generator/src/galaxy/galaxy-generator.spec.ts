@@ -274,10 +274,9 @@ describe('generateSpiralGalaxyCoords', () => {
 
       const coords = [...generateSpiralGalaxyCoords(config)];
 
-      // With deg=5 and 4 arms, produces several dozen raw coordinates
-      // (each arm walks 0-5 degrees in 1-5 degree random steps)
-      expect(coords.length).toBeGreaterThan(20);
-      expect(coords.length).toBeLessThan(500);
+      // With deg=5 radians (~286°) and 4 arms, generates thousands of coordinates.
+      // The first cloud alone yields ~500+ stars at default settings.
+      expect(coords.length).toBeGreaterThan(1000);
     });
 
     it('coordinates span approximately ±400 in each axis', () => {

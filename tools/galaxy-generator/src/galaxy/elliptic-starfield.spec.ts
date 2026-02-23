@@ -297,10 +297,10 @@ describe('generateEllipticStarfieldCoords', () => {
     });
 
     it('applies 2D rotation when turn is non-zero', () => {
-      // With turn = π/2 (90 degrees), rotation matrix:
-      // rotX = posX * cos(π/2) - posY * sin(π/2) = posX*0 - posY*1 = -posY
-      // rotY = posX * sin(π/2) + posY * cos(π/2) = posX*1 + posY*0 = posX
-      // So if posX=100, posY=0: rotX=0, rotY=100
+      // Python clockwise rotation with turn = π/2:
+      // rotX = posX * cos(π/2) + posY * sin(π/2) = posX*0 + posY*1 = posY
+      // rotY = -posX * sin(π/2) + posY * cos(π/2) = -posX*1 + posY*0 = -posX
+      // So if posX=100, posY=0: rotX=0, rotY=-100
       let callCount = 0;
       const mockRng: Prng = {
         random: vi.fn(() => 0.5),
@@ -327,9 +327,9 @@ describe('generateEllipticStarfieldCoords', () => {
 
       const coords = [...generateEllipticStarfieldCoords(params)];
 
-      // posX=100, posY=0. After π/2 rotation: rotX=0, rotY=100
+      // posX=100, posY=0. After π/2 clockwise rotation: rotX=0, rotY=-100
       expect(coords[0]?.x).toBe(0);
-      expect(coords[0]?.y).toBe(100);
+      expect(coords[0]?.y).toBe(-100);
     });
 
     it('applies rotation correctly for arbitrary angle', () => {
@@ -363,8 +363,9 @@ describe('generateEllipticStarfieldCoords', () => {
       const coords = [...generateEllipticStarfieldCoords(params)];
 
       // posX=100, posY=0. After π rotation: rotX=-100, rotY≈0
+      // sin(π) is a tiny float (~1.2e-16 not exactly 0), so rotY rounds to ±0.
       expect(coords[0]?.x).toBe(-100);
-      expect(coords[0]?.y).toBe(0);
+      expect(Math.abs(coords[0]?.y ?? 1)).toBe(0);
     });
   });
 

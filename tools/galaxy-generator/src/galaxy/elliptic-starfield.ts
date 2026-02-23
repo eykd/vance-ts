@@ -58,8 +58,9 @@ export function* generateEllipticStarfieldCoords(
     if (turn !== 0) {
       const cosT = Math.cos(turn);
       const sinT = Math.sin(turn);
-      const rotX = posX * cosT - posY * sinT;
-      const rotY = posX * sinT + posY * cosT;
+      // Python clockwise rotation (matches reference algorithm)
+      const rotX = posX * cosT + posY * sinT;
+      const rotY = -posX * sinT + posY * cosT;
       posX = rotX;
       posY = rotY;
     }

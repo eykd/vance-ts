@@ -3,7 +3,7 @@
  *
  * Walks along a spiral curve placing elliptic starfield clouds at each step.
  * The spiral is parameterized by angular offset (shift), base rotation (turn),
- * and size factors (sx, sy). At each step n degrees along the spiral, the
+ * and size factors (sx, sy). At each step n radians along the spiral, the
  * generator computes a rotated position and delegates star placement to the
  * elliptic starfield generator (Level 3).
  *
@@ -27,7 +27,7 @@ export interface SpiralArmParams {
   readonly shift: number;
   /** Base rotation angle (radians). */
   readonly turn: number;
-  /** Spiral extent in degrees. Walk continues while n <= deg. */
+  /** Spiral extent in radians. Walk continues while n <= deg. */
   readonly deg: number;
   /** Cloud x-radius: round(deg / pi * sx / 1.7) * dynSizeFactor. */
   readonly xp1: number;
@@ -46,8 +46,9 @@ export interface SpiralArmParams {
 /**
  * Generates star coordinates along a spiral arm.
  *
- * Walks from n=0 to n=deg in random 1-5 degree steps. At each step, computes
- * a spiral position, rotates it by (shift + turn), calculates cloud size, and
+ * Walks from n=0.0 to n=deg radians in random steps of 1–5 degrees (converted
+ * to radians). At each step, computes a spiral position using n directly as
+ * radians, rotates it clockwise by (shift + turn), calculates cloud size, and
  * delegates to the elliptic starfield generator for individual star placement.
  *
  * @param params - Spiral arm generation parameters
@@ -57,22 +58,23 @@ export function* generateSpiralArmCoords(params: SpiralArmParams): Generator<Coo
   const { center, sx, sy, shift, turn, deg, mulStarAmount, dynSizeFactor, multiplier, rng } =
     params;
 
-  let n = 0;
+  // n is in radians throughout — no degree conversion needed
+  let n = 0.0;
 
   while (n <= deg) {
-    const nRad = (n * Math.PI) / 180;
-
-    const rawX = Math.cos(nRad) * (n * sx) * dynSizeFactor;
-    const rawY = Math.sin(nRad) * (n * sy) * dynSizeFactor;
+    // n used directly in both trig and scale (Python reference uses radians)
+    const rawX = Math.cos(n) * (n * sx) * dynSizeFactor;
+    const rawY = Math.sin(n) * (n * sy) * dynSizeFactor;
 
     const armAngle = shift + turn;
     const cosA = Math.cos(armAngle);
     const sinA = Math.sin(armAngle);
 
-    const rotatedX = Math.round(rawX * cosA - rawY * sinA);
-    const rotatedY = Math.round(rawX * sinA + rawY * cosA);
+    // Python clockwise rotation (no rounding — keep as float for cloud center)
+    const armX = cosA * rawX + sinA * rawY;
+    const armY = -sinA * rawX + cosA * rawY;
 
-    const dist = Math.sqrt(rotatedX * rotatedX + rotatedY * rotatedY);
+    const dist = Math.sqrt(armX * armX + armY * armY);
 
     const distDivisor = dist / 200;
     const sizeTemp = 2 + (mulStarAmount * n) / (distDivisor !== 0 ? distDivisor : 1);
@@ -80,13 +82,15 @@ export function* generateSpiralArmCoords(params: SpiralArmParams): Generator<Coo
 
     yield* generateEllipticStarfieldCoords({
       amount: starCount,
-      center: [center[0] + rotatedX, center[1] + rotatedY],
-      radius: [rotatedX, rotatedY],
-      turn: 0,
+      center: [center[0] + armX, center[1] + armY],
+      radius: [sizeTemp, sizeTemp],
+      turn: armAngle,
       multiplier,
       rng,
     });
 
-    n += rng.randint(0, 4) + 1;
+    // Increment by 1–5 degrees converted to radians (matches Python reference)
+    const angle = rng.randint(0, 4) + 1;
+    n += (2.0 * angle * Math.PI) / 360.0;
   }
 }
