@@ -304,6 +304,10 @@ Build verification is required for all Hugo changes:
 - **Planning**: Ensuring architecture uses canonical terminology (sp:03-plan)
 - **Quality Review**: Validating naming matches glossary (sp:10-code-quality-review)
 
+## Specs
+
+Before implementing any feature, read `specs/readme.md` first. It lists all specs with keywords that bridge search terms to spec paths — preventing hallucination when your first search misses.
+
 ## ATDD Workflow
 
 User story tasks (with `US<N>` prefix, e.g. `US03: View the list`) use Acceptance

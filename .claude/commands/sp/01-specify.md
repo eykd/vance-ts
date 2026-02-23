@@ -385,7 +385,26 @@ Given that feature description, do this:
 
    d. **Update Checklist**: After each validation iteration, update the checklist file with current pass/fail status
 
-10. Report completion with:
+10. **Update The Pin** (`specs/readme.md`):
+
+Add an entry for this new feature to the specs index file so it's discoverable by future agents.
+
+a. Generate 10-20 keywords covering: - Feature name and common synonyms for what it does - Key technologies, libraries, CLI tools named in the spec - Domain terms from `docs/glossary.md` that appear in the spec - How someone would describe this problem _before_ knowing the spec vocabulary
+
+b. Check if an entry already exists in `specs/readme.md` for this feature: - If yes: update the Keywords line in-place - If no: append a new entry before the "How to Update This File" section
+
+c. Entry format:
+``` ## <Feature Title>
+
+      Keywords: kw1, kw2, kw3, ...
+      Spec: specs/<BRANCH_NAME>/spec.md
+      ```
+
+d. If `specs/readme.md` does not exist yet, create it (bootstrap from all existing specs first, then add this entry).
+
+e. This step must not block spec creation — if the pin update fails, log a warning and continue.
+
+11. Report completion with:
 
 - Branch name
 - Spec file path

@@ -800,6 +800,7 @@ EOF
 ## Task Focus
 Complete ONLY this task described above.
 Do NOT explore unrelated code or work on other tasks.
+Before searching for a spec or existing feature, check specs/readme.md first.
 
 ## Bead Lifecycle Management (REQUIRED)
 1. Start task: npx bd start $task_id
