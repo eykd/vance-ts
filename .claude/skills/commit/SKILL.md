@@ -121,7 +121,7 @@ This project has automatic validation:
 - Prettier formatting (auto-fixes)
 - ESLint with `--max-warnings 0`
 - TypeScript type checking
-- Jest tests for changed files
+- Vitest tests for changed files
 
 Hooks run automatically. If commit fails, fix issues and retry.
 

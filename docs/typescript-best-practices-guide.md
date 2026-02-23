@@ -417,51 +417,41 @@ The switch-exhaustiveness-check rule ensures that switch statements on union typ
 
 ## Test Harness Setup
 
-A robust testing infrastructure is essential for maintaining code quality and enabling confident refactoring. This section covers setting up Jest with TypeScript support for unit and integration testing.
+A robust testing infrastructure is essential for maintaining code quality and enabling confident refactoring. This section covers setting up Vitest with TypeScript support for unit and integration testing.
 
 ### Installing Testing Dependencies
 
-Install Jest along with TypeScript support and testing utilities. The ts-jest package allows Jest to work seamlessly with TypeScript without requiring a separate compilation step.
+Install Vitest along with TypeScript support and testing utilities. Vitest works natively with TypeScript without requiring a separate compilation step.
 
 ```bash
-npm install --save-dev jest @types/jest ts-jest
-npm install --save-dev @testing-library/jest-dom
+npm install --save-dev vitest @vitest/coverage-v8
 ```
 
-### Jest Configuration
+### Vitest Configuration
 
-Create a jest.config.js file in your project root. This configuration tells Jest how to handle TypeScript files and provides sensible defaults for coverage reporting.
+Create a vitest.config.ts file in your project root. This configuration tells Vitest how to handle TypeScript files and provides sensible defaults for coverage reporting.
 
-```javascript
-module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  roots: ['<rootDir>/src'],
-  testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
-  transform: {
-    '^.+\\.ts$': 'ts-jest',
-  },
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/**/*.spec.ts',
-    '!src/**/*.test.ts',
-    '!src/**/index.ts',
-  ],
-  coverageThreshold: {
-    global: {
-      branches: 80,
-      functions: 80,
-      lines: 80,
-      statements: 80,
+```typescript
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'node',
+    include: ['src/**/*.{spec,test}.ts'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.d.ts', 'src/**/*.spec.ts', 'src/**/*.test.ts', 'src/**/index.ts'],
+      thresholds: {
+        branches: 80,
+        functions: 80,
+        lines: 80,
+        statements: 80,
+      },
+      reporter: ['text', 'lcov', 'html'],
     },
   },
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
-  moduleFileExtensions: ['ts', 'js', 'json'],
-  verbose: true,
-  testTimeout: 10000,
-};
+});
 ```
 
 ### Test File Structure
@@ -539,21 +529,22 @@ Write tests that focus on behavior rather than implementation details. Each test
 
 Use the Arrange-Act-Assert pattern to structure your tests. First, set up the necessary preconditions and inputs. Then, execute the code being tested. Finally, verify that the outcome matches expectations. This makes tests easier to read and understand.
 
-Mock external dependencies to isolate the code under test. Jest provides powerful mocking capabilities that allow you to replace dependencies with controlled test doubles, ensuring tests are fast, reliable, and focused on the specific unit being tested.
+Mock external dependencies to isolate the code under test. Vitest provides powerful mocking capabilities that allow you to replace dependencies with controlled test doubles, ensuring tests are fast, reliable, and focused on the specific unit being tested.
 
 ```typescript
 // Example with mocking
+import { vi, type Mocked } from 'vitest';
 import { UserService } from './user-service';
 import { Database } from './database';
 
-jest.mock('./database');
+vi.mock('./database');
 
 describe('UserService', () => {
   let userService: UserService;
-  let mockDatabase: jest.Mocked<Database>;
+  let mockDatabase: Mocked<Database>;
 
   beforeEach(() => {
-    mockDatabase = new Database() as jest.Mocked<Database>;
+    mockDatabase = new Database() as Mocked<Database>;
     userService = new UserService(mockDatabase);
   });
 
@@ -649,7 +640,7 @@ Add a lint-staged configuration to your package.json that specifies what to run 
       "prettier --write",
       "eslint --fix --max-warnings 0",
       "bash -c 'tsc --noEmit'",
-      "jest --bail --findRelatedTests --passWithNoTests"
+      "vitest run --bail --passWithNoTests"
     ],
     "*.{json,md,yml,yaml}": ["prettier --write"]
   }
@@ -673,13 +664,13 @@ For more complex configurations, create a .lintstagedrc.json file in your projec
     "prettier --write",
     "eslint --fix --max-warnings 0",
     "bash -c 'tsc --noEmit'",
-    "jest --bail --findRelatedTests --passWithNoTests"
+    "vitest run --bail --passWithNoTests"
   ],
   "*.{json,md,yml,yaml}": ["prettier --write"]
 }
 ```
 
-The --max-warnings 0 flag ensures that even warnings will prevent the commit, maintaining high code quality standards. The --bail flag on Jest stops test execution on the first failure, providing faster feedback during commits.
+The --max-warnings 0 flag ensures that even warnings will prevent the commit, maintaining high code quality standards. The --bail flag on Vitest stops test execution on the first failure, providing faster feedback during commits.
 
 ### Commit Message Linting
 
@@ -727,9 +718,9 @@ Add convenient npm scripts to your package.json for common development tasks. Th
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "type-check": "tsc --noEmit",
     "check": "npm run type-check && npm run lint && npm run test",
     "validate": "npm run type-check && npm run lint && npm run format:check && npm run test:coverage && npm run build",
@@ -868,15 +859,15 @@ format:
 
 # Run all tests
 test:
-    jest
+    npx vitest run
 
 # Run tests in watch mode
 test-watch:
-    jest --watch
+    npx vitest
 
 # Run tests with coverage
 test-coverage:
-    jest --coverage
+    npx vitest run --coverage
 
 # Build the project
 build:
@@ -966,13 +957,13 @@ It's crucial that the same checks run everywhere: locally during development, in
 
 ### Complete Check Coverage
 
-| Check         | Pre-commit                   | npm script                 | Justfile                | CI Pipeline          |
-| ------------- | ---------------------------- | -------------------------- | ----------------------- | -------------------- |
-| Type checking | ✅ `tsc --noEmit`            | ✅ `npm run type-check`    | ✅ `just type-check`    | ✅ Type check step   |
-| Linting       | ✅ `eslint --fix`            | ✅ `npm run lint`          | ✅ `just lint`          | ✅ Lint step         |
-| Formatting    | ✅ `prettier --write`        | ✅ `npm run format:check`  | ✅ `just format-check`  | ✅ Format check step |
-| Testing       | ✅ `jest --findRelatedTests` | ✅ `npm run test:coverage` | ✅ `just test-coverage` | ✅ Test step         |
-| Build         | ❌ (too slow)                | ✅ `npm run build`         | ✅ `just build`         | ✅ Build step        |
+| Check         | Pre-commit             | npm script                 | Justfile                | CI Pipeline          |
+| ------------- | ---------------------- | -------------------------- | ----------------------- | -------------------- |
+| Type checking | ✅ `tsc --noEmit`      | ✅ `npm run type-check`    | ✅ `just type-check`    | ✅ Type check step   |
+| Linting       | ✅ `eslint --fix`      | ✅ `npm run lint`          | ✅ `just lint`          | ✅ Lint step         |
+| Formatting    | ✅ `prettier --write`  | ✅ `npm run format:check`  | ✅ `just format-check`  | ✅ Format check step |
+| Testing       | ✅ `vitest run --bail` | ✅ `npm run test:coverage` | ✅ `just test-coverage` | ✅ Test step         |
+| Build         | ❌ (too slow)          | ✅ `npm run build`         | ✅ `just build`         | ✅ Build step        |
 
 ### Why Pre-commit Skips Build
 
@@ -1070,7 +1061,7 @@ my-typescript-project/
 ├── .prettierignore
 ├── .nvmrc
 ├── commitlint.config.js
-├── jest.config.js
+├── vitest.config.ts
 ├── tsconfig.json
 ├── justfile
 ├── package.json

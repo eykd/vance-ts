@@ -335,9 +335,9 @@ describe('KVRateLimiter', () => {
 
   beforeEach(() => {
     mockKV = {
-      get: jest.fn(),
-      put: jest.fn(),
-      delete: jest.fn(),
+      get: vi.fn(),
+      put: vi.fn(),
+      delete: vi.fn(),
     } as unknown as KVNamespace;
 
     rateLimiter = new KVRateLimiter(mockKV);
@@ -345,7 +345,7 @@ describe('KVRateLimiter', () => {
 
   describe('checkLimit', () => {
     it('allows first request', async () => {
-      mockKV.get = jest.fn().mockResolvedValue(null);
+      mockKV.get = vi.fn().mockResolvedValue(null);
 
       const result = await rateLimiter.checkLimit('test-user', {
         maxAttempts: 5,
@@ -358,7 +358,7 @@ describe('KVRateLimiter', () => {
 
     it('tracks attempts across requests', async () => {
       // Simulate second request
-      mockKV.get = jest.fn().mockResolvedValue(
+      mockKV.get = vi.fn().mockResolvedValue(
         JSON.stringify({
           attempts: 1,
           windowStart: Date.now(),
@@ -375,7 +375,7 @@ describe('KVRateLimiter', () => {
     });
 
     it('blocks when limit exceeded', async () => {
-      mockKV.get = jest.fn().mockResolvedValue(
+      mockKV.get = vi.fn().mockResolvedValue(
         JSON.stringify({
           attempts: 5,
           windowStart: Date.now(),
@@ -393,7 +393,7 @@ describe('KVRateLimiter', () => {
 
     it('resets after window expires', async () => {
       const pastWindowStart = Date.now() - 70000; // 70 seconds ago
-      mockKV.get = jest.fn().mockResolvedValue(
+      mockKV.get = vi.fn().mockResolvedValue(
         JSON.stringify({
           attempts: 5,
           windowStart: pastWindowStart,
@@ -410,7 +410,7 @@ describe('KVRateLimiter', () => {
     });
 
     it('applies lockout when configured', async () => {
-      mockKV.get = jest.fn().mockResolvedValue(
+      mockKV.get = vi.fn().mockResolvedValue(
         JSON.stringify({
           attempts: 5,
           windowStart: Date.now(),
@@ -431,7 +431,7 @@ describe('KVRateLimiter', () => {
       const now = Date.now();
       const futureUnlock = now + 1800000; // 30 minutes from now
 
-      mockKV.get = jest.fn().mockResolvedValue(
+      mockKV.get = vi.fn().mockResolvedValue(
         JSON.stringify({
           attempts: 5,
           windowStart: now - 120000, // 2 minutes ago

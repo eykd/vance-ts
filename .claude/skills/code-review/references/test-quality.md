@@ -203,7 +203,7 @@ For rapid evaluation, check these essentials:
 When reviewing test changes, ALWAYS verify coverage:
 
 ```bash
-npx jest --coverage --findRelatedTests [changed-files]
+npx vitest run --coverage [changed-files]
 ```
 
 **Check for 100% threshold**:
@@ -223,7 +223,7 @@ npx jest --coverage --findRelatedTests [changed-files]
 - **File**: path/to/file.ts
 - **Description**: Coverage is at X% (branches: X%, functions: X%, lines: X%, statements: X%). Project requires 100% coverage threshold.
 - **Risk**: Pre-commit hooks will fail. Untested code paths may contain bugs.
-- **Fix**: Add tests for uncovered lines. Run `npx jest --coverage` to see gaps. Use istanbul ignore ONLY for truly untestable code (defensive type guards, platform-specific edge cases).
+- **Fix**: Add tests for uncovered lines. Run `npx vitest run --coverage` to see gaps. Use istanbul ignore ONLY for truly untestable code (defensive type guards, platform-specific edge cases).
 ```
 
 **If 95-99% coverage**:

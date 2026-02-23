@@ -328,7 +328,7 @@ export default [
         setInterval: 'readonly',
         clearTimeout: 'readonly',
         clearInterval: 'readonly',
-        // Jest globals
+        // Vitest globals
         describe: 'readonly',
         test: 'readonly',
         it: 'readonly',
@@ -337,7 +337,7 @@ export default [
         afterEach: 'readonly',
         beforeAll: 'readonly',
         afterAll: 'readonly',
-        jest: 'readonly',
+        vi: 'readonly',
       },
       parser: tsParser,
       parserOptions: {
@@ -700,7 +700,7 @@ export default [
         setInterval: 'readonly',
         clearTimeout: 'readonly',
         clearInterval: 'readonly',
-        // Jest globals for test files
+        // Vitest globals for test files
         describe: 'readonly',
         test: 'readonly',
         it: 'readonly',
@@ -709,7 +709,7 @@ export default [
         afterEach: 'readonly',
         beforeAll: 'readonly',
         afterAll: 'readonly',
-        jest: 'readonly',
+        vi: 'readonly',
       },
     },
     rules: {

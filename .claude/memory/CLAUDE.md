@@ -21,7 +21,7 @@ The memory system is **Claude Code harness tooling** for cross-session continuit
 ### Testing
 
 - **100% test coverage required** for Ledger and Handoff
-- ArtifactIndex tests exist but are Jest-incompatible (native modules)
+- ArtifactIndex tests exist but are Vitest-incompatible (native modules)
 - Manual testing for ArtifactIndex:
   ```bash
   npm run build
@@ -47,10 +47,10 @@ Follow the same standards as application code:
 
 ```bash
 # Run memory system tests only
-npx jest .claude/memory
+npx vitest run .claude/memory
 
 # Run with watch mode
-npx jest .claude/memory --watch
+npx vitest .claude/memory
 
 # Full validation
 npm run check
@@ -117,7 +117,7 @@ npm run check
 1. Update FTS5 table creation
 2. Handle migration for existing databases
 3. Update `indexHandoff()` and `search()` methods
-4. Test with real data manually (Jest incompatible)
+4. Test with real data manually (Vitest incompatible)
 
 ## Remember
 

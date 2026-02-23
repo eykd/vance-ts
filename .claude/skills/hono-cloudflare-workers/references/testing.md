@@ -23,9 +23,9 @@ describe('GET /app/users/:id', () => {
   it('should return user from D1', async () => {
     const mockEnv = {
       DB: {
-        prepare: jest.fn().mockReturnValue({
-          bind: jest.fn().mockReturnValue({
-            first: jest.fn().mockResolvedValue({ id: '1', name: 'Alice' }),
+        prepare: vi.fn().mockReturnValue({
+          bind: vi.fn().mockReturnValue({
+            first: vi.fn().mockResolvedValue({ id: '1', name: 'Alice' }),
           }),
         }),
       },

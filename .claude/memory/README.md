@@ -96,7 +96,7 @@ results.forEach((result) => {
 index.close();
 ```
 
-**Manual Testing** (Jest has issues with native modules):
+**Manual Testing** (Vitest has issues with native modules):
 
 ```bash
 npm run build
@@ -173,7 +173,7 @@ The system includes four hooks that automate memory management:
 
 ## Testing
 
-Run tests (excluding artifact-index which has Jest/native module issues):
+Run tests (excluding artifact-index which has Vitest/native module issues):
 
 ```bash
 npm test -- --testPathIgnorePatterns=artifact-index.spec.ts
@@ -199,7 +199,7 @@ npm run type-check && npm run lint && npm test -- --testPathIgnorePatterns=artif
 - 100% test coverage for Ledger and Handoff
 - TypeScript strict mode with comprehensive JSDoc
 - Follows project's ESLint and Prettier standards
-- ArtifactIndex tested via manual Node.js execution (Jest incompatible with native modules)
+- ArtifactIndex tested via manual Node.js execution (Vitest incompatible with native modules)
 
 ## File Structure
 
