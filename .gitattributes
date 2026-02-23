@@ -1,3 +1,6 @@
 
 # Use bd merge for beads JSONL files
 .beads/issues.jsonl merge=beads
+
+# Protect wrangler.toml: downstream repos keep their own copy when merging upstream
+wrangler.toml merge=ours
