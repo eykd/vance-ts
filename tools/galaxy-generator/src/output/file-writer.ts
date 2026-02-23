@@ -2,8 +2,8 @@
  * Galaxy output file writer.
  *
  * Writes all pipeline output files to disk: metadata.json, costmap.png,
- * costmap.bin, routes.json, and individual system JSON files. Uses a
- * concurrency limiter (max 100) for system file writes to avoid EMFILE errors.
+ * costmap.bin, routes.json, galaxy-map.png, and individual system JSON files.
+ * Uses a concurrency limiter (max 100) for system file writes to avoid EMFILE errors.
  *
  * @module output/file-writer
  */
@@ -24,6 +24,8 @@ import type {
   RouteConfig,
   StarSystem,
 } from '../../../../src/domain/galaxy/types';
+
+import { encodeRgbaPng, renderSystemsMap } from './system-map-renderer';
 
 /** Maximum number of concurrent file writes to avoid EMFILE errors. */
 const MAX_CONCURRENCY = 100;
@@ -207,14 +209,15 @@ async function runWithConcurrency(
  * Writes all galaxy pipeline output files to disk.
  *
  * Cleans the output directory, creates required subdirectories, then writes
- * metadata.json, costmap.png, costmap.bin, routes.json, and individual
- * system JSON files. System files are written with a concurrency limiter
- * (max 100) to avoid EMFILE errors.
+ * metadata.json, costmap.png, costmap.bin, routes.json, galaxy-map.png,
+ * and individual system JSON files. System files are written with a
+ * concurrency limiter (max 100) to avoid EMFILE errors.
  *
  * @param input - complete galaxy output input
  */
 export async function writeGalaxyOutput(input: GalaxyOutputInput): Promise<void> {
-  const { outputDir, systems, routes, costmapData, costmapWidth, costmapHeight } = input;
+  const { outputDir, systems, routes, costmapData, costmapWidth, costmapHeight, costMapConfig } =
+    input;
 
   // Clean and recreate output directory
   await fs.rm(outputDir, { recursive: true, force: true });
@@ -225,6 +228,14 @@ export async function writeGalaxyOutput(input: GalaxyOutputInput): Promise<void>
   const metadataJson = JSON.stringify(buildMetadata(input), null, 2);
   const routesJson = JSON.stringify(serializeRoutes(routes), null, 2);
   const pngBuffer = encodeCostmapPng(costmapData, costmapWidth, costmapHeight);
+  const systemsMapData = renderSystemsMap(
+    systems,
+    costmapWidth,
+    costmapHeight,
+    costMapConfig.gridOriginX,
+    costMapConfig.gridOriginY
+  );
+  const galaxyMapPng = encodeRgbaPng(systemsMapData, costmapWidth, costmapHeight);
   const systemEntries = systems.map((system) => ({
     filePath: path.join(outputDir, 'systems', `${system.id}.json`),
     content: JSON.stringify(system, null, 2),
@@ -236,6 +247,7 @@ export async function writeGalaxyOutput(input: GalaxyOutputInput): Promise<void>
     fs.writeFile(path.join(outputDir, 'costmap.png'), pngBuffer),
     fs.writeFile(path.join(outputDir, 'costmap.bin'), costmapData),
     fs.writeFile(path.join(outputDir, 'routes.json'), routesJson),
+    fs.writeFile(path.join(outputDir, 'galaxy-map.png'), galaxyMapPng),
   ]);
 
   // Write system files with concurrency limiter

@@ -694,14 +694,41 @@ describe('writeGalaxyOutput', () => {
     });
   });
 
+  describe('galaxy-map.png', () => {
+    it('writes galaxy-map.png to output directory', async () => {
+      const input = makeInput();
+
+      await writeGalaxyOutput(input);
+
+      const mapCall = mockFs.writeFile.mock.calls.find(
+        (call) => call[0] === path.join('/tmp/galaxy-output', 'galaxy-map.png')
+      );
+      expect(mapCall).toBeDefined();
+    });
+
+    it('writes PNG-encoded content to galaxy-map.png', async () => {
+      const input = makeInput();
+
+      await writeGalaxyOutput(input);
+
+      const mapCall = mockFs.writeFile.mock.calls.find(
+        (call) => call[0] === path.join('/tmp/galaxy-output', 'galaxy-map.png')
+      );
+      const content = mapCall?.[1] as Uint8Array;
+      // The mocked encode returns [137, 80, 78, 71] — PNG magic bytes
+      expect(content[0]).toBe(137);
+      expect(content[1]).toBe(80);
+    });
+  });
+
   describe('uses async fs operations', () => {
     it('uses fs.promises.writeFile for all writes', async () => {
       const input = makeInput({ systems: [makeSystem(), makeSystem({ id: 'sys-002' })] });
 
       await writeGalaxyOutput(input);
 
-      // metadata.json + costmap.png + costmap.bin + routes.json + 2 systems = 6 writes
-      expect(mockFs.writeFile).toHaveBeenCalledTimes(6);
+      // metadata.json + costmap.png + costmap.bin + routes.json + galaxy-map.png + 2 systems = 7 writes
+      expect(mockFs.writeFile).toHaveBeenCalledTimes(7);
     });
   });
 });
