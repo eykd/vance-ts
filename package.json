@@ -70,7 +70,7 @@
   "devDependencies": {
     "@beads/bd": "^0.55.4",
     "@cloudflare/vitest-pool-workers": "^0.12.14",
-    "@cloudflare/workers-types": "^4.20260227.0",
+    "@cloudflare/workers-types": "^4.20260228.0",
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
     "@tktco/node-actionlint": "^1.6.0",
