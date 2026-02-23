@@ -26,6 +26,10 @@ function makeConfig(overrides: Partial<CostMapGeneratorConfig> = {}): CostMapGen
     wallNoiseOctaves: 3,
     caFillProbability: 0.45,
     caIterations: 4,
+    coreRadius: 0,
+    maxCorePenalty: 0,
+    galaxyCenterX: 0,
+    galaxyCenterY: 0,
     ...overrides,
   };
 }

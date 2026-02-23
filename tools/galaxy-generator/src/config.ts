@@ -86,14 +86,18 @@ export const DEFAULT_COST_MAP_GENERATOR_CONFIG: CostMapGeneratorConfig = {
   padding: 10,
   baseOpenCost: 1,
   openNoiseWeight: 2,
-  baseWallCost: 15,
-  wallNoiseWeight: 15,
+  baseWallCost: 10,
+  wallNoiseWeight: 10,
   baseNoiseFrequency: 0.03,
   baseNoiseOctaves: 4,
   wallNoiseFrequency: 0.05,
   wallNoiseOctaves: 3,
-  caFillProbability: 0.45,
+  caFillProbability: 0.38,
   caIterations: 5,
+  coreRadius: 150,
+  maxCorePenalty: 20,
+  galaxyCenterX: 0,
+  galaxyCenterY: 0,
 };
 
 /** Default Perlin noise configuration derived from cost map defaults. */
@@ -120,6 +124,7 @@ export const DEFAULT_OIKUMENE_CONFIG: OikumeneConfig = {
   coreExclusionRadius: 100,
   clusterRadius: 50,
   targetCount: 250,
+  radiateRadius: 150,
 };
 
 /** Default route computation parameters matching CLI contract. */
@@ -340,6 +345,25 @@ export function validateConfig(config: PipelineConfig): void {
   if (!Number.isInteger(oikumene.targetCount) || oikumene.targetCount <= 0) {
     throw new Error(
       `oikumene.targetCount must be a positive integer, got ${String(oikumene.targetCount)}`
+    );
+  }
+
+  if (oikumene.radiateRadius <= 0) {
+    throw new Error(
+      `oikumene.radiateRadius must be a positive number, got ${String(oikumene.radiateRadius)}`
+    );
+  }
+
+  // Cost map core penalty
+  if (costMap.coreRadius < 0) {
+    throw new Error(
+      `costMap.coreRadius must be a non-negative number, got ${String(costMap.coreRadius)}`
+    );
+  }
+
+  if (costMap.maxCorePenalty < 0) {
+    throw new Error(
+      `costMap.maxCorePenalty must be a non-negative number, got ${String(costMap.maxCorePenalty)}`
     );
   }
 

@@ -304,11 +304,13 @@ describe('OikumeneConfig', () => {
       coreExclusionRadius: 200,
       clusterRadius: 50,
       targetCount: 250,
+      radiateRadius: 150,
     };
 
     expect(config.coreExclusionRadius).toBe(200);
     expect(config.clusterRadius).toBe(50);
     expect(config.targetCount).toBe(250);
+    expect(config.radiateRadius).toBe(150);
   });
 });
 

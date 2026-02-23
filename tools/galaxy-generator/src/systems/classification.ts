@@ -2,9 +2,10 @@
  * Oikumene selection and Beyond classification.
  *
  * Selects approximately 250 Oikumene systems from outside the galactic core,
- * clustered along spiral arms, within connected open corridors of the cost map.
- * Classifies remaining systems as Uninhabited (~85%), Lost Colony (~5-8%),
- * or Hidden Enclave (~5-8%).
+ * clustered along a single spiral arm, within connected open corridors of the
+ * cost map. Classifies remaining systems as Uninhabited, Lost Colony, or Hidden
+ * Enclave; systems near the Oikumene arm have higher proportions of Lost Colonies
+ * and Hidden Enclaves than systems in distant regions.
  *
  * @module systems/classification
  */
@@ -42,14 +43,6 @@ export interface ClassificationResult {
  * a threshold of 0.25 means costs below 1 + 0.25*29 = 8.25 are open.
  */
 const OPEN_CORRIDOR_THRESHOLD_FRACTION = 0.25;
-
-/** Probability of a Beyond system being uninhabited. */
-const UNINHABITED_PROBABILITY = 0.85;
-
-/** Probability of a Beyond system being a lost colony (cumulative with uninhabited). */
-const LOST_COLONY_CUMULATIVE = 0.92;
-
-// Remaining probability (1 - 0.92 = 0.08) is hidden enclave.
 
 /**
  * Computes Euclidean distance from a point to a center.
@@ -97,6 +90,50 @@ export function isInOpenCorridor(x: number, y: number, costMap: CostMap): boolea
 }
 
 /**
+ * Computes a spiral arm proximity score for a point relative to one specific arm.
+ *
+ * Measures how closely the point's polar angle matches the expected angle of
+ * the named arm at that radius. Returns 1 when the point lies exactly on the
+ * arm and 0 when it is PI/arms or more away.
+ *
+ * @param x - point X coordinate
+ * @param y - point Y coordinate
+ * @param cx - galaxy center X
+ * @param cy - galaxy center Y
+ * @param armIndex - zero-based index of the arm to score against
+ * @param arms - total number of spiral arms
+ * @param deg - spiral extent in degrees
+ * @returns Score in [0, 1] where 1 is directly on the specified arm
+ */
+export function computeSpecificArmScore(
+  x: number,
+  y: number,
+  cx: number,
+  cy: number,
+  armIndex: number,
+  arms: number,
+  deg: number
+): number {
+  const dx = x - cx;
+  const dy = y - cy;
+  const radius = Math.sqrt(dx * dx + dy * dy);
+
+  if (radius === 0) {
+    return 0;
+  }
+
+  const pointAngle = Math.atan2(dy, dx);
+  const spiralWinding = (deg * radius) / 1000;
+  const armBaseAngle = (armIndex / arms) * 2 * Math.PI;
+  const armAngle = armBaseAngle + spiralWinding;
+  let diff = pointAngle - armAngle;
+  // Normalize to [-PI, PI]
+  diff = diff - Math.round(diff / (2 * Math.PI)) * 2 * Math.PI;
+  const maxDist = Math.PI / arms;
+  return Math.max(0, 1 - Math.abs(diff) / maxDist);
+}
+
+/**
  * Computes a spiral arm proximity score for a point.
  *
  * Uses the angular difference between the point's polar angle and the nearest
@@ -128,27 +165,16 @@ export function computeSpiralArmScore(
     return 0;
   }
 
-  const pointAngle = Math.atan2(dy, dx);
-  const spiralWinding = (deg * radius) / 1000;
-
-  let minAngularDist = Math.PI;
+  let maxScore = 0;
 
   for (let arm = 0; arm < arms; arm++) {
-    const armBaseAngle = (arm / arms) * 2 * Math.PI;
-    const armAngle = armBaseAngle + spiralWinding;
-    let diff = pointAngle - armAngle;
-    // Normalize to [-PI, PI]
-    diff = diff - Math.round(diff / (2 * Math.PI)) * 2 * Math.PI;
-    const absDiff = Math.abs(diff);
-    if (absDiff < minAngularDist) {
-      minAngularDist = absDiff;
+    const score = computeSpecificArmScore(x, y, cx, cy, arm, arms, deg);
+    if (score > maxScore) {
+      maxScore = score;
     }
   }
 
-  // Maximum angular distance between arms is PI / arms
-  const maxDist = Math.PI / arms;
-  const normalized = 1 - minAngularDist / maxDist;
-  return Math.max(0, normalized);
+  return maxScore;
 }
 
 /** Candidate system with its Oikumene suitability score. */
@@ -163,10 +189,12 @@ interface ScoredCandidate {
  * Classifies all star systems as Oikumene or Beyond subtypes.
  *
  * Algorithm:
- * 1. Filter candidates: outside core exclusion zone, in open corridor
- * 2. Score candidates by spiral arm proximity
- * 3. Select top-scoring candidates up to targetCount as Oikumene
- * 4. Classify remaining systems: ~85% uninhabited, ~7% lost colony, ~8% hidden enclave
+ * 1. Select a home arm via RNG for Oikumene concentration
+ * 2. Filter candidates: outside core exclusion zone, in open corridor
+ * 3. Score candidates by proximity to the home arm only
+ * 4. Select top-scoring candidates up to targetCount as Oikumene
+ * 5. Classify remaining systems: core zone → always Uninhabited; near Oikumene →
+ * boosted Lost Colony / Hidden Enclave; far → ~85% uninhabited, ~7% lost, ~8% enclave
  *
  * @param coordinates - array of star system positions
  * @param config - classification configuration
@@ -185,6 +213,9 @@ export function classifySystems(
   const { oikumene, galaxy, costMap } = config;
   const [cx, cy] = galaxy.center;
 
+  // Consume one RNG call to pick the home arm for Oikumene concentration
+  const homeArm = Math.floor(rng.random() * galaxy.arms);
+
   // Step 1: Identify Oikumene candidates
   const candidates: ScoredCandidate[] = [];
 
@@ -202,8 +233,16 @@ export function classifySystems(
       continue;
     }
 
-    // Score by spiral arm proximity
-    const armScore = computeSpiralArmScore(coord.x, coord.y, cx, cy, galaxy.arms, galaxy.deg);
+    // Score by home arm proximity only (concentrates Oikumene on one arm)
+    const armScore = computeSpecificArmScore(
+      coord.x,
+      coord.y,
+      cx,
+      cy,
+      homeArm,
+      galaxy.arms,
+      galaxy.deg
+    );
 
     candidates.push({ index: i, score: armScore });
   }
@@ -218,45 +257,90 @@ export function classifySystems(
     oikumeneSet.add((candidates[i] as ScoredCandidate).index);
   }
 
+  // Collect Oikumene coordinates for distance-biased Beyond classification
+  const oikumeneCoords: Coordinate[] = [];
+  for (let i = 0; i < oikumeneCount; i++) {
+    oikumeneCoords.push(coordinates[(candidates[i] as ScoredCandidate).index] as Coordinate);
+  }
+
   // Step 3: Build results for all systems
   const results: ClassificationResult[] = [];
 
   for (let i = 0; i < coordinates.length; i++) {
+    const coord = coordinates[i] as Coordinate;
+
     if (oikumeneSet.has(i)) {
       results.push({
         index: i,
         classification: Classification.OIKUMENE,
         isOikumene: true,
       });
-    } else {
-      const classification = classifyBeyondSystem(rng);
+      continue;
+    }
+
+    const dist = distanceFromCenter(coord.x, coord.y, cx, cy);
+
+    // Systems inside the core exclusion zone are always Uninhabited
+    if (dist < oikumene.coreExclusionRadius) {
       results.push({
         index: i,
-        classification,
+        classification: Classification.UNINHABITED,
         isOikumene: false,
       });
+      continue;
     }
+
+    // Distance to nearest Oikumene for proximity-biased Beyond classification
+    let distToNearestOikumene = Infinity;
+    for (const oCoord of oikumeneCoords) {
+      const d = distanceFromCenter(coord.x, coord.y, oCoord.x, oCoord.y);
+      if (d < distToNearestOikumene) {
+        distToNearestOikumene = d;
+      }
+    }
+
+    const classification = classifyBeyondSystem(rng, distToNearestOikumene, oikumene.radiateRadius);
+    results.push({
+      index: i,
+      classification,
+      isOikumene: false,
+    });
   }
 
   return results;
 }
 
 /**
- * Rolls a Beyond system classification using the PRNG.
+ * Rolls a Beyond system classification using the PRNG with distance-biased probabilities.
  *
- * Probabilities: ~85% uninhabited, ~7% lost colony, ~8% hidden enclave.
+ * Far from Oikumene (nearFraction ≈ 0): ~85% uninhabited, ~7% lost colony, ~8% hidden enclave.
+ * Near Oikumene (nearFraction ≈ 1): ~50% uninhabited, ~30% lost colony, ~20% hidden enclave.
  *
  * @param rng - seeded PRNG instance
+ * @param distToOikumene - distance to the nearest Oikumene system
+ * @param radiateRadius - decay radius; systems within this distance get maximum boost
  * @returns Beyond classification type
  */
-function classifyBeyondSystem(rng: Prng): Classification {
+function classifyBeyondSystem(
+  rng: Prng,
+  distToOikumene: number,
+  radiateRadius: number
+): Classification {
+  const rawFraction = 1 - distToOikumene / radiateRadius;
+  const nearFraction = rawFraction > 1 ? 1 : rawFraction < 0 ? 0 : rawFraction;
+
+  // Linear interpolation: lerp(far, near, nearFraction)
+  const uninhabitedProb = 0.85 + nearFraction * (0.5 - 0.85);
+  const lostColonyAddition = 0.07 + nearFraction * (0.3 - 0.07);
+  const lostColonyBound = uninhabitedProb + lostColonyAddition;
+
   const roll = rng.random();
 
-  if (roll < UNINHABITED_PROBABILITY) {
+  if (roll < uninhabitedProb) {
     return Classification.UNINHABITED;
   }
 
-  if (roll < LOST_COLONY_CUMULATIVE) {
+  if (roll < lostColonyBound) {
     return Classification.LOST_COLONY;
   }
 

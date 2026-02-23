@@ -83,12 +83,12 @@ describe('DEFAULT_COST_MAP_GENERATOR_CONFIG', () => {
     expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.openNoiseWeight).toBe(2);
   });
 
-  it('has baseWallCost 15', () => {
-    expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.baseWallCost).toBe(15);
+  it('has baseWallCost 10', () => {
+    expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.baseWallCost).toBe(10);
   });
 
-  it('has wallNoiseWeight 15', () => {
-    expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.wallNoiseWeight).toBe(15);
+  it('has wallNoiseWeight 10', () => {
+    expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.wallNoiseWeight).toBe(10);
   });
 
   it('has baseNoiseFrequency 0.03', () => {
@@ -107,12 +107,28 @@ describe('DEFAULT_COST_MAP_GENERATOR_CONFIG', () => {
     expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.wallNoiseOctaves).toBe(3);
   });
 
-  it('has caFillProbability 0.45', () => {
-    expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.caFillProbability).toBe(0.45);
+  it('has caFillProbability 0.38', () => {
+    expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.caFillProbability).toBe(0.38);
   });
 
   it('has caIterations 5', () => {
     expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.caIterations).toBe(5);
+  });
+
+  it('has coreRadius 150', () => {
+    expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.coreRadius).toBe(150);
+  });
+
+  it('has maxCorePenalty 20', () => {
+    expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.maxCorePenalty).toBe(20);
+  });
+
+  it('has galaxyCenterX 0', () => {
+    expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.galaxyCenterX).toBe(0);
+  });
+
+  it('has galaxyCenterY 0', () => {
+    expect(DEFAULT_COST_MAP_GENERATOR_CONFIG.galaxyCenterY).toBe(0);
   });
 });
 
@@ -135,8 +151,8 @@ describe('DEFAULT_PERLIN_CONFIG', () => {
 });
 
 describe('DEFAULT_CA_CONFIG', () => {
-  it('has fillProbability 0.45', () => {
-    expect(DEFAULT_CA_CONFIG.fillProbability).toBe(0.45);
+  it('has fillProbability 0.38', () => {
+    expect(DEFAULT_CA_CONFIG.fillProbability).toBe(0.38);
   });
 
   it('has iterations 5', () => {
@@ -159,6 +175,10 @@ describe('DEFAULT_OIKUMENE_CONFIG', () => {
 
   it('has targetCount 250', () => {
     expect(DEFAULT_OIKUMENE_CONFIG.targetCount).toBe(250);
+  });
+
+  it('has radiateRadius 150', () => {
+    expect(DEFAULT_OIKUMENE_CONFIG.radiateRadius).toBe(150);
   });
 });
 
@@ -513,6 +533,50 @@ describe('validateConfig', () => {
     );
   });
 
+  it('rejects non-positive oikumene.radiateRadius', () => {
+    const config = resolveConfig(makeCliArgs(), { oikumene: { radiateRadius: 0 } });
+
+    expect(() => validateConfig(config)).toThrow(
+      'oikumene.radiateRadius must be a positive number, got 0'
+    );
+  });
+
+  it('rejects negative oikumene.radiateRadius', () => {
+    const config = resolveConfig(makeCliArgs(), { oikumene: { radiateRadius: -10 } });
+
+    expect(() => validateConfig(config)).toThrow(
+      'oikumene.radiateRadius must be a positive number, got -10'
+    );
+  });
+
+  it('rejects negative costMap.coreRadius', () => {
+    const config = resolveConfig(makeCliArgs(), { costMap: { coreRadius: -1 } });
+
+    expect(() => validateConfig(config)).toThrow(
+      'costMap.coreRadius must be a non-negative number, got -1'
+    );
+  });
+
+  it('accepts zero costMap.coreRadius', () => {
+    const config = resolveConfig(makeCliArgs(), { costMap: { coreRadius: 0 } });
+
+    expect(() => validateConfig(config)).not.toThrow();
+  });
+
+  it('rejects negative costMap.maxCorePenalty', () => {
+    const config = resolveConfig(makeCliArgs(), { costMap: { maxCorePenalty: -5 } });
+
+    expect(() => validateConfig(config)).toThrow(
+      'costMap.maxCorePenalty must be a non-negative number, got -5'
+    );
+  });
+
+  it('accepts zero costMap.maxCorePenalty', () => {
+    const config = resolveConfig(makeCliArgs(), { costMap: { maxCorePenalty: 0 } });
+
+    expect(() => validateConfig(config)).not.toThrow();
+  });
+
   it('rejects non-positive route.maxRange', () => {
     const config = resolveConfig(makeCliArgs(), { route: { maxRange: 0 } });
 
@@ -672,7 +736,7 @@ describe('resolveConfig', () => {
 
     expect(config.costMap.padding).toBe(20);
     expect(config.costMap.baseOpenCost).toBe(2);
-    expect(config.costMap.baseWallCost).toBe(15); // default preserved
+    expect(config.costMap.baseWallCost).toBe(10); // default preserved
   });
 
   it('deep-merges oikumene config', () => {

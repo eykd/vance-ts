@@ -29,6 +29,14 @@ export interface CostComposerConfig {
   readonly gridOriginX: number;
   /** Grid origin Y in world coordinates. */
   readonly gridOriginY: number;
+  /** Galaxy center X in world coordinates (for radial core penalty). */
+  readonly galaxyCenterX: number;
+  /** Galaxy center Y in world coordinates (for radial core penalty). */
+  readonly galaxyCenterY: number;
+  /** World-coordinate radius of elevated galactic core cost region. */
+  readonly coreRadius: number;
+  /** Additional traversal cost at the exact galactic center (quadratic decay to 0 at coreRadius). */
+  readonly maxCorePenalty: number;
 }
 
 /** Composed cost map with quantized uint8 data and decode metadata. */
@@ -65,7 +73,20 @@ export function composeCostMap(
   caGrid: Uint8Array,
   wallNoise: Float64Array
 ): CostMap {
-  const { width, height, baseOpenCost, openNoiseWeight, baseWallCost, wallNoiseWeight } = config;
+  const {
+    width,
+    height,
+    baseOpenCost,
+    openNoiseWeight,
+    baseWallCost,
+    wallNoiseWeight,
+    gridOriginX,
+    gridOriginY,
+    galaxyCenterX,
+    galaxyCenterY,
+    coreRadius,
+    maxCorePenalty,
+  } = config;
   const size = width * height;
   const floatCosts = new Float64Array(size);
 
@@ -80,6 +101,18 @@ export function composeCostMap(
         floatCosts[idx] = baseWallCost + wallNoiseWeight * wallNoise[idx]!;
       } else {
         floatCosts[idx] = baseOpenCost + openNoiseWeight * baseNoise[idx]!;
+      }
+
+      // Radial core penalty: quadratic decay from center outward
+      if (coreRadius > 0) {
+        const worldX = x + gridOriginX;
+        const worldY = y + gridOriginY;
+        const dx = worldX - galaxyCenterX;
+        const dy = worldY - galaxyCenterY;
+        const distToCenter = Math.sqrt(dx * dx + dy * dy);
+        const rawDecay = 1 - distToCenter / coreRadius;
+        const coreDecay = rawDecay > 0 ? rawDecay : 0;
+        floatCosts[idx] += maxCorePenalty * coreDecay * coreDecay;
       }
     }
   }

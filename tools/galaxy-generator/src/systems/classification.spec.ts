@@ -9,6 +9,7 @@ import {
   isInOpenCorridor,
   distanceFromCenter,
   computeSpiralArmScore,
+  computeSpecificArmScore,
   type ClassificationConfig,
   type ClassificationResult,
 } from './classification';
@@ -46,6 +47,7 @@ function makeOikumeneConfig(overrides: Partial<OikumeneConfig> = {}): OikumeneCo
     coreExclusionRadius: 50,
     clusterRadius: 30,
     targetCount: 250,
+    radiateRadius: 50,
     ...overrides,
   };
 }
@@ -218,6 +220,58 @@ describe('isInOpenCorridor', () => {
   });
 });
 
+describe('computeSpecificArmScore', () => {
+  it('returns high score for point exactly on the specified arm', () => {
+    // At radius=100, deg=5, spiralWinding = 0.5 rad. Arm 0 is at angle 0.5.
+    const armAngle = 0.5;
+    const x = 100 * Math.cos(armAngle);
+    const y = 100 * Math.sin(armAngle);
+    const score = computeSpecificArmScore(x, y, 0, 0, 0, 4, 5);
+    expect(score).toBeGreaterThan(0.9);
+  });
+
+  it('returns 0 for point more than PI/arms away from the specified arm', () => {
+    // Arm 0 at angle 0.5 (radius=100, deg=5). Place point at arm 2 angle (PI + 0.5).
+    const arm0Angle = 0.5;
+    const arm2Angle = arm0Angle + Math.PI; // directly opposite
+    const x = 100 * Math.cos(arm2Angle);
+    const y = 100 * Math.sin(arm2Angle);
+    const score = computeSpecificArmScore(x, y, 0, 0, 0, 4, 5);
+    expect(score).toBe(0);
+  });
+
+  it('returns 0 for point at galaxy center', () => {
+    expect(computeSpecificArmScore(0, 0, 0, 0, 0, 4, 5)).toBe(0);
+  });
+
+  it('returns different scores for different arm indices', () => {
+    // A point on arm 0's path should score high for armIndex=0 but low for armIndex=1
+    const armAngle = 0.5;
+    const x = 100 * Math.cos(armAngle);
+    const y = 100 * Math.sin(armAngle);
+    const scoreArm0 = computeSpecificArmScore(x, y, 0, 0, 0, 4, 5);
+    const scoreArm1 = computeSpecificArmScore(x, y, 0, 0, 1, 4, 5);
+    expect(scoreArm0).toBeGreaterThan(scoreArm1);
+  });
+
+  it('handles non-zero center', () => {
+    const score1 = computeSpecificArmScore(100, 0, 0, 0, 0, 4, 5);
+    const score2 = computeSpecificArmScore(110, 10, 10, 10, 0, 4, 5);
+    expect(score1).toBeCloseTo(score2, 5);
+  });
+
+  it('returns value in [0, 1] range', () => {
+    for (let i = 0; i < 20; i++) {
+      const angle = (i / 20) * 2 * Math.PI;
+      const x = 100 * Math.cos(angle);
+      const y = 100 * Math.sin(angle);
+      const score = computeSpecificArmScore(x, y, 0, 0, 0, 4, 5);
+      expect(score).toBeGreaterThanOrEqual(0);
+      expect(score).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
 describe('computeSpiralArmScore', () => {
   it('returns high score for point on a spiral arm', () => {
     // At radius=100, deg=5, spiralWinding = 0.5 rad. Arm 0 is at angle 0.5.
@@ -252,6 +306,23 @@ describe('computeSpiralArmScore', () => {
     const score2 = computeSpiralArmScore(110, 10, 10, 10, 4, 5);
     expect(score1).toBeCloseTo(score2, 5);
   });
+
+  it('equals max of computeSpecificArmScore across all arms', () => {
+    const arms = 4;
+    const deg = 5;
+    const x = 80;
+    const y = 60;
+
+    const spiralScore = computeSpiralArmScore(x, y, 0, 0, arms, deg);
+
+    let maxSpecific = 0;
+    for (let arm = 0; arm < arms; arm++) {
+      const s = computeSpecificArmScore(x, y, 0, 0, arm, arms, deg);
+      if (s > maxSpecific) maxSpecific = s;
+    }
+
+    expect(spiralScore).toBeCloseTo(maxSpecific, 10);
+  });
 });
 
 describe('classifySystems', () => {
@@ -284,7 +355,7 @@ describe('classifySystems', () => {
     ];
     const rng = new Mulberry32(42);
     const config = makeClassificationConfig({
-      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 1 },
+      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 1, radiateRadius: 50 },
     });
     const result = classifySystems(coords, config, rng);
 
@@ -302,7 +373,7 @@ describe('classifySystems', () => {
     const rng = new Mulberry32(42);
     const wallMap = makeWallCostMap(200, 200, -100, -100);
     const config = makeClassificationConfig({
-      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 2 },
+      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 2, radiateRadius: 50 },
       costMap: wallMap,
     });
     const result = classifySystems(coords, config, rng);
@@ -318,7 +389,7 @@ describe('classifySystems', () => {
     const rng = new Mulberry32(42);
     const openMap = makeOpenCostMap(600, 600, -300, -300);
     const config = makeClassificationConfig({
-      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 250 },
+      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 250, radiateRadius: 50 },
       costMap: openMap,
     });
     const result = classifySystems(coords, config, rng);
@@ -333,7 +404,7 @@ describe('classifySystems', () => {
     const rng = new Mulberry32(42);
     const openMap = makeOpenCostMap(600, 600, -300, -300);
     const config = makeClassificationConfig({
-      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 100 },
+      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 100, radiateRadius: 50 },
       costMap: openMap,
     });
     const result = classifySystems(coords, config, rng);
@@ -350,7 +421,7 @@ describe('classifySystems', () => {
     const coords = generateSpiralSystems(300, 0, 0, 60, 4);
     const rng = new Mulberry32(42);
     const config = makeClassificationConfig({
-      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 50 },
+      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 50, radiateRadius: 50 },
     });
     const result = classifySystems(coords, config, rng);
 
@@ -367,7 +438,7 @@ describe('classifySystems', () => {
     const coords = generateSpiralSystems(100, 0, 0, 60, 4);
     const rng = new Mulberry32(42);
     const config = makeClassificationConfig({
-      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 20 },
+      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 20, radiateRadius: 50 },
     });
     const result = classifySystems(coords, config, rng);
 
@@ -377,13 +448,14 @@ describe('classifySystems', () => {
     }
   });
 
-  it('classifies Beyond systems with correct proportions', () => {
+  it('classifies Beyond systems with correct proportions when far from Oikumene', () => {
     // Use a large sample for statistical significance
     const coords = generateSpiralSystems(2000, 0, 0, 60, 4);
     const rng = new Mulberry32(12345);
     const openMap = makeOpenCostMap(1000, 1000, -500, -500);
+    // Small radiateRadius so most Beyond systems are far from Oikumene (~85% uninhabited)
     const config = makeClassificationConfig({
-      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 100 },
+      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 100, radiateRadius: 10 },
       costMap: openMap,
     });
     const result = classifySystems(coords, config, rng);
@@ -400,7 +472,7 @@ describe('classifySystems', () => {
     const lostColonyPct = (lostColonies.length / total) * 100;
     const hiddenEnclavePct = (hiddenEnclaves.length / total) * 100;
 
-    // ~85% uninhabited (allow 75-95% for statistical variation)
+    // With small radiateRadius most systems are far → ~85% uninhabited
     expect(uninhabitedPct).toBeGreaterThanOrEqual(75);
     expect(uninhabitedPct).toBeLessThanOrEqual(95);
 
@@ -411,6 +483,104 @@ describe('classifySystems', () => {
     // ~5-8% hidden enclaves (allow 2-15%)
     expect(hiddenEnclavePct).toBeGreaterThanOrEqual(2);
     expect(hiddenEnclavePct).toBeLessThanOrEqual(15);
+  });
+
+  it('Beyond systems near Oikumene have more lost colonies/hidden enclaves', () => {
+    // Create a simple setup: one Oikumene system at (200, 0),
+    // Beyond systems at varying distances from it
+    const coords: Coordinate[] = [
+      { x: 200, y: 0 }, // will be Oikumene (only candidate)
+      { x: 210, y: 0 }, // 10 units from Oikumene (very near)
+      { x: 211, y: 0 }, // 11 units
+      { x: 212, y: 0 }, // 12 units
+      { x: 213, y: 0 }, // 13 units
+      { x: 214, y: 0 }, // 14 units
+      { x: 215, y: 0 }, // 15 units
+      { x: 216, y: 0 }, // 16 units
+      { x: 217, y: 0 }, // 17 units
+      { x: 218, y: 0 }, // 18 units
+      { x: 219, y: 0 }, // 19 units
+      { x: 600, y: 0 }, // 400 units away (very far)
+      { x: 601, y: 0 }, // far
+      { x: 602, y: 0 }, // far
+      { x: 603, y: 0 }, // far
+      { x: 604, y: 0 }, // far
+      { x: 605, y: 0 }, // far
+      { x: 606, y: 0 }, // far
+      { x: 607, y: 0 }, // far
+      { x: 608, y: 0 }, // far
+      { x: 609, y: 0 }, // far
+    ];
+    const openMap = makeOpenCostMap(1200, 200, -100, -100);
+
+    // Run many times to get statistical significance
+    let nearCivilized = 0;
+    let farCivilized = 0;
+    const runs = 1000;
+
+    for (let seed = 0; seed < runs; seed++) {
+      const rng = new Mulberry32(seed);
+      const config = makeClassificationConfig({
+        oikumene: {
+          coreExclusionRadius: 50,
+          clusterRadius: 30,
+          targetCount: 1,
+          radiateRadius: 30,
+        },
+        costMap: openMap,
+        galaxy: makeGalaxyConfig({ center: [0, 0] }),
+      });
+      const result = classifySystems(coords, config, rng);
+
+      // Indices 1-10 are "near" (10-19 units from Oikumene at x=200)
+      const nearBeyond = result.slice(1, 11).filter((r) => !r.isOikumene);
+      // Indices 11-20 are "far" (400+ units from Oikumene)
+      const farBeyond = result.slice(11, 21).filter((r) => !r.isOikumene);
+
+      nearCivilized += nearBeyond.filter(
+        (r) =>
+          r.classification === Classification.LOST_COLONY ||
+          r.classification === Classification.HIDDEN_ENCLAVE
+      ).length;
+
+      farCivilized += farBeyond.filter(
+        (r) =>
+          r.classification === Classification.LOST_COLONY ||
+          r.classification === Classification.HIDDEN_ENCLAVE
+      ).length;
+    }
+
+    // Near Oikumene should have significantly more civilized Beyond systems
+    expect(nearCivilized).toBeGreaterThan(farCivilized);
+  });
+
+  it('Beyond systems inside core exclusion zone are always Uninhabited', () => {
+    const coords: Coordinate[] = [
+      { x: 10, y: 0 }, // inside core (dist=10 < coreExclusionRadius=50)
+      { x: 0, y: 20 }, // inside core
+      { x: -30, y: 0 }, // inside core
+      { x: 200, y: 0 }, // outside core
+    ];
+    const rng = new Mulberry32(42);
+    const openMap = makeOpenCostMap(600, 600, -300, -300);
+    const config = makeClassificationConfig({
+      oikumene: {
+        coreExclusionRadius: 50,
+        clusterRadius: 30,
+        targetCount: 1,
+        radiateRadius: 50,
+      },
+      costMap: openMap,
+    });
+    const result = classifySystems(coords, config, rng);
+
+    // Core systems must be UNINHABITED
+    expect(result[0]?.classification).toBe(Classification.UNINHABITED);
+    expect(result[0]?.isOikumene).toBe(false);
+    expect(result[1]?.classification).toBe(Classification.UNINHABITED);
+    expect(result[1]?.isOikumene).toBe(false);
+    expect(result[2]?.classification).toBe(Classification.UNINHABITED);
+    expect(result[2]?.isOikumene).toBe(false);
   });
 
   it('is deterministic with the same seed', () => {
@@ -466,7 +636,12 @@ describe('classifySystems', () => {
     ];
     const rng = new Mulberry32(42);
     const config = makeClassificationConfig({
-      oikumene: { coreExclusionRadius: 100, clusterRadius: 30, targetCount: 250 },
+      oikumene: {
+        coreExclusionRadius: 100,
+        clusterRadius: 30,
+        targetCount: 250,
+        radiateRadius: 50,
+      },
     });
     const result = classifySystems(coords, config, rng);
 
@@ -485,7 +660,12 @@ describe('classifySystems', () => {
     const coords = generateSpiralSystems(10, 0, 0, 60, 4);
     const rng = new Mulberry32(42);
     const config = makeClassificationConfig({
-      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 250 },
+      oikumene: {
+        coreExclusionRadius: 50,
+        clusterRadius: 30,
+        targetCount: 250,
+        radiateRadius: 50,
+      },
     });
     const result = classifySystems(coords, config, rng);
 
@@ -500,7 +680,7 @@ describe('classifySystems', () => {
     const rng = new Mulberry32(42);
     const openMap = makeOpenCostMap(600, 600, -300, -300);
     const config = makeClassificationConfig({
-      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 100 },
+      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 100, radiateRadius: 50 },
       costMap: openMap,
     });
     const result = classifySystems(coords, config, rng);
@@ -549,7 +729,7 @@ describe('classifySystems', () => {
     const openMap = makeOpenCostMap(500, 500, 300, 300);
     const config = makeClassificationConfig({
       galaxy: makeGalaxyConfig({ center: [500, 500] }),
-      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 1 },
+      oikumene: { coreExclusionRadius: 50, clusterRadius: 30, targetCount: 1, radiateRadius: 50 },
       costMap: openMap,
     });
     const result = classifySystems(coords, config, rng);
@@ -559,5 +739,44 @@ describe('classifySystems', () => {
     expect(result[1]?.isOikumene).toBe(false);
     // Third is outside core (dist=200 from center)
     expect(result[2]?.isOikumene).toBe(true);
+  });
+
+  it('Oikumene are concentrated on one arm (single-arm behavior)', () => {
+    // Generate many systems on all 4 arms, with a large open cost map
+    const coords = generateSpiralSystems(800, 0, 0, 60, 4);
+    const openMap = makeOpenCostMap(800, 800, -400, -400);
+
+    // Run with 10 different seeds, each should produce Oikumene on primarily one arm
+    let singleArmCount = 0;
+    for (let seed = 0; seed < 10; seed++) {
+      const rng = new Mulberry32(seed * 17 + 1);
+      const config = makeClassificationConfig({
+        oikumene: {
+          coreExclusionRadius: 50,
+          clusterRadius: 30,
+          targetCount: 200,
+          radiateRadius: 50,
+        },
+        costMap: openMap,
+      });
+      const result = classifySystems(coords, config, rng);
+
+      // Group Oikumene by which arm they were generated from
+      // (arm = index % 4 in generateSpiralSystems)
+      const armCounts = [0, 0, 0, 0];
+      for (const r of result) {
+        if (r.isOikumene) {
+          armCounts[r.index % 4] = (armCounts[r.index % 4] as number) + 1;
+        }
+      }
+      // The dominant arm should have significantly more Oikumene than others
+      const max = Math.max(...armCounts);
+      const total = armCounts.reduce((a, b) => a + b, 0);
+      if (total > 0 && max / total > 0.5) {
+        singleArmCount++;
+      }
+    }
+    // Most seeds should produce a clear dominant arm
+    expect(singleArmCount).toBeGreaterThanOrEqual(7);
   });
 });

@@ -42,6 +42,14 @@ export interface CostMapGeneratorConfig {
   readonly caFillProbability: number;
   /** Cellular automata iteration count. */
   readonly caIterations: number;
+  /** World-coordinate radius of elevated galactic core cost region. */
+  readonly coreRadius: number;
+  /** Additional traversal cost at the exact galactic center (quadratic decay to 0 at coreRadius). */
+  readonly maxCorePenalty: number;
+  /** Galaxy center X in world coordinates (for radial core penalty). */
+  readonly galaxyCenterX: number;
+  /** Galaxy center Y in world coordinates (for radial core penalty). */
+  readonly galaxyCenterY: number;
 }
 
 /** Computed grid bounds from star coordinates. */
@@ -158,6 +166,10 @@ export function generateCostMap(
       wallNoiseWeight: config.wallNoiseWeight,
       gridOriginX: bounds.gridOriginX,
       gridOriginY: bounds.gridOriginY,
+      galaxyCenterX: config.galaxyCenterX,
+      galaxyCenterY: config.galaxyCenterY,
+      coreRadius: config.coreRadius,
+      maxCorePenalty: config.maxCorePenalty,
     },
     baseNoise,
     caGrid,

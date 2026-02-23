@@ -20,6 +20,10 @@ function makeConfig(overrides: Partial<CostComposerConfig> = {}): CostComposerCo
     wallNoiseWeight: 20,
     gridOriginX: 0,
     gridOriginY: 0,
+    galaxyCenterX: 0,
+    galaxyCenterY: 0,
+    coreRadius: 0,
+    maxCorePenalty: 0,
     ...overrides,
   };
 }
@@ -395,6 +399,122 @@ describe('composeCostMap', () => {
     const idx = 2 * width + 2;
     const actualCost = decodeCost(result.data[idx]!, result.quantization);
     expect(actualCost).toBeCloseTo(30.0, 0);
+  });
+
+  it('zero coreRadius means no radial penalty (costs unchanged)', () => {
+    const width = 10;
+    const height = 10;
+    const configNoPenalty = makeConfig({ width, height, coreRadius: 0, maxCorePenalty: 20 });
+    const configWithPenalty = makeConfig({ width, height, coreRadius: 100, maxCorePenalty: 20 });
+    const { baseNoise, wallNoise, caGrid } = makeInputs(width, height);
+
+    const resultNoPenalty = composeCostMap(configNoPenalty, baseNoise, caGrid, wallNoise);
+    const resultWithPenalty = composeCostMap(configWithPenalty, baseNoise, caGrid, wallNoise);
+
+    // With coreRadius=0 there is no penalty, so raw costs differ from those with coreRadius=100
+    let hasDifference = false;
+    for (let i = 0; i < resultNoPenalty.data.length; i++) {
+      if (resultNoPenalty.data[i] !== resultWithPenalty.data[i]) {
+        hasDifference = true;
+        break;
+      }
+    }
+    expect(hasDifference).toBe(true);
+  });
+
+  it('zero maxCorePenalty means no radial penalty', () => {
+    const width = 10;
+    const height = 10;
+    const configNoPenalty = makeConfig({ width, height, coreRadius: 100, maxCorePenalty: 0 });
+    const configWithPenalty = makeConfig({ width, height, coreRadius: 100, maxCorePenalty: 20 });
+    const { baseNoise, wallNoise, caGrid } = makeInputs(width, height);
+
+    const resultNoPenalty = composeCostMap(configNoPenalty, baseNoise, caGrid, wallNoise);
+    const resultWithPenalty = composeCostMap(configWithPenalty, baseNoise, caGrid, wallNoise);
+
+    let hasDifference = false;
+    for (let i = 0; i < resultNoPenalty.data.length; i++) {
+      if (resultNoPenalty.data[i] !== resultWithPenalty.data[i]) {
+        hasDifference = true;
+        break;
+      }
+    }
+    expect(hasDifference).toBe(true);
+  });
+
+  it('cells near galaxy center have higher costs than cells far away', () => {
+    // Use a large grid so some cells are near center and some are far
+    const width = 100;
+    const height = 100;
+    // Galaxy center at world (50, 50), coreRadius 30
+    const config = makeConfig({
+      width,
+      height,
+      gridOriginX: 0,
+      gridOriginY: 0,
+      galaxyCenterX: 50,
+      galaxyCenterY: 50,
+      coreRadius: 30,
+      maxCorePenalty: 20,
+      baseOpenCost: 1,
+      openNoiseWeight: 0, // fixed costs for determinism
+      baseWallCost: 10,
+      wallNoiseWeight: 0,
+    });
+    // All open cells (no walls, fixed noise = 0)
+    const caGrid = new Uint8Array(width * height); // all open
+    const baseNoise = new Float64Array(width * height).fill(0.0);
+    const wallNoise = new Float64Array(width * height).fill(0.0);
+
+    const result = composeCostMap(config, baseNoise, caGrid, wallNoise);
+
+    // Center cell (50,50) — boundary is 0/99, center is interior
+    const centerIdx = 50 * width + 50;
+    const centerCost = decodeCost(result.data[centerIdx]!, result.quantization);
+
+    // Far cell (1,1) — interior, far from center (dist ≈ 69 > coreRadius 30)
+    const farIdx = 1 * width + 1;
+    const farCost = decodeCost(result.data[farIdx]!, result.quantization);
+
+    // Center should have higher cost due to radial penalty
+    expect(centerCost).toBeGreaterThan(farCost);
+  });
+
+  it('radial penalty is quadratic: cost at half-coreRadius is 25% of max penalty', () => {
+    // At half the coreRadius: decay = 1 - 0.5 = 0.5, penalty = maxCorePenalty * 0.5^2 = 0.25*max
+    // Use a large grid so corners are outside coreRadius (no penalty there) → clean quantization
+    const width = 100;
+    const height = 100;
+    // Galaxy center at world (50, 50), coreRadius = 50
+    // Interior corners at ~(1,1): dist = sqrt(49^2+49^2) ≈ 69 > 50 → no penalty → min cost = 1
+    // Center interior (50,50): penalty = 20 → max cost = 21
+    const config = makeConfig({
+      width,
+      height,
+      gridOriginX: 0,
+      gridOriginY: 0,
+      galaxyCenterX: 50,
+      galaxyCenterY: 50,
+      coreRadius: 50,
+      maxCorePenalty: 20,
+      baseOpenCost: 1,
+      openNoiseWeight: 0,
+      baseWallCost: 10,
+      wallNoiseWeight: 0,
+    });
+    const caGrid = new Uint8Array(width * height); // all open (interior cells)
+    const baseNoise = new Float64Array(width * height).fill(0.0);
+    const wallNoise = new Float64Array(width * height).fill(0.0);
+
+    const result = composeCostMap(config, baseNoise, caGrid, wallNoise);
+
+    // Cell at (50, 25): y=25 is interior, distance = 25 from center (50,50)
+    // penalty = 20 * (1 - 25/50)^2 = 20 * 0.25 = 5; cost = 1 + 5 = 6
+    const halfRadiusIdx = 25 * width + 50;
+    const halfRadiusCost = decodeCost(result.data[halfRadiusIdx]!, result.quantization);
+
+    // Expected cost = 1 (baseOpen) + 5 (penalty at half radius) = 6
+    expect(halfRadiusCost).toBeCloseTo(6.0, 0);
   });
 });
 

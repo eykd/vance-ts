@@ -148,6 +148,8 @@ export interface OikumeneConfig {
   readonly coreExclusionRadius: number;
   readonly clusterRadius: number;
   readonly targetCount: number;
+  /** Coordinate units; Beyond civilization boost decay half-life from nearest Oikumene. */
+  readonly radiateRadius: number;
 }
 
 /** Route computation parameters. */
