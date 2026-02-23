@@ -1,6 +1,6 @@
 ---
 name: typescript-unit-testing
-description: 'Use when: (1) writing new unit tests for TypeScript, (2) reviewing existing tests, (3) implementing TDD workflows, (4) creating mocks/test doubles, (5) debugging test failures, (6) questions about test design. Supports Vitest and Jest.'
+description: 'Use when: (1) writing new unit tests for TypeScript, (2) reviewing existing tests, (3) implementing TDD workflows, (4) creating mocks/test doubles, (5) debugging test failures, (6) questions about test design. Supports Vitest.'
 ---
 
 # TypeScript Unit Testing with GOOS & TDD
@@ -81,7 +81,7 @@ This project REQUIRES 100% test coverage. Not 95%. Not 99%. **100%**.
 
 ### Why 100%?
 
-- **Enforced by jest.config.js**: Coverage thresholds are set to 100 for branches, functions, lines, statements
+- **Enforced by vitest.config.ts**: Coverage thresholds are set to 100 for branches, functions, lines, statements
 - **Aligns with project philosophy**: Zero-warning policy for TypeScript, zero-warning policy for coverage
 - **Constitution mandates it**: Core Principle I requires 100% coverage threshold
 - **No exceptions**: Pre-commit hooks will fail on less than 100%
@@ -91,7 +91,7 @@ This project REQUIRES 100% test coverage. Not 95%. Not 99%. **100%**.
 **Run coverage report to identify gaps**:
 
 ```bash
-npx jest --coverage
+npx vitest run --coverage
 # Look for uncovered lines in the report
 ```
 
@@ -149,7 +149,7 @@ catch (error) {
 
 Before marking implementation complete:
 
-- [ ] Run `npx jest --coverage`
+- [ ] Run `npx vitest run --coverage`
 - [ ] Verify all four metrics show 100%: branches, functions, lines, statements
 - [ ] If using istanbul ignore, document WHY in code comment
 - [ ] If stuck below 100%, ask yourself: "Can I mock the dependency causing this?"

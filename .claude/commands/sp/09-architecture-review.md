@@ -94,9 +94,17 @@ Severity → priority mapping:
 - MAJOR → p2
 - MINOR/nits → p3
 
-7. Output a concise summary:
+7. Cross-reference with Prior Learnings:
+
+   Search `.specify/solutions/` for solutions matching current finding categories. If the directory does not exist, skip this step silently.
+   - Search `.specify/solutions/clean-architecture/` and `.specify/solutions/type-safety/` for solutions related to current findings
+   - If an implementation repeats a previously solved pattern, note it in the remediation task description with a reference to the original solution document
+   - Example addition to task description: `\n\n**Prior Learning**: See .specify/solutions/clean-architecture/{slug}.md for a previous solution to this pattern.`
+
+8. Output a concise summary:
 
 - Base branch used
 - Number of findings
 - Number of new tasks created
 - List created task IDs + titles
+- If remediation tasks were created, include: "Consider running `/compound` to document what you learned fixing these issues."

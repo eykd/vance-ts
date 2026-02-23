@@ -1,3 +1,5 @@
+import type { Mocked } from 'vitest';
+
 import type { Logger } from '../domain/interfaces/Logger';
 import type { RateLimiter } from '../domain/interfaces/RateLimiter';
 
@@ -5,36 +7,36 @@ import { handleRequest } from './router';
 
 /** Mock auth handlers for testing. */
 const mockAuthHandlers = {
-  handleGetLogin: jest.fn().mockReturnValue(new Response('login page', { status: 200 })),
-  handleGetRegister: jest.fn().mockReturnValue(new Response('register page', { status: 200 })),
-  handlePostLogin: jest.fn().mockResolvedValue(new Response(null, { status: 303 })),
-  handlePostRegister: jest.fn().mockResolvedValue(new Response(null, { status: 303 })),
-  handlePostLogout: jest.fn().mockResolvedValue(new Response(null, { status: 303 })),
+  handleGetLogin: vi.fn().mockReturnValue(new Response('login page', { status: 200 })),
+  handleGetRegister: vi.fn().mockReturnValue(new Response('register page', { status: 200 })),
+  handlePostLogin: vi.fn().mockResolvedValue(new Response(null, { status: 303 })),
+  handlePostRegister: vi.fn().mockResolvedValue(new Response(null, { status: 303 })),
+  handlePostLogout: vi.fn().mockResolvedValue(new Response(null, { status: 303 })),
 };
 
 /** Mock requireAuth that returns authenticated by default. */
-const mockRequireAuth = jest
+const mockRequireAuth = vi
   .fn()
   .mockResolvedValue({ type: 'authenticated', user: { id: 'u1', email: 'a@b.com' } });
 
 /** Mock logger. */
-const mockLogger: jest.Mocked<Logger> = {
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  security: jest.fn(),
+const mockLogger: Mocked<Logger> = {
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  security: vi.fn(),
 };
 
 /** Mock rate limiter. */
-const mockRateLimiter: jest.Mocked<RateLimiter> = {
-  checkLimit: jest.fn().mockResolvedValue({ allowed: true, remaining: 9, retryAfterSeconds: null }),
-  reset: jest.fn().mockResolvedValue(undefined),
+const mockRateLimiter: Mocked<RateLimiter> = {
+  checkLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 9, retryAfterSeconds: null }),
+  reset: vi.fn().mockResolvedValue(undefined),
 };
 
 /** Dependencies for handleRequest. */
 const deps = {
   authHandlers: mockAuthHandlers,
-  getCurrentUserUseCase: { execute: jest.fn() },
+  getCurrentUserUseCase: { execute: vi.fn() },
   cookieOptions: { sessionName: '__Host-session', csrfName: '__Host-csrf', secure: true },
   logger: mockLogger,
   rateLimiter: mockRateLimiter,
@@ -42,7 +44,7 @@ const deps = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   mockRequireAuth.mockResolvedValue({
     type: 'authenticated',
     user: { id: 'u1', email: 'a@b.com' },
@@ -241,7 +243,7 @@ describe('handleRequest', () => {
       const depsWithoutOverride = {
         authHandlers: mockAuthHandlers,
         getCurrentUserUseCase: {
-          execute: jest.fn().mockResolvedValue({
+          execute: vi.fn().mockResolvedValue({
             success: false,
             error: new Error('Invalid session'),
           }),

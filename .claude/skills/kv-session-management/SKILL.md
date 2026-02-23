@@ -10,7 +10,7 @@ Implement session storage and caching layers on Cloudflare KV.
 ## Quick Reference
 
 ```typescript
-// wrangler.jsonc binding
+// wrangler.toml binding
 "kv_namespaces": [{ "binding": "SESSIONS", "id": "your-id" }]
 
 // Env type

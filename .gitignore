@@ -53,3 +53,6 @@ thoughts/**
 .node_modules_linux_hugo/
 tmp/
 .claude/cache/
+
+# Acceptance pipeline IR (ephemeral, regenerated each run)
+acceptance-pipeline/ir/

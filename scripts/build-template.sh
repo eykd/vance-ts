@@ -104,9 +104,12 @@ transform_package_json() {
 
 # Generate wrangler.toml content (FR-008 through FR-010)
 generate_wrangler_toml() {
-    cat << 'EOF'
+    local today
+    today="$(date +%Y-%m-%d)"
+    cat << EOF
 name = "{{ app_name }}"
 pages_build_output_dir = "hugo/public"
+compatibility_date = "$today"
 
 # Uncomment and configure bindings as needed:
 #
@@ -127,7 +130,9 @@ EOF
 
 # Generate wrangler.worker.toml content for scheduled Workers (FR-014)
 generate_wrangler_worker_toml() {
-    cat << 'EOF'
+    local today
+    today="$(date +%Y-%m-%d)"
+    cat << EOF
 # Cloudflare Worker configuration for scheduled tasks
 # This is a SEPARATE Worker from your Pages deployment
 #
@@ -140,7 +145,7 @@ generate_wrangler_worker_toml() {
 
 name = "{{ app_name }}-cron"
 main = "functions/cron/example-task.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "$today"
 compatibility_flags = ["nodejs_compat"]
 
 # Cron Triggers

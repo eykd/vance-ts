@@ -4,16 +4,16 @@ import type { RateLimitConfig, RateLimiter } from '../../domain/interfaces/RateL
 import { checkRateLimit } from './rateLimiter';
 
 /**
- * Creates a mock Logger with jest.fn() for all methods.
+ * Creates a mock Logger with vi.fn() for all methods.
  *
  * @returns A mock Logger instance
  */
 function createMockLogger(): Logger {
   return {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    security: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    security: vi.fn(),
   };
 }
 
@@ -32,8 +32,8 @@ function createMockRateLimiter(result: {
   retryAfterSeconds: number | null;
 }): RateLimiter {
   return {
-    checkLimit: jest.fn().mockResolvedValue(result),
-    reset: jest.fn().mockResolvedValue(undefined),
+    checkLimit: vi.fn().mockResolvedValue(result),
+    reset: vi.fn().mockResolvedValue(undefined),
   };
 }
 

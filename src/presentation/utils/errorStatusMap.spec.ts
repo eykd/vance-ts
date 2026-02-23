@@ -9,16 +9,16 @@ import type { Logger } from '../../domain/interfaces/Logger';
 import { mapErrorToStatusCode, getGenericErrorMessage } from './errorStatusMap';
 
 /**
- * Creates a mock Logger with jest.fn() for all methods.
+ * Creates a mock Logger with vi.fn() for all methods.
  *
  * @returns A mock Logger instance
  */
 function createMockLogger(): Logger {
   return {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    security: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    security: vi.fn(),
   };
 }
 

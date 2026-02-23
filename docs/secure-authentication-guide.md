@@ -248,7 +248,7 @@ project-root/
 ├── migrations/
 │   └── 0001_users_and_auth.sql
 │
-├── wrangler.jsonc
+├── wrangler.toml
 ├── vitest.config.ts
 ├── tsconfig.json
 └── package.json
@@ -261,7 +261,7 @@ project-root/
 ### Wrangler Configuration
 
 ```jsonc
-// wrangler.jsonc
+// wrangler.toml
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "secure-app",

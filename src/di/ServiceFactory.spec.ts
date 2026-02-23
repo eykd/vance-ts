@@ -12,18 +12,18 @@ import { ServiceFactory, getServiceFactory, resetServiceFactory } from './Servic
  */
 function createMockEnv(): Env {
   const mockDB: D1Database = {
-    prepare: jest.fn().mockReturnValue({
-      bind: jest.fn().mockReturnThis(),
-      first: jest.fn().mockResolvedValue(null),
-      all: jest.fn().mockResolvedValue({ results: [], success: true }),
-      run: jest.fn().mockResolvedValue({ results: [], success: true }),
+    prepare: vi.fn().mockReturnValue({
+      bind: vi.fn().mockReturnThis(),
+      first: vi.fn().mockResolvedValue(null),
+      all: vi.fn().mockResolvedValue({ results: [], success: true }),
+      run: vi.fn().mockResolvedValue({ results: [], success: true }),
     }),
   };
 
   const mockKV: KVNamespace = {
-    get: jest.fn().mockResolvedValue(null),
-    put: jest.fn().mockResolvedValue(undefined),
-    delete: jest.fn().mockResolvedValue(undefined),
+    get: vi.fn().mockResolvedValue(null),
+    put: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
   };
 
   return {

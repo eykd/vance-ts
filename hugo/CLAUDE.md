@@ -1,6 +1,6 @@
 # Hugo Static Site
 
-Static site built with Hugo, TailwindCSS 4, and DaisyUI 5. Serves as the static-first layer of the Cloudflare Pages application.
+Static site built with Hugo, TailwindCSS 4, and DaisyUI 5. Serves as the static-first layer of the Cloudflare Workers application.
 
 ## Commands
 

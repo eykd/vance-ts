@@ -143,7 +143,7 @@ Stripe provides two sets of API keys:
 
 ### Wrangler Configuration
 
-Update your `wrangler.jsonc` to include Stripe configuration:
+Update your `wrangler.toml` to include Stripe configuration:
 
 ```jsonc
 {
@@ -330,7 +330,7 @@ project-root/
 │   ├── 0003_subscriptions.sql
 │   └── 0004_payments.sql
 │
-├── wrangler.jsonc
+├── wrangler.toml
 ├── vitest.config.ts
 ├── package.json
 └── tsconfig.json
@@ -1818,7 +1818,7 @@ wrangler secret put STRIPE_WEBHOOK_SECRET --env production
 # Enter: whsec_your_live_webhook_secret
 ```
 
-Update publishable key in wrangler.jsonc:
+Update publishable key in wrangler.toml:
 
 ```jsonc
 {
@@ -1956,7 +1956,7 @@ export class Router {
     this.post('/webhooks/stripe', (req) => this.webhookHandlers.handleStripeWebhook(req, this.env));
 
     // Note: Static pages (/, /pricing, /success, /cancel) are served by
-    // Cloudflare Pages from public/, NOT by the Worker
+    // Workers Static Assets from public/, NOT by the Worker
   }
 
   private addRoute(method: string, path: string, handler: RouteHandler): void {

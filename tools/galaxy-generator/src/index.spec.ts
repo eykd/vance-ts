@@ -4,6 +4,8 @@
  * @module index.spec
  */
 
+import type { MockedFunction, MockInstance } from 'vitest';
+
 import type { PipelineConfig } from './config';
 import { loadConfigFile, resolveConfig, validateConfig } from './config';
 import type { PipelineResult } from './pipeline';
@@ -13,22 +15,24 @@ import { createConsoleLogger, formatSummary, main, parseArgs, type ParseArgsResu
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
-jest.mock('./config', () => ({
-  loadConfigFile: jest.fn(),
-  resolveConfig: jest.fn(),
-  validateConfig: jest.fn(),
+vi.mock('./config', () => ({
+  loadConfigFile: vi.fn(),
+  resolveConfig: vi.fn(),
+  validateConfig: vi.fn(),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-jest.mock('./pipeline', () => ({
-  ...jest.requireActual('./pipeline'),
-  runPipeline: jest.fn(),
-}));
+vi.mock('./pipeline', async () => {
+  const actual = await vi.importActual('./pipeline');
+  return {
+    ...actual,
+    runPipeline: vi.fn(),
+  };
+});
 
-const mockLoadConfigFile = loadConfigFile as jest.MockedFunction<typeof loadConfigFile>;
-const mockResolveConfig = resolveConfig as jest.MockedFunction<typeof resolveConfig>;
-const mockValidateConfig = validateConfig as jest.MockedFunction<typeof validateConfig>;
-const mockRunPipeline = runPipeline as jest.MockedFunction<typeof runPipeline>;
+const mockLoadConfigFile = loadConfigFile as MockedFunction<typeof loadConfigFile>;
+const mockResolveConfig = resolveConfig as MockedFunction<typeof resolveConfig>;
+const mockValidateConfig = validateConfig as MockedFunction<typeof validateConfig>;
+const mockRunPipeline = runPipeline as MockedFunction<typeof runPipeline>;
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -334,10 +338,10 @@ describe('formatSummary', () => {
 // ─── Tests: createConsoleLogger ──────────────────────────────────────────────
 
 describe('createConsoleLogger', () => {
-  let stdoutSpy: jest.SpiedFunction<typeof process.stdout.write>;
+  let stdoutSpy: MockInstance<typeof process.stdout.write>;
 
   beforeEach(() => {
-    stdoutSpy = jest.spyOn(process.stdout, 'write').mockReturnValue(true);
+    stdoutSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -410,13 +414,13 @@ describe('createConsoleLogger', () => {
 // ─── Tests: main ─────────────────────────────────────────────────────────────
 
 describe('main', () => {
-  let stdoutSpy: jest.SpiedFunction<typeof process.stdout.write>;
-  let stderrSpy: jest.SpiedFunction<typeof process.stderr.write>;
+  let stdoutSpy: MockInstance<typeof process.stdout.write>;
+  let stderrSpy: MockInstance<typeof process.stderr.write>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    stdoutSpy = jest.spyOn(process.stdout, 'write').mockReturnValue(true);
-    stderrSpy = jest.spyOn(process.stderr, 'write').mockReturnValue(true);
+    vi.clearAllMocks();
+    stdoutSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+    stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
   });
 
   afterEach(() => {

@@ -1,12 +1,14 @@
+import type { MockedFunction } from 'vitest';
+
 import { constantTimeEqual } from '../../domain/value-objects/constant-time-equal';
 
 import { validateDoubleSubmitCsrf } from './csrfProtection';
 
-jest.mock('../../domain/value-objects/constant-time-equal', () => ({
-  constantTimeEqual: jest.fn(),
+vi.mock('../../domain/value-objects/constant-time-equal', () => ({
+  constantTimeEqual: vi.fn(),
 }));
 
-const mockedConstantTimeEqual = constantTimeEqual as jest.MockedFunction<typeof constantTimeEqual>;
+const mockedConstantTimeEqual = constantTimeEqual as MockedFunction<typeof constantTimeEqual>;
 
 describe('validateDoubleSubmitCsrf', () => {
   beforeEach(() => {

@@ -37,5 +37,5 @@ export function applySecurityHeaders(headers: Headers): void {
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   headers.set('X-Permitted-Cross-Domain-Policies', 'none');
-  headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=(), usb=()');
 }

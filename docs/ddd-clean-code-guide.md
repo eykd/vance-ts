@@ -94,10 +94,10 @@ Clean Architecture organizes code into concentric layers, each with distinct res
 
 In this architecture, a clear boundary exists between static and dynamic content:
 
-| Content Type | Location  | Handled By        | Examples                           |
-| ------------ | --------- | ----------------- | ---------------------------------- |
-| **Static**   | `public/` | Cloudflare Pages  | Marketing pages, blog, assets      |
-| **Dynamic**  | `src/`    | TypeScript Worker | `/app/*`, `/auth/*`, `/webhooks/*` |
+| Content Type | Location  | Handled By            | Examples                           |
+| ------------ | --------- | --------------------- | ---------------------------------- |
+| **Static**   | `public/` | Workers Static Assets | Marketing pages, blog, assets      |
+| **Dynamic**  | `src/`    | TypeScript Worker     | `/app/*`, `/auth/*`, `/webhooks/*` |
 
 This separation ensures that marketing content deploys independently from application logic, and static content benefits from CDN caching without Worker invocation.
 
@@ -1186,7 +1186,7 @@ The complete directory structure organizes code by architectural layer, with cle
 ```
 project-root/
 │
-├── public/                        # Static content (Cloudflare Pages)
+├── public/                        # Static content (Workers Static Assets)
 │   ├── index.html                 # Marketing home page
 │   ├── about/
 │   │   └── index.html
@@ -1286,7 +1286,7 @@ project-root/
 │   ├── 0001_initial.sql
 │   └── 0002_add_tasks.sql
 │
-├── wrangler.jsonc                 # Cloudflare configuration
+├── wrangler.toml                 # Cloudflare configuration
 ├── vitest.config.ts               # Test configuration
 ├── tsconfig.json                  # TypeScript configuration
 ├── package.json
@@ -1305,7 +1305,7 @@ project-root/
 
 5. **Template Organization**: Templates grouped by type (layouts, pages, partials)
 
-6. **Static Content Isolation**: `public/` directory serves unchanged by Cloudflare Pages
+6. **Static Content Isolation**: `public/` directory serves unchanged by Workers Static Assets
 
 ---
 

@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+
 import { User } from '../../domain/entities/User';
 import { Email } from '../../domain/value-objects/Email';
 import { UserId } from '../../domain/value-objects/UserId';
@@ -10,28 +12,28 @@ import { D1UserRepository } from './D1UserRepository';
  *
  * @param options - Mock return values
  * @param options.firstResult - Value returned by first()
- * @returns Mock objects with accessible jest mock references
+ * @returns Mock objects with accessible vi mock references
  */
 function createMockD1(options?: { firstResult?: unknown }): {
-  prepareMock: jest.Mock;
-  bindMock: jest.Mock;
-  firstMock: jest.Mock;
-  runMock: jest.Mock;
-  db: { prepare: jest.Mock };
+  prepareMock: Mock;
+  bindMock: Mock;
+  firstMock: Mock;
+  runMock: Mock;
+  db: { prepare: Mock };
 } {
-  const firstMock = jest.fn<Promise<unknown>, []>().mockResolvedValue(options?.firstResult ?? null);
-  const runMock = jest
-    .fn<Promise<D1Result<unknown>>, []>()
+  const firstMock = vi.fn<() => Promise<unknown>>().mockResolvedValue(options?.firstResult ?? null);
+  const runMock = vi
+    .fn<() => Promise<D1Result<unknown>>>()
     .mockResolvedValue({ results: [], success: true });
-  const allMock = jest
-    .fn<Promise<D1Result<unknown>>, []>()
+  const allMock = vi
+    .fn<() => Promise<D1Result<unknown>>>()
     .mockResolvedValue({ results: [], success: true });
 
-  const bindMock = jest.fn<unknown, unknown[]>();
+  const bindMock = vi.fn<(...args: unknown[]) => unknown>();
   const statement = { bind: bindMock, first: firstMock, all: allMock, run: runMock };
   bindMock.mockReturnValue(statement);
 
-  const prepareMock = jest.fn<unknown, [string]>().mockReturnValue(statement);
+  const prepareMock = vi.fn<(sql: string) => unknown>().mockReturnValue(statement);
   const db = { prepare: prepareMock };
 
   return { prepareMock, bindMock, firstMock, runMock, db };

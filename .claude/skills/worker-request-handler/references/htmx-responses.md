@@ -11,21 +11,23 @@
 
 ## HTML Response Helper
 
+With Hono, use the built-in `c.html()` helper for HTML responses:
+
 ```typescript
-// Base helper method in handler class
-private htmlResponse(
-  html: string,
-  status = 200,
-  headers: Record<string, string> = {}
-): Response {
-  return new Response(html, {
-    status,
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      ...headers
-    }
-  });
-}
+import type { Context } from 'hono';
+import type { Env } from '../../types/env';
+
+type AppContext = Context<{ Bindings: Env }>;
+
+// Simple HTML response (200)
+return c.html('<div>Hello</div>');
+
+// HTML response with status code
+return c.html('<div class="alert alert-error">Bad request</div>', 400);
+
+// HTML response with additional headers
+c.header('HX-Trigger', JSON.stringify({ notify: { message: 'Done!' } }));
+return c.html('<div>Content</div>');
 ```
 
 ## Full Page Responses
@@ -33,10 +35,10 @@ private htmlResponse(
 For initial page loads (non-HTMX requests):
 
 ```typescript
-async tasksPage(request: Request): Promise<Response> {
-  const tasks = await this.taskRepository.findAll();
+async function tasksPage(c: AppContext): Promise<Response> {
+  const tasks = await taskRepository.findAll();
   const content = tasksPageTemplate(tasks);
-  return this.htmlResponse(baseLayout({ title: "Tasks", content }));
+  return c.html(baseLayout({ title: 'Tasks', content }));
 }
 
 // Template: src/presentation/templates/layouts/base.ts
@@ -69,16 +71,18 @@ For HTMX requests returning HTML fragments:
 ### List Item Append
 
 ```typescript
-// POST /api/tasks - returns single item to append
-async createTask(request: Request): Promise<Response> {
+// POST /app/_/tasks - returns single item to append
+async function createTask(c: AppContext): Promise<Response> {
   // ... validation and creation ...
-  const task = await this.createTaskUseCase.execute({ title });
+  const task = await createTaskUseCase.execute({ title });
 
-  return this.htmlResponse(taskItem(task), 201, {
-    "HX-Trigger": JSON.stringify({
-      notify: { message: "Task created!", type: "success" }
+  c.header(
+    'HX-Trigger',
+    JSON.stringify({
+      notify: { message: 'Task created!', type: 'success' },
     })
-  });
+  );
+  return c.html(taskItem(task), 201);
 }
 
 // Form: hx-target="#task-list" hx-swap="beforeend"
@@ -87,20 +91,21 @@ async createTask(request: Request): Promise<Response> {
 ### Item Replacement
 
 ```typescript
-// PATCH /api/tasks/:id - returns updated item
-async updateTask(request: Request, id: string): Promise<Response> {
-  const task = await this.taskRepository.findById(id);
+// PATCH /app/_/tasks/:id - returns updated item
+async function updateTask(c: AppContext): Promise<Response> {
+  const id = c.req.param('id');
+  const task = await taskRepository.findById(id);
   if (!task) {
-    return new Response("Not found", { status: 404 });
+    return c.html('<div class="alert alert-warning">Not found</div>', 404);
   }
 
-  const formData = await request.formData();
-  const completed = formData.get("completed") === "true";
+  const formData = await c.req.formData();
+  const completed = formData.get('completed') === 'true';
 
   task.setCompleted(completed);
-  await this.taskRepository.save(task);
+  await taskRepository.save(task);
 
-  return this.htmlResponse(taskItem(task));
+  return c.html(taskItem(task));
 }
 
 // Checkbox: hx-target="closest .task-item" hx-swap="outerHTML"
@@ -109,18 +114,18 @@ async updateTask(request: Request, id: string): Promise<Response> {
 ### Item Deletion
 
 ```typescript
-// DELETE /api/tasks/:id - returns empty (element removed)
-async deleteTask(request: Request, id: string): Promise<Response> {
-  await this.taskRepository.delete(id);
+// DELETE /app/_/tasks/:id - returns empty (element removed)
+async function deleteTask(c: AppContext): Promise<Response> {
+  const id = c.req.param('id');
+  await taskRepository.delete(id);
 
-  return new Response("", {
-    status: 200,
-    headers: {
-      "HX-Trigger": JSON.stringify({
-        notify: { message: "Task deleted", type: "info" }
-      })
-    }
-  });
+  c.header(
+    'HX-Trigger',
+    JSON.stringify({
+      notify: { message: 'Task deleted', type: 'info' },
+    })
+  );
+  return c.body('', 200);
 }
 
 // Button: hx-target="closest .task-item" hx-swap="outerHTML"
@@ -129,13 +134,13 @@ async deleteTask(request: Request, id: string): Promise<Response> {
 ### Full List Refresh
 
 ```typescript
-// GET /api/tasks - returns complete list
-async listTasks(request: Request): Promise<Response> {
-  const tasks = await this.taskRepository.findAll();
-  return this.htmlResponse(taskList(tasks));
+// GET /app/_/tasks - returns complete list
+async function listTasks(c: AppContext): Promise<Response> {
+  const tasks = await taskRepository.findAll();
+  return c.html(taskList(tasks));
 }
 
-// Container: hx-get="/api/tasks" hx-trigger="load"
+// Container: hx-get="/app/_/tasks" hx-trigger="load"
 ```
 
 ## HX-Trigger Headers
@@ -144,37 +149,45 @@ async listTasks(request: Request): Promise<Response> {
 
 ```typescript
 // Success notification
-return this.htmlResponse(html, 201, {
-  'HX-Trigger': JSON.stringify({
+c.header(
+  'HX-Trigger',
+  JSON.stringify({
     notify: { message: 'Created!', type: 'success' },
-  }),
-});
+  })
+);
+return c.html(html, 201);
 
 // Error notification
-return this.htmlResponse(html, 400, {
-  'HX-Trigger': JSON.stringify({
+c.header(
+  'HX-Trigger',
+  JSON.stringify({
     notify: { message: 'Validation failed', type: 'error' },
-  }),
-});
+  })
+);
+return c.html(html, 400);
 
 // Info notification
-return this.htmlResponse('', 200, {
-  'HX-Trigger': JSON.stringify({
+c.header(
+  'HX-Trigger',
+  JSON.stringify({
     notify: { message: 'Deleted', type: 'info' },
-  }),
-});
+  })
+);
+return c.body('', 200);
 ```
 
 ### Multiple Events
 
 ```typescript
-return this.htmlResponse(html, 200, {
-  'HX-Trigger': JSON.stringify({
+c.header(
+  'HX-Trigger',
+  JSON.stringify({
     notify: { message: 'Task updated', type: 'success' },
     'task-updated': { id: task.id },
     'refresh-sidebar': true,
-  }),
-});
+  })
+);
+return c.html(html);
 ```
 
 ### Client-Side Listener (Alpine.js)
@@ -202,12 +215,12 @@ return this.htmlResponse(html, 200, {
 
 ```typescript
 // Return error in place of expected content
-async createTask(request: Request): Promise<Response> {
-  const formData = await request.formData();
-  const title = (formData.get("title") as string)?.trim();
+async function createTask(c: AppContext): Promise<Response> {
+  const formData = await c.req.formData();
+  const title = (formData.get('title') as string)?.trim();
 
   if (!title || title.length < 3) {
-    return this.htmlResponse(
+    return c.html(
       `<div class="alert alert-error">
         <span>Title must be at least 3 characters</span>
       </div>`,
@@ -221,21 +234,18 @@ async createTask(request: Request): Promise<Response> {
 ### Form Re-render with Errors
 
 ```typescript
-async createTask(request: Request): Promise<Response> {
-  const formData = await request.formData();
-  const title = (formData.get("title") as string)?.trim();
+async function createTask(c: AppContext): Promise<Response> {
+  const formData = await c.req.formData();
+  const title = (formData.get('title') as string)?.trim();
   const errors: Record<string, string> = {};
 
   if (!title || title.length < 3) {
-    errors.title = "Title must be at least 3 characters";
+    errors.title = 'Title must be at least 3 characters';
   }
 
   if (Object.keys(errors).length > 0) {
     // Re-render form with errors, preserving input values
-    return this.htmlResponse(
-      taskForm({ title }, errors),
-      400
-    );
+    return c.html(taskForm({ title }, errors), 400);
   }
   // ...
 }
@@ -243,12 +253,12 @@ async createTask(request: Request): Promise<Response> {
 // Template with error display
 function taskForm(values: Partial<TaskFormData>, errors: Record<string, string> = {}): string {
   return `
-    <form hx-post="/api/tasks" hx-target="#task-list" hx-swap="beforeend">
+    <form hx-post="/app/_/tasks" hx-target="#task-list" hx-swap="beforeend">
       <div class="form-control">
         <input type="text" name="title"
-               value="${escapeHtml(values.title ?? "")}"
-               class="input input-bordered ${errors.title ? "input-error" : ""}">
-        ${errors.title ? `<span class="text-error text-sm">${escapeHtml(errors.title)}</span>` : ""}
+               value="${escapeHtml(values.title ?? '')}"
+               class="input input-bordered ${errors.title ? 'input-error' : ''}">
+        ${errors.title ? `<span class="text-error text-sm">${escapeHtml(errors.title)}</span>` : ''}
       </div>
       <button type="submit" class="btn btn-primary">Add</button>
     </form>
@@ -259,17 +269,15 @@ function taskForm(values: Partial<TaskFormData>, errors: Record<string, string> 
 ### Not Found Response
 
 ```typescript
-async getTask(request: Request, id: string): Promise<Response> {
-  const task = await this.taskRepository.findById(id);
+async function getTask(c: AppContext): Promise<Response> {
+  const id = c.req.param('id');
+  const task = await taskRepository.findById(id);
 
   if (!task) {
-    return this.htmlResponse(
-      `<div class="alert alert-warning">Task not found</div>`,
-      404
-    );
+    return c.html(`<div class="alert alert-warning">Task not found</div>`, 404);
   }
 
-  return this.htmlResponse(taskDetail(task));
+  return c.html(taskDetail(task));
 }
 ```
 
@@ -279,15 +287,11 @@ async getTask(request: Request, id: string): Promise<Response> {
 
 ```typescript
 // HX-Redirect header for client-side redirect
-async createTask(request: Request): Promise<Response> {
+async function createTask(c: AppContext): Promise<Response> {
   // ... create task ...
 
-  return new Response("", {
-    status: 201,
-    headers: {
-      "HX-Redirect": `/tasks/${task.id}`
-    }
-  });
+  c.header('HX-Redirect', `/tasks/${task.id}`);
+  return c.body('', 201);
 }
 ```
 
@@ -295,36 +299,26 @@ async createTask(request: Request): Promise<Response> {
 
 ```typescript
 // For non-HTMX requests or full page redirects
-async logout(request: Request): Promise<Response> {
+async function logout(c: AppContext): Promise<Response> {
   // ... clear session ...
-
-  return new Response(null, {
-    status: 303,
-    headers: {
-      "Location": "/login"
-    }
-  });
+  return c.redirect('/login', 303);
 }
 ```
 
 ### Conditional Redirect
 
 ```typescript
-async createTask(request: Request): Promise<Response> {
+async function createTask(c: AppContext): Promise<Response> {
   // ... create task ...
 
   // Check if HTMX request
-  const isHtmx = request.headers.get("HX-Request") === "true";
+  const isHtmx = c.req.header('HX-Request') === 'true';
 
   if (isHtmx) {
-    return this.htmlResponse(taskItem(task), 201, {
-      "HX-Trigger": JSON.stringify({ notify: { message: "Created!" } })
-    });
+    c.header('HX-Trigger', JSON.stringify({ notify: { message: 'Created!' } }));
+    return c.html(taskItem(task), 201);
   } else {
-    return new Response(null, {
-      status: 303,
-      headers: { "Location": `/tasks/${task.id}` }
-    });
+    return c.redirect(`/tasks/${task.id}`, 303);
   }
 }
 ```

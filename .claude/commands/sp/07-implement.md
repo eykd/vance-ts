@@ -87,14 +87,14 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **RED**: Write a failing test FIRST (create `.spec.ts` file if needed)
    - **GREEN**: Write MINIMAL code to make the test pass
    - **REFACTOR**: Improve code while maintaining green tests
-   - Use `npx jest --watch` during development
+   - Use `npx vitest` during development
    - Run `npm run check` before marking task complete
 
    **For Hugo template/content changes** (files in `hugo/` directory):
    - Make the change to layouts/, content/, or assets/
    - Run `cd hugo && npm test` to verify build succeeds
    - Fix any build errors before proceeding
-   - Do NOT write Jest tests for Hugo templates
+   - Do NOT write Vitest tests for Hugo templates
 
    - Use skills referenced in task description for guidance
    - Validate the implementation works

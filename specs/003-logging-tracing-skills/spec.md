@@ -151,6 +151,6 @@ A developer needs to test their logging implementation including logger behavior
 - Skill names will use kebab-case matching existing patterns (structured-logging, log-categorization, pii-redaction, sentry-integration, testing-observability)
 - TypeScript code targets ES2022 with strict type checking (as defined in tsconfig.json)
 - Vitest is the test framework for all testing patterns
-- AsyncLocalStorage is available via `nodejs_als` compatibility flag in wrangler.jsonc
+- AsyncLocalStorage is available via `nodejs_als` compatibility flag in wrangler.toml
 - Console output (console.log/error/warn) is automatically captured by Cloudflare Workers Observability Platform
 - Sentry SDK is @sentry/cloudflare (not browser or node SDK)

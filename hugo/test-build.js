@@ -202,6 +202,26 @@ try {
     }
   }
 
+  // Test 8: Check for route collisions with Worker paths
+  logInfo('\nTest 8: Checking for route collisions with Worker paths...');
+  const reservedPrefixes = ['api', path.join('app', '_')];
+  let collisionFound = false;
+  for (const prefix of reservedPrefixes) {
+    const reservedDir = path.join(publicDir, prefix);
+    if (fs.existsSync(reservedDir)) {
+      const entries = fs.readdirSync(reservedDir);
+      if (entries.length > 0) {
+        logError(`Hugo output contains files under reserved Worker path: ${prefix}/`);
+        entries.forEach(entry => log(`  ${prefix}/${entry}`, colors.yellow));
+        collisionFound = true;
+        exitCode = 1;
+      }
+    }
+  }
+  if (!collisionFound) {
+    logSuccess('No route collisions with Worker paths (api/, app/_/)');
+  }
+
   // Summary
   console.log('\n' + '='.repeat(50));
   if (exitCode === 0) {

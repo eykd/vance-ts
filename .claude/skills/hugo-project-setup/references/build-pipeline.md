@@ -1,6 +1,6 @@
 # Build Pipeline
 
-Development workflow and deployment for Hugo + Cloudflare Pages.
+Development workflow and deployment for Hugo + Cloudflare Workers Static Assets.
 
 ## Development Workflow
 
@@ -35,23 +35,23 @@ npm run dev
 Or directly:
 
 ```bash
-wrangler pages dev dist --compatibility-flags=nodejs_compat
+wrangler dev
 ```
 
-- Full stack with Pages Functions
+- Full stack with Worker and static assets
 - D1 and KV bindings available
-- Access at `http://localhost:8788`
+- Access at `http://localhost:8787`
 
 ## Build Commands
 
 ### Local Development Build
 
 ```bash
-# Build Hugo site
-cd hugo && hugo -D -d ../dist
+# Build Hugo site (output to hugo/public/)
+cd hugo && hugo -D
 
 # Build CSS
-npx @tailwindcss/cli -i hugo/assets/css/main.css -o dist/css/app.css
+npx @tailwindcss/cli -i hugo/assets/css/main.css -o hugo/public/css/app.css
 ```
 
 ### Production Build
@@ -62,12 +62,12 @@ npm run build
 
 This runs:
 
-1. `hugo --minify -d ../dist` - Minified Hugo build
+1. `hugo --minify` - Minified Hugo build (output to `hugo/public/`)
 2. `@tailwindcss/cli ... --minify` - Minified CSS
 
 ## Deployment
 
-### Cloudflare Pages Deployment
+### Cloudflare Workers Deployment
 
 ```bash
 npm run deploy
@@ -76,16 +76,10 @@ npm run deploy
 Or directly:
 
 ```bash
-wrangler pages deploy dist
+wrangler deploy
 ```
 
-### Git-Based Deployment
-
-Configure in Cloudflare Dashboard:
-
-- **Build command:** `npm run build`
-- **Build output directory:** `dist`
-- **Root directory:** `/` (project root)
+The `wrangler.toml` is generated at deploy time (not checked in). It configures Workers Static Assets to serve Hugo output from `./hugo/public/` and routes dynamic requests (`/api/*`, `/app/_/*`) to the Worker.
 
 ### Environment Variables
 
@@ -123,7 +117,7 @@ wrangler d1 migrations apply my-hugo-app-db
 Wrangler automatically uses local SQLite for development:
 
 ```bash
-wrangler pages dev dist --d1 DB=my-hugo-app-db
+wrangler dev
 ```
 
 ## Test Commands
@@ -179,7 +173,7 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: pages deploy dist --project-name=my-hugo-app
+          command: deploy
 ```
 
 ## Common Issues
@@ -192,9 +186,9 @@ Ensure you're running Hugo from the `hugo/` directory:
 cd hugo && hugo server
 ```
 
-### Functions Not Working
+### Worker Routes Not Working
 
-Check that `pages_build_output_dir` in `wrangler.toml` matches Hugo's output directory.
+Check that `[assets] run_worker_first` in `wrangler.toml` includes the route patterns for your dynamic endpoints (e.g., `"/api/*"`, `"/app/_/*"`).
 
 ### TailwindCSS Not Updating
 

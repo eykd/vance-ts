@@ -93,7 +93,7 @@ Auth middleware is applied at the `/app/*` boundary in the Hono router, not at i
 **What you get**:
 
 - Installing dependencies
-- Configuring wrangler.jsonc bindings (D1, KV, secrets)
+- Configuring wrangler.toml bindings (D1, KV, secrets)
 - Creating the better-auth instance with Cloudflare adapters
 - Mounting auth routes in Hono
 - Database schema generation and migrations
@@ -259,7 +259,7 @@ See latent-features/secure-auth for implementation patterns.
 
 - Reference: better-auth-setup.md
 - Install: better-auth, better-auth-cloudflare, hono, kysely, kysely-d1
-- Configure: wrangler.jsonc (D1, KV, secrets)
+- Configure: wrangler.toml (D1, KV, secrets)
 - Create: Auth instance factory, mount routes in Hono
 
 ### Phase 2: Route Protection

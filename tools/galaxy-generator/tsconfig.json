@@ -4,7 +4,7 @@
     "lib": ["ES2022"],
     "outDir": "./dist",
     "rootDir": "../..",
-    "types": ["node", "jest"]
+    "types": ["node", "vitest/globals"]
   },
   "include": ["src/**/*", "../../src/domain/galaxy/**/*"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]

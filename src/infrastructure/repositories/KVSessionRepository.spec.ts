@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+
 import { Session } from '../../domain/entities/Session';
 import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
 import { CsrfToken } from '../../domain/value-objects/CsrfToken';
@@ -54,17 +56,19 @@ function createTestSession(): Session {
 /**
  * Creates a mock KV namespace for testing.
  *
- * @returns A mock KVNamespace with jest mocks
+ * @returns A mock KVNamespace with vi mocks
  */
 function createMockKV(): KVNamespace & {
-  get: jest.Mock<Promise<string | null>, [string]>;
-  put: jest.Mock<Promise<void>, [string, string, unknown?]>;
-  delete: jest.Mock<Promise<void>, [string]>;
+  get: Mock<(key: string) => Promise<string | null>>;
+  put: Mock<(key: string, value: string, options?: unknown) => Promise<void>>;
+  delete: Mock<(key: string) => Promise<void>>;
 } {
   return {
-    get: jest.fn<Promise<string | null>, [string]>().mockResolvedValue(null),
-    put: jest.fn<Promise<void>, [string, string, unknown?]>().mockResolvedValue(undefined),
-    delete: jest.fn<Promise<void>, [string]>().mockResolvedValue(undefined),
+    get: vi.fn<(key: string) => Promise<string | null>>().mockResolvedValue(null),
+    put: vi
+      .fn<(key: string, value: string, options?: unknown) => Promise<void>>()
+      .mockResolvedValue(undefined),
+    delete: vi.fn<(key: string) => Promise<void>>().mockResolvedValue(undefined),
   };
 }
 
@@ -75,7 +79,7 @@ function createMockKV(): KVNamespace & {
  * @returns A mock TimeProvider
  */
 function createMockTimeProvider(time: number = NOW_MS): TimeProvider {
-  return { now: jest.fn().mockReturnValue(time) };
+  return { now: vi.fn().mockReturnValue(time) };
 }
 
 describe('KVSessionRepository', () => {

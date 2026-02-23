@@ -65,7 +65,7 @@ Check for anti-patterns:
 
 **Coverage verification**:
 
-- Run `npx jest --coverage` for changed files
+- Run `npx vitest run --coverage` for changed files
 - Project requires 100% coverage (branches, functions, lines, statements)
 - Flag any coverage below 100% as HIGH severity
 
@@ -292,7 +292,7 @@ This skill is designed for GitHub Actions workflows with:
 - `gh` CLI available for PR operations
 - `known-issues.json` generated from beads tasks
 - CLAUDE.md project standards in repository
-- Jest test framework with coverage reporting
+- Vitest test framework with coverage reporting
 
 ### Local Usage
 

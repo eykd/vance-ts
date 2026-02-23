@@ -1,6 +1,6 @@
 # Static Content
 
-Static assets served by Cloudflare Pages CDN. Marketing pages, CSS, JS.
+Static assets served by Workers Static Assets. Marketing pages, CSS, JS.
 
 ## Organization
 

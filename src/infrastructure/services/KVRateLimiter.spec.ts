@@ -1,3 +1,5 @@
+import type { Mock } from 'vitest';
+
 import type { Logger } from '../../domain/interfaces/Logger';
 import type { RateLimitConfig } from '../../domain/interfaces/RateLimiter';
 import type { TimeProvider } from '../../domain/interfaces/TimeProvider';
@@ -11,35 +13,37 @@ const BASE_TIME = 1748736000000;
 /**
  * Creates a mock KV namespace for testing.
  *
- * @returns A mock KVNamespace with jest mocks
+ * @returns A mock KVNamespace with vi mocks
  */
 function createMockKV(): KVNamespace & {
-  get: jest.Mock<Promise<string | null>, [string]>;
-  put: jest.Mock<Promise<void>, [string, string, unknown?]>;
-  delete: jest.Mock<Promise<void>, [string]>;
+  get: Mock<(key: string) => Promise<string | null>>;
+  put: Mock<(key: string, value: string, options?: unknown) => Promise<void>>;
+  delete: Mock<(key: string) => Promise<void>>;
 } {
   return {
-    get: jest.fn<Promise<string | null>, [string]>().mockResolvedValue(null),
-    put: jest.fn<Promise<void>, [string, string, unknown?]>().mockResolvedValue(undefined),
-    delete: jest.fn<Promise<void>, [string]>().mockResolvedValue(undefined),
+    get: vi.fn<(key: string) => Promise<string | null>>().mockResolvedValue(null),
+    put: vi
+      .fn<(key: string, value: string, options?: unknown) => Promise<void>>()
+      .mockResolvedValue(undefined),
+    delete: vi.fn<(key: string) => Promise<void>>().mockResolvedValue(undefined),
   };
 }
 
 /**
  * Creates a mock Logger for testing.
  *
- * @returns A mock Logger with accessible jest mock references
+ * @returns A mock Logger with accessible vi mock references
  */
 function createMockLogger(): {
   logger: Logger;
-  warnMock: jest.Mock;
+  warnMock: Mock;
 } {
-  const warnMock = jest.fn();
+  const warnMock = vi.fn();
   const logger: Logger = {
-    info: jest.fn(),
+    info: vi.fn(),
     warn: warnMock,
-    error: jest.fn(),
-    security: jest.fn(),
+    error: vi.fn(),
+    security: vi.fn(),
   };
   return { logger, warnMock };
 }
@@ -51,7 +55,7 @@ function createMockLogger(): {
  * @returns A mock TimeProvider
  */
 function createMockTimeProvider(time: number = BASE_TIME): TimeProvider {
-  return { now: jest.fn().mockReturnValue(time) };
+  return { now: vi.fn().mockReturnValue(time) };
 }
 
 /** Standard test config: 5 requests per 60s window. */

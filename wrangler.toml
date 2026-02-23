@@ -1,6 +1,11 @@
 name = "vance-ts"
-compatibility_date = "2024-01-01"
-pages_build_output_dir = "hugo/public"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./hugo/public"
+binding = "ASSETS"
 
 [vars]
 ENVIRONMENT = "production"

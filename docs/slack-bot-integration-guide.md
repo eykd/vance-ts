@@ -346,7 +346,7 @@ project-root/
 │           ├── events.integration.test.ts
 │           └── commands.integration.test.ts
 │
-├── wrangler.jsonc
+├── wrangler.toml
 └── package.json
 ```
 
@@ -446,7 +446,7 @@ You'll need these values for your Worker configuration:
 ### Wrangler Configuration
 
 ```jsonc
-// wrangler.jsonc
+// wrangler.toml
 {
   "name": "your-app",
   "main": "src/index.ts",
@@ -3477,7 +3477,7 @@ export interface SlackApiResponse {
 ### Wrangler Configuration
 
 ```jsonc
-// wrangler.jsonc
+// wrangler.toml
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "your-app",

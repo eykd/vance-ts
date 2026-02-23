@@ -156,8 +156,8 @@ describe('generateEllipticStarfieldCoords', () => {
       // So posX = sin(90°) * rx = rx, posY = cos(90°) * ry = 0
       let callCount = 0;
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           callCount++;
           if (callCount === 1) {
             // degree = 90
@@ -190,8 +190,8 @@ describe('generateEllipticStarfieldCoords', () => {
     it('confirms swap with degree=0: sin(0)=0 for x, cos(0)=1 for y', () => {
       let callCount = 0;
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((_min: number, _max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((_min: number, _max: number): number => {
           callCount++;
           if (callCount === 1) {
             // degree = 0
@@ -232,8 +232,8 @@ describe('generateEllipticStarfieldCoords', () => {
       // round(0.4999 * 100) = round(49.99) = 50
       let callCount = 0;
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((_min: number, _max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((_min: number, _max: number): number => {
           callCount++;
           if (callCount === 1) {
             return 90; // degree = 90, sin=1, cos=0
@@ -267,8 +267,8 @@ describe('generateEllipticStarfieldCoords', () => {
     it('does not rotate when turn is 0', () => {
       let callCount = 0;
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((_min: number, _max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((_min: number, _max: number): number => {
           callCount++;
           if (callCount === 1) {
             return 90;
@@ -303,8 +303,8 @@ describe('generateEllipticStarfieldCoords', () => {
       // So if posX=100, posY=0: rotX=0, rotY=100
       let callCount = 0;
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((_min: number, _max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((_min: number, _max: number): number => {
           callCount++;
           if (callCount === 1) {
             return 90; // degree=90
@@ -338,8 +338,8 @@ describe('generateEllipticStarfieldCoords', () => {
       // rotY = posX * sin(π) + posY * cos(π) = -posY
       let callCount = 0;
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((_min: number, _max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((_min: number, _max: number): number => {
           callCount++;
           if (callCount === 1) {
             return 90;
@@ -372,8 +372,8 @@ describe('generateEllipticStarfieldCoords', () => {
     it('offsets coordinates by the center position', () => {
       let callCount = 0;
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((_min: number, _max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((_min: number, _max: number): number => {
           callCount++;
           if (callCount === 1) {
             return 0; // degree=0 → sin=0, cos=1
@@ -408,8 +408,8 @@ describe('generateEllipticStarfieldCoords', () => {
     it('scales output coordinates by the multiplier', () => {
       let callCount = 0;
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((_min: number, _max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((_min: number, _max: number): number => {
           callCount++;
           if (callCount === 1) {
             return 90; // degree=90
@@ -442,9 +442,9 @@ describe('generateEllipticStarfieldCoords', () => {
 
   describe('PRNG state advancement', () => {
     it('advances PRNG state by 2 calls per star (degree + insideFactor)', () => {
-      const randintSpy = jest.fn(() => 0);
+      const randintSpy = vi.fn(() => 0);
       const rng: Prng = {
-        random: jest.fn(() => 0.5),
+        random: vi.fn(() => 0.5),
         randint: randintSpy,
       };
       const params = makeParams({ amount: 5, rng });
@@ -456,9 +456,9 @@ describe('generateEllipticStarfieldCoords', () => {
     });
 
     it('calls randint with correct arguments for degree', () => {
-      const randintSpy = jest.fn(() => 0);
+      const randintSpy = vi.fn(() => 0);
       const rng: Prng = {
-        random: jest.fn(() => 0.5),
+        random: vi.fn(() => 0.5),
         randint: randintSpy,
       };
       const params = makeParams({ amount: 1, rng });
@@ -470,9 +470,9 @@ describe('generateEllipticStarfieldCoords', () => {
     });
 
     it('calls randint with correct arguments for insideFactor', () => {
-      const randintSpy = jest.fn(() => 0);
+      const randintSpy = vi.fn(() => 0);
       const rng: Prng = {
-        random: jest.fn(() => 0.5),
+        random: vi.fn(() => 0.5),
         randint: randintSpy,
       };
       const params = makeParams({ amount: 1, rng });
@@ -487,8 +487,8 @@ describe('generateEllipticStarfieldCoords', () => {
   describe('accepts any Prng implementation', () => {
     it('works with a mock Prng', () => {
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn(() => 5000),
+        random: vi.fn(() => 0.5),
+        randint: vi.fn(() => 5000),
       };
 
       const params: EllipticStarfieldParams = {
@@ -515,8 +515,8 @@ describe('generateEllipticStarfieldCoords', () => {
       // x = round(70.71) = 71, y = round(70.71) = 71
       let callCount = 0;
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((_min: number, _max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((_min: number, _max: number): number => {
           callCount++;
           if (callCount === 1) {
             return 45;

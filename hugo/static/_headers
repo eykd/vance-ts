@@ -39,7 +39,7 @@
   Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=()
 
 # Prevent indexing of preview deployments
-https://*.pages.dev/*
+https://*.workers.dev/*
   X-Robots-Tag: noindex
 
 # Cache static assets aggressively (fingerprinted files)

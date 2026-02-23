@@ -4,6 +4,8 @@
  * @module pipeline.spec
  */
 
+import type { MockedFunction } from 'vitest';
+
 import type { Prng } from '../../../src/domain/galaxy/prng';
 import type {
   Classification,
@@ -27,41 +29,41 @@ import { buildSystems } from './systems/system-builder';
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
-jest.mock('./galaxy/galaxy-generator', () => ({
-  generateGalaxy: jest.fn(),
+vi.mock('./galaxy/galaxy-generator', () => ({
+  generateGalaxy: vi.fn(),
 }));
 
-jest.mock('./costmap/costmap-generator', () => ({
-  generateCostMap: jest.fn(),
+vi.mock('./costmap/costmap-generator', () => ({
+  generateCostMap: vi.fn(),
 }));
 
-jest.mock('./systems/density', () => ({
-  calculateDensity: jest.fn(),
+vi.mock('./systems/density', () => ({
+  calculateDensity: vi.fn(),
 }));
 
-jest.mock('./systems/classification', () => ({
-  classifySystems: jest.fn(),
+vi.mock('./systems/classification', () => ({
+  classifySystems: vi.fn(),
 }));
 
-jest.mock('./systems/system-builder', () => ({
-  buildSystems: jest.fn(),
+vi.mock('./systems/system-builder', () => ({
+  buildSystems: vi.fn(),
 }));
 
-jest.mock('./routing/route-builder', () => ({
-  buildRoutes: jest.fn(),
+vi.mock('./routing/route-builder', () => ({
+  buildRoutes: vi.fn(),
 }));
 
-jest.mock('./output/file-writer', () => ({
-  writeGalaxyOutput: jest.fn(),
+vi.mock('./output/file-writer', () => ({
+  writeGalaxyOutput: vi.fn(),
 }));
 
-const mockGenerateGalaxy = generateGalaxy as jest.MockedFunction<typeof generateGalaxy>;
-const mockGenerateCostMap = generateCostMap as jest.MockedFunction<typeof generateCostMap>;
-const mockCalculateDensity = calculateDensity as jest.MockedFunction<typeof calculateDensity>;
-const mockClassifySystems = classifySystems as jest.MockedFunction<typeof classifySystems>;
-const mockBuildSystems = buildSystems as jest.MockedFunction<typeof buildSystems>;
-const mockBuildRoutes = buildRoutes as jest.MockedFunction<typeof buildRoutes>;
-const mockWriteGalaxyOutput = writeGalaxyOutput as jest.MockedFunction<typeof writeGalaxyOutput>;
+const mockGenerateGalaxy = generateGalaxy as MockedFunction<typeof generateGalaxy>;
+const mockGenerateCostMap = generateCostMap as MockedFunction<typeof generateCostMap>;
+const mockCalculateDensity = calculateDensity as MockedFunction<typeof calculateDensity>;
+const mockClassifySystems = classifySystems as MockedFunction<typeof classifySystems>;
+const mockBuildSystems = buildSystems as MockedFunction<typeof buildSystems>;
+const mockBuildRoutes = buildRoutes as MockedFunction<typeof buildRoutes>;
+const mockWriteGalaxyOutput = writeGalaxyOutput as MockedFunction<typeof writeGalaxyOutput>;
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -232,15 +234,15 @@ function setupDefaultMocks(): void {
 }
 
 /**
- * Creates a mock PipelineLogger with jest.fn() methods.
+ * Creates a mock PipelineLogger with vi.fn() methods.
  *
  * @returns logger with mock functions
  */
 function makeLogger(): PipelineLogger {
   return {
-    stageStart: jest.fn(),
-    stageEnd: jest.fn(),
-    summary: jest.fn(),
+    stageStart: vi.fn(),
+    stageEnd: vi.fn(),
+    summary: vi.fn(),
   };
 }
 
@@ -292,7 +294,7 @@ describe('hashSeed', () => {
 
 describe('runPipeline', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     setupDefaultMocks();
   });
 

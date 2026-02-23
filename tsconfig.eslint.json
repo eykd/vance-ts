@@ -1,5 +1,8 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src/**/*", ".claude/**/*", "tools/**/*"],
+  "include": ["src/**/*", ".claude/**/*", "tools/**/*", "acceptance/**/*", "vitest.config.ts"],
+  "compilerOptions": {
+    "types": ["node", "vitest/globals"]
+  },
   "exclude": ["node_modules", "dist"]
 }

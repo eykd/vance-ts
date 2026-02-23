@@ -11,43 +11,42 @@
 ## Form Data
 
 ```typescript
-async createTask(request: Request): Promise<Response> {
-  const formData = await request.formData();
+import type { Context } from 'hono';
+import type { Env } from '../../types/env';
+
+type AppContext = Context<{ Bindings: Env }>;
+
+async function createTask(c: AppContext): Promise<Response> {
+  const formData = await c.req.formData();
 
   // String fields
-  const title = formData.get("title") as string;
+  const title = formData.get('title') as string;
 
   // Boolean from checkbox (returns "on" or null)
-  const urgent = formData.get("urgent") === "on";
+  const urgent = formData.get('urgent') === 'on';
 
   // Optional fields
-  const description = formData.get("description") as string | null;
+  const description = formData.get('description') as string | null;
 
   // Multiple values (multi-select, checkboxes with same name)
-  const tags = formData.getAll("tags") as string[];
+  const tags = formData.getAll('tags') as string[];
 }
 ```
 
 ### File Uploads
 
 ```typescript
-async uploadAvatar(request: Request): Promise<Response> {
-  const formData = await request.formData();
-  const file = formData.get("avatar") as File | null;
+async function uploadAvatar(c: AppContext): Promise<Response> {
+  const formData = await c.req.formData();
+  const file = formData.get('avatar') as File | null;
 
   if (!file || file.size === 0) {
-    return this.htmlResponse(
-      `<div class="alert alert-error">Please select a file</div>`,
-      400
-    );
+    return c.html(`<div class="alert alert-error">Please select a file</div>`, 400);
   }
 
   // Validate file type
-  if (!file.type.startsWith("image/")) {
-    return this.htmlResponse(
-      `<div class="alert alert-error">File must be an image</div>`,
-      400
-    );
+  if (!file.type.startsWith('image/')) {
+    return c.html(`<div class="alert alert-error">File must be an image</div>`, 400);
   }
 
   // Read file content
@@ -58,46 +57,44 @@ async uploadAvatar(request: Request): Promise<Response> {
 ## Query Parameters
 
 ```typescript
-async listTasks(request: Request): Promise<Response> {
-  const url = new URL(request.url);
-
+async function listTasks(c: AppContext): Promise<Response> {
   // String params
-  const search = url.searchParams.get("search") ?? "";
-  const sort = url.searchParams.get("sort") ?? "created_desc";
+  const search = c.req.query('search') ?? '';
+  const sort = c.req.query('sort') ?? 'created_desc';
 
   // Numeric params with defaults
-  const page = parseInt(url.searchParams.get("page") ?? "1", 10);
-  const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "20", 10), 100);
+  const page = parseInt(c.req.query('page') ?? '1', 10);
+  const limit = Math.min(parseInt(c.req.query('limit') ?? '20', 10), 100);
 
   // Boolean params
-  const completed = url.searchParams.get("completed") === "true";
+  const completed = c.req.query('completed') === 'true';
 
-  // Multiple values
-  const tags = url.searchParams.getAll("tag");
+  // Access all query params via URL if needed
+  const url = new URL(c.req.url);
+  const tags = url.searchParams.getAll('tag');
 }
 ```
 
 ## Path Parameters
 
-Path params are extracted by the Router and passed to handlers:
+Hono extracts path params from route patterns and provides them via `c.req.param()`:
 
 ```typescript
-// Router extracts :id from /api/tasks/:id
-async updateTask(request: Request, id: string): Promise<Response> {
-  const task = await this.taskRepository.findById(id);
+// Route: app.put('/app/_/tasks/:id', updateTask)
+async function updateTask(c: AppContext): Promise<Response> {
+  const id = c.req.param('id');
+  const task = await taskRepository.findById(id);
   if (!task) {
-    return new Response("Not found", { status: 404 });
+    return c.html(`<div class="alert alert-warning">Task not found</div>`, 404);
   }
   // ...
 }
 
-// Multiple path params
-async getComment(
-  request: Request,
-  taskId: string,
-  commentId: string
-): Promise<Response> {
-  // Route: /api/tasks/:taskId/comments/:commentId
+// Route: app.get('/app/_/tasks/:taskId/comments/:commentId', getComment)
+async function getComment(c: AppContext): Promise<Response> {
+  const taskId = c.req.param('taskId');
+  const commentId = c.req.param('commentId');
+  // ...
 }
 ```
 
@@ -106,28 +103,28 @@ async getComment(
 ### Inline Validation
 
 ```typescript
-async createTask(request: Request): Promise<Response> {
-  const formData = await request.formData();
-  const title = (formData.get("title") as string)?.trim();
-  const dueDate = formData.get("dueDate") as string | null;
+async function createTask(c: AppContext): Promise<Response> {
+  const formData = await c.req.formData();
+  const title = (formData.get('title') as string)?.trim();
+  const dueDate = formData.get('dueDate') as string | null;
 
   // Collect validation errors
   const errors: string[] = [];
 
   if (!title || title.length < 3) {
-    errors.push("Title must be at least 3 characters");
+    errors.push('Title must be at least 3 characters');
   }
   if (title && title.length > 200) {
-    errors.push("Title must be less than 200 characters");
+    errors.push('Title must be less than 200 characters');
   }
   if (dueDate && isNaN(Date.parse(dueDate))) {
-    errors.push("Invalid due date format");
+    errors.push('Invalid due date format');
   }
 
   if (errors.length > 0) {
-    return this.htmlResponse(
+    return c.html(
       `<div class="alert alert-error">
-        <ul>${errors.map(e => `<li>${e}</li>`).join("")}</ul>
+        <ul>${errors.map((e) => `<li>${e}</li>`).join('')}</ul>
       </div>`,
       400
     );
@@ -144,28 +141,25 @@ interface ValidationErrors {
   [field: string]: string;
 }
 
-async createTask(request: Request): Promise<Response> {
-  const formData = await request.formData();
+async function createTask(c: AppContext): Promise<Response> {
+  const formData = await c.req.formData();
   const errors: ValidationErrors = {};
 
-  const title = (formData.get("title") as string)?.trim();
+  const title = (formData.get('title') as string)?.trim();
   if (!title) {
-    errors.title = "Title is required";
+    errors.title = 'Title is required';
   } else if (title.length < 3) {
-    errors.title = "Title must be at least 3 characters";
+    errors.title = 'Title must be at least 3 characters';
   }
 
-  const email = (formData.get("email") as string)?.trim();
-  if (email && !this.isValidEmail(email)) {
-    errors.email = "Invalid email address";
+  const email = (formData.get('email') as string)?.trim();
+  if (email && !isValidEmail(email)) {
+    errors.email = 'Invalid email address';
   }
 
   if (Object.keys(errors).length > 0) {
     // Re-render form with errors and preserved values
-    return this.htmlResponse(
-      taskForm({ title, email }, errors),
-      400
-    );
+    return c.html(taskForm({ title, email }, errors), 400);
   }
 }
 ```
@@ -182,21 +176,21 @@ interface CreateTaskData {
   tags: string[];
 }
 
-async extractCreateTaskData(request: Request): Promise<CreateTaskData | ValidationErrors> {
-  const formData = await request.formData();
+async function extractCreateTaskData(c: AppContext): Promise<CreateTaskData | ValidationErrors> {
+  const formData = await c.req.formData();
   const errors: ValidationErrors = {};
 
-  const title = (formData.get("title") as string)?.trim();
+  const title = (formData.get('title') as string)?.trim();
   if (!title || title.length < 3) {
-    errors.title = "Title must be at least 3 characters";
+    errors.title = 'Title must be at least 3 characters';
   }
 
-  const dueDateStr = formData.get("dueDate") as string | null;
+  const dueDateStr = formData.get('dueDate') as string | null;
   let dueDate: Date | undefined;
   if (dueDateStr) {
     const parsed = Date.parse(dueDateStr);
     if (isNaN(parsed)) {
-      errors.dueDate = "Invalid date format";
+      errors.dueDate = 'Invalid date format';
     } else {
       dueDate = new Date(parsed);
     }
@@ -208,23 +202,23 @@ async extractCreateTaskData(request: Request): Promise<CreateTaskData | Validati
 
   return {
     title: title!,
-    description: (formData.get("description") as string)?.trim() || undefined,
+    description: (formData.get('description') as string)?.trim() || undefined,
     dueDate,
-    tags: formData.getAll("tags") as string[]
+    tags: formData.getAll('tags') as string[],
   };
 }
 
 // Usage in handler
-async createTask(request: Request): Promise<Response> {
-  const result = await this.extractCreateTaskData(request);
+async function createTask(c: AppContext): Promise<Response> {
+  const result = await extractCreateTaskData(c);
 
-  if ("title" in result === false) {
+  if ('title' in result === false) {
     // result is ValidationErrors
-    return this.htmlResponse(taskForm({}, result), 400);
+    return c.html(taskForm({}, result), 400);
   }
 
   // result is CreateTaskData
-  const task = await this.createTaskUseCase.execute(result);
+  const task = await createTaskUseCase.execute(result);
 }
 ```
 

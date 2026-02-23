@@ -355,7 +355,7 @@ const { results } = await this.db.prepare('SELECT * FROM tasks LIMIT 100').all<T
 ### Wrangler Configuration
 
 ```jsonc
-// wrangler.jsonc
+// wrangler.toml
 {
   "d1_databases": [
     {

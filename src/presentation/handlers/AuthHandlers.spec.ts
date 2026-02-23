@@ -1,3 +1,5 @@
+import type { Mocked } from 'vitest';
+
 import type { AuthResult } from '../../application/dto/AuthResult';
 import type { LoginUseCase } from '../../application/use-cases/LoginUseCase';
 import type { LogoutUseCase } from '../../application/use-cases/LogoutUseCase';
@@ -16,16 +18,16 @@ import { UserId } from '../../domain/value-objects/UserId';
 import { AuthHandlers } from './AuthHandlers';
 
 /**
- * Creates a mock Logger with jest.fn() for all methods.
+ * Creates a mock Logger with vi.fn() for all methods.
  *
  * @returns A mock Logger instance
  */
-function createMockLogger(): jest.Mocked<Logger> {
+function createMockLogger(): Mocked<Logger> {
   return {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    security: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    security: vi.fn(),
   };
 }
 
@@ -34,8 +36,8 @@ function createMockLogger(): jest.Mocked<Logger> {
  *
  * @returns A mocked LoginUseCase
  */
-function createMockLoginUseCase(): jest.Mocked<LoginUseCase> {
-  return { execute: jest.fn() } as unknown as jest.Mocked<LoginUseCase>;
+function createMockLoginUseCase(): Mocked<LoginUseCase> {
+  return { execute: vi.fn() } as unknown as Mocked<LoginUseCase>;
 }
 
 /**
@@ -43,8 +45,8 @@ function createMockLoginUseCase(): jest.Mocked<LoginUseCase> {
  *
  * @returns A mocked RegisterUseCase
  */
-function createMockRegisterUseCase(): jest.Mocked<RegisterUseCase> {
-  return { execute: jest.fn() } as unknown as jest.Mocked<RegisterUseCase>;
+function createMockRegisterUseCase(): Mocked<RegisterUseCase> {
+  return { execute: vi.fn() } as unknown as Mocked<RegisterUseCase>;
 }
 
 /**
@@ -52,8 +54,8 @@ function createMockRegisterUseCase(): jest.Mocked<RegisterUseCase> {
  *
  * @returns A mocked LogoutUseCase
  */
-function createMockLogoutUseCase(): jest.Mocked<LogoutUseCase> {
-  return { execute: jest.fn() } as unknown as jest.Mocked<LogoutUseCase>;
+function createMockLogoutUseCase(): Mocked<LogoutUseCase> {
+  return { execute: vi.fn() } as unknown as Mocked<LogoutUseCase>;
 }
 
 /**
@@ -61,22 +63,20 @@ function createMockLogoutUseCase(): jest.Mocked<LogoutUseCase> {
  *
  * @returns A mocked RateLimiter that allows all requests by default
  */
-function createMockRateLimiter(): jest.Mocked<RateLimiter> {
+function createMockRateLimiter(): Mocked<RateLimiter> {
   return {
-    checkLimit: jest
-      .fn()
-      .mockResolvedValue({ allowed: true, remaining: 4, retryAfterSeconds: null }),
-    reset: jest.fn().mockResolvedValue(undefined),
+    checkLimit: vi.fn().mockResolvedValue({ allowed: true, remaining: 4, retryAfterSeconds: null }),
+    reset: vi.fn().mockResolvedValue(undefined),
   };
 }
 
 /** Default dependencies for constructing AuthHandlers. */
 interface TestDeps {
-  loginUseCase: jest.Mocked<LoginUseCase>;
-  registerUseCase: jest.Mocked<RegisterUseCase>;
-  logoutUseCase: jest.Mocked<LogoutUseCase>;
-  rateLimiter: jest.Mocked<RateLimiter>;
-  logger: jest.Mocked<Logger>;
+  loginUseCase: Mocked<LoginUseCase>;
+  registerUseCase: Mocked<RegisterUseCase>;
+  logoutUseCase: Mocked<LogoutUseCase>;
+  rateLimiter: Mocked<RateLimiter>;
+  logger: Mocked<Logger>;
 }
 
 /**

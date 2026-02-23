@@ -16,7 +16,7 @@ npm install better-auth better-auth-cloudflare hono kysely kysely-d1
 
 ## Wrangler Configuration
 
-**File**: `wrangler.jsonc`
+**File**: `wrangler.toml`
 
 ```jsonc
 {
@@ -384,13 +384,13 @@ Mock the auth instance to test handlers in isolation:
 ```typescript
 const mockAuth = {
   api: {
-    getSession: jest.fn().mockResolvedValue({
+    getSession: vi.fn().mockResolvedValue({
       user: { id: 'user-1', name: 'Test', email: 'test@example.com' },
       session: { id: 'session-1', token: 'token-1', expiresAt: new Date() },
     }),
-    signOut: jest.fn().mockResolvedValue({ success: true }),
+    signOut: vi.fn().mockResolvedValue({ success: true }),
   },
-  handler: jest.fn().mockResolvedValue(new Response('ok')),
+  handler: vi.fn().mockResolvedValue(new Response('ok')),
 };
 ```
 

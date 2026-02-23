@@ -1,3 +1,5 @@
+import type { Mocked } from 'vitest';
+
 import type { UserResponse } from '../../application/dto/UserResponse';
 import type { GetCurrentUserUseCase } from '../../application/use-cases/GetCurrentUserUseCase';
 import { UnauthorizedError } from '../../domain/errors/UnauthorizedError';
@@ -5,17 +7,17 @@ import { ok, err } from '../../domain/types/Result';
 
 import { requireAuth } from './requireAuth';
 
-jest.mock('../../application/use-cases/GetCurrentUserUseCase');
+vi.mock('../../application/use-cases/GetCurrentUserUseCase');
 
 /**
  * Creates a mock GetCurrentUserUseCase.
  *
  * @returns A mock use case instance
  */
-function createMockUseCase(): jest.Mocked<GetCurrentUserUseCase> {
+function createMockUseCase(): Mocked<GetCurrentUserUseCase> {
   return {
-    execute: jest.fn(),
-  } as unknown as jest.Mocked<GetCurrentUserUseCase>;
+    execute: vi.fn(),
+  } as unknown as Mocked<GetCurrentUserUseCase>;
 }
 
 const mockUser: UserResponse = {

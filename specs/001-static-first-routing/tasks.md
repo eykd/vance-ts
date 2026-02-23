@@ -36,7 +36,7 @@
 - [x] T006 Update Project Structure section to show public/ for marketing pages and src/presentation/templates/app/ for Worker-rendered pages in docs/cloudflare-interactive-webapp-guide.md
 - [x] T007 Update Router implementation code to use /app/_ and /app/\_/_ patterns (remove root route, remove ASSETS.fetch fallback) in docs/cloudflare-interactive-webapp-guide.md
 - [x] T008 Update all HTMX form examples to use /app/\_/ prefix instead of /api/ in docs/cloudflare-interactive-webapp-guide.md
-- [x] T009 Update wrangler.jsonc example to show routes configuration for /app/_, /auth/_, /webhooks/\* in docs/cloudflare-interactive-webapp-guide.md
+- [x] T009 Update wrangler.toml example to show routes configuration for /app/_, /auth/_, /webhooks/\* in docs/cloudflare-interactive-webapp-guide.md
 - [x] T010 Update Deployment section to describe static-first build process (SSG builds to public/, Worker references that directory) in docs/cloudflare-interactive-webapp-guide.md
 
 **Checkpoint**: Primary guide updated. Can now update other docs and skills in parallel.
@@ -75,7 +75,7 @@
 
 - [x] T020 [P] [US2] Update SKILL.md project structure example to show static-first layout in .claude/skills/cloudflare-project-scaffolding/SKILL.md
 - [x] T021 [US2] Update scaffold.py router template to use /app/\* routes and remove root route handler in .claude/skills/cloudflare-project-scaffolding/scripts/scaffold.py
-- [x] T022 [US2] Update scaffold.py to generate wrangler.jsonc with static-first route configuration in .claude/skills/cloudflare-project-scaffolding/scripts/scaffold.py
+- [x] T022 [US2] Update scaffold.py to generate wrangler.toml with static-first route configuration in .claude/skills/cloudflare-project-scaffolding/scripts/scaffold.py
 - [x] T023 [P] [US2] Update SKILL.md handler examples to use /app/\_/ endpoints in .claude/skills/worker-request-handler/SKILL.md
 - [x] T024 [US2] Update middleware.md router examples to show /app/\* boundary with auth middleware in .claude/skills/worker-request-handler/references/middleware.md
 - [x] T025 [US2] Update middleware.md auth integration to apply at /app/\* boundary in .claude/skills/worker-request-handler/references/middleware.md

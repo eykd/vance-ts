@@ -42,7 +42,7 @@ export default defineWorkersConfig({
     include: ['src/**/*.{spec,test}.ts', 'tests/**/*.test.ts'],
     poolOptions: {
       workers: {
-        wrangler: { configPath: './wrangler.jsonc' },
+        wrangler: { configPath: './wrangler.toml' },
         miniflare: {
           compatibilityDate: '2025-01-01',
           compatibilityFlags: ['nodejs_compat'],

@@ -172,7 +172,7 @@ After updates, verify:
 - [ ] Auth middleware applied at `/app/*` boundary
 - [ ] Webhook routes under `/webhooks/*` with signature verification
 - [ ] Static assets served from `public/` without Worker involvement
-- [ ] wrangler.jsonc routes configuration reflects static-first model
+- [ ] wrangler.toml routes configuration reflects static-first model
 - [ ] All HTMX examples use `/app/_/*` convention
 
 ## Next Steps

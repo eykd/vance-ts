@@ -15,9 +15,9 @@ import {
   type PipelineConfig,
 } from './config';
 
-jest.mock('node:fs/promises');
+vi.mock('node:fs/promises');
 
-const mockedFs = jest.mocked(fs);
+const mockedFs = vi.mocked(fs);
 
 /**
  * Creates a default CliArgs for testing.
@@ -176,7 +176,7 @@ describe('DEFAULT_DENSITY_RADIUS', () => {
 
 describe('loadConfigFile', () => {
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
   });
 
   it('returns an empty object when path is undefined', async () => {

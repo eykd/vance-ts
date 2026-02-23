@@ -1,6 +1,8 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
+import type { Mocked } from 'vitest';
+
 import type { Route, StarSystem, Classification } from '../../../../src/domain/galaxy/types';
 
 import {
@@ -12,13 +14,13 @@ import {
 } from './file-writer';
 
 /** Mock encode function for fast-png. */
-const mockEncode = jest.fn((): Uint8Array => new Uint8Array([137, 80, 78, 71]));
-jest.mock('fs/promises');
-jest.mock('fast-png', () => ({
+const mockEncode = vi.fn((): Uint8Array => new Uint8Array([137, 80, 78, 71]));
+vi.mock('fs/promises');
+vi.mock('fast-png', () => ({
   encode: (...args: unknown[]): Uint8Array => mockEncode(...args),
 }));
 
-const mockFs = fs as jest.Mocked<typeof fs>;
+const mockFs = fs as Mocked<typeof fs>;
 
 /**
  * Creates a minimal star system for testing.
@@ -142,7 +144,7 @@ function makeInput(overrides: Partial<GalaxyOutputInput> = {}): GalaxyOutputInpu
 }
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   mockFs.mkdir.mockResolvedValue(undefined);
   mockFs.rm.mockResolvedValue(undefined);
   mockFs.writeFile.mockResolvedValue(undefined);

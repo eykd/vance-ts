@@ -280,7 +280,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('propagates non-ValidationError from Email.create', async () => {
-    const spy = jest.spyOn(Email, 'create').mockImplementation((): Email => {
+    const spy = vi.spyOn(Email, 'create').mockImplementation((): Email => {
       throw new Error('Unexpected email error');
     });
 
@@ -298,7 +298,7 @@ describe('RegisterUseCase', () => {
   });
 
   it('propagates non-ValidationError from Password.create', async () => {
-    const spy = jest.spyOn(Password, 'create').mockImplementation((): Password => {
+    const spy = vi.spyOn(Password, 'create').mockImplementation((): Password => {
       throw new Error('Unexpected password error');
     });
 

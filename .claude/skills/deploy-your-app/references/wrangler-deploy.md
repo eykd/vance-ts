@@ -2,24 +2,22 @@
 
 Now comes the exciting part—Claude will deploy your application to Cloudflare's global network!
 
-## CRITICAL: This Boilerplate Uses Cloudflare Pages
+## This Boilerplate Uses Cloudflare Workers with Static Assets
 
-This boilerplate is a **Hugo + Cloudflare Pages** hybrid:
+This boilerplate is a **Hugo + Cloudflare Worker** hybrid:
 
-- **Hugo** generates static HTML → served from Cloudflare's CDN
-- **Pages Functions** (`functions/` directory) → handle dynamic endpoints like `/app/_/*`
+- **Hugo** generates static HTML into `./hugo/public/` — served via Workers Static Assets
+- **A Worker** (Hono handler) handles dynamic endpoints like `/app/_/*`
 
-**Always use `wrangler pages deploy`, NOT `wrangler deploy`!**
+The `wrangler.toml` file includes an `[assets]` section that points to `./hugo/public/`, so `wrangler deploy` uploads both the static site and the Worker together.
 
 ```bash
-wrangler pages deploy dist --project-name=<project-name>
+wrangler deploy
 ```
-
-Using `wrangler deploy` will fail with: **"Missing entry-point to Worker script"**
 
 ## What Happens During Deployment
 
-When Claude runs the appropriate deploy command, a lot happens automatically behind the scenes. Here's what you need to know:
+When Claude runs the deploy command, a lot happens automatically behind the scenes. Here's what you need to know:
 
 ### 3.1 Automatic Infrastructure Creation
 
@@ -28,7 +26,8 @@ Wrangler reads your `wrangler.toml` configuration file and automatically creates
 1. **D1 Database** — A SQL database for storing data (user accounts, application data, etc.)
 2. **R2 Storage Bucket** — File storage for uploads, images, and documents
 3. **KV Namespace** — Fast key-value storage for caching frequently accessed data
-4. **Pages Functions** — Your dynamic endpoint code deployed globally (from `functions/` directory)
+4. **Worker** — Your dynamic endpoint code deployed globally (Hono handler)
+5. **Static Assets** — Your Hugo-generated HTML, CSS, and JS served from Cloudflare's network
 
 **The magic**: You don't create these manually. Wrangler sees the configuration and provisions everything for you.
 
@@ -72,27 +71,32 @@ Claude builds your project:
 npm run build
 ```
 
-This builds Hugo and compiles CSS into the `dist/` directory.
+This builds Hugo into `./hugo/public/` and compiles CSS.
 
-### Step 3: Deploy to Cloudflare Pages
+### Step 3: Deploy to Cloudflare Workers
 
-Claude reads the project name from wrangler.toml and runs:
+Claude runs:
 
 ```bash
-wrangler pages deploy dist --project-name=your-project-name
+wrangler deploy
 ```
+
+Wrangler reads `wrangler.toml`, which specifies the Worker entry point and the `[assets]` directory (`./hugo/public/`), and deploys everything together.
 
 You'll see output like:
 
 ```
 ⛅️ wrangler 3.x.x
 -------------------
-✨ Deployment complete! Take a peek over at https://abc123.your-project-name.pages.dev
+Total Upload: xx KiB / gzip: xx KiB
+Uploaded your-worker-name (x.xx sec)
+Published your-worker-name (x.xx sec)
+  https://your-worker-name.your-account.workers.dev
 ```
 
 **What this means:**
 
-- Your static files and Pages Functions are uploaded
+- Your static assets and Worker are uploaded together
 - It's published globally (takes ~2 seconds)
 - You get a URL where your application is live
 - A deployment ID lets you track this specific version
@@ -158,14 +162,15 @@ When Claude runs `wrangler deploy`, here's what each part means:
 ### First Deployment (this one)
 
 - Creates D1 database, R2 bucket, KV namespace
+- Creates the Worker (auto-created on first deploy)
 - Runs database migrations
-- Deploys code globally
+- Deploys code and static assets globally
 - Takes 2-5 seconds
 
 ### Subsequent Deployments
 
 - Infrastructure already exists
-- Just deploys updated code
+- Just deploys updated code and static assets
 - Takes 1-2 seconds
 
 **Tip**: After the first deployment, changes deploy almost instantly when you push to GitHub or ask Claude to redeploy.
@@ -176,9 +181,9 @@ When Claude runs `wrangler deploy`, here's what each part means:
 
 After deployment completes:
 
-- [ ] Claude shows you the Pages URL (https://abc123.your-project-name.pages.dev)
+- [ ] Claude shows you the Worker URL (https://your-worker-name.your-account.workers.dev)
 - [ ] No error messages in the deployment output
-- [ ] Cloudflare dashboard shows your Pages project under "Workers & Pages"
+- [ ] Cloudflare dashboard shows your Worker under "Workers & Pages"
 - [ ] D1, R2, and KV resources appear in the dashboard (if configured)
 
 **Everything looks good?** Continue to Phase 4 (Email Setup) if you want email functionality, or skip to Phase 7 (Verify Deployment) to test your application.
@@ -186,34 +191,6 @@ After deployment completes:
 ---
 
 ## Troubleshooting
-
-### "Missing entry-point to Worker script"
-
-**This is the most common error!** It means you used `wrangler deploy` instead of `wrangler pages deploy`.
-
-**The fix:**
-
-Use the correct command for this Cloudflare Pages project:
-
-```bash
-wrangler pages deploy dist --project-name=<project-name>
-```
-
-**For GitHub Actions CI/CD:**
-
-Make sure your workflow uses `pages deploy`:
-
-```yaml
-# WRONG:
-- run: npx wrangler deploy
-
-# CORRECT:
-- uses: cloudflare/wrangler-action@v3
-  with:
-    apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-    accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    command: pages deploy dist --project-name=your-project-name
-```
 
 ### "Authentication failed"
 
@@ -299,130 +276,122 @@ This streams live logs to the terminal.
 
 ### "Can I roll back a deployment?"
 
-Yes! Each deployment has an ID. In the Cloudflare dashboard:
+Yes! Each deployment has a version. In the Cloudflare dashboard:
 
 1. Go to **Workers & Pages** → Your Worker
 2. Click the **Deployments** tab
-3. Find a previous deployment
+3. Find a previous version
 4. Click **Rollback** to revert to that version
 
-Or tell Claude which deployment ID to roll back to, and Claude will run:
+Or tell Claude to roll back, and Claude will run:
 
 ```bash
-wrangler rollback <deployment-id>
+wrangler versions rollback <version-id>
 ```
 
 ---
 
 ## 3.7 Preview Deployments vs. Production Deployments
 
-Cloudflare Pages distinguishes between **production** and **preview** deployments based on the branch.
+For testing changes before they go live, you can deploy branch-specific Workers with a suffixed name.
 
 ### How It Works
 
-When you create a Pages project, you specify a **production branch** (typically `master` or `main`). This determines which branch serves the main URL.
+The production Worker is deployed from the `master` branch. For feature branches, Claude deploys a separate Worker with a branch-suffixed name.
 
-| Deployment Source          | URL Type                | Example                                         |
-| -------------------------- | ----------------------- | ----------------------------------------------- |
-| Production branch (master) | Main production URL     | `https://myproject.pages.dev`                   |
-| Any other branch           | Branch alias URL        | `https://my-feature-branch.myproject.pages.dev` |
-| Any deployment             | Deployment-specific URL | `https://abc123def.myproject.pages.dev`         |
+| Deployment Source          | Worker Name                   | URL                                                            |
+| -------------------------- | ----------------------------- | -------------------------------------------------------------- |
+| Production branch (master) | `myproject`                   | `https://myproject.your-account.workers.dev`                   |
+| Any other branch           | `myproject-my-feature-branch` | `https://myproject-my-feature-branch.your-account.workers.dev` |
 
 ### Important Implications
 
-1. **Main URL won't work until deployed from production branch**: If you deploy from a feature branch, the main URL (e.g., `myproject.pages.dev`) will show an error until you deploy from master.
+1. **Branch Workers are separate Workers**: They are independent deployments with their own bindings (D1, KV, R2). This means preview testing uses isolated infrastructure.
 
-2. **Preview deployments are fully functional**: Branch deployments include all Pages Functions, D1 bindings, KV, R2 — everything works. They're perfect for testing.
+2. **Preview Workers are fully functional**: Branch deployments include all bindings — D1, KV, R2 — everything works. They're perfect for testing.
 
-3. **Preview URLs persist indefinitely**: The hash-based deployment URLs continue working as long as the deployment exists. There's no auto-cleanup.
+3. **Preview Workers persist until deleted**: They continue running until explicitly deleted. There's no auto-cleanup.
 
-4. **TLS certificate provisioning takes a few minutes**: When a new preview URL is created, Cloudflare needs to provision a TLS certificate. During this time (typically 1-3 minutes), you may see TLS/SSL errors when visiting the URL. This is normal — wait a few minutes and try again.
+4. **TLS certificate provisioning takes a few minutes**: When a new Worker URL is created, Cloudflare needs to provision a TLS certificate. During this time (typically 1-3 minutes), you may see TLS/SSL errors when visiting the URL. This is normal — wait a few minutes and try again.
 
 ### When Deploying from a Branch
 
 Always inform the user:
 
-- Which URL works NOW (the deployment-specific or branch alias URL)
-- That the main URL won't work until merging to the production branch
-- Offer to merge and deploy to production if they want the main URL active
+- Which URL works NOW (the branch-suffixed Worker URL)
+- That the main production URL is served by a separate Worker deployed from master
+- Offer to merge and deploy to production if they want the main URL updated
 
 ---
 
-## 3.8 Cleaning Up Preview Deployments
+## 3.8 Cleaning Up Preview Workers
 
-Preview deployments accumulate over time. While Cloudflare doesn't charge for storage, cleaning up old deployments is good hygiene.
+Preview Workers accumulate over time. While Cloudflare's free tier is generous, cleaning up old preview Workers is good hygiene.
 
-### Listing Deployments
+### Listing Worker Versions
 
 ```bash
-# List all deployments for a project
-npx wrangler pages deployment list --project-name=<project-name>
+# List versions of a Worker
+npx wrangler versions list
 ```
 
-### Deleting Old Deployments
+### Deleting a Preview Worker
 
 ```bash
-# Delete a specific deployment by ID
-npx wrangler pages deployment delete <deployment-id> --project-name=<project-name>
+# Delete a branch-specific preview Worker entirely
+npx wrangler delete --name myproject-my-feature-branch
+```
+
+### Rolling Back a Version
+
+```bash
+# Roll back to a previous version
+npx wrangler versions rollback <version-id>
 ```
 
 ### When to Offer Cleanup
 
-**Always offer to clean up preview deployments** in these situations:
+**Always offer to clean up preview Workers** in these situations:
 
-1. **After merging a feature branch to production** — The preview deployment for that branch is no longer needed
-2. **When listing deployments shows many old entries** — Suggest cleaning up deployments older than a certain date
-3. **After deleting a feature branch** — The associated preview deployments can be removed
-4. **Periodically during maintenance** — Offer to review and clean up stale deployments
+1. **After merging a feature branch to production** — The preview Worker for that branch is no longer needed
+2. **When there are many branch-specific Workers** — Suggest cleaning up Workers for branches that have been merged or deleted
+3. **After deleting a feature branch** — The associated preview Worker can be removed
+4. **Periodically during maintenance** — Offer to review and clean up stale Workers
 
 ### Example Cleanup Flow
 
 ```
-Claude: "I see you have 12 preview deployments from old branches. Would you like me to clean up deployments older than 30 days? I'll keep the production deployment and any recent branch previews."
+Claude: "I see you have 4 preview Workers from old branches. Would you like me to delete the ones for branches that have been merged? I'll keep the production Worker and any active branch previews."
 
 User: "Yes please"
 
-Claude: [Lists deployments, identifies old ones, deletes them one by one]
-Claude: "Done! I removed 8 old preview deployments. Your current production deployment and 3 recent previews are still active."
+Claude: [Lists preview Workers, identifies old ones, deletes them]
+Claude: "Done! I removed 3 old preview Workers. Your production Worker and 1 active preview are still running."
 ```
-
-### Limits to Be Aware Of
-
-| Resource                   | Limit                      |
-| -------------------------- | -------------------------- |
-| Builds per month (Free)    | 500 (account-wide)         |
-| Active preview deployments | Unlimited                  |
-| Deployment retention       | Indefinite (until deleted) |
-
-The main constraint is the 500 builds/month limit, not storage of old deployments.
 
 ---
 
 ## 3.9 Deploying Scheduled Workers (Optional)
 
-If your project includes scheduled tasks (cron triggers), you'll deploy TWO separate entities:
+If your project includes scheduled tasks (cron triggers), these are configured directly in `wrangler.toml` using the `[triggers]` section:
 
-1. **Pages deployment** (main application):
+```toml
+[triggers]
+crons = ["0 0 * * *"]  # Example: daily at midnight UTC
+```
 
-   ```bash
-   wrangler pages deploy dist --project-name=<project-name>
-   ```
+Workers with Static Assets fully supports `[triggers]`, so there's no need for a separate Worker deployment. Just run:
 
-2. **Worker deployment** (scheduled tasks):
-   ```bash
-   wrangler deploy --config wrangler.worker.toml
-   ```
+```bash
+wrangler deploy
+```
 
-**Why separate?** Cloudflare Pages does not support `[triggers]` configuration. Scheduled tasks require a standalone Worker.
-
-**When to use:** Only if you need:
+**When to use scheduled triggers:**
 
 - Periodic reports (daily, weekly)
 - Scheduled cleanup tasks
 - Time-based notifications
 - Regular data synchronization
-
-See `wrangler.worker.toml` for configuration and `docs/cron-scheduled-tasks-guide.md` for complete implementation patterns.
 
 ---
 

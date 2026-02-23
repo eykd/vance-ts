@@ -1,10 +1,12 @@
+import type { MockInstance } from 'vitest';
+
 import { ConsoleLogger } from './ConsoleLogger';
 
 describe('ConsoleLogger', () => {
-  let consoleSpy: jest.SpyInstance;
+  let consoleSpy: MockInstance;
 
   beforeEach(() => {
-    consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -98,7 +100,6 @@ describe('ConsoleLogger', () => {
 
       logger.info('Test message', context);
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const rawLog = String(consoleSpy.mock.calls[0]?.[0]);
       const loggedJson = JSON.parse(rawLog) as Record<string, unknown>;
       expect(loggedJson).toMatchObject({
@@ -116,7 +117,6 @@ describe('ConsoleLogger', () => {
 
       logger.warn('Warning message');
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const rawLog = String(consoleSpy.mock.calls[0]?.[0]);
       const loggedJson = JSON.parse(rawLog) as Record<string, unknown>;
       expect(loggedJson).toMatchObject({
@@ -133,7 +133,6 @@ describe('ConsoleLogger', () => {
 
       logger.error('Error occurred', error);
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const rawLog = String(consoleSpy.mock.calls[0]?.[0]);
       const loggedJson = JSON.parse(rawLog) as Record<string, unknown>;
       expect(loggedJson).toMatchObject({
@@ -153,7 +152,6 @@ describe('ConsoleLogger', () => {
 
       logger.security('failed_login', context);
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const rawLog = String(consoleSpy.mock.calls[0]?.[0]);
       const loggedJson = JSON.parse(rawLog) as Record<string, unknown>;
       expect(loggedJson).toMatchObject({
@@ -185,7 +183,6 @@ describe('ConsoleLogger', () => {
 
       logger.info('Real message', maliciousContext);
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const rawLog = String(consoleSpy.mock.calls[0]?.[0]);
       const loggedJson = JSON.parse(rawLog) as Record<string, unknown>;
       expect(loggedJson['level']).toBe('INFO');
@@ -211,7 +208,6 @@ describe('ConsoleLogger', () => {
 
       logger.info('Line1\nLine2\rLine3');
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const rawLog = String(consoleSpy.mock.calls[0]?.[0]);
       const loggedJson = JSON.parse(rawLog) as Record<string, unknown>;
       expect(loggedJson['message']).toBe('Line1 Line2 Line3');

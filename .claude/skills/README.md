@@ -74,7 +74,7 @@ Skills can also be activated automatically by Claude when it detects relevant co
 **[typescript-unit-testing](./typescript-unit-testing/SKILL.md)**
 
 - **Use when:** Writing new unit tests, implementing TDD workflows, creating mocks, debugging test failures
-- **Provides:** Vitest and Jest patterns, test doubles, TDD workflows, test design principles
+- **Provides:** Vitest patterns, test doubles, TDD workflows, test design principles
 
 **[vitest-cloudflare-config](./vitest-cloudflare-config/SKILL.md)**
 

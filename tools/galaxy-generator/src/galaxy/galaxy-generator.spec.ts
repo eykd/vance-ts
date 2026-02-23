@@ -336,8 +336,8 @@ describe('generateSpiralGalaxyCoords', () => {
 
     it('accepts a mock Prng implementation', () => {
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, _max: number): number => min),
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, _max: number): number => min),
       };
 
       const config = makeConfig({ rng: mockRng, limit: 10 });

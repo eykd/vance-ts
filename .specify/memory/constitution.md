@@ -111,7 +111,7 @@ Test-Driven Development is MANDATORY for all application code. No exceptions.
 
 - 100% test coverage threshold MUST be maintained (branches, functions, lines, statements)
 - Tests use `.spec.ts` or `.test.ts` suffix
-- Watch mode (`npx jest --watch`) MUST be used during development
+- Watch mode (`npx vitest`) MUST be used during development
 - When achieving 100% coverage is difficult:
   - First, try mocking external dependencies
   - Second, try restructuring code to make it testable

@@ -456,7 +456,7 @@ describe('validation error response', () => {
 ```typescript
 describe('logError', () => {
   it('logs detailed error information', () => {
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation();
 
     const error = new DatabaseError('Query failed', 'SELECT * FROM tasks');
     logError(error);
@@ -468,7 +468,7 @@ describe('logError', () => {
   });
 
   it('does not log passwords', () => {
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation();
 
     const error = new ValidationError('Invalid credentials');
     logError(error);

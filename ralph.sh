@@ -22,6 +22,16 @@ readonly MAX_RETRY_DELAY=300  # 5 minutes cap
 # Claude CLI timeout
 readonly CLAUDE_TIMEOUT=1800  # 30 minutes max per invocation
 
+# ATDD workflow configuration
+readonly STEP_BIND="BIND"
+readonly STEP_RED="RED"
+readonly STEP_GREEN="GREEN"
+readonly STEP_REFACTOR="REFACTOR"
+readonly STEP_REVIEW="REVIEW"
+readonly TDD_STEP_RETRIES=3
+readonly ATDD_MAX_INNER_CYCLES=15
+readonly ACCEPTANCE_OUTPUT_FILE=".ralph-acceptance.json"
+
 # Exit codes
 readonly EXIT_SUCCESS=0
 readonly EXIT_FAILURE=1
@@ -888,7 +898,7 @@ Apply strict red-green-refactor:
 1. RED: Write failing test first
 2. GREEN: Minimal code to pass
 3. REFACTOR: Improve while green
-Run: npx jest --watch
+Run: npx vitest
 EOF
     fi
 
@@ -956,6 +966,525 @@ If ANY of these are false, the task is INCOMPLETE - keep working until all pass.
 Ralph will create a series of commits across iterations.
 User will push all commits manually when the feature is ready.
 EOF
+}
+
+
+##############################################################################
+# ATDD: Acceptance Test-Driven Development infrastructure
+##############################################################################
+
+# Read a skill's SKILL.md content
+# Usage: load_skill_content skill_name
+# Returns: the content of .claude/skills/<skill_name>/SKILL.md, or empty string
+load_skill_content() {
+    local skill_name="$1"
+    local skill_path=".claude/skills/${skill_name}/SKILL.md"
+    if [[ -f "$skill_path" ]]; then
+        cat "$skill_path"
+    else
+        echo ""
+    fi
+}
+
+# Find the spec file for a task whose title contains US<N>
+# Usage: find_spec_for_task task_json
+# Returns: path to the spec file, or empty string if not found
+find_spec_for_task() {
+    local task_json="$1"
+    local task_title
+    task_title=$(echo "$task_json" | jq -r '.title // ""')
+
+    # Extract US<N> from title (e.g. "US03: View the list" → "US03")
+    local us_number
+    us_number=$(echo "$task_title" | grep -oE 'US[0-9]+' | head -1)
+    if [[ -z "$us_number" ]]; then
+        echo ""
+        return
+    fi
+
+    # Find matching spec file in specs/acceptance-specs/
+    local spec_file
+    spec_file=$(find specs/acceptance-specs -name "${us_number}-*.txt" 2>/dev/null | head -1)
+    echo "$spec_file"
+}
+
+# Run the acceptance pipeline and check if tests pass
+# Usage: run_acceptance_check spec_file
+# Returns: 0 if tests pass, 1 if tests fail
+run_acceptance_check() {
+    local spec_file="$1"
+    log DEBUG "Running acceptance check for spec: $spec_file"
+
+    # Parse and generate for this spec only (full pipeline)
+    if npx tsx acceptance/pipeline.ts --action=run >> "$LOG_FILE" 2>&1; then
+        log INFO "Acceptance tests PASSED"
+        return 0
+    else
+        log INFO "Acceptance tests did not pass yet"
+        return 1
+    fi
+}
+
+# Check that baseline unit tests (src/) still pass
+# Usage: check_baseline_tests
+# Returns: 0 if tests pass, 1 otherwise
+check_baseline_tests() {
+    log DEBUG "Running baseline unit tests..."
+    if npx vitest run src/ >> "$LOG_FILE" 2>&1; then
+        log INFO "Baseline tests PASSED"
+        return 0
+    else
+        log WARN "Baseline tests FAILED"
+        return 1
+    fi
+}
+
+# Attempt to fix baseline test failures by invoking Claude
+# Usage: attempt_baseline_fix task_json cycle
+# Returns: 0 if fixed, 1 otherwise
+attempt_baseline_fix() {
+    local task_json="$1"
+    local cycle="$2"
+    local task_id
+    task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
+
+    log INFO "Attempting baseline fix (cycle $cycle)"
+
+    local fix_prompt
+    fix_prompt=$(cat <<PROMPT
+## Fix Failing Baseline Tests
+
+You are in ralph's ATDD automation loop.
+Task: $(echo "$task_json" | jq -r '.title // "unknown"') ($task_id)
+ATDD Inner Cycle: $cycle
+
+The baseline unit tests in src/ are now failing after your last change.
+This is a regression — fix it before continuing.
+
+## Your Task
+
+1. Run: npx vitest run src/ --reporter=verbose
+2. Read the failure output carefully
+3. Fix the failing tests (write code, not just test changes)
+4. Run npx vitest run src/ again to confirm all pass
+5. Do NOT close the bead — this is a fix step, not task completion
+
+## Rules
+- Fix actual code bugs, not just tests
+- Maintain 100% coverage
+- Do NOT touch generated-acceptance-tests/
+PROMPT
+)
+    invoke_claude_with_retry "$fix_prompt"
+}
+
+# Generate the BIND step prompt
+# Usage: generate_bind_prompt task_json cycle spec_file retry_context
+generate_bind_prompt() {
+    local task_json="$1"
+    local cycle="$2"
+    local spec_file="$3"
+    local retry_context="$4"
+
+    local task_title task_id task_description
+    task_title=$(echo "$task_json" | jq -r '.title // "unknown"')
+    task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
+    task_description=$(echo "$task_json" | jq -r '.description // ""')
+
+    local acceptance_skill
+    acceptance_skill=$(load_skill_content "acceptance-tests")
+
+    cat <<PROMPT
+## ATDD BIND Step
+
+You are in ralph's ATDD automation loop.
+Task: $task_title ($task_id)
+ATDD Cycle: $cycle
+
+### Spec File
+$spec_file
+
+Read the spec file content, then bind the generated acceptance test stubs.
+
+### Instructions
+
+1. Read the spec file: cat $spec_file
+
+2. Run the acceptance pipeline to generate stubs:
+   npx tsx acceptance/pipeline.ts --action=run
+
+3. Read the generated stub file in generated-acceptance-tests/
+   (its name matches the spec file's US<N>-* prefix)
+
+4. For each stub that contains:
+   throw new Error("acceptance test not yet bound")
+   
+   Replace the entire it() block body with real SELF.fetch() test code:
+   
+   Pattern:
+   \`\`\`typescript
+   it("Scenario description.", async () => {
+     // GIVEN setup — use env.DB.exec(...) for D1 state, or other setup
+     
+     // WHEN action — use SELF.fetch(new Request("https://example.com/..."))
+     const res = await SELF.fetch(new Request("https://example.com/api/..."));
+     
+     // THEN assertions — assert on HTTP response
+     expect(res.status).toBe(200);
+     const body = await res.json() as { ... };
+     expect(body...).toBe(...);
+   });
+   \`\`\`
+
+5. Bind all stubs. Do NOT run the tests yet (they will fail — that's expected).
+
+6. Do NOT close the bead — binding is not task completion.
+
+${retry_context:+### Retry Context
+$retry_context
+}
+### Acceptance Tests Skill Reference
+$acceptance_skill
+
+### Task Description
+$task_description
+PROMPT
+}
+
+# Generate a TDD step prompt (RED, GREEN, REFACTOR, or REVIEW)
+# Usage: generate_tdd_step_prompt step task_json cycle remaining_items retry_context
+generate_tdd_step_prompt() {
+    local step="$1"
+    local task_json="$2"
+    local cycle="$3"
+    local remaining_items="$4"
+    local retry_context="$5"
+
+    local task_title task_id task_description
+    task_title=$(echo "$task_json" | jq -r '.title // "unknown"')
+    task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
+    task_description=$(echo "$task_json" | jq -r '.description // ""')
+
+    case "$step" in
+        "$STEP_RED")
+            cat <<PROMPT
+## ATDD Inner Cycle — RED Step
+
+You are in ralph's ATDD automation loop.
+Task: $task_title ($task_id)
+ATDD Inner Cycle: $cycle
+
+${remaining_items:+### Remaining Acceptance Items
+$remaining_items
+}
+### Instructions
+
+Write the SMALLEST failing unit test that moves toward passing the acceptance tests.
+
+1. Identify the next smallest piece of functionality needed
+2. Write ONE failing unit test in the appropriate src/**/*.spec.ts file
+3. Run: npx vitest run src/ --reporter=verbose
+4. Confirm the new test fails (RED) and existing tests still pass
+5. Do NOT write implementation code yet
+6. Do NOT close the bead
+
+${retry_context:+### Retry Context
+$retry_context
+}
+### Task Description
+$task_description
+PROMPT
+            ;;
+        "$STEP_GREEN")
+            cat <<PROMPT
+## ATDD Inner Cycle — GREEN Step
+
+You are in ralph's ATDD automation loop.
+Task: $task_title ($task_id)
+ATDD Inner Cycle: $cycle
+
+### Instructions
+
+Write MINIMAL code to make the failing test pass.
+
+1. Write just enough code to make the failing unit test pass
+2. Run: npx vitest run src/ --reporter=verbose
+3. All tests should now pass (GREEN)
+4. Coverage must remain at 100%
+5. Do NOT refactor yet
+6. Do NOT close the bead
+
+${retry_context:+### Retry Context
+$retry_context
+}
+### Task Description
+$task_description
+PROMPT
+            ;;
+        "$STEP_REFACTOR")
+            cat <<PROMPT
+## ATDD Inner Cycle — REFACTOR Step
+
+You are in ralph's ATDD automation loop.
+Task: $task_title ($task_id)
+ATDD Inner Cycle: $cycle
+
+### Instructions
+
+Improve the code without changing behavior.
+
+1. Look for duplication, unclear names, missing abstractions
+2. Apply refactoring while keeping all tests GREEN
+3. Run: npx vitest run src/ --reporter=verbose
+4. All tests should still pass after refactoring
+5. Coverage must remain at 100%
+6. Do NOT close the bead — acceptance tests may not pass yet
+
+${retry_context:+### Retry Context
+$retry_context
+}
+### Task Description
+$task_description
+PROMPT
+            ;;
+        "$STEP_REVIEW")
+            cat <<PROMPT
+## ATDD Inner Cycle — REVIEW Step
+
+You are in ralph's ATDD automation loop.
+Task: $task_title ($task_id)
+ATDD Inner Cycle: $cycle
+
+### Instructions
+
+Review the work done so far in this inner cycle.
+
+1. Run: npx vitest run src/ --reporter=verbose
+2. Check: does the implementation look complete for this cycle's goal?
+3. Check: are there obvious improvements needed before the next cycle?
+4. Apply any small improvements
+5. Do NOT close the bead
+
+${retry_context:+### Retry Context
+$retry_context
+}
+### Task Description
+$task_description
+PROMPT
+            ;;
+    esac
+}
+
+# Execute one TDD step with retries
+# Usage: execute_tdd_step step task_json cycle remaining_items spec_file
+# Returns: 0 on success, 1 on failure
+execute_tdd_step() {
+    local step="$1"
+    local task_json="$2"
+    local cycle="$3"
+    local remaining_items="$4"
+    local spec_file="$5"
+    local retry_count=0
+    local retry_context=""
+
+    log INFO "Executing TDD step: $step (cycle $cycle)"
+
+    while (( retry_count < TDD_STEP_RETRIES )); do
+        retry_count=$((retry_count + 1))
+        log DEBUG "TDD step $step attempt $retry_count/$TDD_STEP_RETRIES"
+
+        local prompt
+        if [[ "$step" == "$STEP_BIND" ]]; then
+            prompt=$(generate_bind_prompt "$task_json" "$cycle" "$spec_file" "$retry_context")
+        else
+            prompt=$(generate_tdd_step_prompt "$step" "$task_json" "$cycle" "$remaining_items" "$retry_context")
+        fi
+
+        if ! invoke_claude_with_retry "$prompt"; then
+            log WARN "Claude invocation failed for step $step attempt $retry_count"
+            retry_context="Previous attempt failed due to Claude invocation error."
+            continue
+        fi
+
+        # After BIND, skip test verification (tests are expected to fail)
+        if [[ "$step" == "$STEP_BIND" ]]; then
+            log INFO "BIND step complete — tests expected to fail at this point"
+            return 0
+        fi
+
+        # After RED/GREEN/REFACTOR/REVIEW, verify tests pass
+        if check_baseline_tests; then
+            log INFO "TDD step $step completed successfully"
+            return 0
+        else
+            log WARN "Baseline tests failing after $step step (attempt $retry_count)"
+            retry_context="After the $step step, baseline tests are still failing. Fix the issues."
+        fi
+    done
+
+    log ERROR "TDD step $step failed after $TDD_STEP_RETRIES retries"
+    return 1
+}
+
+# Execute the unit TDD cycle only (no acceptance wrapper)
+# Used as fallback when no spec file exists for a task
+# Usage: execute_unit_tdd_cycle task_json epic_id
+execute_unit_tdd_cycle() {
+    local task_json="$1"
+    local epic_id="$2"
+    local task_id
+    task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
+    local max_cycles=5
+
+    log INFO "Executing unit TDD cycle for task $task_id (no spec found)"
+
+    for (( cycle=1; cycle <= max_cycles; cycle++ )); do
+        log INFO "Unit TDD cycle $cycle/$max_cycles"
+
+        # RED → GREEN → REFACTOR → REVIEW
+        for step in "$STEP_RED" "$STEP_GREEN" "$STEP_REFACTOR" "$STEP_REVIEW"; do
+            if ! execute_tdd_step "$step" "$task_json" "$cycle" "" ""; then
+                log ERROR "TDD step $step failed in unit cycle $cycle"
+                npx bd comment "$task_id" "BLOCKED: TDD step $step failed after retries in unit cycle $cycle" 2>/dev/null || true
+                return 1
+            fi
+        done
+
+        # Check if task appears complete after REVIEW
+        # Use generate_focused_prompt path as the decision maker — invoke /sp:next to close if done
+        local check_prompt
+        check_prompt=$(cat <<PROMPT
+/sp:next
+
+## Non-Interactive Mode
+You are in ralph's automation loop. You CANNOT ask questions.
+
+## Task
+$(echo "$task_json" | jq -r '.title // "unknown"') ($(echo "$task_json" | jq -r '.id // "unknown"'))
+
+## Check Completion
+
+After $cycle unit TDD cycle(s), check if this task is complete:
+1. Run: npx vitest run src/ --reporter=verbose
+2. Run: npx vitest run --coverage 2>&1 | tail -20
+3. If all tests pass with 100% coverage AND the implementation satisfies the task description:
+   - Close the bead: npx bd close $task_id
+   - Run /commit
+4. If NOT complete, add a comment explaining what remains: npx bd comment $task_id "Cycle $cycle complete. Remaining: ..."
+   Do NOT close the bead.
+PROMPT
+)
+        if invoke_claude_with_retry "$check_prompt"; then
+            # Check if task was closed
+            local task_status
+            task_status=$(npx bd show "$task_id" --json 2>/dev/null | jq -r '(if type == "array" then .[0] else . end) | .status // "unknown"')
+            if [[ "$task_status" == "completed" ]] || [[ "$task_status" == "closed" ]]; then
+                log INFO "Task $task_id completed after $cycle unit TDD cycles"
+                return 0
+            fi
+        fi
+    done
+
+    log WARN "Unit TDD cycle limit reached for task $task_id"
+    npx bd comment "$task_id" "BLOCKED: Unit TDD cycle limit ($max_cycles) reached without task completion" 2>/dev/null || true
+    return 1
+}
+
+# Execute the full ATDD cycle for a user story task
+# Usage: execute_atdd_cycle task_json epic_id
+execute_atdd_cycle() {
+    local task_json="$1"
+    local epic_id="$2"
+    local task_id
+    task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
+
+    log INFO "Starting ATDD cycle for task $task_id"
+    log_section "ATDD CYCLE: $task_id"
+
+    # Mark task as in-progress
+    npx bd update "$task_id" --status=in_progress 2>/dev/null || true
+
+    # Step 1: Find spec file
+    local spec_file
+    spec_file=$(find_spec_for_task "$task_json")
+
+    if [[ -z "$spec_file" ]]; then
+        log INFO "No spec file found for task $task_id — falling back to unit TDD cycle"
+        execute_unit_tdd_cycle "$task_json" "$epic_id"
+        return $?
+    fi
+
+    log INFO "Found spec file: $spec_file"
+
+    # Step 2: Check if acceptance tests already pass
+    if run_acceptance_check "$spec_file"; then
+        log INFO "Acceptance tests already pass for $task_id — closing task"
+        npx bd close "$task_id" 2>/dev/null || true
+        # Invoke Claude to commit
+        local commit_prompt
+        commit_prompt=$(cat <<PROMPT
+/commit
+
+Commit message: feat: complete $(echo "$task_json" | jq -r '.title // "task"')
+
+The acceptance tests for this user story already pass. Close the bead and commit.
+- npx bd close $task_id (if not already closed)
+- Run /commit
+PROMPT
+)
+        invoke_claude_with_retry "$commit_prompt" || true
+        return 0
+    fi
+
+    # Step 3: BIND step — write acceptance test implementations
+    if ! execute_tdd_step "$STEP_BIND" "$task_json" 1 "" "$spec_file"; then
+        log ERROR "BIND step failed for task $task_id"
+        npx bd comment "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
+        return 1
+    fi
+
+    # Step 4: Inner TDD loop
+    for (( cycle=1; cycle <= ATDD_MAX_INNER_CYCLES; cycle++ )); do
+        log INFO "ATDD inner cycle $cycle/$ATDD_MAX_INNER_CYCLES"
+
+        # RED → GREEN → REFACTOR
+        for step in "$STEP_RED" "$STEP_GREEN" "$STEP_REFACTOR"; do
+            if ! execute_tdd_step "$step" "$task_json" "$cycle" "" "$spec_file"; then
+                log ERROR "TDD step $step failed in ATDD cycle $cycle for task $task_id"
+                npx bd comment "$task_id" "BLOCKED: TDD step $step failed in ATDD cycle $cycle" 2>/dev/null || true
+                return 1
+            fi
+        done
+
+        # Check if acceptance tests now pass
+        if run_acceptance_check "$spec_file"; then
+            log INFO "Acceptance tests PASS after ATDD cycle $cycle — task $task_id complete"
+            npx bd close "$task_id" 2>/dev/null || true
+            # Commit
+            local commit_prompt
+            commit_prompt=$(cat <<PROMPT
+/commit
+
+Task complete: $(echo "$task_json" | jq -r '.title // "task"') ($task_id)
+
+The acceptance tests now pass after $cycle ATDD inner cycle(s).
+
+Steps:
+1. npx bd close $task_id (if not already closed)
+2. Run /commit to commit all changes including .beads state
+PROMPT
+)
+            invoke_claude_with_retry "$commit_prompt" || true
+            return 0
+        fi
+
+        log INFO "Acceptance tests still failing after cycle $cycle — continuing"
+    done
+
+    # All cycles exhausted
+    log WARN "ATDD inner cycle limit ($ATDD_MAX_INNER_CYCLES) reached for task $task_id"
+    npx bd comment "$task_id" "BLOCKED: ATDD cycle limit ($ATDD_MAX_INNER_CYCLES) reached without acceptance tests passing" 2>/dev/null || true
+    return 1
 }
 
 ##############################################################################
@@ -1184,30 +1713,43 @@ Status: $(if [[ "$is_resuming" == "true" ]]; then echo "RESUMING IN-PROGRESS"; e
 Description:
 $task_description"
 
-        # Generate focused prompt
-        log DEBUG "Generating focused prompt..."
-        focused_prompt=$(generate_focused_prompt "$next_task")
+        # Route US<N> tasks to ATDD cycle; all others use /sp:next
+        if echo "$task_title" | grep -qP 'US\d+'; then
+            log INFO "Routing task $task_id to ATDD cycle (US<N> task detected)"
 
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log INFO "DRY RUN: Would invoke Claude with prompt"
-            log_block "Dry Run Prompt" "$focused_prompt"
-            echo "---"
-            echo "$focused_prompt"
-            echo "---"
-            return "$EXIT_SUCCESS"
-        fi
+            if [[ "$DRY_RUN" == "true" ]]; then
+                log INFO "DRY RUN: Would execute ATDD cycle for $task_id"
+                echo "--- DRY RUN: ATDD cycle for $task_id ---"
+                return "$EXIT_SUCCESS"
+            fi
 
-        # Invoke Claude CLI with retry logic
-        if invoke_claude_with_retry "$focused_prompt"; then
-            log INFO "Task processing completed successfully"
-
-            # Auto-close parent container tasks if all children are now completed.
-            # Walks up from the processed task, closing each ancestor whose
-            # children are all closed. This unblocks dependents of the parent.
-            auto_close_completed_parents "$task_id" "$epic_id"
+            if execute_atdd_cycle "$next_task" "$epic_id"; then
+                log INFO "ATDD cycle completed for task $task_id"
+            else
+                log ERROR "ATDD cycle failed for task $task_id"
+                return "$EXIT_FAILURE"
+            fi
         else
-            log ERROR "Task processing failed after $MAX_RETRIES retries"
-            return "$EXIT_FAILURE"
+            # Generate focused prompt
+            log DEBUG "Generating focused prompt..."
+            focused_prompt=$(generate_focused_prompt "$next_task")
+
+            if [[ "$DRY_RUN" == "true" ]]; then
+                log INFO "DRY RUN: Would invoke Claude with prompt"
+                log_block "Dry Run Prompt" "$focused_prompt"
+                echo "---"
+                echo "$focused_prompt"
+                echo "---"
+                return "$EXIT_SUCCESS"
+            fi
+
+            # Invoke Claude CLI with retry logic
+            if invoke_claude_with_retry "$focused_prompt"; then
+                log INFO "Task processing completed successfully"
+            else
+                log ERROR "Task processing failed after $MAX_RETRIES retries"
+                return "$EXIT_FAILURE"
+            fi
         fi
     done
 

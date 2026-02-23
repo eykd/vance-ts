@@ -53,8 +53,8 @@ describe('roll4dF', () => {
 
   it('accepts any Prng implementation', () => {
     const mockPrng: Prng = {
-      random: jest.fn(() => 0.5),
-      randint: jest.fn(() => 0),
+      random: vi.fn(() => 0.5),
+      randint: vi.fn(() => 0),
     };
 
     const result = roll4dF(mockPrng);
@@ -137,8 +137,8 @@ describe('rollNdS', () => {
 
   it('accepts any Prng implementation', () => {
     const mockPrng: Prng = {
-      random: jest.fn(() => 0.5),
-      randint: jest.fn((min: number, _max: number) => min),
+      random: vi.fn(() => 0.5),
+      randint: vi.fn((min: number, _max: number) => min),
     };
 
     const result = rollNdS(mockPrng, 2, 6);

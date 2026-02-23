@@ -9,7 +9,7 @@ describe('buildCspHeaderValue', () => {
 
   it('returns semicolon-separated directives', () => {
     const directives = csp.split(';').map((d) => d.trim());
-    expect(directives.length).toBeGreaterThanOrEqual(4);
+    expect(directives.length).toBe(11);
   });
 
   it("includes default-src 'self'", () => {
@@ -86,7 +86,9 @@ describe('applySecurityHeaders', () => {
   });
 
   it('sets Permissions-Policy restricting sensitive APIs', () => {
-    expect(headers.get('Permissions-Policy')).toBe('geolocation=(), microphone=(), camera=()');
+    expect(headers.get('Permissions-Policy')).toBe(
+      'geolocation=(), microphone=(), camera=(), payment=(), usb=()'
+    );
   });
 
   it('preserves existing headers', () => {

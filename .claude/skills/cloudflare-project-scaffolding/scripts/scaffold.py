@@ -9,6 +9,7 @@ Generates a project with DDD/Clean Architecture structure using:
 """
 
 import argparse
+import datetime
 import json
 import os
 from pathlib import Path
@@ -25,6 +26,7 @@ def scaffold_project(project_name: str, output_dir: Path, db_name: str = None):
     """Generate the complete project structure."""
     root = output_dir / project_name
     db = db_name or f"{project_name}-db"
+    today = datetime.date.today().isoformat()
     
     print(f"\n🚀 Scaffolding Cloudflare project: {project_name}")
     print(f"   Output: {root}\n")
@@ -51,6 +53,9 @@ def scaffold_project(project_name: str, output_dir: Path, db_name: str = None):
     "css:build": "npx @tailwindcss/cli -i ./src/styles/app.css -o ./public/css/app.css --minify",
     "css:watch": "npx @tailwindcss/cli -i ./src/styles/app.css -o ./public/css/app.css --watch"
   }},
+  "dependencies": {{
+    "hono": "^4.12.0"
+  }},
   "devDependencies": {{
     "@cloudflare/vitest-pool-workers": "^0.8.0",
     "@cloudflare/workers-types": "^4.20250109.0",
@@ -64,50 +69,35 @@ def scaffold_project(project_name: str, output_dir: Path, db_name: str = None):
   }}
 }}''')
 
-    create_file(root / "wrangler.jsonc", f'''{{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "{project_name}",
-  "main": "src/index.ts",
-  "compatibility_date": "2025-01-01",
-  "compatibility_flags": ["nodejs_compat"],
+    create_file(root / "wrangler.toml", f'''"$schema" = "node_modules/wrangler/config-schema.json"
+name = "{project_name}"
+main = "src/index.ts"
+compatibility_date = "{today}"
+compatibility_flags = ["nodejs_compat"]
 
-  "observability": {{
-    "enabled": true
-  }},
+[observability]
+enabled = true
 
-  // Static-first routing: Pages serves static content, Worker handles dynamic routes
-  "assets": {{
-    "directory": "./public",
-    "binding": "ASSETS"
-  }},
+# Static-first routing: static assets served from CDN, Worker handles dynamic routes
+[assets]
+directory = "./public"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+not_found_handling = "404-page"
+run_worker_first = ["/api/*", "/app/_/*", "/auth/*", "/webhooks/*"]
 
-  // Routes: Worker only handles /app/*, /auth/*, /webhooks/*
-  // All other routes (/, /about, /pricing) are served from public/ by Pages
-  "routes": [
-    {{ "pattern": "{project_name}.workers.dev/app/*", "zone_name": "{project_name}.workers.dev" }},
-    {{ "pattern": "{project_name}.workers.dev/auth/*", "zone_name": "{project_name}.workers.dev" }},
-    {{ "pattern": "{project_name}.workers.dev/webhooks/*", "zone_name": "{project_name}.workers.dev" }}
-  ],
+[[d1_databases]]
+binding = "DB"
+database_name = "{db}"
+database_id = "TODO-run-wrangler-d1-create-{db}"
 
-  "d1_databases": [
-    {{
-      "binding": "DB",
-      "database_name": "{db}",
-      "database_id": "TODO-run-wrangler-d1-create-{db}"
-    }}
-  ],
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "TODO-run-wrangler-kv-namespace-create-sessions"
 
-  "kv_namespaces": [
-    {{
-      "binding": "SESSIONS",
-      "id": "TODO-run-wrangler-kv-namespace-create-sessions"
-    }}
-  ],
-
-  "vars": {{
-    "ENVIRONMENT": "development"
-  }}
-}}''')
+[vars]
+ENVIRONMENT = "development"
+''')
 
     create_file(root / "tsconfig.json", '''{
   "compilerOptions": {
@@ -145,10 +135,10 @@ export default defineWorkersConfig({
     poolOptions: {
       workers: {
         wrangler: {
-          configPath: "./wrangler.jsonc"
+          configPath: "./wrangler.toml"
         },
         miniflare: {
-          compatibilityDate: "2025-01-01",
+          compatibilityDate: "''' + today + '''",
           compatibilityFlags: ["nodejs_compat"]
         }
       }
@@ -247,72 +237,64 @@ export default defineWorkersConfig({
     create_file(root / "src" / "presentation" / "templates" / "app" / "partials" / ".gitkeep", "# HTMX partial templates (/app/_/*)")
     create_file(root / "src" / "presentation" / "middleware" / ".gitkeep", "# Request middleware")
 
-    # === Entry Point & Router ===
-    
-    create_file(root / "src" / "index.ts", '''import { Router } from "./router";
+    # === Entry Point & Hono App ===
+
+    create_file(root / "src" / "types" / "env.ts", '''/// <reference types="@cloudflare/workers-types" />
 
 export interface Env {
-  DB: D1Database;
-  SESSIONS: KVNamespace;
-  ASSETS: Fetcher;
-  ENVIRONMENT: string;
+  readonly DB: D1Database;
+  readonly SESSIONS: KVNamespace;
+  readonly ASSETS: Fetcher;
+  readonly ENVIRONMENT: string;
 }
+''')
 
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    try {
-      const router = new Router(env);
-      return await router.handle(request);
-    } catch (error) {
-      console.error("Unhandled error:", error);
-      return new Response("Internal Server Error", { status: 500 });
-    }
-  }
-};''')
+    create_file(root / "src" / "index.ts", '''/**
+ * Application entry point — re-exports the Hono Worker app.
+ */
+export { default } from "./worker";
+''')
 
-    create_file(root / "src" / "router.ts", '''import type { Env } from "./index";
+    create_file(root / "src" / "worker.ts", '''import { Hono } from "hono/tiny";
+import type { Env } from "./types/env";
 
-type RouteHandler = (request: Request, params: Record<string, string>) => Promise<Response>;
+type AppEnv = { Bindings: Env };
+const app = new Hono<AppEnv>();
 
-interface Route {
-  method: string;
-  pattern: RegExp;
-  paramNames: string[];
-  handler: RouteHandler;
-}
+// Security headers middleware for Worker-handled routes
+app.use("/api/*", async (c, next): Promise<void> => {
+  await next();
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("X-Frame-Options", "DENY");
+});
+app.use("/app/_/*", async (c, next): Promise<void> => {
+  await next();
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("X-Frame-Options", "DENY");
+});
+app.use("/auth/*", async (c, next): Promise<void> => {
+  await next();
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("X-Frame-Options", "DENY");
+});
 
-export class Router {
-  private routes: Route[] = [];
+// Health check
+app.get("/api/health", (c) => c.json({ status: "ok" }));
 
-  constructor(private env: Env) {
-    this.registerRoutes();
-  }
+// Auth routes
+app.get("/auth/login", (c) => c.html("Login page - implement auth"));
+app.post("/auth/login", (c) => c.redirect("/app", 303)); // TODO: validate CSRF token
+app.post("/auth/logout", (c) => c.redirect("/", 303)); // TODO: validate CSRF token
 
-  // Static-first routing: Worker handles /app/*, /auth/*, /webhooks/* only
-  // Static pages (/, /about, /pricing) are served by Cloudflare Pages from public/
-  private registerRoutes(): void {
-    // Auth routes (public)
-    this.get("/auth/login", (req) => this.loginPage(req));
-    this.post("/auth/login", (req) => this.handleLogin(req));
-    this.post("/auth/logout", (req) => this.handleLogout(req));
-
-    // Application pages (authenticated) - all under /app
-    this.get("/app", (req) => this.dashboardPage(req));
-
-    // HTMX partials (authenticated) - all under /app/_
-    // this.get("/app/_/items", (req) => this.listItems(req));
-    // this.post("/app/_/items", (req) => this.createItem(req));
-
-    // Webhooks (signature verification, no session auth)
-    // this.post("/webhooks/stripe", (req) => this.handleStripeWebhook(req));
-  }
-
-  private async dashboardPage(request: Request): Promise<Response> {
-    const html = `<!DOCTYPE html>
+// TODO: add auth guard - redirect to /auth/login if no session
+// Application pages (authenticated)
+app.get("/app", (c) => {
+  return c.html(`<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="htmx-config" content='{"selfRequestsOnly":true}'>
   <title>Dashboard</title>
   <link href="/css/app.css" rel="stylesheet">
   <script src="/js/htmx.min.js" defer></script>
@@ -324,87 +306,27 @@ export class Router {
       <div class="max-w-md">
         <h1 class="text-5xl font-bold">Dashboard</h1>
         <p class="py-6">Your app is ready. Start building!</p>
-        <div x-data="{ count: 0 }" class="space-y-4">
-          <p>Alpine.js counter: <span x-text="count" class="font-bold"></span></p>
-          <button @click="count++" class="btn btn-primary">Increment</button>
-        </div>
         <a href="/" class="btn btn-ghost mt-4">Back to Home</a>
       </div>
     </div>
   </div>
 </body>
-</html>`;
-    return new Response(html, {
-      headers: { "Content-Type": "text/html; charset=utf-8" }
-    });
-  }
+</html>`);
+});
 
-  private async loginPage(request: Request): Promise<Response> {
-    return new Response("Login page - implement auth", {
-      headers: { "Content-Type": "text/html; charset=utf-8" }
-    });
-  }
+// HTMX partials (authenticated) - all under /app/_
+// app.get("/app/_/items", handleListItems);
+// app.post("/app/_/items", handleCreateItem);
 
-  private async handleLogin(request: Request): Promise<Response> {
-    return new Response(null, { status: 303, headers: { Location: "/app" } });
-  }
+// Catch-all for unimplemented routes
+app.all("/api/*", (c) => c.json({ error: "Not found" }, 404));
+app.all("/app/_/*", (c) => c.json({ error: "Not found" }, 404));
 
-  private async handleLogout(request: Request): Promise<Response> {
-    return new Response(null, { status: 303, headers: { Location: "/" } });
-  }
+// Static asset fallthrough
+app.all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
-  private addRoute(method: string, path: string, handler: RouteHandler): void {
-    const paramNames: string[] = [];
-    const pattern = path.replace(/:(\w+)/g, (_, name) => {
-      paramNames.push(name);
-      return "([^/]+)";
-    }).replace(/[*]/g, ".*");
-
-    this.routes.push({
-      method,
-      pattern: new RegExp(`^${pattern}$`),
-      paramNames,
-      handler
-    });
-  }
-
-  private get(path: string, handler: RouteHandler): void {
-    this.addRoute("GET", path, handler);
-  }
-
-  private post(path: string, handler: RouteHandler): void {
-    this.addRoute("POST", path, handler);
-  }
-
-  private patch(path: string, handler: RouteHandler): void {
-    this.addRoute("PATCH", path, handler);
-  }
-
-  private delete(path: string, handler: RouteHandler): void {
-    this.addRoute("DELETE", path, handler);
-  }
-
-  async handle(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const method = request.method;
-
-    for (const route of this.routes) {
-      if (route.method !== method) continue;
-
-      const match = url.pathname.match(route.pattern);
-      if (!match) continue;
-
-      const params: Record<string, string> = {};
-      route.paramNames.forEach((name, i) => {
-        params[name] = match[i + 1];
-      });
-
-      return route.handler(request, params);
-    }
-
-    return new Response("Not found", { status: 404 });
-  }
-}''')
+export default app;
+''')
 
     # === Tests ===
     
@@ -436,7 +358,7 @@ public/css/app.css''')
     print(f"  3. Download HTMX and Alpine.js to public/js/")
     print(f"  4. npm run css:build")
     print(f"  5. wrangler d1 create {db}")
-    print(f"  6. Update database_id in wrangler.jsonc")
+    print(f"  6. Update database_id in wrangler.toml")
     print(f"  7. npm run dev")
 
 

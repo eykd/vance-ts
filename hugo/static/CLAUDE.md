@@ -4,7 +4,7 @@ Files copied directly to output without processing. Used for assets that don't n
 
 ## Contents
 
-- `_headers` - Cloudflare Pages headers configuration
+- `_headers` - Cloudflare Workers headers configuration
 - `.gitkeep` - Keeps directory in git
 
 ## Usage

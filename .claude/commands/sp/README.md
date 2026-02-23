@@ -169,6 +169,44 @@ The red team phase performs **adversarial review** of requirements and design BE
 
 **Skip If**: Feature is very simple and doesn't benefit from adversarial thinking (`/sp:next --skip`)
 
+## Compound Learning (`/compound`)
+
+The `/compound` command captures solutions to problems so future planning and review phases can reference them. Knowledge compounds over time — each feature cycle leaves the project smarter.
+
+**When to use**: After solving a tricky bug, fixing review findings, or discovering a non-obvious pattern.
+
+**What it does**:
+
+1. Identifies the problem (from user input, recent commits, or closed tasks)
+2. Analyzes the solution and root cause
+3. Auto-categorizes into one of 8 categories (cloudflare-workers, test-coverage, clean-architecture, hugo-build, type-safety, security, performance, tooling)
+4. Generates a solution document in `.specify/solutions/{category}/{slug}.md`
+5. Updates `.specify/solutions/INDEX.md`
+
+**How it feeds back**:
+
+- `/sp:03-plan` searches prior learnings before planning (Phase 0.5)
+- `/sp:04-red-team` checks for known vulnerability patterns before adversarial analysis
+- `/sp:08`, `/sp:09`, `/sp:10` cross-reference findings with prior solutions
+- Review completion reports suggest running `/compound` when remediation tasks were resolved
+
+**Key design**: Standalone command, not a numbered phase. Can be invoked at any time — mid-implementation, after review, after incidents.
+
+## Deepen Plan (`/deepen-plan`)
+
+The `/deepen-plan` command enhances the current feature plan with focused research on uncertain sections.
+
+**When to use**: After `/sp:03-plan` for complex features, before `/sp:04-red-team`.
+
+**What it does**:
+
+1. Loads plan.md and identifies sections with "NEEDS CLARIFICATION", "TBD", or vague language
+2. Searches `.specify/solutions/` for prior learnings relevant to each uncertain section
+3. Researches unknowns and expands sections with concrete implementation details
+4. Updates plan.md in place
+
+**Key design**: Idempotent — can be run multiple times. Does NOT create beads tasks or close any phase.
+
 ## Code Review (Not Part of sp Workflow)
 
 The `/code-review` skill is available for iterative code review during development, but is **not part of the sp workflow**:

@@ -133,24 +133,24 @@ describe('LoginUseCase', () => {
 
     it('rethrows non-ValidationError from Email.create', async () => {
       const genericError = new Error('unexpected failure');
-      jest.spyOn(Email, 'create').mockImplementation(() => {
+      vi.spyOn(Email, 'create').mockImplementation(() => {
         throw genericError;
       });
 
       await expect(useCase.execute(makeLoginRequest())).rejects.toBe(genericError);
 
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     });
 
     it('rethrows non-ValidationError from Password.createUnchecked', async () => {
       const genericError = new Error('unexpected failure');
-      jest.spyOn(Password, 'createUnchecked').mockImplementation(() => {
+      vi.spyOn(Password, 'createUnchecked').mockImplementation(() => {
         throw genericError;
       });
 
       await expect(useCase.execute(makeLoginRequest())).rejects.toBe(genericError);
 
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     });
   });
 

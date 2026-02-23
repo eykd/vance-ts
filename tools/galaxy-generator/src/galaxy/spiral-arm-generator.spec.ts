@@ -135,8 +135,8 @@ describe('generateSpiralArmCoords', () => {
       // We use a mock PRNG that always returns step=1 (rng.randint(0,4)+1 = 0+1 = 1)
       // so n increments by exactly 1 each iteration.
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 0; // step = 0 + 1 = 1
           }
@@ -172,8 +172,8 @@ describe('generateSpiralArmCoords', () => {
       // We can verify by tracking the center positions of successive clouds.
       // With multiplier=1 and insideFactor=0, stars land at cloud centers.
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 0; // step=1 for consistent advancement
           }
@@ -213,8 +213,8 @@ describe('generateSpiralArmCoords', () => {
       // At n=0: starCount = floor(sizeTemp / (n || 2)) = floor(sizeTemp / 2)
       // This should not throw.
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4; // step = 5, so we only get n=0 iteration for deg=0
           }
@@ -242,8 +242,8 @@ describe('generateSpiralArmCoords', () => {
       // At n=0: rawX=0, rawY=0 → rotatedX=0, rotatedY=0 → dist=0
       // sizeTemp = 2 + (mulStarAmount * 0) / ((0 / 200) || 1) = 2 + 0 = 2
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4; // step=5, exit after n=0
           }
@@ -277,8 +277,8 @@ describe('generateSpiralArmCoords', () => {
       // At n>0 with non-zero rotation results, dist>0
       // The sizeTemp formula uses dist/200 when it's non-zero
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4; // step=5
           }
@@ -324,8 +324,8 @@ describe('generateSpiralArmCoords', () => {
       let lastStepCallIndex = 0;
 
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           totalRandintCalls++;
           if (min === 0 && max === 4) {
             stepCalls.push(totalRandintCalls - lastStepCallIndex - 1);
@@ -369,8 +369,8 @@ describe('generateSpiralArmCoords', () => {
       const stepValues: number[] = [];
 
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             const val = stepValues.length % 3; // cycle 0, 1, 2
             stepValues.push(val);
@@ -434,8 +434,8 @@ describe('generateSpiralArmCoords', () => {
       // rawY = sin(90°) * (90 * sy) * dynSizeFactor = 90 * sy * 1
 
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4; // step=5 to jump from 0 to 5 immediately
           }
@@ -484,8 +484,8 @@ describe('generateSpiralArmCoords', () => {
       // rotatedY = round(rawX*0 + rawY*1) = round(rawY)
 
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4; // step=5 to exit after n=1
           }
@@ -531,8 +531,8 @@ describe('generateSpiralArmCoords', () => {
       // rotatedY = round(rawX * 1 + rawY * 0) = round(rawX)
 
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4; // step=5
           }
@@ -568,8 +568,8 @@ describe('generateSpiralArmCoords', () => {
         dynSizeFactor: 1,
         multiplier: 1,
         rng: {
-          random: jest.fn(() => 0.5),
-          randint: jest.fn((min: number, max: number): number => {
+          random: vi.fn(() => 0.5),
+          randint: vi.fn((min: number, max: number): number => {
             if (min === 0 && max === 4) {
               return 4;
             }
@@ -597,8 +597,8 @@ describe('generateSpiralArmCoords', () => {
 
     it('combines shift and turn angles additively', () => {
       const mockRng1: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4;
           }
@@ -613,8 +613,8 @@ describe('generateSpiralArmCoords', () => {
       };
 
       const mockRng2: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4;
           }
@@ -661,8 +661,8 @@ describe('generateSpiralArmCoords', () => {
       // We verify by checking that cloud spread depends on position, not xp1/yp1.
 
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4; // step=5
           }
@@ -710,8 +710,8 @@ describe('generateSpiralArmCoords', () => {
       // relative to the cloud center. With turn=0, stars align with axes.
 
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4;
           }
@@ -745,8 +745,8 @@ describe('generateSpiralArmCoords', () => {
 
     it('passes multiplier through to the elliptic starfield generator', () => {
       const mockRng1: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4;
           }
@@ -761,8 +761,8 @@ describe('generateSpiralArmCoords', () => {
       };
 
       const mockRng2: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4;
           }
@@ -815,8 +815,8 @@ describe('generateSpiralArmCoords', () => {
   describe('dynSizeFactor scaling', () => {
     it('scales raw spiral position by dynSizeFactor', () => {
       const mockRng1: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4;
           }
@@ -831,8 +831,8 @@ describe('generateSpiralArmCoords', () => {
       };
 
       const mockRng2: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4;
           }
@@ -881,8 +881,8 @@ describe('generateSpiralArmCoords', () => {
       // rawX = cos(0) * (0 * sx) * dynSizeFactor = 0
       // rawY = sin(0) * (0 * sy) * dynSizeFactor = 0
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4; // step=5, exit after n=0
           }
@@ -924,8 +924,8 @@ describe('generateSpiralArmCoords', () => {
       // sizeTemp = 2 + 0 = 2 (since mulStarAmount*0=0)
       // starCount = floor(2/2) = 1
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             return 4; // exit after n=0
           }
@@ -982,8 +982,8 @@ describe('generateSpiralArmCoords', () => {
       let iterationCount = 0;
 
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, max: number): number => {
           if (min === 0 && max === 4) {
             iterationCount++;
             if (iterationCount === 1) {
@@ -1026,8 +1026,8 @@ describe('generateSpiralArmCoords', () => {
   describe('accepts any Prng implementation', () => {
     it('works with a mock Prng', () => {
       const mockRng: Prng = {
-        random: jest.fn(() => 0.5),
-        randint: jest.fn((min: number, _max: number): number => {
+        random: vi.fn(() => 0.5),
+        randint: vi.fn((min: number, _max: number): number => {
           return min;
         }),
       };

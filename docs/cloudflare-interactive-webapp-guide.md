@@ -50,7 +50,7 @@ This architecture embraces several key principles that distinguish it from tradi
 | Backend Runtime      | Cloudflare Workers                       | Edge-based TypeScript execution                      |
 | Relational Data      | D1                                       | SQLite database at the edge                          |
 | Cache/Sessions       | KV                                       | Distributed key-value storage                        |
-| Static Assets        | Cloudflare Pages                         | CDN-backed static file hosting                       |
+| Static Assets        | Workers Static Assets                    | CDN-backed static file hosting                       |
 | Testing              | Vitest + @cloudflare/vitest-pool-workers | Runtime-accurate testing                             |
 
 ---
@@ -61,7 +61,7 @@ This architecture embraces several key principles that distinguish it from tradi
 
 This architecture follows the principle: **"Static by default. Dynamic by intent."**
 
-The root domain (`/`) serves static HTML pages (marketing site) directly from Cloudflare Pages, while the Worker handles only explicitly dynamic routes:
+The root domain (`/`) serves static HTML pages (marketing site) directly from Workers Static Assets, while the Worker handles only explicitly dynamic routes:
 
 - `/app/*` — Authenticated application pages and HTMX partials
 - `/auth/*` — Authentication flows (login, logout, OAuth callbacks)
@@ -356,7 +356,7 @@ project-root/
 │   ├── 0001_initial.sql
 │   └── 0002_add_tasks.sql
 │
-├── wrangler.jsonc                # Cloudflare configuration
+├── wrangler.toml                # Cloudflare configuration
 ├── vitest.config.ts              # Test configuration
 ├── tailwind.config.ts            # TailwindCSS configuration (if needed)
 ├── package.json
@@ -365,7 +365,7 @@ project-root/
 
 ### Key Principles of This Structure
 
-1. **Static-First**: The `public/` folder contains marketing pages served directly by Cloudflare Pages. These pages work without JavaScript and don't require the Worker.
+1. **Static-First**: The `public/` folder contains marketing pages served directly by Workers Static Assets. These pages work without JavaScript and don't require the Worker.
 
 2. **Domain Independence**: The `domain/` folder has zero dependencies on external frameworks or infrastructure. It contains pure TypeScript/JavaScript and can be tested without mocking.
 
@@ -595,7 +595,7 @@ npm install -D vitest @cloudflare/vitest-pool-workers
 
 ### Wrangler Configuration
 
-Create or update `wrangler.jsonc`:
+Create or update `wrangler.toml`:
 
 ```jsonc
 {
@@ -611,7 +611,7 @@ Create or update `wrangler.jsonc`:
   },
 
   // Static assets configuration
-  // Marketing pages in public/ are served directly by Cloudflare Pages
+  // Marketing pages in public/ are served directly by Workers Static Assets
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
@@ -696,7 +696,7 @@ export default defineWorkersConfig({
     poolOptions: {
       workers: {
         wrangler: {
-          configPath: './wrangler.jsonc',
+          configPath: './wrangler.toml',
         },
         miniflare: {
           compatibilityDate: '2025-01-01',
@@ -1362,7 +1362,7 @@ export class Router {
     );
 
     // Note: Static content (/, /about, /pricing, /blog/*, /assets/*) is served
-    // directly by Cloudflare Pages, NOT by this Worker.
+    // directly by Workers Static Assets, NOT by this Worker.
   }
 
   private async withAuth(request: Request, handler: () => Promise<Response>): Promise<Response> {
@@ -2152,7 +2152,7 @@ export default defineWorkersConfig(async () => {
       poolOptions: {
         workers: {
           wrangler: {
-            configPath: './wrangler.jsonc',
+            configPath: './wrangler.toml',
           },
           miniflare: {
             d1Databases: {
@@ -2629,7 +2629,7 @@ npm run deploy         # wrangler deploy
 The deployment flow:
 
 1. SSG (Hugo, Astro, 11ty) builds marketing pages to `public/`
-2. Cloudflare Pages serves static content from `public/` at `/`, `/about`, `/pricing`, etc.
+2. Workers Static Assets serves static content from `public/` at `/`, `/about`, `/pricing`, etc.
 3. Worker receives only requests matching configured routes: `/app/*`, `/auth/*`, `/webhooks/*`
 
 ### Deploying to Cloudflare
@@ -2648,7 +2648,7 @@ wrangler tail
 ### Environment Configuration
 
 ```jsonc
-// wrangler.jsonc
+// wrangler.toml
 {
   "name": "my-app",
   "main": "src/index.ts",
