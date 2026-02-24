@@ -79,7 +79,7 @@ src/
 │
 ├── application/
 │   ├── ports/
-│   │   ├── AuthService.ts    ← NEW: port interface (signIn, signUp, signOut, getSession, handleApiRequest)
+│   │   ├── AuthService.ts    ← NEW: port interface (signIn, signUp, signOut, getSession)
 │   │   └── RateLimiter.ts    ← NEW: port interface (check, increment)
 │   └── use-cases/
 │       ├── SignInUseCase.ts    ← NEW: Orchestrates sign-in (validate input → call authService.* → return result)
@@ -101,9 +101,12 @@ src/
 │       └── extractClientIp.ts    ← NEW: Extract CF-Connecting-IP (sole source)
 │
 ├── domain/
-│   └── value-objects/
-│       ├── common-passwords.ts   ← PORTED from vance-ts (Set<string> of banned passwords)
-│       └── passwordHasher.ts     ← NEW: PBKDF2 via Web Crypto (hashPassword, verifyPassword) — pure computation, no I/O; inner layers may import
+│   ├── value-objects/
+│   │   └── common-passwords.ts   ← PORTED from vance-ts (Set<string> of banned passwords)
+│   ├── services/
+│   │   └── passwordHasher.ts     ← NEW: PBKDF2 via Web Crypto (hashPassword, verifyPassword) — pure computation, no I/O; inner layers may import
+│   └── entities/
+│       └── auth.ts               ← NEW: AuthUser and AuthSession entity types
 │
 └── worker.ts                     ← MODIFIED: Add auth routes + requireAuth middleware
 
@@ -116,7 +119,7 @@ migrations/
 
 **Layer responsibilities**:
 
-- **`infrastructure/`**: better-auth factory, password hashing, port adapters (`BetterAuthService`, `KvRateLimiter`) — direct adapter code
+- **`infrastructure/`**: better-auth factory, port adapters (`BetterAuthService`, `KvRateLimiter`) — direct adapter code
 - **`application/use-cases/`**: Orchestrates auth flows; calls `authService.*` via the port interface; returns typed results (success/failure). Handlers depend on use-case interfaces, not infrastructure directly.
 - **`presentation/`**: HTTP handlers and middleware; parse requests, call use cases, render HTML responses
 - **`di/serviceFactory.ts`**: Composition root; wires infrastructure → application → presentation
@@ -149,9 +152,9 @@ Port the `COMMON_PASSWORDS: Set<string>` export from `~/vance-ts/src/domain/valu
 
 Write `.spec.ts` test first (TDD).
 
-#### 1.3 Create `src/domain/value-objects/passwordHasher.ts`
+#### 1.3 Create `src/domain/services/passwordHasher.ts`
 
-PBKDF2 password hashing using the **Web Crypto API** (`crypto.subtle`). Native in the Workers runtime — no pure-JS overhead, no `limits.cpu_ms` required. Uses only `crypto.subtle` (pure computation, no I/O or infrastructure dependencies) — placing it in the domain layer is correct; inner layers may import from it without boundary violations.
+PBKDF2 password hashing using the **Web Crypto API** (`crypto.subtle`). Native in the Workers runtime — no pure-JS overhead, no `limits.cpu_ms` required. Uses only `crypto.subtle` (pure computation, no I/O or infrastructure dependencies) — placing it in the domain layer is correct; inner layers may import from it without boundary violations. Although the functions are async, they perform pure computation with no I/O or side effects; a domain service is the correct location per DDD (not a value object, which represents immutable data).
 
 **Format**: `pbkdf2$<iterations>$<salt-hex>$<derived-hex>` — self-describing so that the iteration count can be increased in future without breaking existing hashes.
 
@@ -237,7 +240,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 #### 1.4 Create `src/infrastructure/auth.ts`
 
-Better-auth factory with isolate-scoped caching. The `password` block now uses `hashPassword`/`verifyPassword` from `domain/value-objects/passwordHasher.ts` (Web Crypto, Workers-native) and the `validate` hook for common-password rejection:
+Better-auth factory with isolate-scoped caching. The `password` block now uses `hashPassword`/`verifyPassword` from `domain/services/passwordHasher.ts` (Web Crypto, Workers-native) and the `validate` hook for common-password rejection:
 
 ```typescript
 import { betterAuth } from 'better-auth';
@@ -245,7 +248,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 import type { Env } from './env';
 import { COMMON_PASSWORDS } from '../domain/value-objects/common-passwords';
-import { hashPassword, verifyPassword } from '../domain/value-objects/passwordHasher';
+import { hashPassword, verifyPassword } from '../domain/services/passwordHasher';
 
 let _auth: ReturnType<typeof betterAuth> | null = null;
 
@@ -300,7 +303,7 @@ export function resetAuth(): void {
 
 #### 1.5a Define Domain Auth Types
 
-Create `src/domain/types/auth.ts` — project-owned value types for the authenticated user and session. These are NOT imported from `better-auth`; they represent the domain's view of auth state:
+Create `src/domain/entities/auth.ts` — project-owned entity types for the authenticated user and session. These are NOT imported from `better-auth`; they represent the domain's view of auth state:
 
 ```typescript
 /** The authenticated user as known to the domain layer. */
@@ -331,7 +334,7 @@ Write `.spec.ts` verifying the type shapes (structural compatibility test).
 Create `src/application/ports/AuthService.ts`:
 
 ```typescript
-import type { AuthUser, AuthSession } from '../../domain/types/auth';
+import type { AuthUser, AuthSession } from '../../domain/entities/auth';
 
 export interface AuthService {
   signIn(params: { email: string; password: string; ip: string }): Promise<
@@ -358,15 +361,10 @@ export interface AuthService {
   getSession(params: {
     headers: Headers;
   }): Promise<{ user: AuthUser; session: AuthSession } | null>;
-  /**
-   * Delegates a raw HTTP request to the better-auth handler (for `/api/auth/*` routes).
-   * Encapsulates the auth library boundary — worker.ts never calls `auth.handler()` directly.
-   */
-  handleApiRequest(req: Request): Promise<Response>;
 }
 ```
 
-**Architecture note**: `AuthService` methods return domain result types, not `Response` objects. The `BetterAuthService` adapter translates better-auth `Response` objects into these domain results at the infrastructure boundary. `Headers` is acceptable in `getSession` as it is a Web Standard API available in all runtime layers.
+**Architecture note**: `AuthService` methods return domain result types, not `Response` objects. The `BetterAuthService` adapter translates better-auth `Response` objects into these domain results at the infrastructure boundary. `Headers` is acceptable in `getSession` as it is a Web Standard API available in all runtime layers. HTTP pass-through to better-auth (`/api/auth/*` delegation) is a presentation/infrastructure routing concern handled by `ServiceFactory.authHandler` — not an application-layer port method.
 
 Create `src/application/ports/RateLimiter.ts`:
 
@@ -396,7 +394,7 @@ Generate via CLI and store as `migrations/0001_better_auth_schema.sql`. Apply lo
 Define the `AppEnv` type used by Hono middleware and handlers. Centralising this here breaks the circular dependency that would arise if `requireAuth.ts` imported `AppEnv` from `../../worker`:
 
 ```typescript
-import type { AuthUser, AuthSession } from '../domain/types/auth';
+import type { AuthUser, AuthSession } from '../domain/entities/auth';
 
 export interface AppEnv {
   Bindings: Env;
@@ -408,7 +406,7 @@ export interface AppEnv {
 }
 ```
 
-**Note**: `AppEnv.Variables` uses domain types `AuthUser`/`AuthSession` from `src/domain/types/auth.ts` — NOT `User`/`Session` from `better-auth`. This prevents presentation-layer coupling to the auth library's type signatures.
+**Note**: `AppEnv.Variables` uses domain types `AuthUser`/`AuthSession` from `src/domain/entities/auth.ts` — NOT `User`/`Session` from `better-auth`. This prevents presentation-layer coupling to the auth library's type signatures.
 
 `worker.ts` imports `AppEnv` from `./presentation/types` rather than defining it inline.
 
@@ -635,8 +633,8 @@ export class ServiceFactory {
   }
 
   /**
-   * Exposes the AuthService port for use in worker.ts `/api/auth/*` delegation.
-   * All other code accesses auth behaviour via use cases.
+   * Exposes the AuthService port for use in middleware and use-case injection.
+   * HTTP pass-through delegation uses `authHandler` instead.
    */
   get authService(): AuthService {
     return this._authServiceInstance;
@@ -673,6 +671,15 @@ export class ServiceFactory {
   get requireAuthMiddleware(): ReturnType<typeof createRequireAuth> {
     return createRequireAuth(this._authServiceInstance, this.env.BETTER_AUTH_SECRET);
   }
+
+  /**
+   * Returns the better-auth handler function for direct `/api/auth/*` delegation.
+   * Presentation-layer routing concern; kept in the composition root so worker.ts
+   * never imports from infrastructure directly.
+   */
+  get authHandler(): (req: Request) => Promise<Response> {
+    return (req: Request) => this._authInstance.handler(req);
+  }
 }
 
 let _factory: ServiceFactory | null = null;
@@ -700,9 +707,11 @@ Write `.spec.ts` verifying singleton behaviour and reset.
 import { getServiceFactory } from './di/serviceFactory';
 
 // Better-auth API (JSON, OAuth callbacks, etc.)
-// Routes via AuthService port — worker.ts never calls auth.handler() directly
+// Routes via ServiceFactory.authHandler — worker.ts never calls auth.handler() directly
 app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
-  return getServiceFactory(c.env).authService.handleApiRequest(c.req.raw);
+  const authResponse = await getServiceFactory(c.env).authHandler(c.req.raw);
+  // Reconstruct to expose mutable headers to the security-headers middleware
+  return new Response(authResponse.body, authResponse);
 });
 
 // HTML auth pages
@@ -760,7 +769,7 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 | File                                             | Test Focus                                                                |
 | ------------------------------------------------ | ------------------------------------------------------------------------- |
 | `infrastructure/auth.spec.ts`                    | Factory creates/caches auth; reset works                                  |
-| `domain/value-objects/passwordHasher.spec.ts`    | Hash format; salt randomness; verify correct/wrong/malformed              |
+| `domain/services/passwordHasher.spec.ts`         | Hash format; salt randomness; verify correct/wrong/malformed              |
 | `domain/value-objects/common-passwords.spec.ts`  | Common passwords are in the Set                                           |
 | `application/use-cases/SignInUseCase.spec.ts`    | Success; invalid credentials; rate limited; service error                 |
 | `application/use-cases/SignUpUseCase.spec.ts`    | Success; email taken; weak password; rate limited; service error          |
@@ -810,7 +819,7 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 | `drizzle-orm` runtime dependency             | better-auth D1 adapter requires it                                                                | No officially supported D1-native better-auth adapter exists                               |
 | `di/serviceFactory.ts` (top-level directory) | Single composition root for cross-layer wiring; outside layer hierarchy per ESLint boundary rules | Inline factory in worker.ts would violate single-responsibility; harder to test            |
 | Double-submit CSRF                           | HTML form handlers need own CSRF                                                                  | better-auth only covers its `/api/auth/*` endpoints                                        |
-| `domain/value-objects/passwordHasher.ts`     | Custom PBKDF2 hashing via Web Crypto instead of default                                           | Default argon2id/scrypt uses pure-JS `@noble/hashes` which exceeds Workers CPU time limits |
+| `domain/services/passwordHasher.ts`          | Custom PBKDF2 hashing via Web Crypto instead of default                                           | Default argon2id/scrypt uses pure-JS `@noble/hashes` which exceeds Workers CPU time limits |
 
 ---
 
@@ -853,11 +862,13 @@ The `redirectTo` validation ("starts with `/`; not `//`; not `/api/*` or `/auth/
 3. Apply existing prefix checks on the decoded, canonicalised path
 4. Spec tests must cover `/%2F%2Fevil.com`, `/%0d%0a`, null bytes, and 200+ char paths
 
-### IP Address Extraction for Rate Limiting
+### IP Address Extraction for Rate Limiting (Resolved)
 
 `extractClientIp.ts` falls back to `X-Forwarded-For` — a client-controlled header. Better-auth's internal IP extraction may also use `X-Forwarded-For` independently, which would allow rate limit bypass via IP spoofing.
 
 **Required**: Configure better-auth explicitly to read `CF-Connecting-IP` only. In `getAuth(env)`, set `advanced: { ipAddress: { ipAddressHeaders: ['CF-Connecting-IP'] } }` (verify exact field name against installed v1.4.x). Remove the `X-Forwarded-For` fallback from `extractClientIp.ts` (or keep it only for local dev detection, never for rate limiting). Add a test asserting that a spoofed `X-Forwarded-For` with a valid `CF-Connecting-IP` correctly identifies the CF IP.
+
+**Resolved**: `getAuth(env)` already sets `advanced: { ipAddress: { ipAddressHeaders: ['CF-Connecting-IP'] } }` (see Phase 1.4 code example). This ensures better-auth's internal IP extraction uses `CF-Connecting-IP` exclusively, consistent with `extractClientIp.ts`'s sole-source contract (line 504). The contradiction with line 505 is resolved — `X-Forwarded-For` is not used by either the custom rate limiter or better-auth's internal IP detection.
 
 ### CSRF Token Expiry
 
@@ -916,9 +927,9 @@ The KV-backed rate limiter (required finding above) is applied only inside `hand
 
 **Trade-off accepted**: PBKDF2 is not memory-hard (unlike argon2id/scrypt), making GPU-based attacks on a leaked database somewhat more feasible. At 600,000 iterations this remains OWASP 2023 compliant. The decision is logged as a Key Design Decision.
 
-**Implementation**: `src/domain/value-objects/passwordHasher.ts` (Phase 1.3). The hash format `pbkdf2$<iterations>$<salt-hex>$<derived-hex>` is self-describing, allowing iteration counts to be increased in future without invalidating existing hashes.
+**Implementation**: `src/domain/services/passwordHasher.ts` (Phase 1.3). The hash format `pbkdf2$<iterations>$<salt-hex>$<derived-hex>` is self-describing, allowing iteration counts to be increased in future without invalidating existing hashes.
 
-### Security Headers on better-auth's Native Response (High)
+### Security Headers on better-auth's Native Response (Resolved)
 
 The existing Hono middleware pattern:
 
@@ -935,8 +946,7 @@ This works correctly when route handlers call Hono's own response builders (`c.j
 
 ```typescript
 app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
-  const { auth } = getServiceFactory(c.env);
-  const authResponse = await auth.handler(c.req.raw);
+  const authResponse = await getServiceFactory(c.env).authHandler(c.req.raw);
   // Reconstruct to expose mutable headers to the security-headers middleware
   return new Response(authResponse.body, authResponse);
 });
@@ -945,6 +955,8 @@ app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
 Alternatively, apply `applySecurityHeaders` inside the route handler directly rather than relying on middleware mutation. Verify in `worker.spec.ts` that security headers are present on `/api/auth/*` responses.
 
 Apply the same fix to the `/auth/*` HTML form handlers: add `app.use('/auth/*', ...)` security headers middleware (currently only `/api/*` and `/app/_/*` are covered).
+
+**Resolved**: The `authHandler` getter on `ServiceFactory` (see Phase 4) returns `(req: Request) => Promise<Response>` — the better-auth handler function directly. In `worker.ts`, the `/api/auth/*` route calls `getServiceFactory(c.env).authHandler(c.req.raw)` and reconstructs the response as `new Response(authResponse.body, authResponse)` to expose mutable headers to the security-headers middleware. `const { auth }` was a copy-paste error — `auth` is not a property on `ServiceFactory`.
 
 ### Route Registration Ordering Conflict (High)
 
@@ -958,7 +970,7 @@ Hono matches routes in registration order. The new `/api/auth/*` handler must be
 
 **Required**: In `worker.ts`, register auth routes immediately after the security-headers middleware registration and before any `app.all('/api/*', ...)` catch-all. Add a `worker.spec.ts` test asserting that `GET /api/auth/session` returns a non-404 status code (i.e., reaches better-auth's handler).
 
-### API Endpoint Fingerprinting via Wildcard Mount (Medium)
+### API Endpoint Fingerprinting via Wildcard Mount (Resolved)
 
 Mounting `app.on(['GET', 'POST'], '/api/auth/*', ...)` delegates all matching requests to `auth.handler()`. Better-auth exposes routes for **all features it knows about**, including disabled features (`/api/auth/forget-password`, `/api/auth/verify-email`, `/api/auth/callback/:provider`). Even with `requireEmailVerification: false` and no OAuth configured, these routes return responses (typically 400 or 500) rather than 404. An attacker can enumerate these to:
 
@@ -968,7 +980,9 @@ Mounting `app.on(['GET', 'POST'], '/api/auth/*', ...)` delegates all matching re
 
 **Required**: After calling `auth.handler(c.req.raw)`, inspect the response status. If better-auth returns 404 for an unknown path, pass it through. If it returns a non-404 for a route that is not in the expected set (`/sign-in/email`, `/sign-up/email`, `/sign-out`, `/session`), override it with a standard 404. Document the expected route set in `contracts/auth-endpoints.md`. Alternatively, accept this risk and document the decision if complexity is not warranted.
 
-### Cache-Control on Auth Form Pages (Medium)
+**Resolved**: After calling `getServiceFactory(c.env).authHandler(c.req.raw)` in the `/api/auth/*` route handler, inspect the response path against the allowlist (`/api/auth/sign-in/email`, `/api/auth/sign-up/email`, `/api/auth/sign-out`, `/api/auth/session`). If better-auth returns a non-404 response for a path not in this allowlist, override with `new Response(null, { status: 404 })`. This is enforced via Phase 5 implementation and tested in `worker.spec.ts`.
+
+### Cache-Control on Auth Form Pages (Resolved)
 
 `GET /auth/sign-in` and `GET /auth/sign-up` render HTML containing a CSRF token in a hidden form field AND set a CSRF cookie via `Set-Cookie`. If the HTML response is served from a browser or CDN cache:
 
@@ -978,6 +992,8 @@ Mounting `app.on(['GET', 'POST'], '/api/auth/*', ...)` delegates all matching re
 - The user sees a mysterious form error despite entering correct credentials
 
 **Required**: Add `Cache-Control: no-store, no-cache` (and `Pragma: no-cache` for legacy) to all responses from `handleGetSignIn` and `handleGetSignUp`. This prevents both browser and intermediate proxy caching of auth form pages. Add a test asserting the `Cache-Control` header is present with value `no-store` on GET `/auth/sign-in` and GET `/auth/sign-up` responses.
+
+**Resolved**: `AuthPageHandlers.handleGetSignIn` and `AuthPageHandlers.handleGetSignUp` must include `Cache-Control: no-store` and `Pragma: no-cache` headers in their responses. This is enforced in `AuthPageHandlers.spec.ts` by asserting the header is present on all GET auth form page responses.
 
 ### Route Naming Discrepancy (Resolved)
 
@@ -1039,11 +1055,13 @@ The plan's `requireAuth` code calls `c.header(...)`, `c.status(302)`, and `retur
 
 The spec asks "What is the behavior when the same user logs in from multiple devices simultaneously?" — decision: **unlimited concurrent sessions are allowed** (better-auth default). No per-user session cap is enforced in this iteration. This must be documented as a Key Design Decision (added below) so a future "log out all devices" feature can plan the required schema changes.
 
-### User-Agent Header Length Not Bounded (High)
+### User-Agent Header Length Not Bounded (Resolved)
 
 The `session.userAgent` column stores the client-provided `User-Agent` request header. Better-auth reads this header directly and inserts it into the session row without documented truncation. A Cloudflare Worker accepts up to 16KB of headers; an attacker sending an inflated `User-Agent` on every login request can bloat D1 session rows and inflate storage costs.
 
 **Required**: Before delegating to `auth.handler()` in the `/api/auth/*` route, and before calling `auth.api.*` in HTML handlers, ensure the `User-Agent` header is truncated to 500 characters AND control characters are stripped: `userAgent.replace(/[\x00-\x1F\x7F]/g, '')` after truncation. This sanitization runs parallel to `sanitizeIp()` — document both in `extractClientIp.ts` or a shared `sanitize.ts` utility. One approach: construct a synthetic `Request` with the header rewritten before passing to better-auth. Test: create a session with a 10,000-character User-Agent and assert the stored value is ≤ 500 characters; test with newlines/control characters in User-Agent and assert they are stripped.
+
+**Resolved**: Before delegating to `authHandler` in the `/api/auth/*` route (via `getServiceFactory(c.env).authHandler`), construct a synthetic `Request` with the `User-Agent` header rewritten: truncate to 500 characters and strip control characters via `userAgent.slice(0, 500).replace(/[\x00-\x1F\x7F]/g, '')`. Apply the same sanitization before calling `auth.api.*` in HTML handlers. Implement in a shared `sanitize.ts` utility alongside `sanitizeIp()`.
 
 ### `redirectTo` Preservation Through Register→Sign-In Flow (Medium)
 
