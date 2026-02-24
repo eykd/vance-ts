@@ -1778,9 +1778,9 @@ handle_sigint() {
         fi
     fi
 
-    # Kill heartbeat process group if running (prevents orphaned sleep children)
+    # Kill heartbeat if running
     if [[ -n "$HEARTBEAT_PID" ]] && kill -0 "$HEARTBEAT_PID" 2>/dev/null; then
-        kill -- -"$HEARTBEAT_PID" 2>/dev/null || true
+        stop_heartbeat
     fi
 
     show_summary "Interrupted by user"
