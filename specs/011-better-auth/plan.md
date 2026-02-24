@@ -76,15 +76,21 @@ src/
 │   ├── auth.ts              ← NEW: better-auth factory (getAuth, resetAuth for tests)
 │   └── passwordHasher.ts    ← NEW: PBKDF2 via Web Crypto (hashPassword, verifyPassword)
 │
+├── application/
+│   └── use-cases/
+│       ├── SignInUseCase.ts    ← NEW: Orchestrates sign-in (validate input → call auth.api → return result)
+│       ├── SignUpUseCase.ts    ← NEW: Orchestrates registration (validate → call auth.api → return result)
+│       └── SignOutUseCase.ts   ← NEW: Orchestrates sign-out (validate CSRF → call auth.api → return result)
+│
 ├── presentation/
 │   ├── handlers/
-│   │   └── AuthPageHandlers.ts   ← NEW: GET/POST /auth/login|register|logout
+│   │   └── AuthPageHandlers.ts   ← NEW: GET/POST /auth/sign-in|sign-up|sign-out (calls use cases)
 │   ├── middleware/
 │   │   └── requireAuth.ts        ← NEW: Hono middleware for protected routes
 │   ├── templates/
 │   │   └── pages/
-│   │       ├── login.ts          ← NEW: Login form HTML template
-│   │       └── register.ts       ← NEW: Register form HTML template
+│   │       ├── login.ts          ← NEW: Sign-in form HTML template
+│   │       └── register.ts       ← NEW: Registration form HTML template
 │   └── utils/
 │       ├── cookieBuilder.ts      ← NEW: Build/clear CSRF cookies
 │       └── extractClientIp.ts    ← NEW: Extract CF-Connecting-IP / X-Forwarded-For
@@ -101,6 +107,13 @@ src/
 migrations/
 └── 0001_better_auth_schema.sql   ← NEW: better-auth schema for D1
 ```
+
+**Layer responsibilities**:
+
+- **`infrastructure/`**: better-auth factory, password hashing — direct adapter code
+- **`application/use-cases/`**: Orchestrates auth flows; calls `auth.api.*` via the auth instance; returns typed results (success/failure). Handlers depend on use-case interfaces, not infrastructure directly.
+- **`presentation/`**: HTTP handlers and middleware; parse requests, call use cases, render HTML responses
+- **`di/serviceFactory.ts`**: Composition root; wires infrastructure → application → presentation
 
 ---
 
@@ -304,6 +317,41 @@ Write `.spec.ts` first verifying HTML output including escaping.
 
 ---
 
+### Phase 2.5: Application — Auth Use Cases
+
+**Goal**: Thin orchestration layer between presentation handlers and the auth infrastructure. Handlers must not call `auth.api.*` directly.
+
+#### 2.5.1 Create `src/application/use-cases/SignInUseCase.ts`
+
+Accepts validated form inputs (email, password, client IP). Calls `auth.api.signInEmail`. Returns a typed result:
+
+- `{ ok: true; response: Response }` — success (better-auth response with session cookie)
+- `{ ok: false; kind: 'invalid_credentials' | 'rate_limited' | 'service_error'; retryAfter?: number }` — failure
+
+Write `.spec.ts` first. Mock `auth.api.signInEmail` to test each result path.
+
+#### 2.5.2 Create `src/application/use-cases/SignUpUseCase.ts`
+
+Accepts email, password, client IP. Validates password strength (via `common-passwords.ts`). Calls `auth.api.signUpEmail`. Returns a typed result:
+
+- `{ ok: true }` — success
+- `{ ok: false; kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error' }` — failure
+
+Write `.spec.ts` first.
+
+#### 2.5.3 Create `src/application/use-cases/SignOutUseCase.ts`
+
+Accepts the session headers. Calls `auth.api.signOut`. Returns a typed result:
+
+- `{ ok: true; response: Response }` — success (better-auth response clears session cookie)
+- `{ ok: false; kind: 'service_error' }` — failure
+
+Write `.spec.ts` first.
+
+Add `useCase` accessors to `ServiceFactory` so handlers obtain use cases via the composition root.
+
+---
+
 ### Phase 3: Presentation — Auth Page Handlers
 
 **Goal**: Custom Hono handlers for HTML form flows.
@@ -326,13 +374,15 @@ Write `.spec.ts` first.
 
 #### 3.3 Create `src/presentation/middleware/requireAuth.ts`
 
+Access the auth instance via the composition root (`di/serviceFactory`) — do NOT import from `infrastructure/auth` directly (presentation → infrastructure dependency violation):
+
 ```typescript
 import type { Context, Next } from 'hono';
 import type { AppEnv } from '../../worker';
-import { getAuth } from '../../infrastructure/auth';
+import { getServiceFactory } from '../../di/serviceFactory';
 
-export async function requireAuth(c: Context<AppEnv>, next: Next): Promise<void> {
-  const auth = getAuth(c.env);
+export async function requireAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
+  const { auth } = getServiceFactory(c.env);
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
   if (session === null) {
     const url = new URL(c.req.url);
@@ -349,7 +399,9 @@ export async function requireAuth(c: Context<AppEnv>, next: Next): Promise<void>
 }
 ```
 
-Write `.spec.ts` testing: no session → redirect with preserving URL; valid session → next called.
+**Architecture note**: `requireAuth` imports from `di/serviceFactory` (the composition root), not from `infrastructure/auth` directly. The return type is `Promise<Response | void>` — Hono middleware that short-circuits via redirect must return a `Response`.
+
+Write `.spec.ts` testing: no session → `302` redirect with preserved URL; valid session → next called with user/session/csrfToken on context.
 
 #### 3.4 Create `src/presentation/handlers/AuthPageHandlers.ts`
 
@@ -491,19 +543,22 @@ Update `worker.spec.ts` to cover new routes.
 
 All new files get corresponding `.spec.ts` files. 100% branch coverage is targeted (Workers runtime; no v8 coverage report — see CLAUDE.md).
 
-| File                                             | Test Focus                                                   |
-| ------------------------------------------------ | ------------------------------------------------------------ |
-| `infrastructure/auth.spec.ts`                    | Factory creates/caches auth; reset works                     |
-| `infrastructure/passwordHasher.spec.ts`          | Hash format; salt randomness; verify correct/wrong/malformed |
-| `domain/value-objects/common-passwords.spec.ts`  | Common passwords are in the Set                              |
-| `presentation/utils/cookieBuilder.spec.ts`       | Cookie header format; clear cookie                           |
-| `presentation/utils/extractClientIp.spec.ts`     | CF-Connecting-IP; X-Forwarded-For fallback                   |
-| `presentation/middleware/requireAuth.spec.ts`    | Redirect on no session; next() on valid session              |
-| `presentation/handlers/AuthPageHandlers.spec.ts` | CSRF validation; auth success/failure; redirect logic        |
-| `presentation/templates/pages/login.spec.ts`     | HTML output; escaping; fields                                |
-| `presentation/templates/pages/register.spec.ts`  | HTML output; escaping; field errors                          |
-| `di/serviceFactory.spec.ts`                      | Singleton; reset                                             |
-| `worker.spec.ts`                                 | Route existence for all auth routes                          |
+| File                                             | Test Focus                                                             |
+| ------------------------------------------------ | ---------------------------------------------------------------------- |
+| `infrastructure/auth.spec.ts`                    | Factory creates/caches auth; reset works                               |
+| `infrastructure/passwordHasher.spec.ts`          | Hash format; salt randomness; verify correct/wrong/malformed           |
+| `domain/value-objects/common-passwords.spec.ts`  | Common passwords are in the Set                                        |
+| `application/use-cases/SignInUseCase.spec.ts`    | Success; invalid credentials; rate limited; service error              |
+| `application/use-cases/SignUpUseCase.spec.ts`    | Success; email taken; weak password; rate limited; service error       |
+| `application/use-cases/SignOutUseCase.spec.ts`   | Success; service error                                                 |
+| `presentation/utils/cookieBuilder.spec.ts`       | Cookie header format; clear cookie                                     |
+| `presentation/utils/extractClientIp.spec.ts`     | CF-Connecting-IP; X-Forwarded-For fallback                             |
+| `presentation/middleware/requireAuth.spec.ts`    | Redirect on no session; next() on valid session; CSRF token on context |
+| `presentation/handlers/AuthPageHandlers.spec.ts` | CSRF validation; use-case success/failure; redirect logic              |
+| `presentation/templates/pages/login.spec.ts`     | HTML output; escaping; fields                                          |
+| `presentation/templates/pages/register.spec.ts`  | HTML output; escaping; field errors                                    |
+| `di/serviceFactory.spec.ts`                      | Singleton; reset; use-case accessors                                   |
+| `worker.spec.ts`                                 | Route existence for all auth routes                                    |
 
 ### Mock Strategy
 
@@ -621,16 +676,11 @@ The KV-backed rate limiter (required finding above) is applied only inside `hand
 - Return 429 with `Retry-After` header if limit exceeded; otherwise pass through to `auth.handler()`
 - Test: after 5 failed HTML form attempts, a direct JSON POST to `/api/auth/sign-in/email` must be rejected with 429
 
-### Rate Limit Contract Discrepancy (High)
+### Rate Limit Contract Discrepancy (Resolved)
 
-`contracts/auth-endpoints.md` Rate Limits table contains values inconsistent with FR-006 and acceptance scenario US1-5:
+~~`contracts/auth-endpoints.md` Rate Limits table contained values inconsistent with FR-006 and acceptance scenario US1-5.~~
 
-| Endpoint                     | contracts/auth-endpoints.md | FR-006 (authoritative) |
-| ---------------------------- | --------------------------- | ---------------------- |
-| POST /auth/register          | 1 hour / 3 attempts         | **5 min / 5 attempts** |
-| POST /api/auth/sign-up/email | 1 hour / 3 attempts         | **5 min / 5 attempts** |
-
-**Required**: Update `contracts/auth-endpoints.md` Rate Limits table to match FR-006 before task generation. The KV rate limiter implementation must use the spec values (5-minute window, max 5 attempts) for registration endpoints. A developer implementing from the contracts file alone would build the wrong rate limits.
+**Resolved**: `contracts/auth-endpoints.md` was updated in the same PR to show `5 min / 5 attempts` for registration endpoints, matching FR-006. The KV rate limiter must use these corrected values.
 
 ### Password Hashing Algorithm (Resolved)
 
@@ -694,28 +744,20 @@ Mounting `app.on(['GET', 'POST'], '/api/auth/*', ...)` delegates all matching re
 
 ### Cache-Control on Auth Form Pages (Medium)
 
-`GET /auth/login` and `GET /auth/register` render HTML containing a CSRF token in a hidden form field AND set a CSRF cookie via `Set-Cookie`. If the HTML response is served from a browser or CDN cache:
+`GET /auth/sign-in` and `GET /auth/sign-up` render HTML containing a CSRF token in a hidden form field AND set a CSRF cookie via `Set-Cookie`. If the HTML response is served from a browser or CDN cache:
 
 - The cached HTML contains a **stale CSRF token** from a previous response
 - The `Set-Cookie` header from that original response is NOT re-sent from cache
 - If the user's CSRF cookie has since expired (>1 hour, per the `Max-Age=3600` requirement), the stale form token no longer matches any valid cookie → CSRF validation fails on POST
 - The user sees a mysterious form error despite entering correct credentials
 
-**Required**: Add `Cache-Control: no-store, no-cache` (and `Pragma: no-cache` for legacy) to all responses from `handleGetLogin` and `handleGetRegister`. This prevents both browser and intermediate proxy caching of auth form pages. Add a test asserting the `Cache-Control` header is present with value `no-store` on GET `/auth/login` and GET `/auth/register` responses.
+**Required**: Add `Cache-Control: no-store, no-cache` (and `Pragma: no-cache` for legacy) to all responses from `handleGetSignIn` and `handleGetSignUp`. This prevents both browser and intermediate proxy caching of auth form pages. Add a test asserting the `Cache-Control` header is present with value `no-store` on GET `/auth/sign-in` and GET `/auth/sign-up` responses.
 
-### Route Naming Discrepancy (High)
+### Route Naming Discrepancy (Resolved)
 
-The spec clarification (session 2026-02-24) explicitly states: "routes use `/auth/sign-in`, `/auth/sign-out`". The `FR-004` requirement also references `/auth/sign-in` as the canonical redirect target for unauthenticated visitors. However, `plan.md`, `contracts/auth-endpoints.md`, and the `requireAuth` middleware code all use `/auth/login`, `/auth/logout`, and `/auth/register`.
+~~`plan.md`, `contracts/auth-endpoints.md`, and the `requireAuth` middleware code all used `/auth/login`, `/auth/logout`, and `/auth/register` — inconsistent with the spec clarification which mandates `/auth/sign-in`, `/auth/sign-out`, `/auth/sign-up`.~~
 
-This is a direct contradiction that will cause acceptance tests (which reference the spec's canonical paths) to fail against the implementation. The vance-ts reference uses `/auth/login` — but this project's spec has explicitly overridden that convention.
-
-**Required**: Align all route names with the spec:
-
-- `/auth/login` → `/auth/sign-in`
-- `/auth/register` → `/auth/sign-up`
-- `/auth/logout` → `/auth/sign-out`
-
-Update `plan.md` (all code examples and route registration), `contracts/auth-endpoints.md` (all endpoint headings and examples), `requireAuth.ts` (redirect target), and all `.spec.ts` files that reference these paths. The `requireAuth` middleware should redirect to `/auth/sign-in?redirectTo=...`.
+**Resolved**: All route names in `plan.md` (Phase 3.3, Phase 5, Edge Cases) and `contracts/auth-endpoints.md` have been updated to match the spec. The `requireAuth` middleware redirects to `/auth/sign-in?redirectTo=...`.
 
 ### Logout CSRF Token Source (Medium)
 
@@ -759,7 +801,7 @@ Add test cases for each mock response status.
 
 The plan's `requireAuth` code calls `c.header(...)`, `c.status(302)`, and `return` (void). Hono requires middleware that terminates the chain to return a `Response` object.
 
-**Required fix**: Use `return c.redirect(\`/auth/login?redirectTo=${redirectTo}\`, 302)`instead of manual header-setting + void return. Update spec to assert`response.status === 302`and`response.headers.get('location')` contains the correct path.
+**Required fix**: Use `return c.redirect(\`/auth/sign-in?redirectTo=${redirectTo}\`, 302)`instead of manual header-setting + void return. Update spec to assert`response.status === 302`and`response.headers.get('location')` contains the correct path.
 
 ### Session TTL (Fixed)
 
@@ -775,32 +817,32 @@ The `session.userAgent` column stores the client-provided `User-Agent` request h
 
 **Required**: Before delegating to `auth.handler()` in the `/api/auth/*` route, and before calling `auth.api.*` in HTML handlers, ensure the `User-Agent` header is truncated to 500 characters. One approach: construct a synthetic `Request` with the header rewritten before passing to better-auth. Test: create a session with a 10,000-character User-Agent and assert the stored value is ≤ 500 characters.
 
-### `redirectTo` Preservation Through Register→Login Flow (Medium)
+### `redirectTo` Preservation Through Register→Sign-In Flow (Medium)
 
-The `requireAuth` middleware captures the original requested URL and redirects to `/auth/login?redirectTo=/app/foo`. However, the login page template's "Create account" link points to `/auth/register` without forwarding the `redirectTo` parameter. Once the user navigates to registration, the original destination is lost:
+The `requireAuth` middleware captures the original requested URL and redirects to `/auth/sign-in?redirectTo=/app/foo`. However, the sign-in page template's "Create account" link points to `/auth/sign-up` without forwarding the `redirectTo` parameter. Once the user navigates to registration, the original destination is lost:
 
-1. User visits `/app/dashboard` → redirected to `/auth/login?redirectTo=/app/dashboard`
-2. User clicks "Create account" → navigates to `/auth/register` (no `redirectTo`)
-3. Registration succeeds → user is redirected to `/auth/login` (no `redirectTo`)
+1. User visits `/app/dashboard` → redirected to `/auth/sign-in?redirectTo=/app/dashboard`
+2. User clicks "Create account" → navigates to `/auth/sign-up` (no `redirectTo`)
+3. Registration succeeds → user is redirected to `/auth/sign-in` (no `redirectTo`)
 4. User signs in → redirected to `/` (default), not `/app/dashboard`
 
 **Required**:
 
-- `login.ts` template: Accept `redirectTo?: string` prop and include it in the "Create account" link: `href="/auth/register?redirectTo=${encodeURIComponent(redirectTo)}"`
+- `login.ts` template: Accept `redirectTo?: string` prop and include it in the "Create account" link: `href="/auth/sign-up?redirectTo=${encodeURIComponent(redirectTo)}"`
 - `register.ts` template: Accept `redirectTo?: string` prop and render it as a hidden field AND include it in the sign-in link
-- `handleGetRegister` and `handlePostRegister`: Extract `redirectTo` from query string and pass it through to the rendered template and the redirect-to-login response
-- On successful registration, redirect to `/auth/login?redirectTo=${redirectTo}&registered=1` (preserving destination + triggering success banner)
-- Test: simulate the full unauthenticated-user → login page → register page → login page → app flow and assert the user ends up at the original destination
+- `handleGetSignUp` and `handlePostSignUp`: Extract `redirectTo` from query string and pass it through to the rendered template and the redirect-to-sign-in response
+- On successful registration, redirect to `/auth/sign-in?redirectTo=${redirectTo}&registered=1` (preserving destination + triggering success banner)
+- Test: simulate the full unauthenticated-user → sign-in page → register page → sign-in page → app flow and assert the user ends up at the original destination
 
 ### Content-Type Validation on POST Handlers (Medium)
 
-`handlePostLogin` and `handlePostRegister` call `request.formData()` without validating the `Content-Type` header first. The body size check (Content-Length → 413) does not prevent a request with `Content-Type: application/json` or `Content-Type: multipart/form-data` from reaching `formData()`. On an unexpected Content-Type, `formData()` may throw or return empty fields, producing an unhandled error path (potential 500 with stack trace in local dev; generic error in prod).
+`handlePostSignIn` and `handlePostSignUp` call `request.formData()` without validating the `Content-Type` header first. The body size check (Content-Length → 413) does not prevent a request with `Content-Type: application/json` or `Content-Type: multipart/form-data` from reaching `formData()`. On an unexpected Content-Type, `formData()` may throw or return empty fields, producing an unhandled error path (potential 500 with stack trace in local dev; generic error in prod).
 
-**Required**: At the start of `handlePostLogin` and `handlePostRegister`, check that `Content-Type` starts with `application/x-www-form-urlencoded`. If not, return `415 Unsupported Media Type` immediately (before any parsing). Test with `Content-Type: application/json` and `Content-Type: multipart/form-data`.
+**Required**: At the start of `handlePostSignIn` and `handlePostSignUp`, check that `Content-Type` starts with `application/x-www-form-urlencoded`. If not, return `415 Unsupported Media Type` immediately (before any parsing). Test with `Content-Type: application/json` and `Content-Type: multipart/form-data`.
 
 ### Account Deletion with Active Sessions (Medium — spec open question resolved)
 
-The spec lists "What happens if a user's account is deleted while they have an active session?" The D1 schema answers this via `ON DELETE CASCADE`: `session.userId REFERENCES user(id) ON DELETE CASCADE`. When a user row is deleted, all associated session rows are automatically removed from D1. The next call to `auth.api.getSession` in `requireAuth` returns `null`, and the middleware redirects to `/auth/login`. No additional code is required. Document as a Key Design Decision.
+The spec lists "What happens if a user's account is deleted while they have an active session?" The D1 schema answers this via `ON DELETE CASCADE`: `session.userId REFERENCES user(id) ON DELETE CASCADE`. When a user row is deleted, all associated session rows are automatically removed from D1. The next call to `auth.api.getSession` in `requireAuth` returns `null`, and the middleware redirects to `/auth/sign-in`. No additional code is required. Document as a Key Design Decision.
 
 ---
 

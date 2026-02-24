@@ -335,9 +335,6 @@ acceptance tests pass. `ralph.sh` enforces this automatically.
 
 ## Active Technologies
 
-- TypeScript 5.9, ES2022, Cloudflare Workers + Hono 4.12+, better-auth 1.4+, drizzle-orm 0.44+ (011-better-auth)
-- Cloudflare D1 (user, session, account, verification tables via better-auth) (011-better-auth)
-
 Do not track active technologies in CLAUDE.md.
 
 ## Recent Changes

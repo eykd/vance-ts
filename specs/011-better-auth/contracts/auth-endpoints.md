@@ -219,6 +219,7 @@ X-Frame-Options: DENY
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=()
 Content-Security-Policy: default-src 'self'; ...
+Strict-Transport-Security: max-age=31536000; includeSubDomains
 ```
 
 ---
@@ -240,8 +241,18 @@ Content-Security-Policy: default-src 'self'; ...
 
 ## Cookie Inventory
 
-| Cookie Name                 | Set By           | Purpose                                    | Flags                                         |
-| --------------------------- | ---------------- | ------------------------------------------ | --------------------------------------------- |
-| `better-auth.session_token` | better-auth      | Session authentication                     | HttpOnly; Secure; SameSite=Lax                |
-| `_csrf`                     | AuthPageHandlers | CSRF protection for HTML forms (pre-login) | HttpOnly; Secure; SameSite=Strict; Path=/auth |
-| `_csrf`                     | requireAuth      | CSRF protection for sign-out on app pages  | HttpOnly; Secure; SameSite=Strict; Path=/auth |
+| Cookie Name                        | Set By           | Purpose                                    | Flags                                         |
+| ---------------------------------- | ---------------- | ------------------------------------------ | --------------------------------------------- |
+| `__Host-better-auth.session_token` | better-auth      | Session authentication                     | HttpOnly; Secure; SameSite=Lax; Path=/        |
+| `_csrf`                            | AuthPageHandlers | CSRF protection for HTML forms (pre-login) | HttpOnly; Secure; SameSite=Strict; Path=/auth |
+| `_csrf`                            | requireAuth      | CSRF protection for sign-out on app pages  | HttpOnly; Secure; SameSite=Strict; Path=/auth |
+
+**`__Host-` prefix requirement**: The `__Host-` cookie prefix prevents subdomain cookie injection by requiring `Secure`, `Path=/`, and no `Domain` attribute. Configure in `src/infrastructure/auth.ts` via:
+
+```typescript
+advanced: {
+  cookiePrefix: '__Host-',
+}
+```
+
+Verify that better-auth v1.4.x supports this option before implementation. If the `cookiePrefix` option is absent or does not apply the prefix correctly in the installed version, document this as an accepted risk with a tracking issue for the next better-auth upgrade.
