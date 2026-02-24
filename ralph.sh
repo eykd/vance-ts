@@ -1498,6 +1498,10 @@ invoke_claude() {
 
     CLAUDE_PID=""
 
+    # Wait for the tee subprocess from process substitution to finish
+    # flushing all output to temp_output before we read it.
+    wait 2>/dev/null || true
+
     # Log the output
     claude_output=$(cat "$temp_output")
     log_block "Claude Output" "$claude_output"
@@ -1653,12 +1657,12 @@ run_loop() {
         # Show first line of description as context (up to 120 chars)
         local desc_preview
         desc_preview="${task_description%%$'\n'*}"
-        desc_preview="${desc_preview:0:120}"
         # Strip ANSI escape sequences to prevent terminal injection
         # 1. CSI sequences: ESC [ + params + any letter (e.g. color, cursor movement)
         # 2. OSC sequences terminated by BEL (e.g. terminal title, hyperlinks)
         # 3. OSC sequences terminated by ST (ESC \)
         desc_preview=$(printf '%s' "$desc_preview" | sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\x1b][^\x07]*\x07//g; s/\x1b][^\x1b]*\x1b\\//g')
+        desc_preview="${desc_preview:0:120}"
         if [[ -n "$desc_preview" && "${desc_preview,,}" != "no description" ]]; then
             log INFO "  → $desc_preview"
         fi
