@@ -82,6 +82,8 @@
     "wrangler": "^4.67.0"
   },
   "dependencies": {
+    "better-auth": "^1.4.19",
+    "drizzle-orm": "^0.44.7",
     "hono": "^4.12.2"
   }
 }
