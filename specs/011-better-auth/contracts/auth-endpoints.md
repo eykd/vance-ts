@@ -12,13 +12,13 @@ Two sets of endpoints exist:
 
 ## HTML Form Endpoints (Custom Hono Handlers)
 
-### GET /auth/login
+### GET /auth/sign-in
 
-Renders the login form page.
+Renders the sign-in form page.
 
 **Query Parameters**:
 
-- `redirectTo` (optional) — URL-encoded path to redirect to after successful login. Must be a relative path (validated server-side).
+- `redirectTo` (optional) — URL-encoded path to redirect to after successful sign-in. Must be a relative path (validated server-side).
 - `registered` (optional, `true`) — Show a success message if set (after successful registration).
 
 **Response**: `200 OK`
@@ -26,9 +26,10 @@ Renders the login form page.
 ```
 Content-Type: text/html
 Set-Cookie: _csrf={token}; HttpOnly; Secure; SameSite=Strict; Path=/auth
+Cache-Control: no-store, no-cache
 ```
 
-**Body**: HTML login page with:
+**Body**: HTML sign-in page with:
 
 - Email input field
 - Password input field
@@ -37,7 +38,7 @@ Set-Cookie: _csrf={token}; HttpOnly; Secure; SameSite=Strict; Path=/auth
 
 ---
 
-### POST /auth/login
+### POST /auth/sign-in
 
 Authenticates the user and creates a session.
 
@@ -69,7 +70,7 @@ Set-Cookie: _csrf=; Max-Age=0; Path=/auth  (cleared)
 
 ---
 
-### GET /auth/register
+### GET /auth/sign-up
 
 Renders the user registration form page.
 
@@ -78,6 +79,7 @@ Renders the user registration form page.
 ```
 Content-Type: text/html
 Set-Cookie: _csrf={token}; HttpOnly; Secure; SameSite=Strict; Path=/auth
+Cache-Control: no-store, no-cache
 ```
 
 **Body**: HTML registration page with:
@@ -88,7 +90,7 @@ Set-Cookie: _csrf={token}; HttpOnly; Secure; SameSite=Strict; Path=/auth
 
 ---
 
-### POST /auth/register
+### POST /auth/sign-up
 
 Creates a new user account.
 
@@ -100,12 +102,12 @@ Content-Type: application/x-www-form-urlencoded
 email={email}&password={password}&_csrf={token}
 ```
 
-**CSRF Validation**: Same as POST /auth/login.
+**CSRF Validation**: Same as POST /auth/sign-in.
 
 **Success Response** `303 See Other`:
 
 ```
-Location: /auth/login?registered=true
+Location: /auth/sign-in?registered=true
 ```
 
 **Failure Responses**:
@@ -118,11 +120,11 @@ Location: /auth/login?registered=true
   - Email format invalid → `"Please enter a valid email address"`
 - `429 Too Many Requests` — Rate limit exceeded
 
-**Note**: After successful registration, the user is NOT automatically logged in (redirected to login page instead). They log in immediately after (FR-013 — no email verification required).
+**Note**: After successful registration, the user is NOT automatically signed in (redirected to sign-in page instead). They sign in immediately after (FR-013 — no email verification required).
 
 ---
 
-### POST /auth/logout
+### POST /auth/sign-out
 
 Terminates the authenticated user's session.
 
@@ -134,14 +136,16 @@ Content-Type: application/x-www-form-urlencoded
 _csrf={token}
 ```
 
-**CSRF Validation**: Same as POST /auth/login.
+**CSRF Validation**: Same as POST /auth/sign-in.
 
-**Authentication**: Requires a valid session (session cookie must be present). If no valid session, redirects to `/auth/login`.
+**Authentication**: Requires a valid session (session cookie must be present). If no valid session, redirects to `/auth/sign-in`.
+
+**CSRF Token Source**: The `_csrf` token for the sign-out form is provided by the `requireAuth` middleware, which generates a fresh CSRF token on each authenticated request, sets it as a cookie, and makes it available via the Hono context (`c.get('csrfToken')`). App page handlers embed this value in the hidden `_csrf` field of any sign-out button form.
 
 **Success Response** `303 See Other`:
 
 ```
-Location: /auth/login
+Location: /auth/sign-in
 Set-Cookie: {better-auth session cookie cleared (Max-Age=0)}
 Set-Cookie: _csrf=; Max-Age=0; Path=/auth  (cleared)
 ```
@@ -162,9 +166,9 @@ These endpoints are managed entirely by the better-auth library. They expose a J
 
 | Method | Path                            | Purpose                              |
 | ------ | ------------------------------- | ------------------------------------ |
-| `POST` | `/api/auth/sign-in/email`       | JSON login (email + password)        |
+| `POST` | `/api/auth/sign-in/email`       | JSON sign-in (email + password)      |
 | `POST` | `/api/auth/sign-up/email`       | JSON registration (email + password) |
-| `POST` | `/api/auth/sign-out`            | JSON logout                          |
+| `POST` | `/api/auth/sign-out`            | JSON sign-out                        |
 | `GET`  | `/api/auth/session`             | Get current session info             |
 | `GET`  | `/api/auth/callback/{provider}` | OAuth callback (future)              |
 | `GET`  | `/api/auth/{provider}`          | OAuth redirect (future)              |
@@ -187,16 +191,19 @@ Routes using the `requireAuth` middleware:
 2. Call `auth.api.getSession({ headers: request.headers })`
 3. If no valid session:
    - Capture original `pathname + search` as `redirectTo`
-   - Return `302 Found` → `/auth/login?redirectTo={encodeURIComponent(originalPath)}`
+   - Return `302 Found` → `/auth/sign-in?redirectTo={encodeURIComponent(originalPath)}`
 4. If valid session:
-   - Set `user` and `session` on Hono context
+   - Generate a fresh CSRF token and set as `_csrf` cookie (for sign-out form on app pages)
+   - Set `user`, `session`, and `csrfToken` on Hono context
    - Call `next()`
 
-### Post-Login Redirect Validation
+### Post-Sign-In Redirect Validation
 
-The `redirectTo` parameter (from `/auth/login?redirectTo=...`) is validated to:
+The `redirectTo` parameter (from `/auth/sign-in?redirectTo=...`) is validated to:
 
 - Be a relative path (starts with `/`, no `//`, no protocol)
+- Decoded via `decodeURIComponent` before checks (prevents URL-encoded bypass)
+- Canonicalised via `new URL(decoded, 'http://localhost')` — only `.pathname + .search` used
 - Not redirect to `/api/*` or `/auth/*`
 - Defaults to `/` if absent or invalid
 
@@ -222,18 +229,19 @@ Content-Security-Policy: default-src 'self'; ...
 | ---------------------------- | ------ | ------------ | -------------- |
 | POST /api/auth/sign-in/email | 15 min | 5            | 15 min         |
 | POST /api/auth/sign-up/email | 5 min  | 5            | 5 min          |
-| POST /auth/login (custom)    | 15 min | 5            | 15 min         |
-| POST /auth/register (custom) | 5 min  | 5            | 5 min          |
+| POST /auth/sign-in (custom)  | 15 min | 5            | 15 min         |
+| POST /auth/sign-up (custom)  | 5 min  | 5            | 5 min          |
 
 **Note**: Rate limits are enforced via the shared KV rate limiter (`RATE_LIMIT` namespace). Both the HTML form handlers and the `/api/auth/*` JSON API paths share the same per-IP counters (keys `ratelimit:sign-in:{ip}` and `ratelimit:register:{ip}`). This prevents bypass via direct API access.
 
-**Note**: Rate limiting is applied by better-auth internally when we call `auth.api.signInEmail()`. Additional rate limiting on the custom HTML handlers re-uses the same rate limit checks via better-auth's internal API.
+**Note**: Rate limiting is enforced by a **KV-backed rate limiter** (`src/infrastructure/rateLimiter.ts`) — NOT by better-auth's built-in in-memory rate limiter, which is non-functional across Cloudflare Workers isolates (each edge node has its own independent counter). The KV rate limiter is applied via Hono middleware before both the HTML form handlers and the `/api/auth/*` delegation, using shared per-IP KV keys so that both access paths count against the same limit.
 
 ---
 
 ## Cookie Inventory
 
-| Cookie Name                 | Set By           | Purpose                        | Flags                                         |
-| --------------------------- | ---------------- | ------------------------------ | --------------------------------------------- |
-| `better-auth.session_token` | better-auth      | Session authentication         | HttpOnly; Secure; SameSite=Lax                |
-| `_csrf`                     | AuthPageHandlers | CSRF protection for HTML forms | HttpOnly; Secure; SameSite=Strict; Path=/auth |
+| Cookie Name                 | Set By           | Purpose                                    | Flags                                         |
+| --------------------------- | ---------------- | ------------------------------------------ | --------------------------------------------- |
+| `better-auth.session_token` | better-auth      | Session authentication                     | HttpOnly; Secure; SameSite=Lax                |
+| `_csrf`                     | AuthPageHandlers | CSRF protection for HTML forms (pre-login) | HttpOnly; Secure; SameSite=Strict; Path=/auth |
+| `_csrf`                     | requireAuth      | CSRF protection for sign-out on app pages  | HttpOnly; Secure; SameSite=Strict; Path=/auth |

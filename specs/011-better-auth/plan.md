@@ -337,12 +337,14 @@ export async function requireAuth(c: Context<AppEnv>, next: Next): Promise<void>
   if (session === null) {
     const url = new URL(c.req.url);
     const redirectTo = encodeURIComponent(url.pathname + url.search);
-    c.header('Location', `/auth/login?redirectTo=${redirectTo}`);
-    c.status(302);
-    return;
+    return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
   }
+  // Generate a fresh CSRF token for sign-out form on app pages
+  const csrfToken = generateCsrfToken(); // crypto.randomUUID() or 32-byte hex
+  c.header('Set-Cookie', buildCsrfCookie(csrfToken));
   c.set('user', session.user);
   c.set('session', session.session);
+  c.set('csrfToken', csrfToken);
   await next();
 }
 ```
@@ -355,11 +357,11 @@ Handles all HTML auth page requests. Uses the bridge pattern to call better-auth
 
 **Methods**:
 
-- `handleGetLogin(env, request) → Response` — Serve login page + set CSRF cookie
+- `handleGetLogin(env, request) → Response` — Serve sign-in page + set CSRF cookie
 - `handlePostLogin(env, request) → Promise<Response>` — CSRF check → `auth.api.signInEmail` → redirect or re-render
-- `handleGetRegister(env, request) → Response` — Serve register page + set CSRF cookie
-- `handlePostRegister(env, request) → Promise<Response>` — CSRF check → `auth.api.signUpEmail` → redirect to login
-- `handlePostLogout(env, request) → Promise<Response>` — CSRF check → `auth.api.signOut` → redirect to login
+- `handleGetRegister(env, request) → Response` — Serve sign-up page + set CSRF cookie
+- `handlePostRegister(env, request) → Promise<Response>` — CSRF check → `auth.api.signUpEmail` → redirect to sign-in
+- `handlePostLogout(env, request) → Promise<Response>` — CSRF check → `auth.api.signOut` → redirect to sign-in
 
 **Error normalisation for login**:
 
@@ -438,19 +440,19 @@ app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
 });
 
 // HTML auth pages
-app.get('/auth/login', (c) => {
+app.get('/auth/sign-in', (c) => {
   return getServiceFactory(c.env).authPageHandlers.handleGetLogin(c.env, c.req.raw);
 });
-app.post('/auth/login', async (c) => {
+app.post('/auth/sign-in', async (c) => {
   return getServiceFactory(c.env).authPageHandlers.handlePostLogin(c.env, c.req.raw);
 });
-app.get('/auth/register', (c) => {
+app.get('/auth/sign-up', (c) => {
   return getServiceFactory(c.env).authPageHandlers.handleGetRegister(c.env, c.req.raw);
 });
-app.post('/auth/register', async (c) => {
+app.post('/auth/sign-up', async (c) => {
   return getServiceFactory(c.env).authPageHandlers.handlePostRegister(c.env, c.req.raw);
 });
-app.post('/auth/logout', async (c) => {
+app.post('/auth/sign-out', async (c) => {
   return getServiceFactory(c.env).authPageHandlers.handlePostLogout(c.env, c.req.raw);
 });
 
@@ -458,7 +460,7 @@ app.post('/auth/logout', async (c) => {
 app.use('/app/*', requireAuth);
 ```
 
-Security headers middleware is extended to cover `/auth/*` routes.
+Security headers middleware is extended to cover `/auth/*` routes (`/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out`).
 
 Update `worker.spec.ts` to cover new routes.
 
@@ -523,6 +525,8 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 - [ ] **Secure cookies**: `useSecureCookies` enabled in non-localhost environments
 - [ ] **XSS prevention**: All user-supplied values HTML-escaped in templates via `escapeHtml()`
 - [ ] **Security logging** (FR-012): Failed logins logged via `console.log` with IP only (no passwords/emails in logs)
+- [ ] **Route naming alignment**: All routes use `/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out` per spec clarification (not `/auth/login`, `/auth/register`, `/auth/logout`)
+- [ ] **Logout CSRF**: `requireAuth` middleware generates and sets a fresh CSRF token on each authenticated request; app page handlers embed `c.get('csrfToken')` in sign-out form hidden fields
 
 ---
 
@@ -698,6 +702,40 @@ Mounting `app.on(['GET', 'POST'], '/api/auth/*', ...)` delegates all matching re
 - The user sees a mysterious form error despite entering correct credentials
 
 **Required**: Add `Cache-Control: no-store, no-cache` (and `Pragma: no-cache` for legacy) to all responses from `handleGetLogin` and `handleGetRegister`. This prevents both browser and intermediate proxy caching of auth form pages. Add a test asserting the `Cache-Control` header is present with value `no-store` on GET `/auth/login` and GET `/auth/register` responses.
+
+### Route Naming Discrepancy (High)
+
+The spec clarification (session 2026-02-24) explicitly states: "routes use `/auth/sign-in`, `/auth/sign-out`". The `FR-004` requirement also references `/auth/sign-in` as the canonical redirect target for unauthenticated visitors. However, `plan.md`, `contracts/auth-endpoints.md`, and the `requireAuth` middleware code all use `/auth/login`, `/auth/logout`, and `/auth/register`.
+
+This is a direct contradiction that will cause acceptance tests (which reference the spec's canonical paths) to fail against the implementation. The vance-ts reference uses `/auth/login` — but this project's spec has explicitly overridden that convention.
+
+**Required**: Align all route names with the spec:
+
+- `/auth/login` → `/auth/sign-in`
+- `/auth/register` → `/auth/sign-up`
+- `/auth/logout` → `/auth/sign-out`
+
+Update `plan.md` (all code examples and route registration), `contracts/auth-endpoints.md` (all endpoint headings and examples), `requireAuth.ts` (redirect target), and all `.spec.ts` files that reference these paths. The `requireAuth` middleware should redirect to `/auth/sign-in?redirectTo=...`.
+
+### Logout CSRF Token Source (Medium)
+
+The plan's successful login response clears the CSRF cookie (`Set-Cookie: _csrf=; Max-Age=0`). Protected app pages (`/app/*`) that render a logout button must embed a CSRF token as a hidden field in the form — but no mechanism is defined for how these pages obtain that token.
+
+The CSRF cookie is `HttpOnly`, so server-side app page handlers cannot read it to embed the value in the template. After login, no CSRF cookie is present. The logout form on `/app/dashboard` would have no CSRF token to include, causing every logout attempt to fail validation.
+
+**Required**: Extend `requireAuth` middleware to generate a fresh CSRF token on each authenticated request and provide it via the Hono context:
+
+```typescript
+// Inside requireAuth, after session validation:
+const csrfToken = generateCsrfToken(); // crypto.randomUUID() or 32-byte random hex
+c.header('Set-Cookie', buildCsrfCookie(csrfToken));
+c.set('csrfToken', csrfToken);
+await next();
+```
+
+App page handlers that render logout buttons access `c.get('csrfToken')` and embed it in the form's hidden `_csrf` field. The `AppEnv` type must be extended with `Variables: { user: User; session: Session; csrfToken: string }`. The `requireAuth.spec.ts` tests must assert that the CSRF token is set on the context and the CSRF cookie is present in the response for authenticated requests.
+
+**Note**: The vance-ts reference implementation avoids this gap because its `LoginUseCase` returns a session-paired CSRF token that is set as a cookie on login success and persists for the session. The better-auth approach (which uses better-auth's internal session management) requires the `requireAuth` middleware to handle this instead.
 
 ---
 
