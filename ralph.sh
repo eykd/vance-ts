@@ -22,6 +22,9 @@ readonly MAX_RETRY_DELAY=300  # 5 minutes cap
 # Claude CLI timeout
 readonly CLAUDE_TIMEOUT=1800  # 30 minutes max per invocation
 
+# Heartbeat interval during Claude invocations
+readonly HEARTBEAT_INTERVAL=30  # seconds between progress updates
+
 # ATDD workflow configuration
 readonly STEP_BIND="BIND"
 readonly STEP_RED="RED"
@@ -47,6 +50,7 @@ EXPLICIT_EPIC_ID=""  # Epic ID provided via --epic argument
 CURRENT_ITERATION=0
 START_TIME=0
 CLAUDE_PID=""
+HEARTBEAT_PID=""
 
 ##############################################################################
 # Logging infrastructure
@@ -83,8 +87,9 @@ log() {
     local level="$1"
     shift
     local message="$*"
-    local timestamp
+    local timestamp short_ts
     timestamp=$(date -Iseconds)
+    short_ts=$(date +%H:%M:%S)
 
     # Write to log file
     echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
@@ -92,13 +97,13 @@ log() {
     # Also write to console for INFO/WARN/ERROR (always to stderr to avoid capture in command substitution)
     case "$level" in
         INFO)
-            echo "[ralph] $message" >&2
+            echo "[ralph] $short_ts $message" >&2
             ;;
         WARN)
-            echo "[ralph] WARNING: $message" >&2
+            echo "[ralph] $short_ts WARNING: $message" >&2
             ;;
         ERROR)
-            echo "[ralph] ERROR: $message" >&2
+            echo "[ralph] $short_ts ERROR: $message" >&2
             ;;
     esac
 }
@@ -1442,12 +1447,39 @@ invoke_claude() {
     timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" 2>&1 | tee "$temp_output" &
     CLAUDE_PID=$!
 
+    # Launch heartbeat: prints elapsed-time every HEARTBEAT_INTERVAL seconds
+    local invocation_start heartbeat_pid
+    invocation_start=$(date +%s)
+    (
+        while true; do
+            sleep "$HEARTBEAT_INTERVAL"
+            local elapsed mins secs
+            elapsed=$(( $(date +%s) - invocation_start ))
+            mins=$(( elapsed / 60 ))
+            secs=$(( elapsed % 60 ))
+            if (( mins > 0 )); then
+                echo "[ralph] $(date +%H:%M:%S) Claude running... (${mins}m ${secs}s elapsed)" >&2
+            else
+                echo "[ralph] $(date +%H:%M:%S) Claude running... (${secs}s elapsed)" >&2
+            fi
+        done
+    ) &
+    heartbeat_pid=$!
+    HEARTBEAT_PID="$heartbeat_pid"
+
     # Wait for the background process to complete
     if wait "$CLAUDE_PID"; then
         exit_code=0
-        log INFO "Claude completed successfully"
+        kill "$heartbeat_pid" 2>/dev/null || true
+        HEARTBEAT_PID=""
+        local invocation_elapsed invocation_elapsed_fmt
+        invocation_elapsed=$(( $(date +%s) - invocation_start ))
+        invocation_elapsed_fmt=$(format_duration "$invocation_elapsed")
+        log INFO "Claude completed successfully in $invocation_elapsed_fmt"
     else
         exit_code=$?
+        kill "$heartbeat_pid" 2>/dev/null || true
+        HEARTBEAT_PID=""
         if [[ "$exit_code" -eq 124 ]]; then
             log ERROR "Claude timed out after ${CLAUDE_TIMEOUT}s"
         elif [[ "$exit_code" -eq 130 ]]; then
@@ -1615,6 +1647,13 @@ run_loop() {
             log INFO "Epic: $epic_id | Task: $task_id | $task_title"
         fi
 
+        # Show first line of description as context (up to 120 chars)
+        local desc_preview
+        desc_preview=$(echo "$task_description" | head -1 | cut -c1-120)
+        if [[ -n "$desc_preview" && "$desc_preview" != "no description" ]]; then
+            log INFO "  → $desc_preview"
+        fi
+
         log_block "Task Details" "ID: $task_id
 Title: $task_title
 Type: $task_type
@@ -1740,6 +1779,11 @@ handle_sigint() {
             log WARN "Force killing Claude subprocess"
             kill -KILL "$CLAUDE_PID" 2>/dev/null || true
         fi
+    fi
+
+    # Kill heartbeat if running
+    if [[ -n "$HEARTBEAT_PID" ]] && kill -0 "$HEARTBEAT_PID" 2>/dev/null; then
+        kill -TERM "$HEARTBEAT_PID" 2>/dev/null || true
     fi
 
     show_summary "Interrupted by user"
