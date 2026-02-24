@@ -89,7 +89,7 @@ log() {
     local message="$*"
     local timestamp short_ts
     timestamp=$(date -Iseconds)
-    short_ts="${timestamp:11:8}"   # extract HH:MM:SS from ISO-8601
+    short_ts=$(date +%T)
 
     # Write to log file
     echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
@@ -1423,6 +1423,12 @@ PROMPT
     return 1
 }
 
+# Stop the heartbeat background process
+stop_heartbeat() {
+    kill "$HEARTBEAT_PID" 2>/dev/null || true
+    HEARTBEAT_PID=""
+}
+
 ##############################################################################
 # Claude CLI invocation
 ##############################################################################
@@ -1444,7 +1450,7 @@ invoke_claude() {
 
     # Start claude in background so we can capture its PID
     # This allows us to kill it explicitly on SIGINT
-    timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" > "$temp_output" 2>&1 &
+    timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" 2>&1 > >(tee "$temp_output") &
     CLAUDE_PID=$!
 
     # Launch heartbeat: prints elapsed-time every HEARTBEAT_INTERVAL seconds
@@ -1646,7 +1652,8 @@ run_loop() {
 
         # Show first line of description as context (up to 120 chars)
         local desc_preview
-        desc_preview=$(printf '%s\n' "$task_description" | head -1 | cut -c1-120)
+        desc_preview="${task_description%%$'\n'*}"
+        desc_preview="${desc_preview:0:120}"
         if [[ -n "$desc_preview" && "${desc_preview,,}" != "no description" ]]; then
             log INFO "  → $desc_preview"
         fi
@@ -1788,15 +1795,9 @@ handle_sigint() {
     exit "$EXIT_SIGINT"
 }
 
-# Stop the heartbeat background process
-stop_heartbeat() {
-    kill "$HEARTBEAT_PID" 2>/dev/null || true
-    HEARTBEAT_PID=""
-}
-
 # Cleanup handler (runs on EXIT)
 cleanup() {
-    [[ -n "$HEARTBEAT_PID" ]] && kill "$HEARTBEAT_PID" 2>/dev/null || true
+    stop_heartbeat
     release_lock
 }
 
