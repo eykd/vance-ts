@@ -25,7 +25,7 @@ Renders the sign-in form page.
 
 ```
 Content-Type: text/html
-Set-Cookie: _csrf={token}; HttpOnly; Secure; SameSite=Strict; Path=/auth
+Set-Cookie: __Secure-csrf={token}; HttpOnly; Secure; SameSite=Strict; Path=/auth
 Cache-Control: no-store, no-cache
 ```
 
@@ -50,14 +50,14 @@ Content-Type: application/x-www-form-urlencoded
 email={email}&password={password}&_csrf={token}&redirectTo={path}
 ```
 
-**CSRF Validation**: Compares `_csrf` form field against `_csrf` cookie (double-submit pattern). Returns `403 Forbidden` if mismatch.
+**CSRF Validation**: Compares `_csrf` form field against `__Secure-csrf` cookie (double-submit pattern). Returns `403 Forbidden` if mismatch.
 
 **Success Response** `303 See Other`:
 
 ```
 Location: {redirectTo} | /
 Set-Cookie: {better-auth session cookie}
-Set-Cookie: _csrf=; Max-Age=0; Path=/auth  (cleared)
+Set-Cookie: __Secure-csrf=; Max-Age=0; Path=/auth  (cleared)
 ```
 
 **Failure Responses**:
@@ -78,7 +78,7 @@ Renders the user registration form page.
 
 ```
 Content-Type: text/html
-Set-Cookie: _csrf={token}; HttpOnly; Secure; SameSite=Strict; Path=/auth
+Set-Cookie: __Secure-csrf={token}; HttpOnly; Secure; SameSite=Strict; Path=/auth
 Cache-Control: no-store, no-cache
 ```
 
@@ -114,7 +114,7 @@ Location: /auth/sign-in?registered=true
 
 - `403 Forbidden` — CSRF validation failed
 - `200 OK` — Registration failed (re-renders form with appropriate error)
-  - Email already in use → `"An account with this email already exists"`
+  - Email already in use → `"An account with this email already exists"` _(Accepted-Risk: email-enumeration — the UX benefit of clear error messages outweighs the enumeration risk at this traffic scale; revisit if spam/enumeration becomes a problem)_
   - Password too short → `"Password must be at least 12 characters"`
   - Password too common → `"Password is too common. Please choose a different password."`
   - Email format invalid → `"Please enter a valid email address"`
@@ -147,7 +147,7 @@ _csrf={token}
 ```
 Location: /auth/sign-in
 Set-Cookie: {better-auth session cookie cleared (Max-Age=0)}
-Set-Cookie: _csrf=; Max-Age=0; Path=/auth  (cleared)
+Set-Cookie: __Secure-csrf=; Max-Age=0; Path=/auth  (cleared)
 ```
 
 **Failure Responses**:
@@ -188,12 +188,12 @@ Routes using the `requireAuth` middleware:
 ### `requireAuth` Middleware Behaviour
 
 1. Extract session token from better-auth session cookie
-2. Call `auth.api.getSession({ headers: request.headers })`
+2. Call `authService.getSession({ headers: request.headers })` (via the `AuthService` port, not `auth.api` directly)
 3. If no valid session:
    - Capture original `pathname + search` as `redirectTo`
    - Return `302 Found` → `/auth/sign-in?redirectTo={encodeURIComponent(originalPath)}`
 4. If valid session:
-   - Generate a fresh CSRF token and set as `_csrf` cookie (for sign-out form on app pages)
+   - Generate a fresh CSRF token and set as `__Secure-csrf` cookie (for sign-out form on app pages)
    - Set `user`, `session`, and `csrfToken` on Hono context
    - Call `next()`
 
@@ -237,6 +237,15 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains
 
 **Note**: Rate limiting is enforced by a **KV-backed rate limiter** (`src/infrastructure/rateLimiter.ts`) — NOT by better-auth's built-in in-memory rate limiter, which is non-functional across Cloudflare Workers isolates (each edge node has its own independent counter). The KV rate limiter is applied via Hono middleware before both the HTML form handlers and the `/api/auth/*` delegation, using shared per-IP KV keys so that both access paths count against the same limit.
 
+**Per-account rate limits**: In addition to per-IP limits, sign-in attempts are rate-limited per email address (account-level) to prevent targeted brute-force against specific accounts from distributed botnets:
+
+| Endpoint                     | Window | Max Attempts | Block Duration | KV Key                                 |
+| ---------------------------- | ------ | ------------ | -------------- | -------------------------------------- |
+| POST /api/auth/sign-in/email | 60 min | 10           | 60 min         | `ratelimit:signin:email:{hashedEmail}` |
+| POST /auth/sign-in (custom)  | 60 min | 10           | 60 min         | `ratelimit:signin:email:{hashedEmail}` |
+
+**Note**: Email is hashed before use as a KV key to avoid storing PII in KV key names. Use `crypto.subtle.digest('SHA-256', new TextEncoder().encode(email.toLowerCase()))` and encode as hex.
+
 ---
 
 ## Cookie Inventory
@@ -244,8 +253,8 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains
 | Cookie Name                        | Set By           | Purpose                                    | Flags                                         |
 | ---------------------------------- | ---------------- | ------------------------------------------ | --------------------------------------------- |
 | `__Host-better-auth.session_token` | better-auth      | Session authentication                     | HttpOnly; Secure; SameSite=Lax; Path=/        |
-| `_csrf`                            | AuthPageHandlers | CSRF protection for HTML forms (pre-login) | HttpOnly; Secure; SameSite=Strict; Path=/auth |
-| `_csrf`                            | requireAuth      | CSRF protection for sign-out on app pages  | HttpOnly; Secure; SameSite=Strict; Path=/auth |
+| `__Secure-csrf`                    | AuthPageHandlers | CSRF protection for HTML forms (pre-login) | HttpOnly; Secure; SameSite=Strict; Path=/auth |
+| `__Secure-csrf`                    | requireAuth      | CSRF protection for sign-out on app pages  | HttpOnly; Secure; SameSite=Strict; Path=/auth |
 
 **`__Host-` prefix requirement**: The `__Host-` cookie prefix prevents subdomain cookie injection by requiring `Secure`, `Path=/`, and no `Domain` attribute. Configure in `src/infrastructure/auth.ts` via:
 
@@ -256,3 +265,14 @@ advanced: {
 ```
 
 Verify that better-auth v1.4.x supports this option before implementation. If the `cookiePrefix` option is absent or does not apply the prefix correctly in the installed version, document this as an accepted risk with a tracking issue for the next better-auth upgrade.
+
+---
+
+## Body Size Limits
+
+| Request type                      | Max size |
+| --------------------------------- | -------- |
+| HTML form submissions (`/auth/*`) | 50 KB    |
+| JSON API requests (`/api/auth/*`) | 10 KB    |
+
+These complement per-field limits: `email` ≤ 254 characters (RFC 5321), `password` ≤ 128 characters. Requests exceeding the body size limit are rejected with `413 Content Too Large` before parsing. The HTML form limit (50 KB) is higher to accommodate future multi-field forms; the JSON API limit (10 KB) is tighter since only structured credentials are expected.

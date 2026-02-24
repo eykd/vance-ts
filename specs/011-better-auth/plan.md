@@ -261,6 +261,9 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
       password: {
         hash: hashPassword,
         verify: ({ password, hash }) => verifyPassword(password, hash),
+        // IMPORTANT: Verify better-auth v1.4.x `password.validate` hook return convention
+        // before implementation. Confirm that returning `false` means "reject" (not "valid").
+        // Add an integration test that `password123` is rejected at the API boundary.
         async validate(password: string): Promise<boolean> {
           return !COMMON_PASSWORDS.has(password.toLowerCase());
         },
@@ -289,18 +292,73 @@ export function resetAuth(): void {
 
 **TDD requirement**: Write `auth.spec.ts` that mocks the D1 binding and verifies the factory creates and caches the auth instance. Also verify that `getAuth` throws when `BETTER_AUTH_SECRET` is shorter than 32 characters.
 
+#### 1.5a Define Domain Auth Types
+
+Create `src/domain/types/auth.ts` — project-owned value types for the authenticated user and session. These are NOT imported from `better-auth`; they represent the domain's view of auth state:
+
+```typescript
+/** The authenticated user as known to the domain layer. */
+export interface AuthUser {
+  readonly id: string;
+  readonly email: string;
+  readonly name: string;
+  readonly emailVerified: boolean;
+  readonly createdAt: string; // ISO 8601 UTC
+}
+
+/** An active user session as known to the domain layer. */
+export interface AuthSession {
+  readonly id: string;
+  readonly userId: string;
+  readonly expiresAt: string; // ISO 8601 UTC
+  readonly createdAt: string; // ISO 8601 UTC
+}
+```
+
+Write `.spec.ts` verifying the type shapes (structural compatibility test).
+
+**Rationale**: The presentation and application layers must not import types directly from `better-auth`. Domain types are stable contracts; `better-auth` types may change across library versions.
+
 #### 1.5 Define Port Interfaces
 
 Create `src/application/ports/AuthService.ts`:
 
 ```typescript
+import type { AuthUser, AuthSession } from '../../domain/types/auth';
+
 export interface AuthService {
-  signIn(params: { email: string; password: string; headers: Headers }): Promise<Response>;
-  signUp(params: { email: string; password: string; name: string }): Promise<Response>;
-  signOut(params: { headers: Headers }): Promise<Response>;
-  getSession(params: { headers: Headers }): Promise<{ user: User; session: Session } | null>;
+  signIn(params: {
+    email: string;
+    password: string;
+    ip: string;
+  }): Promise<
+    | { ok: true; sessionCookie: string; csrfToken: string }
+    | {
+        ok: false;
+        kind: 'invalid_credentials' | 'rate_limited' | 'service_error';
+        retryAfter?: number;
+      }
+  >;
+  signUp(params: {
+    email: string;
+    password: string;
+    name: string;
+    ip: string;
+  }): Promise<
+    | { ok: true }
+    | { ok: false; kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error' }
+  >;
+  signOut(params: {
+    sessionCookie: string;
+  }): Promise<{ ok: true; clearCookieHeader: string } | { ok: false; kind: 'service_error' }>;
+  /** `Headers` is acceptable here as it is a Web Standard API available at all layers. */
+  getSession(params: {
+    headers: Headers;
+  }): Promise<{ user: AuthUser; session: AuthSession } | null>;
 }
 ```
+
+**Architecture note**: `AuthService` methods return domain result types, not `Response` objects. The `BetterAuthService` adapter translates better-auth `Response` objects into these domain results at the infrastructure boundary. `Headers` is acceptable in `getSession` as it is a Web Standard API available in all runtime layers.
 
 Create `src/application/ports/RateLimiter.ts`:
 
@@ -330,17 +388,19 @@ Generate via CLI and store as `migrations/0001_better_auth_schema.sql`. Apply lo
 Define the `AppEnv` type used by Hono middleware and handlers. Centralising this here breaks the circular dependency that would arise if `requireAuth.ts` imported `AppEnv` from `../../worker`:
 
 ```typescript
-import type { User, Session } from 'better-auth';
+import type { AuthUser, AuthSession } from '../domain/types/auth';
 
 export interface AppEnv {
   Bindings: Env;
   Variables: {
-    user: User;
-    session: Session;
+    user: AuthUser;
+    session: AuthSession;
     csrfToken: string;
   };
 }
 ```
+
+**Note**: `AppEnv.Variables` uses domain types `AuthUser`/`AuthSession` from `src/domain/types/auth.ts` — NOT `User`/`Session` from `better-auth`. This prevents presentation-layer coupling to the auth library's type signatures.
 
 `worker.ts` imports `AppEnv` from `./presentation/types` rather than defining it inline.
 
@@ -384,7 +444,7 @@ Write `.spec.ts` first verifying HTML output including escaping.
 
 Accepts validated form inputs (email, password, client IP). Calls `authService.signIn(...)`. Returns a typed result:
 
-- `{ ok: true; response: Response }` — success (better-auth response with session cookie)
+- `{ ok: true; sessionCookie: string; csrfToken: string }` — success; handler constructs `Response` from these values
 - `{ ok: false; kind: 'invalid_credentials' | 'rate_limited' | 'service_error'; retryAfter?: number }` — failure
 
 Write `.spec.ts` first. Mock `auth.api.signInEmail` to test each result path.
@@ -406,7 +466,7 @@ Write `.spec.ts` first.
 
 Accepts the session headers. Calls `authService.signOut(...)`. Returns a typed result:
 
-- `{ ok: true; response: Response }` — success (better-auth response clears session cookie)
+- `{ ok: true; clearCookieHeader: string }` — success; handler constructs `Response` from this value
 - `{ ok: false; kind: 'service_error' }` — failure
 
 Write `.spec.ts` first.
@@ -423,9 +483,11 @@ Add `useCase` accessors to `ServiceFactory` so handlers obtain use cases via the
 
 Ported and adapted from `~/vance-ts/src/presentation/utils/cookieBuilder.ts`. Expose:
 
-- `buildCsrfCookie(token: string): string` — builds `Set-Cookie` header value
+- `generateCsrfToken(): string` — `crypto.randomUUID()` (shared utility; used by both `AuthPageHandlers` and `requireAuth` — no duplicate inline definitions)
+- `deriveCsrfToken(sessionToken: string): Promise<string>` — HMAC-SHA256(sessionToken, 'csrf') → hex string; used by `requireAuth` for session-bound CSRF tokens
+- `buildCsrfCookie(token: string): string` — builds `Set-Cookie` header value for `__Secure-csrf` cookie
 - `clearCsrfCookie(): string` — builds clearing `Set-Cookie` header value
-- `extractCsrfTokenFromCookies(cookieHeader: string | null): string | null`
+- `extractCsrfTokenFromCookies(cookieHeader: string | null): string | null` — reads the `__Secure-csrf` cookie value
 
 Write `.spec.ts` first.
 
@@ -445,16 +507,19 @@ import type { AppEnv } from '../types';
 import { getServiceFactory } from '../../di/serviceFactory';
 
 export async function requireAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
-  const { auth } = getServiceFactory(c.env);
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  const { authService } = getServiceFactory(c.env);
+  const session = await authService.getSession({ headers: c.req.raw.headers });
   if (session === null) {
     const url = new URL(c.req.url);
     const redirectTo = encodeURIComponent(url.pathname + url.search);
     return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
   }
-  // Generate a fresh CSRF token for sign-out form on app pages
-  const csrfToken = generateCsrfToken(); // crypto.randomUUID() or 32-byte hex
-  c.header('Set-Cookie', buildCsrfCookie(csrfToken));
+  // Derive a session-bound CSRF token via HMAC-SHA256(sessionToken, 'csrf')
+  // Deterministic per session; no KV storage needed; survives multi-tab usage
+  const sessionToken = session.session.id; // session identifier
+  const csrfToken = await deriveCsrfToken(sessionToken); // HMAC-SHA256(sessionToken, 'csrf') → hex
+  c.header('Set-Cookie', buildCsrfCookie(csrfToken), { append: true });
+  c.header('Cache-Control', 'no-store, no-cache');
   c.set('user', session.user);
   c.set('session', session.session);
   c.set('csrfToken', csrfToken);
@@ -462,7 +527,15 @@ export async function requireAuth(c: Context<AppEnv>, next: Next): Promise<Respo
 }
 ```
 
-**Architecture note**: `requireAuth` imports from `di/serviceFactory` (the composition root), not from `infrastructure/auth` directly. The return type is `Promise<Response | void>` — Hono middleware that short-circuits via redirect must return a `Response`.
+**Architecture note**: `requireAuth` calls `authService.getSession()` via the port interface — NOT `auth.api.getSession()` directly — eliminating the presentation → infrastructure direct coupling. The `authService` is obtained from `di/serviceFactory` (the composition root). The return type is `Promise<Response | void>` — Hono middleware that short-circuits via redirect must return a `Response`.
+
+**CSRF token design**: `deriveCsrfToken(sessionToken: string): Promise<string>` derives the CSRF token via `HMAC-SHA256(sessionToken, 'csrf')` using `crypto.subtle`. This is deterministic per session — the same token is produced on every authenticated request, which:
+
+- Survives multi-tab usage (all tabs share the same session and therefore the same CSRF token)
+- Eliminates KV storage (no need to store and expire random CSRF tokens)
+- Is validated by re-deriving on POST and comparing (constant-time comparison)
+
+Export `deriveCsrfToken` from `src/presentation/utils/cookieBuilder.ts`.
 
 Write `.spec.ts` testing: no session → `302` redirect with preserved URL; valid session → next called with user/session/csrfToken on context.
 
@@ -524,32 +597,46 @@ export class ServiceFactory {
   private _signOutUseCase: SignOutUseCase | null = null;
   private _authPageHandlers: AuthPageHandlers | null = null;
 
+  private readonly _authInstance: ReturnType<typeof betterAuth>;
+
   constructor(env: Env) {
     this.env = env;
+    this._authInstance = getAuth(env);
   }
 
-  get authService(): AuthService {
-    this._authService ??= new BetterAuthService(getAuth(this.env));
+  /** @internal Use via use-case getters only; not for external consumption. */
+  private get _authServiceInstance(): AuthService {
+    this._authService ??= new BetterAuthService(this._authInstance);
     return this._authService;
   }
 
-  get rateLimiter(): RateLimiter {
+  /** @internal Use via use-case getters only; not for external consumption. */
+  private get _rateLimiterInstance(): RateLimiter {
     this._rateLimiter ??= new KvRateLimiter(this.env.RATE_LIMIT);
     return this._rateLimiter;
   }
 
+  /**
+   * Exposes the raw better-auth instance.
+   * RESTRICTED: Only `worker.ts` should call this getter (for `/api/auth/*` delegation).
+   * All other code must use `authService` port methods via use cases.
+   */
+  get auth(): ReturnType<typeof betterAuth> {
+    return this._authInstance;
+  }
+
   get signInUseCase(): SignInUseCase {
-    this._signInUseCase ??= new SignInUseCase(this.authService, this.rateLimiter);
+    this._signInUseCase ??= new SignInUseCase(this._authServiceInstance, this._rateLimiterInstance);
     return this._signInUseCase;
   }
 
   get signUpUseCase(): SignUpUseCase {
-    this._signUpUseCase ??= new SignUpUseCase(this.authService, this.rateLimiter);
+    this._signUpUseCase ??= new SignUpUseCase(this._authServiceInstance, this._rateLimiterInstance);
     return this._signUpUseCase;
   }
 
   get signOutUseCase(): SignOutUseCase {
-    this._signOutUseCase ??= new SignOutUseCase(this.authService);
+    this._signOutUseCase ??= new SignOutUseCase(this._authServiceInstance);
     return this._signOutUseCase;
   }
 
@@ -588,9 +675,11 @@ import { requireAuth } from './presentation/middleware/requireAuth';
 import { getServiceFactory } from './di/serviceFactory';
 
 // Better-auth API (JSON, OAuth callbacks, etc.)
+// Note: .auth getter is restricted to worker.ts — do not use in other files
 app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
   const { auth } = getServiceFactory(c.env);
-  return auth.handler(c.req.raw);
+  const authResponse = await auth.handler(c.req.raw);
+  return new Response(authResponse.body, authResponse);
 });
 
 // HTML auth pages
@@ -684,7 +773,8 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 - [ ] **XSS prevention**: All user-supplied values HTML-escaped in templates via `escapeHtml()`
 - [ ] **Security logging** (FR-012): Failed logins logged via `console.log` with IP only (no passwords/emails in logs)
 - [ ] **Route naming alignment**: All routes use `/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out` per spec clarification (not `/auth/login`, `/auth/register`, `/auth/logout`)
-- [ ] **Logout CSRF**: `requireAuth` middleware generates and sets a fresh CSRF token on each authenticated request; app page handlers embed `c.get('csrfToken')` in sign-out form hidden fields
+- [ ] **Logout CSRF**: `requireAuth` middleware derives a session-bound CSRF token via HMAC-SHA256 on each authenticated request; app page handlers embed `c.get('csrfToken')` in sign-out form hidden fields
+- [ ] **Cache-Control on auth pages**: All authenticated pages served via `requireAuth` set `Cache-Control: no-store, no-cache` to prevent CDN/browser caching of session-specific content
 - [ ] **Timing oracle** (FR-007): `verifyPassword` called with dummy hash on all sign-in failures to equalise timing between "user not found" (~5ms D1 miss) and "wrong password" (~30ms PBKDF2)
 
 ---
@@ -761,7 +851,7 @@ Double-submit CSRF tokens set without a `Max-Age` become session cookies (cleare
 
 No maximum body size is defined for auth POST endpoints. A very large body is parsed into memory before `maxPasswordLength: 128` is enforced.
 
-**Required**: In `handlePostSignIn` and `handlePostSignUp`, check `Content-Length` header before parsing; reject with 413 if over 4KB. After parsing, enforce: `email` ≤ 254 chars (RFC 5321), `password` ≤ 128 chars. Document these limits in contracts/auth-endpoints.md.
+**Required**: In `handlePostSignIn` and `handlePostSignUp`, check `Content-Length` header before parsing; reject with 413 if over the size limit. Limits: HTML form submissions (`/auth/*`) max 50 KB; JSON API requests (`/api/auth/*`) max 10 KB. After parsing, enforce: `email` ≤ 254 chars (RFC 5321), `password` ≤ 128 chars. Document these limits in contracts/auth-endpoints.md.
 
 ### Email Case Normalisation
 
@@ -873,21 +963,23 @@ Mounting `app.on(['GET', 'POST'], '/api/auth/*', ...)` delegates all matching re
 
 ### Logout CSRF Token Source (Medium)
 
-The plan's successful login response clears the CSRF cookie (`Set-Cookie: _csrf=; Max-Age=0`). Protected app pages (`/app/*`) that render a logout button must embed a CSRF token as a hidden field in the form — but no mechanism is defined for how these pages obtain that token.
+The plan's successful login response clears the CSRF cookie (`Set-Cookie: __Secure-csrf=; Max-Age=0`). Protected app pages (`/app/*`) that render a logout button must embed a CSRF token as a hidden field in the form — but no mechanism is defined for how these pages obtain that token.
 
 The CSRF cookie is `HttpOnly`, so server-side app page handlers cannot read it to embed the value in the template. After login, no CSRF cookie is present. The logout form on `/app/dashboard` would have no CSRF token to include, causing every logout attempt to fail validation.
 
-**Required**: Extend `requireAuth` middleware to generate a fresh CSRF token on each authenticated request and provide it via the Hono context:
+**Required**: Extend `requireAuth` middleware to derive a session-bound CSRF token on each authenticated request and provide it via the Hono context:
 
 ```typescript
 // Inside requireAuth, after session validation:
-const csrfToken = generateCsrfToken(); // crypto.randomUUID() or 32-byte random hex
-c.header('Set-Cookie', buildCsrfCookie(csrfToken));
+const sessionToken = session.session.id;
+const csrfToken = await deriveCsrfToken(sessionToken); // HMAC-SHA256(sessionToken, 'csrf') → hex
+c.header('Set-Cookie', buildCsrfCookie(csrfToken), { append: true });
+c.header('Cache-Control', 'no-store, no-cache');
 c.set('csrfToken', csrfToken);
 await next();
 ```
 
-App page handlers that render logout buttons access `c.get('csrfToken')` and embed it in the form's hidden `_csrf` field. The `AppEnv` type must be extended with `Variables: { user: User; session: Session; csrfToken: string }`. The `requireAuth.spec.ts` tests must assert that the CSRF token is set on the context and the CSRF cookie is present in the response for authenticated requests.
+App page handlers that render logout buttons access `c.get('csrfToken')` and embed it in the form's hidden `_csrf` field. The `AppEnv` type must be extended with `Variables: { user: AuthUser; session: AuthSession; csrfToken: string }`. The `requireAuth.spec.ts` tests must assert that the CSRF token is set on the context and the `__Secure-csrf` cookie is present in the response for authenticated requests.
 
 **Note**: The vance-ts reference implementation avoids this gap because its `LoginUseCase` returns a session-paired CSRF token that is set as a cookie on login success and persists for the session. The better-auth approach (which uses better-auth's internal session management) requires the `requireAuth` middleware to handle this instead.
 
@@ -927,7 +1019,7 @@ The spec asks "What is the behavior when the same user logs in from multiple dev
 
 The `session.userAgent` column stores the client-provided `User-Agent` request header. Better-auth reads this header directly and inserts it into the session row without documented truncation. A Cloudflare Worker accepts up to 16KB of headers; an attacker sending an inflated `User-Agent` on every login request can bloat D1 session rows and inflate storage costs.
 
-**Required**: Before delegating to `auth.handler()` in the `/api/auth/*` route, and before calling `auth.api.*` in HTML handlers, ensure the `User-Agent` header is truncated to 500 characters. One approach: construct a synthetic `Request` with the header rewritten before passing to better-auth. Test: create a session with a 10,000-character User-Agent and assert the stored value is ≤ 500 characters.
+**Required**: Before delegating to `auth.handler()` in the `/api/auth/*` route, and before calling `auth.api.*` in HTML handlers, ensure the `User-Agent` header is truncated to 500 characters AND control characters are stripped: `userAgent.replace(/[\x00-\x1F\x7F]/g, '')` after truncation. This sanitization runs parallel to `sanitizeIp()` — document both in `extractClientIp.ts` or a shared `sanitize.ts` utility. One approach: construct a synthetic `Request` with the header rewritten before passing to better-auth. Test: create a session with a 10,000-character User-Agent and assert the stored value is ≤ 500 characters; test with newlines/control characters in User-Agent and assert they are stripped.
 
 ### `redirectTo` Preservation Through Register→Sign-In Flow (Medium)
 

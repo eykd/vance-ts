@@ -57,7 +57,7 @@
 
 ```
 Browser POST /auth/sign-in (form)
-  → AuthPageHandlers.handlePostLogin()
+  → AuthPageHandlers.handlePostSignIn()
     → Validate CSRF (double-submit cookie)
     → auth.api.signInEmail({ body, asResponse: true })
       → Returns Response with Set-Cookie headers
@@ -186,7 +186,7 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
 
 - `better-auth` uses Web Standard APIs (no Node.js dependencies)
 - `drizzle-orm/d1` uses the D1 binding API (Web Standard)
-- `@noble/hashes` (used internally by better-auth) is Workers-compatible
+- `@noble/hashes` (used internally by better-auth) is Workers-compatible (loads without import errors; **Note**: pure-JS SHA operations take 200–500ms and may exceed Workers CPU time limits — plan.md §Password Hashing Algorithm Decision mandates PBKDF2 via Web Crypto (native C++, ~10–30ms). This claim refers to the package loading without import errors, not performance viability.)
 - No `process.env` usage — all config via `env` parameter
 
 ---
@@ -204,6 +204,6 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
 ## Open Items for Implementation
 
 1. **Verify `auth.api.signInEmail` exact method name** — better-auth API names may differ by version; check installed version before implementing handlers.
-2. **Test better-auth rate limiting in Workers runtime** — in-memory rate limiting may not persist across isolates. Evaluate whether per-isolate rate limiting is acceptable or if KV-backed custom rate limiting is needed.
-3. **Verify better-auth session cookie names** — to implement accurate CSRF cookie patterns.
+2. **Test better-auth rate limiting in Workers runtime** — ~~in-memory rate limiting may not persist across isolates. Evaluate whether per-isolate rate limiting is acceptable or if KV-backed custom rate limiting is needed.~~ **Resolved**: custom KV-backed rate limiter replaces better-auth's in-memory limiter — see plan.md §Key Design Decisions
+3. **Verify better-auth session cookie names** — ~~to implement accurate CSRF cookie patterns.~~ **Resolved**: see plan.md §Cookie Inventory and contracts/auth-endpoints.md
 4. **Test `asResponse: true` Set-Cookie forwarding** — confirm Set-Cookie headers are present and properly formatted for browser consumption.

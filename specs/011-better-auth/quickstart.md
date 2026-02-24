@@ -33,7 +33,7 @@ database_id = "your-d1-database-id"   # From: wrangler d1 create turtlebased-db
 
 [vars]
 BETTER_AUTH_URL = "http://localhost:8787"
-BETTER_AUTH_SECRET = "dev-secret-replace-in-production-minimum-32-chars"
+# BETTER_AUTH_SECRET — DO NOT add to wrangler.toml; use: wrangler secret put BETTER_AUTH_SECRET
 
 [[kv_namespaces]]
 binding = "RATE_LIMIT"

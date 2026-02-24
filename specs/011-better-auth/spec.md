@@ -107,10 +107,10 @@ The system is designed to support OAuth-based sign-in providers (e.g., Google) w
 ### Edge Cases
 
 - **Tampered or invalid session cookie**: The middleware silently clears the bad cookie and redirects the visitor to the sign-in page — no error page is shown, and no information about the failure is revealed.
-- How does the system behave when the database is temporarily unavailable during sign-in?
-- What happens if a user's account is deleted while they have an active session?
-- What is the behavior when the same user logs in from multiple devices simultaneously?
-- How are security-sensitive errors logged without leaking credentials or PII in logs?
+- **DB temporarily unavailable during sign-in**: better-auth D1 adapter throws; the use case catches it and returns `{ ok: false; kind: 'service_error' }`; the handler shows the sign-in form with a generic "Service unavailable, please try again" message. No session is created.
+- **Account deleted while active session exists**: `requireAuth` calls `getSession()` which queries D1; if the user row is gone, better-auth returns `null`; the middleware treats it as unauthenticated and redirects to sign-in (same as expired session).
+- **Simultaneous multi-device logins**: Supported — better-auth creates a separate session row per device. Each session is independent; signing out on one device does not invalidate others (no forced global sign-out in this iteration).
+- **Security-sensitive error logging**: User-supplied values (email address, User-Agent, IP) are sanitized before logging — newlines stripped via regex, IP validated against allowlist pattern. Passwords are never logged. Session tokens are never logged.
 
 ---
 
