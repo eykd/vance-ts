@@ -21,6 +21,7 @@ export default defineConfig({
           name: 'node',
           globals: true,
           include: ['acceptance/**/*.spec.ts', 'scripts/**/*.spec.ts', '.claude/**/*.spec.ts'],
+          exclude: ['.claude/worktrees/**'],
           environment: 'node',
         },
       },
