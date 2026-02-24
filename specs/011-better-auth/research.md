@@ -44,7 +44,7 @@
 
 ## Decision 3: HTML Form Handler Bridge Pattern
 
-**Decision**: Custom Hono handlers at `/auth/login`, `/auth/register`, `/auth/logout` call better-auth's internal API (`auth.api.signInEmail`, etc.) with `asResponse: true`, then forward Set-Cookie headers and redirect.
+**Decision**: Custom Hono handlers at `/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out` call better-auth's internal API (`auth.api.signInEmail`, etc.) with `asResponse: true`, then forward Set-Cookie headers and redirect.
 
 **Rationale**: Our app is server-rendered (HTML + HTMX). Better-auth natively exposes a JSON API at `/api/auth/*`. The bridge pattern lets us:
 
@@ -56,7 +56,7 @@
 **Flow**:
 
 ```
-Browser POST /auth/login (form)
+Browser POST /auth/sign-in (form)
   → AuthPageHandlers.handlePostLogin()
     → Validate CSRF (double-submit cookie)
     → auth.api.signInEmail({ body, asResponse: true })
@@ -76,7 +76,7 @@ Browser POST /auth/login (form)
 
 ## Decision 4: Double-Submit CSRF for HTML Form Handlers
 
-**Decision**: Implement double-submit CSRF token pattern (same as vance-ts) for custom HTML form handlers (`/auth/login`, `/auth/register`, `/auth/logout`).
+**Decision**: Implement double-submit CSRF token pattern (same as vance-ts) for custom HTML form handlers (`/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out`).
 
 **Rationale**: Better-auth's built-in CSRF protection covers its own `/api/auth/*` endpoints but not our custom HTML form endpoints. The double-submit cookie pattern:
 

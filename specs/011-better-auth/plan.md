@@ -74,15 +74,21 @@ src/
 ├── infrastructure/
 │   ├── env.ts               ← Add DB, BETTER_AUTH_URL, BETTER_AUTH_SECRET
 │   ├── auth.ts              ← NEW: better-auth factory (getAuth, resetAuth for tests)
+│   ├── BetterAuthService.ts ← NEW: AuthService port adapter (wraps better-auth instance)
+│   ├── KvRateLimiter.ts     ← NEW: RateLimiter port adapter (wraps KVNamespace)
 │   └── passwordHasher.ts    ← NEW: PBKDF2 via Web Crypto (hashPassword, verifyPassword)
 │
 ├── application/
+│   ├── ports/
+│   │   ├── AuthService.ts    ← NEW: port interface (signIn, signUp, signOut, getSession)
+│   │   └── RateLimiter.ts    ← NEW: port interface (check, increment)
 │   └── use-cases/
 │       ├── SignInUseCase.ts    ← NEW: Orchestrates sign-in (validate input → call auth.api → return result)
 │       ├── SignUpUseCase.ts    ← NEW: Orchestrates registration (validate → call auth.api → return result)
 │       └── SignOutUseCase.ts   ← NEW: Orchestrates sign-out (validate CSRF → call auth.api → return result)
 │
 ├── presentation/
+│   ├── types.ts              ← NEW: AppEnv type (Hono Bindings + Variables)
 │   ├── handlers/
 │   │   └── AuthPageHandlers.ts   ← NEW: GET/POST /auth/sign-in|sign-up|sign-out (calls use cases)
 │   ├── middleware/
@@ -110,7 +116,7 @@ migrations/
 
 **Layer responsibilities**:
 
-- **`infrastructure/`**: better-auth factory, password hashing — direct adapter code
+- **`infrastructure/`**: better-auth factory, password hashing, port adapters (`BetterAuthService`, `KvRateLimiter`) — direct adapter code
 - **`application/use-cases/`**: Orchestrates auth flows; calls `auth.api.*` via the auth instance; returns typed results (success/failure). Handlers depend on use-case interfaces, not infrastructure directly.
 - **`presentation/`**: HTTP handlers and middleware; parse requests, call use cases, render HTML responses
 - **`di/serviceFactory.ts`**: Composition root; wires infrastructure → application → presentation
@@ -240,6 +246,9 @@ import { hashPassword, verifyPassword } from './passwordHasher';
 let _auth: ReturnType<typeof betterAuth> | null = null;
 
 export function getAuth(env: Env): ReturnType<typeof betterAuth> {
+  if (env.BETTER_AUTH_SECRET.length < 32) {
+    throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
+  }
   _auth ??= betterAuth({
     database: drizzleAdapter(drizzle(env.DB), { provider: 'sqlite' }),
     baseURL: env.BETTER_AUTH_URL,
@@ -278,9 +287,33 @@ export function resetAuth(): void {
 }
 ```
 
-**TDD requirement**: Write `auth.spec.ts` that mocks the D1 binding and verifies the factory creates and caches the auth instance.
+**TDD requirement**: Write `auth.spec.ts` that mocks the D1 binding and verifies the factory creates and caches the auth instance. Also verify that `getAuth` throws when `BETTER_AUTH_SECRET` is shorter than 32 characters.
 
-#### 1.5 Create D1 Migration
+#### 1.5 Define Port Interfaces
+
+Create `src/application/ports/AuthService.ts`:
+
+```typescript
+export interface AuthService {
+  signIn(params: { email: string; password: string; headers: Headers }): Promise<Response>;
+  signUp(params: { email: string; password: string; name: string }): Promise<Response>;
+  signOut(params: { headers: Headers }): Promise<Response>;
+  getSession(params: { headers: Headers }): Promise<{ user: User; session: Session } | null>;
+}
+```
+
+Create `src/application/ports/RateLimiter.ts`:
+
+```typescript
+export interface RateLimiter {
+  check(key: string): Promise<{ allowed: boolean; retryAfter?: number }>;
+  increment(key: string, ttlSeconds: number): Promise<void>;
+}
+```
+
+Write `.spec.ts` for each (pure interface contract tests via test-doubles). The adapters — `BetterAuthService` (implements `AuthService`) and `KvRateLimiter` (implements `RateLimiter`) — live in `src/infrastructure/`.
+
+#### 1.6 Create D1 Migration
 
 Generate via CLI and store as `migrations/0001_better_auth_schema.sql`. Apply locally with `wrangler d1 migrations apply turtlebased-db --local`.
 
@@ -291,6 +324,25 @@ Generate via CLI and store as `migrations/0001_better_auth_schema.sql`. Apply lo
 ### Phase 2: Presentation — HTML Templates
 
 **Goal**: Build server-rendered login and register pages.
+
+#### 2.0 Create `src/presentation/types.ts`
+
+Define the `AppEnv` type used by Hono middleware and handlers. Centralising this here breaks the circular dependency that would arise if `requireAuth.ts` imported `AppEnv` from `../../worker`:
+
+```typescript
+import type { User, Session } from 'better-auth';
+
+export interface AppEnv {
+  Bindings: Env;
+  Variables: {
+    user: User;
+    session: Session;
+    csrfToken: string;
+  };
+}
+```
+
+`worker.ts` imports `AppEnv` from `./presentation/types` rather than defining it inline.
 
 #### 2.1 Create `src/presentation/templates/pages/login.ts`
 
@@ -328,7 +380,9 @@ Write `.spec.ts` first verifying HTML output including escaping.
 
 #### 2.5.1 Create `src/application/use-cases/SignInUseCase.ts`
 
-Accepts validated form inputs (email, password, client IP). Calls `auth.api.signInEmail`. Returns a typed result:
+**Constructor**: `new SignInUseCase(authService: AuthService, rateLimiter: RateLimiter)` — accepts port interfaces, not concrete infrastructure types.
+
+Accepts validated form inputs (email, password, client IP). Calls `authService.signIn(...)`. Returns a typed result:
 
 - `{ ok: true; response: Response }` — success (better-auth response with session cookie)
 - `{ ok: false; kind: 'invalid_credentials' | 'rate_limited' | 'service_error'; retryAfter?: number }` — failure
@@ -337,7 +391,9 @@ Write `.spec.ts` first. Mock `auth.api.signInEmail` to test each result path.
 
 #### 2.5.2 Create `src/application/use-cases/SignUpUseCase.ts`
 
-Accepts email, password, client IP. Validates password strength (via `common-passwords.ts`). Calls `auth.api.signUpEmail`. Returns a typed result:
+**Constructor**: `new SignUpUseCase(authService: AuthService, rateLimiter: RateLimiter)` — accepts port interfaces, not concrete infrastructure types.
+
+Accepts email, password, client IP. Validates password strength (via `common-passwords.ts`). Calls `authService.signUp(...)`. Returns a typed result:
 
 - `{ ok: true }` — success
 - `{ ok: false; kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error' }` — failure
@@ -346,7 +402,9 @@ Write `.spec.ts` first.
 
 #### 2.5.3 Create `src/application/use-cases/SignOutUseCase.ts`
 
-Accepts the session headers. Calls `auth.api.signOut`. Returns a typed result:
+**Constructor**: `new SignOutUseCase(authService: AuthService)` — accepts port interface, not concrete infrastructure type.
+
+Accepts the session headers. Calls `authService.signOut(...)`. Returns a typed result:
 
 - `{ ok: true; response: Response }` — success (better-auth response clears session cookie)
 - `{ ok: false; kind: 'service_error' }` — failure
@@ -383,7 +441,7 @@ Access the auth instance via the composition root (`di/serviceFactory`) — do N
 
 ```typescript
 import type { Context, Next } from 'hono';
-import type { AppEnv } from '../../worker';
+import type { AppEnv } from '../types';
 import { getServiceFactory } from '../../di/serviceFactory';
 
 export async function requireAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
@@ -447,7 +505,11 @@ Write `.spec.ts` covering all form flows including CSRF failure, auth failure, s
 
 ```typescript
 import type { Env } from '../infrastructure/env';
+import type { AuthService } from '../application/ports/AuthService';
+import type { RateLimiter } from '../application/ports/RateLimiter';
 import { getAuth } from '../infrastructure/auth';
+import { BetterAuthService } from '../infrastructure/BetterAuthService';
+import { KvRateLimiter } from '../infrastructure/KvRateLimiter';
 import { SignInUseCase } from '../application/use-cases/SignInUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
 import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
@@ -455,6 +517,8 @@ import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 
 export class ServiceFactory {
   private readonly env: Env;
+  private _authService: AuthService | null = null;
+  private _rateLimiter: RateLimiter | null = null;
   private _signInUseCase: SignInUseCase | null = null;
   private _signUpUseCase: SignUpUseCase | null = null;
   private _signOutUseCase: SignOutUseCase | null = null;
@@ -464,22 +528,28 @@ export class ServiceFactory {
     this.env = env;
   }
 
-  get auth(): ReturnType<typeof getAuth> {
-    return getAuth(this.env);
+  get authService(): AuthService {
+    this._authService ??= new BetterAuthService(getAuth(this.env));
+    return this._authService;
+  }
+
+  get rateLimiter(): RateLimiter {
+    this._rateLimiter ??= new KvRateLimiter(this.env.RATE_LIMIT);
+    return this._rateLimiter;
   }
 
   get signInUseCase(): SignInUseCase {
-    this._signInUseCase ??= new SignInUseCase(this.auth, this.env.RATE_LIMIT);
+    this._signInUseCase ??= new SignInUseCase(this.authService, this.rateLimiter);
     return this._signInUseCase;
   }
 
   get signUpUseCase(): SignUpUseCase {
-    this._signUpUseCase ??= new SignUpUseCase(this.auth, this.env.RATE_LIMIT);
+    this._signUpUseCase ??= new SignUpUseCase(this.authService, this.rateLimiter);
     return this._signUpUseCase;
   }
 
   get signOutUseCase(): SignOutUseCase {
-    this._signOutUseCase ??= new SignOutUseCase(this.auth);
+    this._signOutUseCase ??= new SignOutUseCase(this.authService);
     return this._signOutUseCase;
   }
 
@@ -615,6 +685,7 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 - [ ] **Security logging** (FR-012): Failed logins logged via `console.log` with IP only (no passwords/emails in logs)
 - [ ] **Route naming alignment**: All routes use `/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out` per spec clarification (not `/auth/login`, `/auth/register`, `/auth/logout`)
 - [ ] **Logout CSRF**: `requireAuth` middleware generates and sets a fresh CSRF token on each authenticated request; app page handlers embed `c.get('csrfToken')` in sign-out form hidden fields
+- [ ] **Timing oracle** (FR-007): `verifyPassword` called with dummy hash on all sign-in failures to equalise timing between "user not found" (~5ms D1 miss) and "wrong password" (~30ms PBKDF2)
 
 ---
 
@@ -697,6 +768,14 @@ No maximum body size is defined for auth POST endpoints. A very large body is pa
 D1's `UNIQUE` constraint on the `email` column is case-sensitive by default. If better-auth does not lowercase on insert, `User@Example.com` and `user@example.com` can create separate accounts.
 
 **Required**: Set `emailAndPassword: { normalizeEmail: true }` in the better-auth config (verify v1.4.x API). If unsupported, add `.toLowerCase().trim()` preprocessing in handlers before calling `auth.api.*`. Test that `USER@EXAMPLE.COM` is treated identically to `user@example.com`.
+
+### Login Timing Oracle (High)
+
+For non-existent emails, better-auth returns immediately after a ~5ms D1 miss (no password hash to verify). For wrong passwords, it runs PBKDF2-HMAC-SHA-256 at 600,000 iterations (~10–30ms). Statistical timing over N requests distinguishes the two paths even though error messages are identical — violating FR-007.
+
+**Required**: In `handlePostSignIn`, when better-auth returns a non-OK response, call `verifyPassword(submittedPassword, DUMMY_HASH)` before returning the error response, where `DUMMY_HASH` is a pre-computed constant hash stored in `AuthPageHandlers` (a real PBKDF2 hash of a random value). This equalises response time for both failure modes.
+
+`DUMMY_HASH` must be a valid `pbkdf2$600000$...` format string so `verifyPassword` runs the full PBKDF2 computation.
 
 ### `/api/auth/*` JSON API Bypasses KV Rate Limiter (Critical)
 

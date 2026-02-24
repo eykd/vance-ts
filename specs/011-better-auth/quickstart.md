@@ -34,6 +34,10 @@ database_id = "your-d1-database-id"   # From: wrangler d1 create turtlebased-db
 [vars]
 BETTER_AUTH_URL = "http://localhost:8787"
 BETTER_AUTH_SECRET = "dev-secret-replace-in-production-minimum-32-chars"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "your-rate-limit-kv-id"   # From: wrangler kv namespace create RATE_LIMIT
 ```
 
 ### 3. Create D1 Database (First Time)
@@ -55,11 +59,11 @@ wrangler d1 execute turtlebased-db --local --command "SELECT name FROM sqlite_ma
 wrangler dev
 ```
 
-Visit `http://localhost:8787/auth/login` to see the login page.
+Visit `http://localhost:8787/auth/sign-in` to see the login page.
 
 ### 5. Register a Test Account
 
-Navigate to `http://localhost:8787/auth/register` and create an account with:
+Navigate to `http://localhost:8787/auth/sign-up` and create an account with:
 
 - Email: `test@example.com`
 - Password: `TestPassword123!` (at least 12 characters, not a common password)
@@ -112,6 +116,7 @@ This outputs updated SQL. Apply changes as a new numbered migration file in `mig
 | `BETTER_AUTH_URL`    | Public base URL of the app                       | Yes      |
 | `BETTER_AUTH_SECRET` | Secret for signing tokens/cookies (min 32 chars) | Yes      |
 | `ASSETS`             | Hugo static asset binding (existing)             | Yes      |
+| `RATE_LIMIT`         | KV namespace for distributed rate limiting       | Yes      |
 
 ### Production Secrets
 
