@@ -89,7 +89,7 @@ log() {
     local message="$*"
     local timestamp short_ts
     timestamp=$(date -Iseconds)
-    short_ts=$(date +%H:%M:%S)
+    short_ts="${timestamp:11:8}"   # extract HH:MM:SS from ISO-8601
 
     # Write to log file
     echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
@@ -834,7 +834,7 @@ Apply strict red-green-refactor:
 1. RED: Write failing test first
 2. GREEN: Minimal code to pass
 3. REFACTOR: Improve while green
-Run: npx vitest run src/ --reporter=verbose
+Run: npx vitest run src/
 EOF
     fi
 
@@ -999,7 +999,7 @@ This is a regression — fix it before continuing.
 
 ## Your Task
 
-1. Run: npx vitest run src/ --reporter=verbose
+1. Run: npx vitest run src/
 2. Read the failure output carefully
 3. Fix the failing tests (write code, not just test changes)
 4. Run npx vitest run src/ again to confirm all pass
@@ -1119,7 +1119,7 @@ Write the SMALLEST failing unit test that moves toward passing the acceptance te
 
 1. Identify the next smallest piece of functionality needed
 2. Write ONE failing unit test in the appropriate src/**/*.spec.ts file
-3. Run: npx vitest run src/ --reporter=verbose
+3. Run: npx vitest run src/
 4. Confirm the new test fails (RED) and existing tests still pass
 5. Do NOT write implementation code yet
 6. Do NOT close the bead
@@ -1144,7 +1144,7 @@ ATDD Inner Cycle: $cycle
 Write MINIMAL code to make the failing test pass.
 
 1. Write just enough code to make the failing unit test pass
-2. Run: npx vitest run src/ --reporter=verbose
+2. Run: npx vitest run src/
 3. All tests should now pass (GREEN)
 4. Coverage must remain at 100%
 5. Do NOT refactor yet
@@ -1171,7 +1171,7 @@ Improve the code without changing behavior.
 
 1. Look for duplication, unclear names, missing abstractions
 2. Apply refactoring while keeping all tests GREEN
-3. Run: npx vitest run src/ --reporter=verbose
+3. Run: npx vitest run src/
 4. All tests should still pass after refactoring
 5. Coverage must remain at 100%
 6. Do NOT close the bead — acceptance tests may not pass yet
@@ -1195,7 +1195,7 @@ ATDD Inner Cycle: $cycle
 
 Review the work done so far in this inner cycle.
 
-1. Run: npx vitest run src/ --reporter=verbose
+1. Run: npx vitest run src/
 2. Check: does the implementation look complete for this cycle's goal?
 3. Check: are there obvious improvements needed before the next cycle?
 4. Apply any small improvements
@@ -1301,7 +1301,7 @@ $(echo "$task_json" | jq -r '.title // "unknown"') ($(echo "$task_json" | jq -r 
 ## Check Completion
 
 After $cycle unit TDD cycle(s), check if this task is complete:
-1. Run: npx vitest run src/ --reporter=verbose
+1. Run: npx vitest run src/
 2. Run: npx vitest run --coverage 2>&1 | tail -20
 3. If all tests pass with 100% coverage AND the implementation satisfies the task description:
    - Close the bead: npx bd close $task_id
@@ -1444,7 +1444,7 @@ invoke_claude() {
 
     # Start claude in background so we can capture its PID
     # This allows us to kill it explicitly on SIGINT
-    timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" 2>&1 | tee "$temp_output" &
+    timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" > "$temp_output" 2>&1 &
     CLAUDE_PID=$!
 
     # Launch heartbeat: prints elapsed-time every HEARTBEAT_INTERVAL seconds
@@ -1453,7 +1453,6 @@ invoke_claude() {
     (
         while true; do
             sleep "$HEARTBEAT_INTERVAL"
-            local elapsed mins secs
             elapsed=$(( $(date +%s) - invocation_start ))
             mins=$(( elapsed / 60 ))
             secs=$(( elapsed % 60 ))
@@ -1470,16 +1469,14 @@ invoke_claude() {
     # Wait for the background process to complete
     if wait "$CLAUDE_PID"; then
         exit_code=0
-        kill "$heartbeat_pid" 2>/dev/null || true
-        HEARTBEAT_PID=""
+        stop_heartbeat
         local invocation_elapsed invocation_elapsed_fmt
         invocation_elapsed=$(( $(date +%s) - invocation_start ))
         invocation_elapsed_fmt=$(format_duration "$invocation_elapsed")
         log INFO "Claude completed successfully in $invocation_elapsed_fmt"
     else
         exit_code=$?
-        kill "$heartbeat_pid" 2>/dev/null || true
-        HEARTBEAT_PID=""
+        stop_heartbeat
         if [[ "$exit_code" -eq 124 ]]; then
             log ERROR "Claude timed out after ${CLAUDE_TIMEOUT}s"
         elif [[ "$exit_code" -eq 130 ]]; then
@@ -1649,8 +1646,8 @@ run_loop() {
 
         # Show first line of description as context (up to 120 chars)
         local desc_preview
-        desc_preview=$(echo "$task_description" | head -1 | cut -c1-120)
-        if [[ -n "$desc_preview" && "$desc_preview" != "no description" ]]; then
+        desc_preview=$(printf '%s\n' "$task_description" | head -1 | cut -c1-120)
+        if [[ -n "$desc_preview" && "${desc_preview,,}" != "no description" ]]; then
             log INFO "  → $desc_preview"
         fi
 
@@ -1781,9 +1778,9 @@ handle_sigint() {
         fi
     fi
 
-    # Kill heartbeat if running
+    # Kill heartbeat process group if running (prevents orphaned sleep children)
     if [[ -n "$HEARTBEAT_PID" ]] && kill -0 "$HEARTBEAT_PID" 2>/dev/null; then
-        kill -TERM "$HEARTBEAT_PID" 2>/dev/null || true
+        kill -- -"$HEARTBEAT_PID" 2>/dev/null || true
     fi
 
     show_summary "Interrupted by user"
@@ -1791,8 +1788,15 @@ handle_sigint() {
     exit "$EXIT_SIGINT"
 }
 
+# Stop the heartbeat background process
+stop_heartbeat() {
+    kill "$HEARTBEAT_PID" 2>/dev/null || true
+    HEARTBEAT_PID=""
+}
+
 # Cleanup handler (runs on EXIT)
 cleanup() {
+    [[ -n "$HEARTBEAT_PID" ]] && kill "$HEARTBEAT_PID" 2>/dev/null || true
     release_lock
 }
 
