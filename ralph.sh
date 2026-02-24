@@ -1655,7 +1655,10 @@ run_loop() {
         desc_preview="${task_description%%$'\n'*}"
         desc_preview="${desc_preview:0:120}"
         # Strip ANSI escape sequences to prevent terminal injection
-        desc_preview=$(printf '%s' "$desc_preview" | sed 's/\x1b\[[0-9;]*[mGKHJF]//g')
+        # 1. CSI sequences: ESC [ + params + any letter (e.g. color, cursor movement)
+        # 2. OSC sequences terminated by BEL (e.g. terminal title, hyperlinks)
+        # 3. OSC sequences terminated by ST (ESC \)
+        desc_preview=$(printf '%s' "$desc_preview" | sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\x1b][^\x07]*\x07//g; s/\x1b][^\x1b]*\x1b\\//g')
         if [[ -n "$desc_preview" && "${desc_preview,,}" != "no description" ]]; then
             log INFO "  → $desc_preview"
         fi
