@@ -119,7 +119,7 @@ migrations/
 - **`infrastructure/`**: better-auth factory, password hashing, port adapters (`BetterAuthService`, `KvRateLimiter`) — direct adapter code
 - **`application/use-cases/`**: Orchestrates auth flows; calls `auth.api.*` via the auth instance; returns typed results (success/failure). Handlers depend on use-case interfaces, not infrastructure directly.
 - **`presentation/`**: HTTP handlers and middleware; parse requests, call use cases, render HTML responses
-- **`infrastructure/di/serviceFactory.ts`**: Composition root; wires infrastructure → application → presentation
+- **`di/serviceFactory.ts`**: Composition root; wires infrastructure → application → presentation
 
 ---
 
@@ -522,7 +522,7 @@ export function createRequireAuth(authService: AuthService) {
     // Derive a session-bound CSRF token via HMAC-SHA256(key=BETTER_AUTH_SECRET, message=sessionToken)
     // Deterministic per session; no KV storage needed; survives multi-tab usage
     const sessionToken = session.session.id; // session identifier
-    const csrfToken = await deriveCsrfToken(sessionToken, env.BETTER_AUTH_SECRET); // HMAC-SHA256(key=secret, message=sessionId) → hex
+    const csrfToken = await deriveCsrfToken(sessionToken, c.env.BETTER_AUTH_SECRET); // HMAC-SHA256(key=secret, message=sessionId) → hex
     c.header('Set-Cookie', buildCsrfCookie(csrfToken), { append: true });
     c.header('Cache-Control', 'no-store, no-cache');
     c.set('user', session.user);
@@ -687,7 +687,7 @@ Write `.spec.ts` verifying singleton behaviour and reset.
 **Goal**: Add auth routes and protected route middleware.
 
 ```typescript
-import { getServiceFactory } from './infrastructure/di/serviceFactory';
+import { getServiceFactory } from './di/serviceFactory';
 
 // Better-auth API (JSON, OAuth callbacks, etc.)
 // Note: .auth getter is restricted to worker.ts — do not use in other files
@@ -763,7 +763,7 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 | `presentation/handlers/AuthPageHandlers.spec.ts` | CSRF validation; use-case success/failure; redirect logic                 |
 | `presentation/templates/pages/login.spec.ts`     | HTML output; escaping; fields                                             |
 | `presentation/templates/pages/register.spec.ts`  | HTML output; escaping; field errors                                       |
-| `infrastructure/di/serviceFactory.spec.ts`       | Singleton; reset; use-case accessors; resetServiceFactory calls resetAuth |
+| `di/serviceFactory.spec.ts`                      | Singleton; reset; use-case accessors; resetServiceFactory calls resetAuth |
 | `worker.spec.ts`                                 | Route existence for all auth routes                                       |
 
 ### Mock Strategy
@@ -797,12 +797,12 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 
 ## Complexity Tracking
 
-| Item                                            | Why Needed                                                                                       | Simpler Alternative Rejected Because                                                       |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `drizzle-orm` runtime dependency                | better-auth D1 adapter requires it                                                               | No officially supported D1-native better-auth adapter exists                               |
-| `infrastructure/di/serviceFactory.ts` directory | Single composition root for cross-layer wiring; lives in infrastructure layer (correct DDD home) | Inline factory in worker.ts would violate single-responsibility; harder to test            |
-| Double-submit CSRF                              | HTML form handlers need own CSRF                                                                 | better-auth only covers its `/api/auth/*` endpoints                                        |
-| `infrastructure/passwordHasher.ts`              | Custom PBKDF2 hashing via Web Crypto instead of default                                          | Default argon2id/scrypt uses pure-JS `@noble/hashes` which exceeds Workers CPU time limits |
+| Item                                         | Why Needed                                                                                        | Simpler Alternative Rejected Because                                                       |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `drizzle-orm` runtime dependency             | better-auth D1 adapter requires it                                                                | No officially supported D1-native better-auth adapter exists                               |
+| `di/serviceFactory.ts` (top-level directory) | Single composition root for cross-layer wiring; outside layer hierarchy per ESLint boundary rules | Inline factory in worker.ts would violate single-responsibility; harder to test            |
+| Double-submit CSRF                           | HTML form handlers need own CSRF                                                                  | better-auth only covers its `/api/auth/*` endpoints                                        |
+| `infrastructure/passwordHasher.ts`           | Custom PBKDF2 hashing via Web Crypto instead of default                                           | Default argon2id/scrypt uses pure-JS `@noble/hashes` which exceeds Workers CPU time limits |
 
 ---
 
