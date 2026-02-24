@@ -200,6 +200,8 @@ The following value objects from `~/vance-ts` will be ported for use in our cust
 The double-submit CSRF pattern stores state in two places simultaneously:
 
 1. **Cookie**: `__Secure-csrf={token}; HttpOnly; Secure; SameSite=Strict; Path=/auth; Max-Age=3600`
-2. **Hidden form field**: `<input type="hidden" name="__Secure-csrf" value="{token}">`
+2. **Hidden form field**: `<input type="hidden" name="_csrf" value="{token}">`
 
 The CSRF token is a 32-byte cryptographically random hex string generated using `crypto.getRandomValues()` (Web Standard API). The cookie is set when the form page is served (`GET /auth/sign-in`, `GET /auth/sign-up`) and validated on form submission (`POST /auth/sign-in`, `POST /auth/sign-up`, `POST /auth/sign-out`).
+
+**CSRF rotation on successful sign-in**: The pre-login `__Secure-csrf` cookie MUST be cleared (`Max-Age=0`) on a successful `POST /auth/sign-in` response. This prevents CSRF token fixation — a pre-authentication token must not remain valid after authentication state changes (OWASP recommendation). The post-login `__Secure-csrf` is then regenerated fresh by the `requireAuth` middleware on the first `/app/*` request.

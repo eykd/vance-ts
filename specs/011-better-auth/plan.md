@@ -43,11 +43,11 @@ _GATE: Must pass before Phase 0 research. Re-checked below after design._
 
 **Post-design re-check**:
 
-| Complexity Item                           | Justification                                                                                                             |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Adding `drizzle-orm` runtime dependency   | Required by better-auth's officially documented D1 adapter; no simpler alternative                                        |
-| `di/serviceFactory.ts` (new directory)    | Composition root for wiring better-auth + auth handlers; follows vance-ts pattern; single location for cross-layer wiring |
-| Double-submit CSRF for HTML form handlers | better-auth's built-in CSRF covers `/api/auth/*` only; HTML form handlers need their own CSRF; defense-in-depth           |
+| Complexity Item                                       | Justification                                                                                                                                                               |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Adding `drizzle-orm` runtime dependency               | Required by better-auth's officially documented D1 adapter; no simpler alternative                                                                                          |
+| `infrastructure/di/serviceFactory.ts` (new directory) | Composition root for wiring better-auth + auth handlers; follows vance-ts pattern; moves to infrastructure layer as the composition root is infrastructure's responsibility |
+| Double-submit CSRF for HTML form handlers             | better-auth's built-in CSRF covers `/api/auth/*` only; HTML form handlers need their own CSRF; defense-in-depth                                                             |
 
 All complexity items are justified. No constitution violations.
 
@@ -105,10 +105,10 @@ src/
 │   └── value-objects/
 │       └── common-passwords.ts   ← PORTED from vance-ts (Set<string> of banned passwords)
 │
-├── di/
-│   └── serviceFactory.ts         ← NEW: Composition root (getServiceFactory, resetServiceFactory)
-│
 └── worker.ts                     ← MODIFIED: Add auth routes + requireAuth middleware
+
+src/infrastructure/di/
+└── serviceFactory.ts             ← NEW: Composition root (getServiceFactory, resetServiceFactory)
 
 migrations/
 └── 0001_better_auth_schema.sql   ← NEW: better-auth schema for D1
@@ -119,7 +119,7 @@ migrations/
 - **`infrastructure/`**: better-auth factory, password hashing, port adapters (`BetterAuthService`, `KvRateLimiter`) — direct adapter code
 - **`application/use-cases/`**: Orchestrates auth flows; calls `auth.api.*` via the auth instance; returns typed results (success/failure). Handlers depend on use-case interfaces, not infrastructure directly.
 - **`presentation/`**: HTTP handlers and middleware; parse requests, call use cases, render HTML responses
-- **`di/serviceFactory.ts`**: Composition root; wires infrastructure → application → presentation
+- **`infrastructure/di/serviceFactory.ts`**: Composition root; wires infrastructure → application → presentation
 
 ---
 
@@ -138,7 +138,7 @@ export interface Env {
   readonly ASSETS: Fetcher;
   readonly DB: D1Database; // D1 database for user/session storage
   readonly BETTER_AUTH_URL: string; // Public base URL (e.g., https://app.turtlebased.io)
-  readonly BETTER_AUTH_SECRET: string; // Min 32-char secret for token signing
+  readonly BETTER_AUTH_SECRET: string; // MUST be >= 32 bytes of cryptographically random entropy — generate with: openssl rand -hex 32
   readonly RATE_LIMIT: KVNamespace; // KV namespace for distributed rate limiting
 }
 ```
@@ -222,10 +222,12 @@ export async function verifyPassword(password: string, stored: string): Promise<
 }
 ```
 
+**Security requirement**: Each `hashPassword()` call MUST generate a fresh 16-byte (128-bit) cryptographically random salt via `crypto.getRandomValues(new Uint8Array(16))`. This is mandatory — without per-call salt generation, identical passwords produce identical hashes, enabling rainbow-table attacks against the entire account table.
+
 **TDD requirement**: Write `passwordHasher.spec.ts` verifying:
 
 - `hashPassword` returns a string matching `/^pbkdf2\$\d+\$[0-9a-f]+\$[0-9a-f]+$/`
-- Two calls with the same password produce different hashes (random salt)
+- Two calls with the same password produce **different** hashes (proves per-call random salt)
 - `verifyPassword` returns `true` for a matching password
 - `verifyPassword` returns `false` for a wrong password
 - `verifyPassword` returns `false` for a malformed hash string
@@ -246,8 +248,11 @@ import { hashPassword, verifyPassword } from './passwordHasher';
 let _auth: ReturnType<typeof betterAuth> | null = null;
 
 export function getAuth(env: Env): ReturnType<typeof betterAuth> {
-  if (env.BETTER_AUTH_SECRET.length < 32) {
-    throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
+  if (env.BETTER_AUTH_SECRET.length < 64) {
+    // 32 bytes of entropy = 64 hex characters (from `openssl rand -hex 32`)
+    throw new Error(
+      'BETTER_AUTH_SECRET must be >= 32 bytes of cryptographically random entropy (64 hex chars). Generate with: openssl rand -hex 32'
+    );
   }
   _auth ??= betterAuth({
     database: drizzleAdapter(drizzle(env.DB), { provider: 'sqlite' }),
@@ -327,12 +332,8 @@ Create `src/application/ports/AuthService.ts`:
 import type { AuthUser, AuthSession } from '../../domain/types/auth';
 
 export interface AuthService {
-  signIn(params: {
-    email: string;
-    password: string;
-    ip: string;
-  }): Promise<
-    | { ok: true; sessionCookie: string; csrfToken: string }
+  signIn(params: { email: string; password: string; ip: string }): Promise<
+    | { ok: true; sessionCookie: string }
     | {
         ok: false;
         kind: 'invalid_credentials' | 'rate_limited' | 'service_error';
@@ -444,7 +445,7 @@ Write `.spec.ts` first verifying HTML output including escaping.
 
 Accepts validated form inputs (email, password, client IP). Calls `authService.signIn(...)`. Returns a typed result:
 
-- `{ ok: true; sessionCookie: string; csrfToken: string }` — success; handler constructs `Response` from these values
+- `{ ok: true; sessionCookie: string }` — success; handler constructs `Response` from this value; CSRF is managed independently by `requireAuth` middleware
 - `{ ok: false; kind: 'invalid_credentials' | 'rate_limited' | 'service_error'; retryAfter?: number }` — failure
 
 Write `.spec.ts` first. Mock `auth.api.signInEmail` to test each result path.
@@ -504,30 +505,36 @@ Access the auth instance via the composition root (`di/serviceFactory`) — do N
 ```typescript
 import type { Context, Next } from 'hono';
 import type { AppEnv } from '../types';
-import { getServiceFactory } from '../../di/serviceFactory';
+import type { AuthService } from '../../application/ports/AuthService';
+import { deriveCsrfToken, buildCsrfCookie } from '../utils/cookieBuilder';
 
-export async function requireAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
-  const { authService } = getServiceFactory(c.env);
-  const session = await authService.getSession({ headers: c.req.raw.headers });
-  if (session === null) {
-    const url = new URL(c.req.url);
-    const redirectTo = encodeURIComponent(url.pathname + url.search);
-    return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
-  }
-  // Derive a session-bound CSRF token via HMAC-SHA256(sessionToken, 'csrf')
-  // Deterministic per session; no KV storage needed; survives multi-tab usage
-  const sessionToken = session.session.id; // session identifier
-  const csrfToken = await deriveCsrfToken(sessionToken); // HMAC-SHA256(sessionToken, 'csrf') → hex
-  c.header('Set-Cookie', buildCsrfCookie(csrfToken), { append: true });
-  c.header('Cache-Control', 'no-store, no-cache');
-  c.set('user', session.user);
-  c.set('session', session.session);
-  c.set('csrfToken', csrfToken);
-  await next();
+/**
+ * Creates the requireAuth middleware with AuthService injected.
+ * Called from the composition root (ServiceFactory) — never calls getServiceFactory internally.
+ */
+export function createRequireAuth(authService: AuthService) {
+  return async function requireAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
+    const session = await authService.getSession({ headers: c.req.raw.headers });
+    if (session === null) {
+      const url = new URL(c.req.url);
+      const redirectTo = encodeURIComponent(url.pathname + url.search);
+      return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
+    }
+    // Derive a session-bound CSRF token via HMAC-SHA256(sessionToken, 'csrf')
+    // Deterministic per session; no KV storage needed; survives multi-tab usage
+    const sessionToken = session.session.id; // session identifier
+    const csrfToken = await deriveCsrfToken(sessionToken); // HMAC-SHA256(sessionToken, 'csrf') → hex
+    c.header('Set-Cookie', buildCsrfCookie(csrfToken), { append: true });
+    c.header('Cache-Control', 'no-store, no-cache');
+    c.set('user', session.user);
+    c.set('session', session.session);
+    c.set('csrfToken', csrfToken);
+    await next();
+  };
 }
 ```
 
-**Architecture note**: `requireAuth` calls `authService.getSession()` via the port interface — NOT `auth.api.getSession()` directly — eliminating the presentation → infrastructure direct coupling. The `authService` is obtained from `di/serviceFactory` (the composition root). The return type is `Promise<Response | void>` — Hono middleware that short-circuits via redirect must return a `Response`.
+**Architecture note**: `requireAuth` calls `authService.getSession()` via the port interface — NOT `auth.api.getSession()` directly — eliminating the presentation → infrastructure direct coupling. `AuthService` is **injected** via `createRequireAuth(authService)` at the composition root — `requireAuth` never calls `getServiceFactory` internally (that would be the service locator anti-pattern). The return type is `Promise<Response | void>` — Hono middleware that short-circuits via redirect must return a `Response`.
 
 **CSRF token design**: `deriveCsrfToken(sessionToken: string): Promise<string>` derives the CSRF token via `HMAC-SHA256(sessionToken, 'csrf')` using `crypto.subtle`. This is deterministic per session — the same token is produced on every authenticated request, which:
 
@@ -574,19 +581,20 @@ Write `.spec.ts` covering all form flows including CSRF failure, auth failure, s
 
 **Goal**: Single composition root that wires all dependencies.
 
-#### 4.1 Create `src/di/serviceFactory.ts`
+#### 4.1 Create `src/infrastructure/di/serviceFactory.ts`
 
 ```typescript
-import type { Env } from '../infrastructure/env';
-import type { AuthService } from '../application/ports/AuthService';
-import type { RateLimiter } from '../application/ports/RateLimiter';
-import { getAuth } from '../infrastructure/auth';
-import { BetterAuthService } from '../infrastructure/BetterAuthService';
-import { KvRateLimiter } from '../infrastructure/KvRateLimiter';
-import { SignInUseCase } from '../application/use-cases/SignInUseCase';
-import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
-import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
-import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
+import type { Env } from '../env';
+import type { AuthService } from '../../application/ports/AuthService';
+import type { RateLimiter } from '../../application/ports/RateLimiter';
+import { getAuth, resetAuth } from '../auth';
+import { BetterAuthService } from '../BetterAuthService';
+import { KvRateLimiter } from '../KvRateLimiter';
+import { SignInUseCase } from '../../application/use-cases/SignInUseCase';
+import { SignUpUseCase } from '../../application/use-cases/SignUpUseCase';
+import { SignOutUseCase } from '../../application/use-cases/SignOutUseCase';
+import { AuthPageHandlers } from '../../presentation/handlers/AuthPageHandlers';
+import { createRequireAuth } from '../../presentation/middleware/requireAuth';
 
 export class ServiceFactory {
   private readonly env: Env;
@@ -597,7 +605,7 @@ export class ServiceFactory {
   private _signOutUseCase: SignOutUseCase | null = null;
   private _authPageHandlers: AuthPageHandlers | null = null;
 
-  private readonly _authInstance: ReturnType<typeof betterAuth>;
+  private readonly _authInstance: ReturnType<typeof getAuth>;
 
   constructor(env: Env) {
     this.env = env;
@@ -621,7 +629,7 @@ export class ServiceFactory {
    * RESTRICTED: Only `worker.ts` should call this getter (for `/api/auth/*` delegation).
    * All other code must use `authService` port methods via use cases.
    */
-  get auth(): ReturnType<typeof betterAuth> {
+  get auth(): ReturnType<typeof getAuth> {
     return this._authInstance;
   }
 
@@ -648,6 +656,14 @@ export class ServiceFactory {
     );
     return this._authPageHandlers;
   }
+
+  /**
+   * Returns the requireAuth middleware with AuthService pre-injected.
+   * Use in worker.ts: `app.use('/app/*', (c, next) => factory.requireAuthMiddleware(c, next))`
+   */
+  get requireAuthMiddleware(): ReturnType<typeof createRequireAuth> {
+    return createRequireAuth(this._authServiceInstance);
+  }
 }
 
 let _factory: ServiceFactory | null = null;
@@ -659,6 +675,7 @@ export function getServiceFactory(env: Env): ServiceFactory {
 
 export function resetServiceFactory(): void {
   _factory = null;
+  resetAuth(); // Reset both module-level singletons together for clean test isolation
 }
 ```
 
@@ -671,8 +688,7 @@ Write `.spec.ts` verifying singleton behaviour and reset.
 **Goal**: Add auth routes and protected route middleware.
 
 ```typescript
-import { requireAuth } from './presentation/middleware/requireAuth';
-import { getServiceFactory } from './di/serviceFactory';
+import { getServiceFactory } from './infrastructure/di/serviceFactory';
 
 // Better-auth API (JSON, OAuth callbacks, etc.)
 // Note: .auth getter is restricted to worker.ts — do not use in other files
@@ -700,7 +716,7 @@ app.post('/auth/sign-out', async (c) => {
 });
 
 // Protected application routes
-app.use('/app/*', requireAuth);
+app.use('/app/*', async (c, next) => getServiceFactory(c.env).requireAuthMiddleware(c, next));
 ```
 
 Security headers middleware is extended to cover `/auth/*` routes (`/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out`).
@@ -734,22 +750,22 @@ Update `worker.spec.ts` to cover new routes.
 
 All new files get corresponding `.spec.ts` files. 100% branch coverage is targeted (Workers runtime; no v8 coverage report — see CLAUDE.md).
 
-| File                                             | Test Focus                                                             |
-| ------------------------------------------------ | ---------------------------------------------------------------------- |
-| `infrastructure/auth.spec.ts`                    | Factory creates/caches auth; reset works                               |
-| `infrastructure/passwordHasher.spec.ts`          | Hash format; salt randomness; verify correct/wrong/malformed           |
-| `domain/value-objects/common-passwords.spec.ts`  | Common passwords are in the Set                                        |
-| `application/use-cases/SignInUseCase.spec.ts`    | Success; invalid credentials; rate limited; service error              |
-| `application/use-cases/SignUpUseCase.spec.ts`    | Success; email taken; weak password; rate limited; service error       |
-| `application/use-cases/SignOutUseCase.spec.ts`   | Success; service error                                                 |
-| `presentation/utils/cookieBuilder.spec.ts`       | Cookie header format; clear cookie                                     |
-| `presentation/utils/extractClientIp.spec.ts`     | CF-Connecting-IP only; spoofed X-Forwarded-For ignored; sanitizeIp     |
-| `presentation/middleware/requireAuth.spec.ts`    | Redirect on no session; next() on valid session; CSRF token on context |
-| `presentation/handlers/AuthPageHandlers.spec.ts` | CSRF validation; use-case success/failure; redirect logic              |
-| `presentation/templates/pages/login.spec.ts`     | HTML output; escaping; fields                                          |
-| `presentation/templates/pages/register.spec.ts`  | HTML output; escaping; field errors                                    |
-| `di/serviceFactory.spec.ts`                      | Singleton; reset; use-case accessors                                   |
-| `worker.spec.ts`                                 | Route existence for all auth routes                                    |
+| File                                             | Test Focus                                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------------- |
+| `infrastructure/auth.spec.ts`                    | Factory creates/caches auth; reset works                                  |
+| `infrastructure/passwordHasher.spec.ts`          | Hash format; salt randomness; verify correct/wrong/malformed              |
+| `domain/value-objects/common-passwords.spec.ts`  | Common passwords are in the Set                                           |
+| `application/use-cases/SignInUseCase.spec.ts`    | Success; invalid credentials; rate limited; service error                 |
+| `application/use-cases/SignUpUseCase.spec.ts`    | Success; email taken; weak password; rate limited; service error          |
+| `application/use-cases/SignOutUseCase.spec.ts`   | Success; service error                                                    |
+| `presentation/utils/cookieBuilder.spec.ts`       | Cookie header format; clear cookie                                        |
+| `presentation/utils/extractClientIp.spec.ts`     | CF-Connecting-IP only; spoofed X-Forwarded-For ignored; sanitizeIp        |
+| `presentation/middleware/requireAuth.spec.ts`    | Redirect on no session; next() on valid session; CSRF token on context    |
+| `presentation/handlers/AuthPageHandlers.spec.ts` | CSRF validation; use-case success/failure; redirect logic                 |
+| `presentation/templates/pages/login.spec.ts`     | HTML output; escaping; fields                                             |
+| `presentation/templates/pages/register.spec.ts`  | HTML output; escaping; field errors                                       |
+| `infrastructure/di/serviceFactory.spec.ts`       | Singleton; reset; use-case accessors; resetServiceFactory calls resetAuth |
+| `worker.spec.ts`                                 | Route existence for all auth routes                                       |
 
 ### Mock Strategy
 
@@ -770,6 +786,7 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 - [ ] **Session invalidation** (FR-009): better-auth deletes session row from D1 on logout
 - [ ] **Security headers** (FR-011): `applySecurityHeaders()` applied to all auth responses
 - [ ] **Secure cookies**: `useSecureCookies` enabled in non-localhost environments
+- [ ] **BETTER_AUTH_SECRET entropy**: Verified at startup that secret is >= 64 hex chars (32 bytes); generated with `openssl rand -hex 32`; runtime throws if condition is not met
 - [ ] **XSS prevention**: All user-supplied values HTML-escaped in templates via `escapeHtml()`
 - [ ] **Security logging** (FR-012): Failed logins logged via `console.log` with IP only (no passwords/emails in logs)
 - [ ] **Route naming alignment**: All routes use `/auth/sign-in`, `/auth/sign-up`, `/auth/sign-out` per spec clarification (not `/auth/login`, `/auth/register`, `/auth/logout`)
@@ -781,12 +798,12 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 
 ## Complexity Tracking
 
-| Item                               | Why Needed                                              | Simpler Alternative Rejected Because                                                       |
-| ---------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `drizzle-orm` runtime dependency   | better-auth D1 adapter requires it                      | No officially supported D1-native better-auth adapter exists                               |
-| `di/serviceFactory.ts` directory   | Single composition root for cross-layer wiring          | Inline factory in worker.ts would violate single-responsibility; harder to test            |
-| Double-submit CSRF                 | HTML form handlers need own CSRF                        | better-auth only covers its `/api/auth/*` endpoints                                        |
-| `infrastructure/passwordHasher.ts` | Custom PBKDF2 hashing via Web Crypto instead of default | Default argon2id/scrypt uses pure-JS `@noble/hashes` which exceeds Workers CPU time limits |
+| Item                                            | Why Needed                                                                                       | Simpler Alternative Rejected Because                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `drizzle-orm` runtime dependency                | better-auth D1 adapter requires it                                                               | No officially supported D1-native better-auth adapter exists                               |
+| `infrastructure/di/serviceFactory.ts` directory | Single composition root for cross-layer wiring; lives in infrastructure layer (correct DDD home) | Inline factory in worker.ts would violate single-responsibility; harder to test            |
+| Double-submit CSRF                              | HTML form handlers need own CSRF                                                                 | better-auth only covers its `/api/auth/*` endpoints                                        |
+| `infrastructure/passwordHasher.ts`              | Custom PBKDF2 hashing via Web Crypto instead of default                                          | Default argon2id/scrypt uses pure-JS `@noble/hashes` which exceeds Workers CPU time limits |
 
 ---
 
@@ -851,7 +868,7 @@ Double-submit CSRF tokens set without a `Max-Age` become session cookies (cleare
 
 No maximum body size is defined for auth POST endpoints. A very large body is parsed into memory before `maxPasswordLength: 128` is enforced.
 
-**Required**: In `handlePostSignIn` and `handlePostSignUp`, check `Content-Length` header before parsing; reject with 413 if over the size limit. Limits: HTML form submissions (`/auth/*`) max 50 KB; JSON API requests (`/api/auth/*`) max 10 KB. After parsing, enforce: `email` ≤ 254 chars (RFC 5321), `password` ≤ 128 chars. Document these limits in contracts/auth-endpoints.md.
+**Required**: In `handlePostSignIn` and `handlePostSignUp`, check `Content-Length` header before parsing; reject with 413 if over the size limit. Limits: HTML form submissions (`/auth/*`) max **4 KB** (email ≤254 + password ≤128 + CSRF ≤64 + overhead ≈ ~450 bytes; 50 KB was ~100x too large and unnecessarily expanded the attack surface for form-parser amplification); JSON API requests (`/api/auth/*`) max 10 KB. After parsing, enforce: `email` ≤ 254 chars (RFC 5321), `password` ≤ 128 chars. Document these limits in contracts/auth-endpoints.md.
 
 ### Email Case Normalisation
 

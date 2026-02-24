@@ -113,12 +113,14 @@ Location: /auth/sign-in?registered=true
 **Failure Responses**:
 
 - `403 Forbidden` — CSRF validation failed
-- `200 OK` — Registration failed (re-renders form with appropriate error)
-  - Email already in use → `"An account with this email already exists"` _(Accepted-Risk: email-enumeration — the UX benefit of clear error messages outweighs the enumeration risk at this traffic scale; revisit if spam/enumeration becomes a problem)_
+- `303 See Other` — Email already in use → redirects to `/auth/sign-in?registered=true` (same response as success — prevents email enumeration per FR-007)
+- `200 OK` — Registration failed with recoverable validation error (re-renders form with appropriate error)
   - Password too short → `"Password must be at least 12 characters"`
   - Password too common → `"Password is too common. Please choose a different password."`
   - Email format invalid → `"Please enter a valid email address"`
 - `429 Too Many Requests` — Rate limit exceeded
+
+**Note**: Duplicate email is treated identically to success (303 redirect) so attackers cannot enumerate registered accounts by probing `/auth/sign-up`. Only format/strength validation errors are surfaced as `200` re-renders.
 
 **Note**: After successful registration, the user is NOT automatically signed in (redirected to sign-in page instead). They sign in immediately after (FR-013 — no email verification required).
 
@@ -272,7 +274,7 @@ Verify that better-auth v1.4.x supports this option before implementation. If th
 
 | Request type                      | Max size |
 | --------------------------------- | -------- |
-| HTML form submissions (`/auth/*`) | 50 KB    |
+| HTML form submissions (`/auth/*`) | 4 KB     |
 | JSON API requests (`/api/auth/*`) | 10 KB    |
 
-These complement per-field limits: `email` ≤ 254 characters (RFC 5321), `password` ≤ 128 characters. Requests exceeding the body size limit are rejected with `413 Content Too Large` before parsing. The HTML form limit (50 KB) is higher to accommodate future multi-field forms; the JSON API limit (10 KB) is tighter since only structured credentials are expected.
+These complement per-field limits: `email` ≤ 254 characters (RFC 5321), `password` ≤ 128 characters. Requests exceeding the body size limit are rejected with `413 Content Too Large` before parsing. The HTML form limit (4 KB) is sized to actual payload (email ≤254 + password ≤128 + CSRF ≤64 + field names/encoding overhead ≈ ~450 bytes; 4 KB provides a generous margin). The JSON API limit (10 KB) is tighter since only structured credentials are expected.
