@@ -90,6 +90,8 @@ Cache-Control: no-store, no-cache
 - Password input field
 - Hidden `_csrf` field
 
+**Note**: No `name` field is shown. The `name` value required by better-auth's `signUpEmail` API is derived server-side from the email prefix (the portion before `@`). Example: `alice@example.com` → name `alice`.
+
 ---
 
 ### POST /auth/sign-up
@@ -103,6 +105,8 @@ Content-Type: application/x-www-form-urlencoded
 
 email={email}&password={password}&_csrf={token}
 ```
+
+**Note**: The `name` field is NOT submitted by the form. The handler derives it server-side as `email.split('@')[0]` before passing to `SignUpUseCase` → `authService.signUp({ email, password, name, ip })`. This satisfies better-auth v1.4.x's required `name` argument without complicating the registration UX.
 
 **CSRF Validation**: Same as POST /auth/sign-in.
 

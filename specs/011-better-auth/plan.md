@@ -98,7 +98,8 @@ src/
 │   │       └── register.ts       ← NEW: Registration form HTML template
 │   └── utils/
 │       ├── cookieBuilder.ts      ← NEW: Build/clear CSRF cookies
-│       └── extractClientIp.ts    ← NEW: Extract CF-Connecting-IP (sole source)
+│       ├── extractClientIp.ts    ← NEW: Extract CF-Connecting-IP (sole source)
+│       └── redirectValidator.ts  ← NEW: Validate and sanitize redirectTo parameter
 │
 ├── domain/
 │   ├── value-objects/
@@ -459,7 +460,7 @@ Write `.spec.ts` first. Mock `auth.api.signInEmail` to test each result path.
 
 **Constructor**: `new SignUpUseCase(authService: AuthService, rateLimiter: RateLimiter)` — accepts port interfaces, not concrete infrastructure types.
 
-Accepts email, password, client IP. Validates password strength (via `common-passwords.ts`). Calls `authService.signUp(...)`. Returns a typed result:
+Accepts email, password, client IP. Derives `name` from the email prefix (`email.split('@')[0]`) to satisfy better-auth v1.4.x's required `name` argument — the registration form does NOT include a name field. Validates password strength (via `common-passwords.ts`). Calls `authService.signUp({ email, password, name, ip })`. Returns a typed result:
 
 - `{ ok: true }` — success
 - `{ ok: false; kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error' }` — failure
@@ -502,6 +503,23 @@ Write `.spec.ts` first.
 Ported from `~/vance-ts/src/presentation/utils/extractClientIp.ts`. Extracts `CF-Connecting-IP` **only** from request headers. `X-Forwarded-For` is not used — it is client-controlled and enables IP spoofing for rate limit bypass (see Security Considerations).
 
 Write `.spec.ts` first.
+
+#### 3.2b Create `src/presentation/utils/redirectValidator.ts`
+
+Validates and sanitizes the `redirectTo` query parameter used by POST /auth/sign-in (FR-005) to prevent open redirect attacks. Full validation spec in `contracts/auth-endpoints.md` §Post-Sign-In Redirect Validation.
+
+**Exports**:
+
+- `validateRedirectTo(raw: string | null): string` — Returns a safe path or `/` if invalid.
+
+**Validation rules**:
+
+1. Decode: `decodeURIComponent(raw)` (prevents URL-encoded bypass)
+2. Canonicalise: `new URL(decoded, 'http://localhost')` — extract only `.pathname + .search`
+3. Accept if: starts with `/`, does NOT start with `//`, does NOT start with `/api/` or `/auth/`
+4. Default: return `/` for absent, invalid, or rejected input
+
+Write `.spec.ts` first covering: valid paths, `//` prefix, `/api/` prefix, `/auth/` prefix, URL-encoded bypass attempts, missing input, and malformed URL.
 
 #### 3.3 Create `src/presentation/middleware/requireAuth.ts`
 
@@ -574,7 +592,7 @@ Handles all HTML auth page requests. Uses the bridge pattern to call better-auth
 - Only `429 Too Many Requests` from better-auth displays rate limit message
 - Log actual error internally (no PII)
 
-**Redirect validation** for `redirectTo`:
+**Redirect validation** for `redirectTo`: delegated to `validateRedirectTo()` from `src/presentation/utils/redirectValidator.ts`:
 
 - Must be a relative path starting with `/`
 - Must not start with `//` (open redirect prevention)

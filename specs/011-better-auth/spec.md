@@ -123,7 +123,7 @@ The system is designed to support OAuth-based sign-in providers (e.g., Google) w
 - **FR-003**: The system MUST allow authenticated users to sign out, invalidating their session
 - **FR-004**: The system MUST protect designated routes, redirecting unauthenticated visitors to the sign-in page (`/auth/sign-in`)
 - **FR-005**: The system MUST preserve the originally requested URL and redirect users there after successful sign-in
-- **FR-006**: The system MUST enforce rate limiting on sign-in (5 attempts per 15 minutes per IP) and registration (5 attempts per 5 minutes per IP) endpoints to prevent brute-force attacks. The system MUST also enforce per-account rate limiting on sign-in (10 attempts per 60 minutes per email address) to prevent targeted brute-force attacks from distributed IPs.
+- **FR-006**: The system MUST enforce rate limiting on sign-in (5 attempts per 15 minutes per IP) and registration (5 attempts per 5 minutes per IP) endpoints to prevent brute-force attacks. The system MUST also enforce per-email rate limiting on sign-in (10 attempts per 60 minutes per email address) to prevent targeted brute-force attacks from distributed IPs.
 - **FR-007**: The system MUST return identical error messages for invalid credentials regardless of whether the email exists (preventing email enumeration)
 - **FR-008**: The system MUST enforce a minimum password strength of 12 characters and MUST reject passwords that appear in the 100 most common passwords list (same list used in the vance-ts reference implementation)
 - **FR-009**: The system MUST invalidate sessions server-side on sign-out (not merely clear the client cookie)
@@ -146,7 +146,7 @@ The system is designed to support OAuth-based sign-in providers (e.g., Google) w
 
 - **SC-001**: A new user can complete account creation and be signed in within 60 seconds on a standard connection
 - **SC-002**: A returning user can sign in and reach protected content within 30 seconds on a standard connection
-- **SC-003**: Brute-force attacks are automatically blocked after 5 failed sign-in attempts per IP within 15 minutes, and after 5 registration attempts per IP within 5 minutes, and targeted brute-force against a specific account is blocked after 10 failed sign-in attempts per account within 60 minutes
+- **SC-003**: Brute-force attacks are automatically blocked after 5 failed sign-in attempts per IP within 15 minutes, and after 5 registration attempts per IP within 5 minutes, and targeted brute-force against a specific email address is blocked after 10 failed sign-in attempts per email address within 60 minutes
 - **SC-004**: Email enumeration attacks yield no information advantage (identical responses for valid and invalid emails)
 - **SC-005**: 100% of protected routes correctly reject unauthenticated requests in automated testing
 - **SC-006**: Session invalidation on sign-out is confirmed server-side within the same request
