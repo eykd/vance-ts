@@ -139,14 +139,14 @@ CREATE TABLE `verification` (
 Application State
 │
 ├── better-auth (manages)
-│   ├── D1: user, session, account, verification tables
-│   └── In-memory: rate limit counters (per isolate)
+│   └── D1: user, session, account, verification tables
 │
 └── Worker (manages)
+    ├── KV (`RATE_LIMIT` namespace): distributed rate limit counters (shared across all edge nodes)
     └── Request scope: CSRF token (double-submit cookie)
 ```
 
-**Note on rate limiting**: Better-auth uses in-memory rate limiting by default. This means rate limit counters reset on each cold start and are not shared across Workers isolates. This is acceptable for this iteration. If stronger guarantees are needed, a KV-backed rate limiter can be added in a future iteration.
+**Note on rate limiting**: KV-backed rate limiting is required — better-auth's built-in in-memory rate limiter is non-functional across Cloudflare Workers isolates (each edge node holds its own independent counter). See plan.md Security Considerations for the full rationale and implementation requirements.
 
 ---
 
@@ -154,12 +154,12 @@ Application State
 
 ```
 Registration
-  → POST /auth/register
+  → POST /auth/sign-up
   → better-auth creates: user row, account row
-  → Redirect to /auth/login
+  → Redirect to /auth/sign-in
 
-Login
-  → POST /auth/login
+Sign-in
+  → POST /auth/sign-in
   → better-auth: validates credentials, creates session row
   → Response: Set-Cookie: better-auth.session={token}
   → Redirect to /?redirectTo or /
@@ -170,15 +170,15 @@ Request (authenticated)
   → better-auth: SELECT * FROM session WHERE token = ? AND expiresAt > ?
   → User context set on request, proceed
 
-Logout
-  → POST /auth/logout
+Sign-out
+  → POST /auth/sign-out
   → better-auth: DELETE FROM session WHERE token = ?
   → Response: Clear-Cookie: better-auth.session
-  → Redirect to /auth/login
+  → Redirect to /auth/sign-in
 
 Session expiry (passive)
   → auth.api.getSession() returns null when expiresAt < NOW
-  → requireAuth middleware redirects to /auth/login
+  → requireAuth middleware redirects to /auth/sign-in
 ```
 
 ---
@@ -202,4 +202,4 @@ The double-submit CSRF pattern stores state in two places simultaneously:
 1. **Cookie**: `_csrf={token}; HttpOnly; Secure; SameSite=Strict; Path=/auth`
 2. **Hidden form field**: `<input type="hidden" name="_csrf" value="{token}">`
 
-The CSRF token is a 32-byte cryptographically random hex string generated using `crypto.getRandomValues()` (Web Standard API). The cookie is set when the form page is served (`GET /auth/login`, `GET /auth/register`) and validated on form submission (`POST /auth/login`, `POST /auth/register`, `POST /auth/logout`).
+The CSRF token is a 32-byte cryptographically random hex string generated using `crypto.getRandomValues()` (Web Standard API). The cookie is set when the form page is served (`GET /auth/sign-in`, `GET /auth/sign-up`) and validated on form submission (`POST /auth/sign-in`, `POST /auth/sign-up`, `POST /auth/sign-out`).

@@ -93,7 +93,7 @@ src/
 │   │       └── register.ts       ← NEW: Registration form HTML template
 │   └── utils/
 │       ├── cookieBuilder.ts      ← NEW: Build/clear CSRF cookies
-│       └── extractClientIp.ts    ← NEW: Extract CF-Connecting-IP / X-Forwarded-For
+│       └── extractClientIp.ts    ← NEW: Extract CF-Connecting-IP (sole source)
 │
 ├── domain/
 │   └── value-objects/
@@ -133,6 +133,7 @@ export interface Env {
   readonly DB: D1Database; // D1 database for user/session storage
   readonly BETTER_AUTH_URL: string; // Public base URL (e.g., https://app.turtlebased.io)
   readonly BETTER_AUTH_SECRET: string; // Min 32-char secret for token signing
+  readonly RATE_LIMIT: KVNamespace; // KV namespace for distributed rate limiting
 }
 ```
 
@@ -183,10 +184,13 @@ export async function hashPassword(password: string): Promise<string> {
   return `pbkdf2$${ITERATIONS}$${toHex(salt)}$${toHex(bits)}`;
 }
 
+const MIN_ITERATIONS = 100_000; // Reject hashes with fewer iterations (tamper protection)
+
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const parts = stored.split('$');
   if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false;
   const iterations = parseInt(parts[1] ?? '0', 10);
+  if (iterations < MIN_ITERATIONS) return false;
   const salt = fromHex(parts[2] ?? '');
   const expected = fromHex(parts[3] ?? '');
   const key = await crypto.subtle.importKey(
@@ -219,6 +223,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
 - `verifyPassword` returns `true` for a matching password
 - `verifyPassword` returns `false` for a wrong password
 - `verifyPassword` returns `false` for a malformed hash string
+- `verifyPassword` returns `false` for a hash with `iterations < MIN_ITERATIONS` (tamper protection)
 
 #### 1.4 Create `src/infrastructure/auth.ts`
 
@@ -258,11 +263,11 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
     },
     advanced: {
       useSecureCookies: !env.BETTER_AUTH_URL.startsWith('http://localhost'),
+      cookiePrefix: '__Host-',
+      ipAddress: { ipAddressHeaders: ['CF-Connecting-IP'] },
     },
     rateLimit: {
-      enabled: true,
-      window: 15 * 60,
-      max: 5,
+      enabled: false, // KV-backed rate limiter handles this; built-in is in-memory only
     },
   });
   return _auth;
@@ -368,7 +373,7 @@ Write `.spec.ts` first.
 
 #### 3.2 Create `src/presentation/utils/extractClientIp.ts`
 
-Ported from `~/vance-ts/src/presentation/utils/extractClientIp.ts`. Extracts `CF-Connecting-IP` (preferred) or `X-Forwarded-For` from request headers.
+Ported from `~/vance-ts/src/presentation/utils/extractClientIp.ts`. Extracts `CF-Connecting-IP` **only** from request headers. `X-Forwarded-For` is not used — it is client-controlled and enables IP spoofing for rate limit bypass (see Security Considerations).
 
 Write `.spec.ts` first.
 
@@ -407,13 +412,15 @@ Write `.spec.ts` testing: no session → `302` redirect with preserved URL; vali
 
 Handles all HTML auth page requests. Uses the bridge pattern to call better-auth's internal API.
 
-**Methods**:
+**Constructor**: `new AuthPageHandlers(signInUseCase, signUpUseCase, signOutUseCase)` — accepts use case instances from the composition root. No `env: Env` parameter (presentation must not depend on infrastructure directly).
 
-- `handleGetLogin(env, request) → Response` — Serve sign-in page + set CSRF cookie
-- `handlePostLogin(env, request) → Promise<Response>` — CSRF check → `auth.api.signInEmail` → redirect or re-render
-- `handleGetRegister(env, request) → Response` — Serve sign-up page + set CSRF cookie
-- `handlePostRegister(env, request) → Promise<Response>` — CSRF check → `auth.api.signUpEmail` → redirect to sign-in
-- `handlePostLogout(env, request) → Promise<Response>` — CSRF check → `auth.api.signOut` → redirect to sign-in
+**Methods** (no `env` parameter — use cases already hold their dependencies):
+
+- `handleGetSignIn(request) → Response` — Serve sign-in page + set CSRF cookie
+- `handlePostSignIn(request) → Promise<Response>` — CSRF check → `signInUseCase.execute(...)` → redirect or re-render
+- `handleGetSignUp(request) → Response` — Serve sign-up page + set CSRF cookie
+- `handlePostSignUp(request) → Promise<Response>` — CSRF check → `signUpUseCase.execute(...)` → redirect to sign-in
+- `handlePostSignOut(request) → Promise<Response>` — CSRF check → `signOutUseCase.execute(...)` → redirect to sign-in
 
 **Error normalisation for login**:
 
@@ -441,10 +448,16 @@ Write `.spec.ts` covering all form flows including CSRF failure, auth failure, s
 ```typescript
 import type { Env } from '../infrastructure/env';
 import { getAuth } from '../infrastructure/auth';
+import { SignInUseCase } from '../application/use-cases/SignInUseCase';
+import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
+import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 
 export class ServiceFactory {
   private readonly env: Env;
+  private _signInUseCase: SignInUseCase | null = null;
+  private _signUpUseCase: SignUpUseCase | null = null;
+  private _signOutUseCase: SignOutUseCase | null = null;
   private _authPageHandlers: AuthPageHandlers | null = null;
 
   constructor(env: Env) {
@@ -455,8 +468,27 @@ export class ServiceFactory {
     return getAuth(this.env);
   }
 
+  get signInUseCase(): SignInUseCase {
+    this._signInUseCase ??= new SignInUseCase(this.auth, this.env.RATE_LIMIT);
+    return this._signInUseCase;
+  }
+
+  get signUpUseCase(): SignUpUseCase {
+    this._signUpUseCase ??= new SignUpUseCase(this.auth, this.env.RATE_LIMIT);
+    return this._signUpUseCase;
+  }
+
+  get signOutUseCase(): SignOutUseCase {
+    this._signOutUseCase ??= new SignOutUseCase(this.auth);
+    return this._signOutUseCase;
+  }
+
   get authPageHandlers(): AuthPageHandlers {
-    this._authPageHandlers ??= new AuthPageHandlers(this.env);
+    this._authPageHandlers ??= new AuthPageHandlers(
+      this.signInUseCase,
+      this.signUpUseCase,
+      this.signOutUseCase
+    );
     return this._authPageHandlers;
   }
 }
@@ -493,19 +525,19 @@ app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
 
 // HTML auth pages
 app.get('/auth/sign-in', (c) => {
-  return getServiceFactory(c.env).authPageHandlers.handleGetLogin(c.env, c.req.raw);
+  return getServiceFactory(c.env).authPageHandlers.handleGetSignIn(c.req.raw);
 });
 app.post('/auth/sign-in', async (c) => {
-  return getServiceFactory(c.env).authPageHandlers.handlePostLogin(c.env, c.req.raw);
+  return getServiceFactory(c.env).authPageHandlers.handlePostSignIn(c.req.raw);
 });
 app.get('/auth/sign-up', (c) => {
-  return getServiceFactory(c.env).authPageHandlers.handleGetRegister(c.env, c.req.raw);
+  return getServiceFactory(c.env).authPageHandlers.handleGetSignUp(c.req.raw);
 });
 app.post('/auth/sign-up', async (c) => {
-  return getServiceFactory(c.env).authPageHandlers.handlePostRegister(c.env, c.req.raw);
+  return getServiceFactory(c.env).authPageHandlers.handlePostSignUp(c.req.raw);
 });
 app.post('/auth/sign-out', async (c) => {
-  return getServiceFactory(c.env).authPageHandlers.handlePostLogout(c.env, c.req.raw);
+  return getServiceFactory(c.env).authPageHandlers.handlePostSignOut(c.req.raw);
 });
 
 // Protected application routes
@@ -520,20 +552,20 @@ Update `worker.spec.ts` to cover new routes.
 
 ## Key Design Decisions
 
-| Decision                | Choice                                               | Rationale                                                                                      |
-| ----------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **Auth library**        | better-auth                                          | Required by spec; OAuth extensibility                                                          |
-| **D1 adapter**          | drizzle-orm/d1                                       | Officially documented for D1; no viable alternative                                            |
-| **Session storage**     | D1 (via better-auth)                                 | Better-auth manages the session table; simpler than separate KV                                |
-| **HTML form bridge**    | Call `auth.api.*` with `asResponse: true`            | Keeps server-rendered HTML; delegates auth to better-auth                                      |
-| **CSRF for HTML forms** | Double-submit cookie pattern                         | better-auth CSRF covers `/api/auth/*` only; defense-in-depth                                   |
-| **Password hashing**    | PBKDF2-HMAC-SHA-256 via Web Crypto (600k iterations) | Native Workers runtime; no pure-JS overhead; no `limits.cpu_ms` required; OWASP 2023 compliant |
-| **Password strength**   | `password.validate` hook with common-passwords       | NIST 800-63B: length + breach check, no complexity rules                                       |
-| **Error messages**      | Normalise to generic message                         | Prevent email enumeration (FR-007)                                                             |
-| **Rate limiting**       | better-auth built-in (in-memory)                     | Simpler; acceptable for this iteration                                                         |
-| **Common passwords**    | Ported from vance-ts                                 | Battle-tested; already has spec                                                                |
-| **Session TTL**         | 30 days + 1-day refresh                              | Spec-mandated (clarification 2026-02-24); `expiresIn: 2_592_000`                               |
-| **OAuth extensibility** | Config-only via `socialProviders`                    | FR-010: no structural changes needed for OAuth                                                 |
+| Decision                | Choice                                               | Rationale                                                                                                                                           |
+| ----------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Auth library**        | better-auth                                          | Required by spec; OAuth extensibility                                                                                                               |
+| **D1 adapter**          | drizzle-orm/d1                                       | Officially documented for D1; no viable alternative                                                                                                 |
+| **Session storage**     | D1 (via better-auth)                                 | Better-auth manages the session table; simpler than separate KV                                                                                     |
+| **HTML form bridge**    | Call `auth.api.*` with `asResponse: true`            | Keeps server-rendered HTML; delegates auth to better-auth                                                                                           |
+| **CSRF for HTML forms** | Double-submit cookie pattern                         | better-auth CSRF covers `/api/auth/*` only; defense-in-depth                                                                                        |
+| **Password hashing**    | PBKDF2-HMAC-SHA-256 via Web Crypto (600k iterations) | Native Workers runtime; no pure-JS overhead; no `limits.cpu_ms` required; OWASP 2023 compliant                                                      |
+| **Password strength**   | `password.validate` hook with common-passwords       | NIST 800-63B: length + breach check, no complexity rules                                                                                            |
+| **Error messages**      | Normalise to generic message                         | Prevent email enumeration (FR-007)                                                                                                                  |
+| **Rate limiting**       | KV-backed rate limiter (`RATE_LIMIT` namespace)      | better-auth built-in is in-memory and non-functional across Workers isolates; KV provides shared distributed counters required by FR-006 and SC-003 |
+| **Common passwords**    | Ported from vance-ts                                 | Battle-tested; already has spec                                                                                                                     |
+| **Session TTL**         | 30 days + 1-day refresh                              | Spec-mandated (clarification 2026-02-24); `expiresIn: 2_592_000`                                                                                    |
+| **OAuth extensibility** | Config-only via `socialProviders`                    | FR-010: no structural changes needed for OAuth                                                                                                      |
 
 ---
 
@@ -552,7 +584,7 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 | `application/use-cases/SignUpUseCase.spec.ts`    | Success; email taken; weak password; rate limited; service error       |
 | `application/use-cases/SignOutUseCase.spec.ts`   | Success; service error                                                 |
 | `presentation/utils/cookieBuilder.spec.ts`       | Cookie header format; clear cookie                                     |
-| `presentation/utils/extractClientIp.spec.ts`     | CF-Connecting-IP; X-Forwarded-For fallback                             |
+| `presentation/utils/extractClientIp.spec.ts`     | CF-Connecting-IP only; spoofed X-Forwarded-For ignored; sanitizeIp     |
 | `presentation/middleware/requireAuth.spec.ts`    | Redirect on no session; next() on valid session; CSRF token on context |
 | `presentation/handlers/AuthPageHandlers.spec.ts` | CSRF validation; use-case success/failure; redirect logic              |
 | `presentation/templates/pages/login.spec.ts`     | HTML output; escaping; fields                                          |
@@ -574,7 +606,8 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 - [ ] **Open redirect** (FR-005): `redirectTo` validated as relative path before use
 - [ ] **Password hashing**: PBKDF2-HMAC-SHA-256 via Web Crypto, 600k iterations, random 16-byte salt, constant-time verify
 - [ ] **Password strength** (FR-008): 12-128 chars, common passwords rejected
-- [ ] **Rate limiting** (FR-006): better-auth built-in rate limiting active
+- [ ] **Rate limiting** (FR-006): KV-backed rate limiter active; better-auth built-in disabled
+- [ ] **CSRF constant-time comparison**: CSRF token comparison uses a byte-by-byte XOR loop (same pattern as `verifyPassword`) — not `===` — to prevent timing-based token prefix leakage
 - [ ] **Session invalidation** (FR-009): better-auth deletes session row from D1 on logout
 - [ ] **Security headers** (FR-011): `applySecurityHeaders()` applied to all auth responses
 - [ ] **Secure cookies**: `useSecureCookies` enabled in non-localhost environments
@@ -657,7 +690,7 @@ Double-submit CSRF tokens set without a `Max-Age` become session cookies (cleare
 
 No maximum body size is defined for auth POST endpoints. A very large body is parsed into memory before `maxPasswordLength: 128` is enforced.
 
-**Required**: In `handlePostLogin` and `handlePostRegister`, check `Content-Length` header before parsing; reject with 413 if over 4KB. After parsing, enforce: `email` ≤ 254 chars (RFC 5321), `password` ≤ 128 chars. Document these limits in contracts/auth-endpoints.md.
+**Required**: In `handlePostSignIn` and `handlePostSignUp`, check `Content-Length` header before parsing; reject with 413 if over 4KB. After parsing, enforce: `email` ≤ 254 chars (RFC 5321), `password` ≤ 128 chars. Document these limits in contracts/auth-endpoints.md.
 
 ### Email Case Normalisation
 
@@ -667,7 +700,7 @@ D1's `UNIQUE` constraint on the `email` column is case-sensitive by default. If 
 
 ### `/api/auth/*` JSON API Bypasses KV Rate Limiter (Critical)
 
-The KV-backed rate limiter (required finding above) is applied only inside `handlePostLogin` and `handlePostRegister`. However, better-auth's JSON API is mounted directly: `app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))`. An attacker can bypass the custom KV rate limiter entirely by POSTing directly to `POST /api/auth/sign-in/email` or `POST /api/auth/sign-up/email` with JSON credentials — the HTML form path is irrelevant. Better-auth's in-memory rate limiter does not stop distributed brute-force attempts. **FR-006 and SC-003 cannot be met without addressing this.**
+The KV-backed rate limiter (required finding above) is applied only inside `handlePostSignIn` and `handlePostSignUp`. However, better-auth's JSON API is mounted directly: `app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))`. An attacker can bypass the custom KV rate limiter entirely by POSTing directly to `POST /api/auth/sign-in/email` or `POST /api/auth/sign-up/email` with JSON credentials — the HTML form path is irrelevant. Better-auth's in-memory rate limiter does not stop distributed brute-force attempts. **FR-006 and SC-003 cannot be met without addressing this.**
 
 **Required**: Add Hono middleware placed BEFORE the `app.on('/api/auth/*', ...)` delegation that intercepts specific auth API paths:
 
@@ -789,7 +822,7 @@ The spec lists "How does the system behave when the database is temporarily unav
 
 **`requireAuth` middleware**: Wrap `auth.api.getSession` in `try/catch`. On exception, log the error (no PII) and return 503 with `Retry-After: 30` header and a user-facing "Authentication service temporarily unavailable" message. Do not expose the underlying error.
 
-**`handlePostLogin` / `handlePostRegister`**: Distinguish error classes from `auth.api.*`:
+**`handlePostSignIn` / `handlePostSignUp`**: Distinguish error classes from `auth.api.*`:
 
 - Status 429 → render rate limit message
 - Status 5xx → return 503 ("Service temporarily unavailable") — do NOT show "Invalid email or password"
