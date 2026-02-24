@@ -829,7 +829,7 @@ Apply strict red-green-refactor:
 1. RED: Write failing test first
 2. GREEN: Minimal code to pass
 3. REFACTOR: Improve while green
-Run: npx vitest
+Run: npx vitest run src/ --reporter=verbose
 EOF
     fi
 
