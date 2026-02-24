@@ -131,6 +131,17 @@ Spec: specs/acceptance-specs/ (US<N>-<kebab-title>.txt files)
 
 ---
 
+## User Authentication
+
+Keywords: authentication, auth, login, logout, register, sign-in, sign-up, sign-out,
+user account, email password, better-auth, session, session management, cookie, rate
+limiting, brute force, email enumeration, password strength, protected routes, middleware,
+access control, OAuth, Google login, social login, CSRF, security headers, Hono, D1,
+KV, credential, hashed password, route protection, redirect after login
+Spec: specs/011-better-auth/spec.md
+
+---
+
 ## How to Update This File
 
 When adding a new spec via `/sp:01-specify`, the workflow updates this file automatically.
