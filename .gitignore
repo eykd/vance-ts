@@ -53,3 +53,4 @@ tmp/
 
 # Acceptance pipeline IR (ephemeral, regenerated each run)
 acceptance-pipeline/ir/
+.claude/worktrees/
