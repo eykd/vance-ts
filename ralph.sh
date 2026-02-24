@@ -1450,7 +1450,7 @@ invoke_claude() {
 
     # Start claude in background so we can capture its PID
     # This allows us to kill it explicitly on SIGINT
-    timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" 2>&1 > >(tee "$temp_output") &
+    timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" > >(tee "$temp_output") 2>&1 &
     CLAUDE_PID=$!
 
     # Launch heartbeat: prints elapsed-time every HEARTBEAT_INTERVAL seconds
@@ -1654,6 +1654,8 @@ run_loop() {
         local desc_preview
         desc_preview="${task_description%%$'\n'*}"
         desc_preview="${desc_preview:0:120}"
+        # Strip ANSI escape sequences to prevent terminal injection
+        desc_preview=$(printf '%s' "$desc_preview" | sed 's/\x1b\[[0-9;]*[mGKHJF]//g')
         if [[ -n "$desc_preview" && "${desc_preview,,}" != "no description" ]]; then
             log INFO "  → $desc_preview"
         fi
