@@ -73,7 +73,8 @@ specs/011-better-auth/
 src/
 ├── infrastructure/
 │   ├── env.ts               ← Add DB, BETTER_AUTH_URL, BETTER_AUTH_SECRET
-│   └── auth.ts              ← NEW: better-auth factory (getAuth, resetAuth for tests)
+│   ├── auth.ts              ← NEW: better-auth factory (getAuth, resetAuth for tests)
+│   └── passwordHasher.ts    ← NEW: PBKDF2 via Web Crypto (hashPassword, verifyPassword)
 │
 ├── presentation/
 │   ├── handlers/
@@ -128,9 +129,87 @@ Port the `COMMON_PASSWORDS: Set<string>` export from `~/vance-ts/src/domain/valu
 
 Write `.spec.ts` test first (TDD).
 
-#### 1.3 Create `src/infrastructure/auth.ts`
+#### 1.3 Create `src/infrastructure/passwordHasher.ts`
 
-Better-auth factory with isolate-scoped caching:
+PBKDF2 password hashing using the **Web Crypto API** (`crypto.subtle`). Native in the Workers runtime — no pure-JS overhead, no `limits.cpu_ms` required.
+
+**Format**: `pbkdf2$<iterations>$<salt-hex>$<derived-hex>` — self-describing so that the iteration count can be increased in future without breaking existing hashes.
+
+```typescript
+const ITERATIONS = 600_000; // OWASP 2023 minimum for PBKDF2-HMAC-SHA-256
+const DERIVED_BITS = 256;
+
+function toHex(buf: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function fromHex(hex: string): Uint8Array {
+  const arr = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    arr[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+  }
+  return arr;
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations: ITERATIONS, hash: 'SHA-256' },
+    key,
+    DERIVED_BITS
+  );
+  return `pbkdf2$${ITERATIONS}$${toHex(salt)}$${toHex(bits)}`;
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const parts = stored.split('$');
+  if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false;
+  const iterations = parseInt(parts[1] ?? '0', 10);
+  const salt = fromHex(parts[2] ?? '');
+  const expected = fromHex(parts[3] ?? '');
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    key,
+    DERIVED_BITS
+  );
+  // Constant-time comparison — prevent timing oracle on hash comparison
+  const computed = new Uint8Array(bits);
+  if (computed.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < computed.length; i++) {
+    diff |= (computed[i] ?? 0) ^ (expected[i] ?? 0);
+  }
+  return diff === 0;
+}
+```
+
+**TDD requirement**: Write `passwordHasher.spec.ts` verifying:
+
+- `hashPassword` returns a string matching `/^pbkdf2\$\d+\$[0-9a-f]+\$[0-9a-f]+$/`
+- Two calls with the same password produce different hashes (random salt)
+- `verifyPassword` returns `true` for a matching password
+- `verifyPassword` returns `false` for a wrong password
+- `verifyPassword` returns `false` for a malformed hash string
+
+#### 1.4 Create `src/infrastructure/auth.ts`
+
+Better-auth factory with isolate-scoped caching. The `password` block now uses `hashPassword`/`verifyPassword` from `passwordHasher.ts` (Web Crypto, Workers-native) and the `validate` hook for common-password rejection:
 
 ```typescript
 import { betterAuth } from 'better-auth';
@@ -138,6 +217,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 import type { Env } from './env';
 import { COMMON_PASSWORDS } from '../domain/value-objects/common-passwords';
+import { hashPassword, verifyPassword } from './passwordHasher';
 
 let _auth: ReturnType<typeof betterAuth> | null = null;
 
@@ -152,6 +232,8 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
       minPasswordLength: 12,
       maxPasswordLength: 128,
       password: {
+        hash: hashPassword,
+        verify: ({ password, hash }) => verifyPassword(password, hash),
         async validate(password: string): Promise<boolean> {
           return !COMMON_PASSWORDS.has(password.toLowerCase());
         },
@@ -180,9 +262,11 @@ export function resetAuth(): void {
 
 **TDD requirement**: Write `auth.spec.ts` that mocks the D1 binding and verifies the factory creates and caches the auth instance.
 
-#### 1.4 Create D1 Migration
+#### 1.5 Create D1 Migration
 
 Generate via CLI and store as `migrations/0001_better_auth_schema.sql`. Apply locally with `wrangler d1 migrations apply turtlebased-db --local`.
+
+**Note on password hash column**: The `account.password` column stores hashes in the `pbkdf2$<iterations>$<salt-hex>$<derived-hex>` format. No schema change is needed — the column is `TEXT` in better-auth's default schema.
 
 ---
 
@@ -382,19 +466,20 @@ Update `worker.spec.ts` to cover new routes.
 
 ## Key Design Decisions
 
-| Decision                | Choice                                         | Rationale                                                        |
-| ----------------------- | ---------------------------------------------- | ---------------------------------------------------------------- |
-| **Auth library**        | better-auth                                    | Required by spec; OAuth extensibility                            |
-| **D1 adapter**          | drizzle-orm/d1                                 | Officially documented for D1; no viable alternative              |
-| **Session storage**     | D1 (via better-auth)                           | Better-auth manages the session table; simpler than separate KV  |
-| **HTML form bridge**    | Call `auth.api.*` with `asResponse: true`      | Keeps server-rendered HTML; delegates auth to better-auth        |
-| **CSRF for HTML forms** | Double-submit cookie pattern                   | better-auth CSRF covers `/api/auth/*` only; defense-in-depth     |
-| **Password strength**   | `password.validate` hook with common-passwords | NIST 800-63B: length + breach check, no complexity rules         |
-| **Error messages**      | Normalise to generic message                   | Prevent email enumeration (FR-007)                               |
-| **Rate limiting**       | better-auth built-in (in-memory)               | Simpler; acceptable for this iteration                           |
-| **Common passwords**    | Ported from vance-ts                           | Battle-tested; already has spec                                  |
-| **Session TTL**         | 30 days + 1-day refresh                        | Spec-mandated (clarification 2026-02-24); `expiresIn: 2_592_000` |
-| **OAuth extensibility** | Config-only via `socialProviders`              | FR-010: no structural changes needed for OAuth                   |
+| Decision                | Choice                                               | Rationale                                                                                      |
+| ----------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Auth library**        | better-auth                                          | Required by spec; OAuth extensibility                                                          |
+| **D1 adapter**          | drizzle-orm/d1                                       | Officially documented for D1; no viable alternative                                            |
+| **Session storage**     | D1 (via better-auth)                                 | Better-auth manages the session table; simpler than separate KV                                |
+| **HTML form bridge**    | Call `auth.api.*` with `asResponse: true`            | Keeps server-rendered HTML; delegates auth to better-auth                                      |
+| **CSRF for HTML forms** | Double-submit cookie pattern                         | better-auth CSRF covers `/api/auth/*` only; defense-in-depth                                   |
+| **Password hashing**    | PBKDF2-HMAC-SHA-256 via Web Crypto (600k iterations) | Native Workers runtime; no pure-JS overhead; no `limits.cpu_ms` required; OWASP 2023 compliant |
+| **Password strength**   | `password.validate` hook with common-passwords       | NIST 800-63B: length + breach check, no complexity rules                                       |
+| **Error messages**      | Normalise to generic message                         | Prevent email enumeration (FR-007)                                                             |
+| **Rate limiting**       | better-auth built-in (in-memory)                     | Simpler; acceptable for this iteration                                                         |
+| **Common passwords**    | Ported from vance-ts                                 | Battle-tested; already has spec                                                                |
+| **Session TTL**         | 30 days + 1-day refresh                              | Spec-mandated (clarification 2026-02-24); `expiresIn: 2_592_000`                               |
+| **OAuth extensibility** | Config-only via `socialProviders`                    | FR-010: no structural changes needed for OAuth                                                 |
 
 ---
 
@@ -404,18 +489,19 @@ Update `worker.spec.ts` to cover new routes.
 
 All new files get corresponding `.spec.ts` files. 100% branch coverage is targeted (Workers runtime; no v8 coverage report — see CLAUDE.md).
 
-| File                                             | Test Focus                                            |
-| ------------------------------------------------ | ----------------------------------------------------- |
-| `infrastructure/auth.spec.ts`                    | Factory creates/caches auth; reset works              |
-| `domain/value-objects/common-passwords.spec.ts`  | Common passwords are in the Set                       |
-| `presentation/utils/cookieBuilder.spec.ts`       | Cookie header format; clear cookie                    |
-| `presentation/utils/extractClientIp.spec.ts`     | CF-Connecting-IP; X-Forwarded-For fallback            |
-| `presentation/middleware/requireAuth.spec.ts`    | Redirect on no session; next() on valid session       |
-| `presentation/handlers/AuthPageHandlers.spec.ts` | CSRF validation; auth success/failure; redirect logic |
-| `presentation/templates/pages/login.spec.ts`     | HTML output; escaping; fields                         |
-| `presentation/templates/pages/register.spec.ts`  | HTML output; escaping; field errors                   |
-| `di/serviceFactory.spec.ts`                      | Singleton; reset                                      |
-| `worker.spec.ts`                                 | Route existence for all auth routes                   |
+| File                                             | Test Focus                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------ |
+| `infrastructure/auth.spec.ts`                    | Factory creates/caches auth; reset works                     |
+| `infrastructure/passwordHasher.spec.ts`          | Hash format; salt randomness; verify correct/wrong/malformed |
+| `domain/value-objects/common-passwords.spec.ts`  | Common passwords are in the Set                              |
+| `presentation/utils/cookieBuilder.spec.ts`       | Cookie header format; clear cookie                           |
+| `presentation/utils/extractClientIp.spec.ts`     | CF-Connecting-IP; X-Forwarded-For fallback                   |
+| `presentation/middleware/requireAuth.spec.ts`    | Redirect on no session; next() on valid session              |
+| `presentation/handlers/AuthPageHandlers.spec.ts` | CSRF validation; auth success/failure; redirect logic        |
+| `presentation/templates/pages/login.spec.ts`     | HTML output; escaping; fields                                |
+| `presentation/templates/pages/register.spec.ts`  | HTML output; escaping; field errors                          |
+| `di/serviceFactory.spec.ts`                      | Singleton; reset                                             |
+| `worker.spec.ts`                                 | Route existence for all auth routes                          |
 
 ### Mock Strategy
 
@@ -429,6 +515,7 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 - [ ] **Email enumeration** (FR-007): Login failures always show `"Invalid email or password"` (tested in `AuthPageHandlers.spec.ts`)
 - [ ] **CSRF** (FR-011): Double-submit CSRF on all POST HTML form handlers
 - [ ] **Open redirect** (FR-005): `redirectTo` validated as relative path before use
+- [ ] **Password hashing**: PBKDF2-HMAC-SHA-256 via Web Crypto, 600k iterations, random 16-byte salt, constant-time verify
 - [ ] **Password strength** (FR-008): 12-128 chars, common passwords rejected
 - [ ] **Rate limiting** (FR-006): better-auth built-in rate limiting active
 - [ ] **Session invalidation** (FR-009): better-auth deletes session row from D1 on logout
@@ -441,11 +528,12 @@ All new files get corresponding `.spec.ts` files. 100% branch coverage is target
 
 ## Complexity Tracking
 
-| Item                             | Why Needed                                     | Simpler Alternative Rejected Because                                            |
-| -------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
-| `drizzle-orm` runtime dependency | better-auth D1 adapter requires it             | No officially supported D1-native better-auth adapter exists                    |
-| `di/serviceFactory.ts` directory | Single composition root for cross-layer wiring | Inline factory in worker.ts would violate single-responsibility; harder to test |
-| Double-submit CSRF               | HTML form handlers need own CSRF               | better-auth only covers its `/api/auth/*` endpoints                             |
+| Item                               | Why Needed                                              | Simpler Alternative Rejected Because                                                       |
+| ---------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `drizzle-orm` runtime dependency   | better-auth D1 adapter requires it                      | No officially supported D1-native better-auth adapter exists                               |
+| `di/serviceFactory.ts` directory   | Single composition root for cross-layer wiring          | Inline factory in worker.ts would violate single-responsibility; harder to test            |
+| Double-submit CSRF                 | HTML form handlers need own CSRF                        | better-auth only covers its `/api/auth/*` endpoints                                        |
+| `infrastructure/passwordHasher.ts` | Custom PBKDF2 hashing via Web Crypto instead of default | Default argon2id/scrypt uses pure-JS `@noble/hashes` which exceeds Workers CPU time limits |
 
 ---
 
@@ -540,6 +628,77 @@ The KV-backed rate limiter (required finding above) is applied only inside `hand
 
 **Required**: Update `contracts/auth-endpoints.md` Rate Limits table to match FR-006 before task generation. The KV rate limiter implementation must use the spec values (5-minute window, max 5 attempts) for registration endpoints. A developer implementing from the contracts file alone would build the wrong rate limits.
 
+### Password Hashing Algorithm (Resolved)
+
+**Decision**: Use **PBKDF2-HMAC-SHA-256** via `crypto.subtle` (Web Crypto API) at 600,000 iterations rather than better-auth's default argon2id/scrypt (both implemented in pure JS via `@noble/hashes`).
+
+**Rationale**: The pure-JS hashing implementations take 200–500ms per operation in the Workers runtime, which exceeds the Workers CPU time limit (50ms default on paid plans). `crypto.subtle` is a native Workers API executed in C++, not the JS event loop — 600,000 PBKDF2 iterations run in ~10–30ms in the Workers runtime. No `limits.cpu_ms` configuration or paid-plan-specific tuning is required.
+
+**Trade-off accepted**: PBKDF2 is not memory-hard (unlike argon2id/scrypt), making GPU-based attacks on a leaked database somewhat more feasible. At 600,000 iterations this remains OWASP 2023 compliant. The decision is logged as a Key Design Decision.
+
+**Implementation**: `src/infrastructure/passwordHasher.ts` (Phase 1.3). The hash format `pbkdf2$<iterations>$<salt-hex>$<derived-hex>` is self-describing, allowing iteration counts to be increased in future without invalidating existing hashes.
+
+### Security Headers on better-auth's Native Response (High)
+
+The existing Hono middleware pattern:
+
+```typescript
+app.use('/api/*', async (c, next) => {
+  await next();
+  applySecurityHeaders(c.res.headers); // modifies c.res.headers
+});
+```
+
+This works correctly when route handlers call Hono's own response builders (`c.json()`, `c.text()`, etc.), because Hono stores the response in `c.res` and the headers object is mutable. However, `auth.handler(c.req.raw)` returns a native `Response` object created by better-auth. In the Workers runtime, native `Response` objects have **immutable headers** after construction. Hono sets `c.res` to this immutable Response, and the subsequent `c.res.headers.set(...)` call in the middleware may throw a `TypeError: Cannot set property` or silently no-op, leaving security headers absent from all `/api/auth/*` responses.
+
+**Required**: In `worker.ts`, wrap better-auth's response before returning it so headers are mutable:
+
+```typescript
+app.on(['GET', 'POST'], '/api/auth/*', async (c) => {
+  const { auth } = getServiceFactory(c.env);
+  const authResponse = await auth.handler(c.req.raw);
+  // Reconstruct to expose mutable headers to the security-headers middleware
+  return new Response(authResponse.body, authResponse);
+});
+```
+
+Alternatively, apply `applySecurityHeaders` inside the route handler directly rather than relying on middleware mutation. Verify in `worker.spec.ts` that security headers are present on `/api/auth/*` responses.
+
+Apply the same fix to the `/auth/*` HTML form handlers: add `app.use('/auth/*', ...)` security headers middleware (currently only `/api/*` and `/app/_/*` are covered).
+
+### Route Registration Ordering Conflict (High)
+
+The existing `worker.ts` has:
+
+```typescript
+app.all('/api/*', apiNotFound); // catch-all — line 32
+```
+
+Hono matches routes in registration order. The new `/api/auth/*` handler must be registered **before** this catch-all or all auth API requests will be handled by `apiNotFound` and return 404.
+
+**Required**: In `worker.ts`, register auth routes immediately after the security-headers middleware registration and before any `app.all('/api/*', ...)` catch-all. Add a `worker.spec.ts` test asserting that `GET /api/auth/session` returns a non-404 status code (i.e., reaches better-auth's handler).
+
+### API Endpoint Fingerprinting via Wildcard Mount (Medium)
+
+Mounting `app.on(['GET', 'POST'], '/api/auth/*', ...)` delegates all matching requests to `auth.handler()`. Better-auth exposes routes for **all features it knows about**, including disabled features (`/api/auth/forget-password`, `/api/auth/verify-email`, `/api/auth/callback/:provider`). Even with `requireEmailVerification: false` and no OAuth configured, these routes return responses (typically 400 or 500) rather than 404. An attacker can enumerate these to:
+
+- Confirm the auth library is better-auth
+- Determine the version by probing endpoints added/removed between versions
+- Discover which features will be activated in future (OAuth callback URLs)
+
+**Required**: After calling `auth.handler(c.req.raw)`, inspect the response status. If better-auth returns 404 for an unknown path, pass it through. If it returns a non-404 for a route that is not in the expected set (`/sign-in/email`, `/sign-up/email`, `/sign-out`, `/session`), override it with a standard 404. Document the expected route set in `contracts/auth-endpoints.md`. Alternatively, accept this risk and document the decision if complexity is not warranted.
+
+### Cache-Control on Auth Form Pages (Medium)
+
+`GET /auth/login` and `GET /auth/register` render HTML containing a CSRF token in a hidden form field AND set a CSRF cookie via `Set-Cookie`. If the HTML response is served from a browser or CDN cache:
+
+- The cached HTML contains a **stale CSRF token** from a previous response
+- The `Set-Cookie` header from that original response is NOT re-sent from cache
+- If the user's CSRF cookie has since expired (>1 hour, per the `Max-Age=3600` requirement), the stale form token no longer matches any valid cookie → CSRF validation fails on POST
+- The user sees a mysterious form error despite entering correct credentials
+
+**Required**: Add `Cache-Control: no-store, no-cache` (and `Pragma: no-cache` for legacy) to all responses from `handleGetLogin` and `handleGetRegister`. This prevents both browser and intermediate proxy caching of auth form pages. Add a test asserting the `Cache-Control` header is present with value `no-store` on GET `/auth/login` and GET `/auth/register` responses.
+
 ---
 
 ## Edge Cases & Error Handling
@@ -577,6 +736,23 @@ The spec asks "What is the behavior when the same user logs in from multiple dev
 The `session.userAgent` column stores the client-provided `User-Agent` request header. Better-auth reads this header directly and inserts it into the session row without documented truncation. A Cloudflare Worker accepts up to 16KB of headers; an attacker sending an inflated `User-Agent` on every login request can bloat D1 session rows and inflate storage costs.
 
 **Required**: Before delegating to `auth.handler()` in the `/api/auth/*` route, and before calling `auth.api.*` in HTML handlers, ensure the `User-Agent` header is truncated to 500 characters. One approach: construct a synthetic `Request` with the header rewritten before passing to better-auth. Test: create a session with a 10,000-character User-Agent and assert the stored value is ≤ 500 characters.
+
+### `redirectTo` Preservation Through Register→Login Flow (Medium)
+
+The `requireAuth` middleware captures the original requested URL and redirects to `/auth/login?redirectTo=/app/foo`. However, the login page template's "Create account" link points to `/auth/register` without forwarding the `redirectTo` parameter. Once the user navigates to registration, the original destination is lost:
+
+1. User visits `/app/dashboard` → redirected to `/auth/login?redirectTo=/app/dashboard`
+2. User clicks "Create account" → navigates to `/auth/register` (no `redirectTo`)
+3. Registration succeeds → user is redirected to `/auth/login` (no `redirectTo`)
+4. User signs in → redirected to `/` (default), not `/app/dashboard`
+
+**Required**:
+
+- `login.ts` template: Accept `redirectTo?: string` prop and include it in the "Create account" link: `href="/auth/register?redirectTo=${encodeURIComponent(redirectTo)}"`
+- `register.ts` template: Accept `redirectTo?: string` prop and render it as a hidden field AND include it in the sign-in link
+- `handleGetRegister` and `handlePostRegister`: Extract `redirectTo` from query string and pass it through to the rendered template and the redirect-to-login response
+- On successful registration, redirect to `/auth/login?redirectTo=${redirectTo}&registered=1` (preserving destination + triggering success banner)
+- Test: simulate the full unauthenticated-user → login page → register page → login page → app flow and assert the user ends up at the original destination
 
 ### Content-Type Validation on POST Handlers (Medium)
 
