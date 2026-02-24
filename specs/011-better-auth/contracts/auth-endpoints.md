@@ -237,7 +237,7 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains
 
 **Note**: Rate limits are enforced via the shared KV rate limiter (`RATE_LIMIT` namespace). Both the HTML form handlers and the `/api/auth/*` JSON API paths share the same per-IP counters (keys `ratelimit:sign-in:{ip}` and `ratelimit:register:{ip}`). This prevents bypass via direct API access.
 
-**Note**: Rate limiting is enforced by a **KV-backed rate limiter** (`src/infrastructure/rateLimiter.ts`) — NOT by better-auth's built-in in-memory rate limiter, which is non-functional across Cloudflare Workers isolates (each edge node has its own independent counter). The KV rate limiter is applied via Hono middleware before both the HTML form handlers and the `/api/auth/*` delegation, using shared per-IP KV keys so that both access paths count against the same limit.
+**Note**: Rate limiting is enforced by a **KV-backed rate limiter** (`src/infrastructure/KvRateLimiter.ts`) — NOT by better-auth's built-in in-memory rate limiter, which is non-functional across Cloudflare Workers isolates (each edge node has its own independent counter). The KV rate limiter is applied via Hono middleware before both the HTML form handlers and the `/api/auth/*` delegation, using shared per-IP KV keys so that both access paths count against the same limit.
 
 **Per-account rate limits**: In addition to per-IP limits, sign-in attempts are rate-limited per email address (account-level) to prevent targeted brute-force against specific accounts from distributed botnets:
 

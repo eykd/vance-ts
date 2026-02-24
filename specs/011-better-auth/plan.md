@@ -818,7 +818,7 @@ No prior solution documents exist yet in `.specify/solutions/`. This feature wil
 
 Better-auth's built-in `rateLimit` is **in-memory** and does not survive isolate restarts. Cloudflare Workers spawns V8 isolates across hundreds of global edge nodes; each isolate holds its own independent counter. This makes in-memory rate limiting functionally ineffective against any distributed brute-force attempt — FR-006 and SC-003 cannot be met with the in-memory option.
 
-**Required implementation**: Replace with a **KV-backed rate limiter** in `src/infrastructure/rateLimiter.ts`:
+**Required implementation**: Replace with a **KV-backed rate limiter** in `src/infrastructure/KvRateLimiter.ts`:
 
 - Key format: `ratelimit:{endpoint}:{ip}` (e.g., `ratelimit:sign-in:1.2.3.4`)
 - KV TTL equals the rate limit window (15 min for sign-in, 5 min for registration)
