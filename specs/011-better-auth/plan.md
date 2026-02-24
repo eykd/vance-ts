@@ -43,11 +43,11 @@ _GATE: Must pass before Phase 0 research. Re-checked below after design._
 
 **Post-design re-check**:
 
-| Complexity Item                                       | Justification                                                                                                                                                               |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Adding `drizzle-orm` runtime dependency               | Required by better-auth's officially documented D1 adapter; no simpler alternative                                                                                          |
-| `infrastructure/di/serviceFactory.ts` (new directory) | Composition root for wiring better-auth + auth handlers; follows vance-ts pattern; moves to infrastructure layer as the composition root is infrastructure's responsibility |
-| Double-submit CSRF for HTML form handlers             | better-auth's built-in CSRF covers `/api/auth/*` only; HTML form handlers need their own CSRF; defense-in-depth                                                             |
+| Complexity Item                                  | Justification                                                                                                                                                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Adding `drizzle-orm` runtime dependency          | Required by better-auth's officially documented D1 adapter; no simpler alternative                                                                                                                     |
+| `di/serviceFactory.ts` (new top-level directory) | Composition root for wiring better-auth + auth handlers; follows vance-ts pattern; placed at `src/di/` (outside layer hierarchy) — infrastructure cannot import presentation per ESLint boundary rules |
+| Double-submit CSRF for HTML form handlers        | better-auth's built-in CSRF covers `/api/auth/*` only; HTML form handlers need their own CSRF; defense-in-depth                                                                                        |
 
 All complexity items are justified. No constitution violations.
 
@@ -107,7 +107,7 @@ src/
 │
 └── worker.ts                     ← MODIFIED: Add auth routes + requireAuth middleware
 
-src/infrastructure/di/
+src/di/
 └── serviceFactory.ts             ← NEW: Composition root (getServiceFactory, resetServiceFactory)
 
 migrations/
@@ -266,9 +266,8 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
       password: {
         hash: hashPassword,
         verify: ({ password, hash }) => verifyPassword(password, hash),
-        // IMPORTANT: Verify better-auth v1.4.x `password.validate` hook return convention
-        // before implementation. Confirm that returning `false` means "reject" (not "valid").
-        // Add an integration test that `password123` is rejected at the API boundary.
+        // Verified: password.validate returning false = reject (invalid password).
+        // !COMMON_PASSWORDS.has(...) correctly returns false for common passwords.
         async validate(password: string): Promise<boolean> {
           return !COMMON_PASSWORDS.has(password.toLowerCase());
         },
@@ -295,7 +294,7 @@ export function resetAuth(): void {
 }
 ```
 
-**TDD requirement**: Write `auth.spec.ts` that mocks the D1 binding and verifies the factory creates and caches the auth instance. Also verify that `getAuth` throws when `BETTER_AUTH_SECRET` is shorter than 32 characters.
+**TDD requirement**: Write `auth.spec.ts` that mocks the D1 binding and verifies the factory creates and caches the auth instance. Also verify that `getAuth` throws when `BETTER_AUTH_SECRET` is shorter than 64 characters.
 
 #### 1.5a Define Domain Auth Types
 
@@ -485,7 +484,7 @@ Add `useCase` accessors to `ServiceFactory` so handlers obtain use cases via the
 Ported and adapted from `~/vance-ts/src/presentation/utils/cookieBuilder.ts`. Expose:
 
 - `generateCsrfToken(): string` — `crypto.randomUUID()` (shared utility; used by both `AuthPageHandlers` and `requireAuth` — no duplicate inline definitions)
-- `deriveCsrfToken(sessionToken: string): Promise<string>` — HMAC-SHA256(sessionToken, 'csrf') → hex string; used by `requireAuth` for session-bound CSRF tokens
+- `deriveCsrfToken(sessionId: string, secret: string): Promise<string>` — HMAC-SHA256(key=secret, message=sessionId) → hex string; used by `requireAuth` for session-bound CSRF tokens
 - `buildCsrfCookie(token: string): string` — builds `Set-Cookie` header value for `__Secure-csrf` cookie
 - `clearCsrfCookie(): string` — builds clearing `Set-Cookie` header value
 - `extractCsrfTokenFromCookies(cookieHeader: string | null): string | null` — reads the `__Secure-csrf` cookie value
@@ -520,10 +519,10 @@ export function createRequireAuth(authService: AuthService) {
       const redirectTo = encodeURIComponent(url.pathname + url.search);
       return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
     }
-    // Derive a session-bound CSRF token via HMAC-SHA256(sessionToken, 'csrf')
+    // Derive a session-bound CSRF token via HMAC-SHA256(key=BETTER_AUTH_SECRET, message=sessionToken)
     // Deterministic per session; no KV storage needed; survives multi-tab usage
     const sessionToken = session.session.id; // session identifier
-    const csrfToken = await deriveCsrfToken(sessionToken); // HMAC-SHA256(sessionToken, 'csrf') → hex
+    const csrfToken = await deriveCsrfToken(sessionToken, env.BETTER_AUTH_SECRET); // HMAC-SHA256(key=secret, message=sessionId) → hex
     c.header('Set-Cookie', buildCsrfCookie(csrfToken), { append: true });
     c.header('Cache-Control', 'no-store, no-cache');
     c.set('user', session.user);
@@ -536,7 +535,7 @@ export function createRequireAuth(authService: AuthService) {
 
 **Architecture note**: `requireAuth` calls `authService.getSession()` via the port interface — NOT `auth.api.getSession()` directly — eliminating the presentation → infrastructure direct coupling. `AuthService` is **injected** via `createRequireAuth(authService)` at the composition root — `requireAuth` never calls `getServiceFactory` internally (that would be the service locator anti-pattern). The return type is `Promise<Response | void>` — Hono middleware that short-circuits via redirect must return a `Response`.
 
-**CSRF token design**: `deriveCsrfToken(sessionToken: string): Promise<string>` derives the CSRF token via `HMAC-SHA256(sessionToken, 'csrf')` using `crypto.subtle`. This is deterministic per session — the same token is produced on every authenticated request, which:
+**CSRF token design**: `deriveCsrfToken(sessionId: string, secret: string): Promise<string>` derives the CSRF token via `HMAC-SHA256(key=BETTER_AUTH_SECRET, message=sessionId)` using `crypto.subtle`. This is deterministic per session — the same token is produced on every authenticated request, which:
 
 - Survives multi-tab usage (all tabs share the same session and therefore the same CSRF token)
 - Eliminates KV storage (no need to store and expire random CSRF tokens)
@@ -581,20 +580,20 @@ Write `.spec.ts` covering all form flows including CSRF failure, auth failure, s
 
 **Goal**: Single composition root that wires all dependencies.
 
-#### 4.1 Create `src/infrastructure/di/serviceFactory.ts`
+#### 4.1 Create `src/di/serviceFactory.ts`
 
 ```typescript
-import type { Env } from '../env';
-import type { AuthService } from '../../application/ports/AuthService';
-import type { RateLimiter } from '../../application/ports/RateLimiter';
-import { getAuth, resetAuth } from '../auth';
-import { BetterAuthService } from '../BetterAuthService';
-import { KvRateLimiter } from '../KvRateLimiter';
-import { SignInUseCase } from '../../application/use-cases/SignInUseCase';
-import { SignUpUseCase } from '../../application/use-cases/SignUpUseCase';
-import { SignOutUseCase } from '../../application/use-cases/SignOutUseCase';
-import { AuthPageHandlers } from '../../presentation/handlers/AuthPageHandlers';
-import { createRequireAuth } from '../../presentation/middleware/requireAuth';
+import type { Env } from '../infrastructure/env';
+import type { AuthService } from '../application/ports/AuthService';
+import type { RateLimiter } from '../application/ports/RateLimiter';
+import { getAuth, resetAuth } from '../infrastructure/auth';
+import { BetterAuthService } from '../infrastructure/BetterAuthService';
+import { KvRateLimiter } from '../infrastructure/KvRateLimiter';
+import { SignInUseCase } from '../application/use-cases/SignInUseCase';
+import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
+import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
+import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
+import { createRequireAuth } from '../presentation/middleware/requireAuth';
 
 export class ServiceFactory {
   private readonly env: Env;
@@ -823,7 +822,7 @@ Better-auth's built-in `rateLimit` is **in-memory** and does not survive isolate
 
 - Key format: `ratelimit:{endpoint}:{ip}` (e.g., `ratelimit:sign-in:1.2.3.4`)
 - KV TTL equals the rate limit window (15 min for sign-in, 5 min for registration)
-- Counter is incremented atomically using KV's `put` with `{ expirationTtl }` (KV has no atomic increment; use a read-increment-write with `metadata` version check or accept the small race, which is safe enough for rate limiting)
+- Counter is incremented atomically using KV's `put` with `{ expirationTtl }` (KV has no atomic increment; use a read-increment-write with `metadata` version check or accept the small race, which is safe enough for rate limiting). **Accepted risk**: This race is documented as a known limitation; create a tracking beads task (priority=4) to revisit with an atomic solution (e.g., Durable Objects counter) if abuse is observed.
 - Disable better-auth's built-in `rateLimit` block entirely; the KV limiter is called at the handler level before delegating to `auth.api.*`
 - The `RATE_LIMIT` KV namespace binding must be added to `env.ts` and `wrangler.toml`
 - **Do not mark FR-006 or SC-003 as complete until this is implemented**

@@ -203,7 +203,7 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
 
 ## Open Items for Implementation
 
-1. **Verify `auth.api.signInEmail` exact method name** — better-auth API names may differ by version; check installed version before implementing handlers.
+1. **Verify `auth.api.signInEmail` exact method name** — better-auth API names may differ by version; check installed version before implementing handlers. — **Blocking for Phase 2.5**: Verify by inspecting `node_modules/better-auth` exports or type definitions before implementing handlers.
 2. **Test better-auth rate limiting in Workers runtime** — ~~in-memory rate limiting may not persist across isolates. Evaluate whether per-isolate rate limiting is acceptable or if KV-backed custom rate limiting is needed.~~ **Resolved**: custom KV-backed rate limiter replaces better-auth's in-memory limiter — see plan.md §Key Design Decisions
 3. **Verify better-auth session cookie names** — ~~to implement accurate CSRF cookie patterns.~~ **Resolved**: see plan.md §Cookie Inventory and contracts/auth-endpoints.md
-4. **Test `asResponse: true` Set-Cookie forwarding** — confirm Set-Cookie headers are present and properly formatted for browser consumption.
+4. **Test `asResponse: true` Set-Cookie forwarding** — confirm Set-Cookie headers are present and properly formatted for browser consumption. — **Blocking for Phase 3**: Verify by writing a minimal test (or inspecting better-auth source) before implementing the response-forwarding logic in AuthPageHandlers.

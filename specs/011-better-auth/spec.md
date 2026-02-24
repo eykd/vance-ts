@@ -34,7 +34,7 @@ A new visitor can create an account by providing their email address and a passw
 **Acceptance Scenarios**:
 
 1. **Given** a visitor is on the registration page, **When** they submit a valid email and password, **Then** their account is created and they are redirected to the sign-in page to complete sign-in
-2. **Given** a visitor submits a registration form, **When** the email address is already in use, **Then** they see a clear error message and the form retains their input (except the password)
+2. **Given** a visitor submits a registration form, **When** the email address is already in use, **Then** they are silently redirected to the sign-in page with `?registered=true` — identical to successful registration, preventing email enumeration (FR-007)
 3. **Given** a visitor submits a registration form, **When** the password is fewer than 12 characters or is one of the 100 most common passwords, **Then** they see a specific error explaining what is required (minimum 12 characters; common passwords are rejected)
 4. **Given** a visitor submits a registration form, **When** the email address is malformed, **Then** they see a validation error before the form is submitted
 5. **Given** a visitor submits 5 failed registration attempts within 5 minutes, **When** the rate limit is exceeded, **Then** they see a "too many attempts" message and must wait before trying again
