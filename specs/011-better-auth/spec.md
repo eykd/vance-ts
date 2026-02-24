@@ -2,7 +2,7 @@
 
 **Feature Branch**: `011-better-auth`
 **Created**: 2026-02-23
-**Status**: Draft
+**Status**: Ready
 **Input**: User description: "We have a pretty decent authentication implementation in our downstream repo at ~/vance-ts/ that doesn't use better-auth and it doesn't use Hono, which this upstream repo has adopted. We want to implement user/password authentication in this repo using better-auth and Hono. Anything that isn't already implemented by those, we can look to ~/vance-ts for examples. We should also leave room for implementing OAuth based solutions e.g. Google login."
 
 **Beads Epic**: `tb-ltk`

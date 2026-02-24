@@ -36,6 +36,8 @@ Cache-Control: no-store, no-cache
 - Hidden `_csrf` field
 - Hidden `redirectTo` field (if present in query string)
 
+**Authenticated user**: If the request carries a valid better-auth session cookie, respond `302 Found → /` (or `redirectTo` query param if present and valid). This prevents overwriting the `requireAuth`-issued `__Secure-csrf` token with a pre-login token.
+
 ---
 
 ### POST /auth/sign-in
@@ -257,6 +259,8 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains
 | `__Host-better-auth.session_token` | better-auth      | Session authentication                     | HttpOnly; Secure; SameSite=Lax; Path=/        |
 | `__Secure-csrf`                    | AuthPageHandlers | CSRF protection for HTML forms (pre-login) | HttpOnly; Secure; SameSite=Strict; Path=/auth |
 | `__Secure-csrf`                    | requireAuth      | CSRF protection for sign-out on app pages  | HttpOnly; Secure; SameSite=Strict; Path=/auth |
+
+**`__Secure-csrf` vs `__Host-csrf`**: `__Host-` was considered but requires `Path=/`, which would make the CSRF cookie visible to all paths including `/api/*` and static assets — broader than needed. `__Secure-csrf` with `Path=/auth` and `SameSite=Strict` limits the cookie to auth endpoints only. **Subdomain threat model**: This application does not permit user-controlled subdomains; there are no tenant or user-scoped subdomains that could plant a same-site cookie. If user-controlled subdomains are introduced in future, migrate to `__Host-csrf` with `Path=/` and rely on `SameSite=Strict` for path restriction. This is an accepted and documented risk for the current deployment model.
 
 **`__Host-` prefix requirement**: The `__Host-` cookie prefix prevents subdomain cookie injection by requiring `Secure`, `Path=/`, and no `Domain` attribute. Configure in `src/infrastructure/auth.ts` via:
 

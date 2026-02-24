@@ -110,13 +110,13 @@ This outputs updated SQL. Apply changes as a new numbered migration file in `mig
 
 ## Environment Variables
 
-| Variable             | Description                                      | Required |
-| -------------------- | ------------------------------------------------ | -------- |
-| `DB`                 | D1 database binding                              | Yes      |
-| `BETTER_AUTH_URL`    | Public base URL of the app                       | Yes      |
-| `BETTER_AUTH_SECRET` | Secret for signing tokens/cookies (min 32 chars) | Yes      |
-| `ASSETS`             | Hugo static asset binding (existing)             | Yes      |
-| `RATE_LIMIT`         | KV namespace for distributed rate limiting       | Yes      |
+| Variable             | Description                                                                   | Required |
+| -------------------- | ----------------------------------------------------------------------------- | -------- |
+| `DB`                 | D1 database binding                                                           | Yes      |
+| `BETTER_AUTH_URL`    | Public base URL of the app                                                    | Yes      |
+| `BETTER_AUTH_SECRET` | Secret for signing tokens/cookies (min 64 characters (32 bytes, hex-encoded)) | Yes      |
+| `ASSETS`             | Hugo static asset binding (existing)                                          | Yes      |
+| `RATE_LIMIT`         | KV namespace for distributed rate limiting                                    | Yes      |
 
 ### Production Secrets
 
@@ -124,7 +124,7 @@ For production, set `BETTER_AUTH_SECRET` as a Cloudflare Worker secret (not a pl
 
 ```bash
 wrangler secret put BETTER_AUTH_SECRET
-# Enter a random 32+ character string when prompted
+# Enter a 64 character hex string (openssl rand -hex 32)
 ```
 
 ---
@@ -178,4 +178,4 @@ Add `BETTER_AUTH_SECRET` to your local `wrangler.toml` vars (not committed to gi
 
 1. Clear browser cookies for localhost
 2. Reload the login page (new CSRF token is set)
-3. Check that form `_csrf` field matches the `_csrf` cookie value
+3. Check that form `_csrf` field matches the `__Secure-csrf` cookie value
