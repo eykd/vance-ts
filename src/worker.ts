@@ -1,13 +1,10 @@
 import { Hono } from 'hono/tiny';
 
-import type { Env } from './infrastructure/env';
 import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
 import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
 import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandler';
+import type { AppEnv } from './presentation/types';
 import { applySecurityHeaders } from './presentation/utils/securityHeaders';
-
-/** Hono environment type binding Cloudflare Workers env. */
-type AppEnv = { Bindings: Env };
 
 const app = new Hono<AppEnv>();
 
