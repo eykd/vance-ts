@@ -5,8 +5,6 @@
  * clear-cookie header the handler must forward. Returns a typed result that
  * callers use to construct HTTP responses; never throws.
  *
- * NOTE: Stub implementation — full logic to be completed in tb-ltk.6.11.1.
- *
  * @module
  */
 
@@ -34,7 +32,8 @@ export type SignOutResult =
 /**
  * Orchestrates user sign-out by delegating to the AuthService port.
  *
- * Stub implementation — to be completed in tb-ltk.6.11.1.
+ * Catches all exceptions from the auth service and returns a typed
+ * `service_error` result instead of propagating them.
  */
 export class SignOutUseCase {
   /** Auth port interface, injected at construction time. */
@@ -52,12 +51,14 @@ export class SignOutUseCase {
   /**
    * Executes the sign-out flow.
    *
-   * @param _request - Sign-out parameters including the session cookie.
+   * @param request - Sign-out parameters including the session cookie.
    * @returns A typed result; never throws.
    */
-  execute(_request: SignOutRequest): Promise<SignOutResult> {
-    // Stub — implementation in tb-ltk.6.11.1 (field used in real implementation)
-    void this.authService;
-    return Promise.resolve({ ok: false, kind: 'service_error' as const });
+  async execute(request: SignOutRequest): Promise<SignOutResult> {
+    try {
+      return await this.authService.signOut({ sessionCookie: request.sessionCookie });
+    } catch {
+      return { ok: false, kind: 'service_error' };
+    }
   }
 }
