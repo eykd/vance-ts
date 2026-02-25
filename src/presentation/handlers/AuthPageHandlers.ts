@@ -196,7 +196,7 @@ export class AuthPageHandlers {
       return formOrError;
     }
 
-    const email = formOrError.get('email') ?? '';
+    const email = (formOrError.get('email') ?? '').toLowerCase().trim();
     const password = formOrError.get('password') ?? '';
     const redirectTo = validateRedirectTo(formOrError.get('redirectTo'));
     const ip = extractClientIp(request);
@@ -262,7 +262,7 @@ export class AuthPageHandlers {
       return formOrError;
     }
 
-    const email = formOrError.get('email') ?? '';
+    const email = (formOrError.get('email') ?? '').toLowerCase().trim();
     const password = formOrError.get('password') ?? '';
     const ip = extractClientIp(request);
 

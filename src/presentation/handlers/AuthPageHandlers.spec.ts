@@ -564,6 +564,31 @@ describe('AuthPageHandlers', () => {
       });
     });
 
+    describe('email normalization', () => {
+      beforeEach(() => {
+        signInUseCaseMock.execute.mockResolvedValue({
+          ok: true,
+          sessionCookie: 'session=abc; Path=/; HttpOnly',
+        });
+      });
+
+      it('lowercases a mixed-case email before passing to the sign-in use case', async () => {
+        const req = makePostRequest({ email: 'User@Example.COM' });
+        await handlers.handlePostSignIn(req);
+        expect(signInUseCaseMock.execute).toHaveBeenCalledWith(
+          expect.objectContaining({ email: 'user@example.com' })
+        );
+      });
+
+      it('trims whitespace from email before passing to the sign-in use case', async () => {
+        const req = makePostRequest({ email: '  alice@example.com  ' });
+        await handlers.handlePostSignIn(req);
+        expect(signInUseCaseMock.execute).toHaveBeenCalledWith(
+          expect.objectContaining({ email: 'alice@example.com' })
+        );
+      });
+    });
+
     describe('redirectTo validation in POST body', () => {
       beforeEach(() => {
         signInUseCaseMock.execute.mockResolvedValue({
@@ -889,6 +914,28 @@ describe('AuthPageHandlers', () => {
         const res = await handlers.handlePostSignUp(req);
         const body = await res.text();
         expect(body).toContain('alice@example.com');
+      });
+    });
+
+    describe('email normalization', () => {
+      beforeEach(() => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: true });
+      });
+
+      it('lowercases a mixed-case email before passing to the sign-up use case', async () => {
+        const req = makeSignUpPostRequest({ email: 'User@Example.COM' });
+        await handlers.handlePostSignUp(req);
+        expect(signUpUseCaseMock.execute).toHaveBeenCalledWith(
+          expect.objectContaining({ email: 'user@example.com' })
+        );
+      });
+
+      it('trims whitespace from email before passing to the sign-up use case', async () => {
+        const req = makeSignUpPostRequest({ email: '  alice@example.com  ' });
+        await handlers.handlePostSignUp(req);
+        expect(signUpUseCaseMock.execute).toHaveBeenCalledWith(
+          expect.objectContaining({ email: 'alice@example.com' })
+        );
       });
     });
 
