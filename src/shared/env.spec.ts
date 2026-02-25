@@ -32,8 +32,8 @@ describe('Env', () => {
     expect(check).toBe(true);
   });
 
-  it('has RATE_LIMIT binding of type KVNamespace', () => {
-    type EnvHasRateLimit = Env extends { RATE_LIMIT: KVNamespace } ? true : false;
+  it('has RATE_LIMIT binding of type DurableObjectNamespace', () => {
+    type EnvHasRateLimit = Env extends { RATE_LIMIT: DurableObjectNamespace } ? true : false;
     const check: EnvHasRateLimit = true;
     expect(check).toBe(true);
   });

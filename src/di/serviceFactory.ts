@@ -19,7 +19,7 @@ import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
 import { getAuth, resetAuth } from '../infrastructure/auth';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
-import { KvRateLimiter } from '../infrastructure/KvRateLimiter';
+import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
 import type { Env } from '../shared/env';
@@ -80,7 +80,7 @@ export class ServiceFactory {
   }
 
   private get _rateLimiterInstance(): RateLimiter {
-    this._rateLimiter ??= new KvRateLimiter(this.env.RATE_LIMIT);
+    this._rateLimiter ??= new DurableObjectRateLimiter(this.env.RATE_LIMIT);
     return this._rateLimiter;
   }
 

@@ -9,6 +9,10 @@ import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandl
 import type { AppEnv } from './presentation/types';
 import { applySecurityHeaders } from './presentation/utils/securityHeaders';
 
+// Durable Object class must be exported from the worker entry point so
+// the Workers runtime can register it as a named DO binding.
+export { RateLimitDO } from './infrastructure/RateLimitDO';
+
 const app = new Hono<AppEnv>();
 
 /**
@@ -63,7 +67,7 @@ app.get('/auth/sign-in', (c): Response => {
 /**
  * Authenticates the user and creates a session.
  *
- * Rate limiting is enforced via the KvRateLimiter inside SignInUseCase
+ * Rate limiting is enforced via the DurableObjectRateLimiter inside SignInUseCase
  * (invoked by AuthPageHandlers.handlePostSignIn).
  */
 app.post('/auth/sign-in', async (c): Promise<Response> => {
@@ -78,7 +82,7 @@ app.get('/auth/sign-up', (c): Response => {
 /**
  * Creates a new user account.
  *
- * Rate limiting is enforced via the KvRateLimiter inside SignUpUseCase
+ * Rate limiting is enforced via the DurableObjectRateLimiter inside SignUpUseCase
  * (invoked by AuthPageHandlers.handlePostSignUp).
  */
 app.post('/auth/sign-up', async (c): Promise<Response> => {

@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   getAuth: vi.fn(),
   resetAuth: vi.fn(),
   BetterAuthService: vi.fn(),
-  KvRateLimiter: vi.fn(),
+  DurableObjectRateLimiter: vi.fn(),
   SignInUseCase: vi.fn(),
   SignUpUseCase: vi.fn(),
   SignOutUseCase: vi.fn(),
@@ -28,8 +28,8 @@ vi.mock('../infrastructure/BetterAuthService', () => ({
   BetterAuthService: mocks.BetterAuthService,
 }));
 
-vi.mock('../infrastructure/KvRateLimiter', () => ({
-  KvRateLimiter: mocks.KvRateLimiter,
+vi.mock('../infrastructure/DurableObjectRateLimiter', () => ({
+  DurableObjectRateLimiter: mocks.DurableObjectRateLimiter,
 }));
 
 vi.mock('../application/use-cases/SignInUseCase', () => ({
@@ -64,7 +64,7 @@ function makeEnv(overrides?: Record<string, unknown>): unknown {
     DB: {} as D1Database,
     BETTER_AUTH_URL: 'https://example.turtlebased.io',
     BETTER_AUTH_SECRET: 'a'.repeat(32),
-    RATE_LIMIT: {} as KVNamespace,
+    RATE_LIMIT: {} as DurableObjectNamespace,
     ...overrides,
   };
 }
