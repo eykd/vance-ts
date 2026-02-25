@@ -27,9 +27,18 @@ If no PR found, tell the user and stop.
 
 ### 2. Fetch all PR issue comments
 
+The default page size is 30 — always request 100 per page to avoid missing recent comments:
+
 ```bash
 OWNER_REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
-gh api "/repos/${OWNER_REPO}/issues/${PR}/comments" > /tmp/pr-comments.json
+gh api "/repos/${OWNER_REPO}/issues/${PR}/comments?per_page=100" > /tmp/pr-comments.json
+```
+
+If the PR might have more than 100 comments, use `--paginate` flag instead:
+
+```bash
+gh api --paginate "/repos/${OWNER_REPO}/issues/${PR}/comments" \
+  | jq -s 'add' > /tmp/pr-comments.json
 ```
 
 ### 3. Filter review comments to process
@@ -39,31 +48,46 @@ Keep only comments that:
 - Contain `<!-- reviewer: security -->`, `<!-- reviewer: architecture -->`, or `<!-- reviewer: quality -->` (sentinel injected by the workflow)
 - Do **not** already contain `<!-- processed -->` (idempotency guard)
 
+**Important**: Do NOT use inline `jq` with HTML comment strings. The `!` character in `<!--` triggers zsh history expansion even inside jq filter arguments, producing `Invalid escape at line 1 (while parsing '"\!"')` errors. Use a Python script written to a temp file instead:
+
 ```bash
-jq '[.[] | select(
-  (.body | contains("<!-- reviewer:")) and
-  (.body | contains("<!-- processed -->") | not)
-)]' /tmp/pr-comments.json > /tmp/unprocessed.json
+cat > /tmp/check_comments.py << 'PYEOF'
+import json, sys
+sentinel = "<!-- reviewer:"
+processed = "<!-- processed -->"
+comments = json.load(open('/tmp/pr-comments.json'))
+unprocessed = [c for c in comments if sentinel in c['body'] and processed not in c['body']]
+print(f'Unprocessed: {len(unprocessed)}')
+for c in unprocessed:
+    print(f'  ID: {c["id"]} | {c["body"][:60].replace(chr(10)," ")}')
+json.dump(unprocessed, open('/tmp/unprocessed.json', 'w'))
+PYEOF
+python3 /tmp/check_comments.py
 ```
 
 If the filtered list is empty: print "No unprocessed review comments found." and stop.
 
 ### 4. Resolve parent task ID
 
+Branch naming convention for this project uses the pattern `NNN-kebab-title` (e.g. `011-better-auth`), not `workspace-\w+`. Extract the epic from the branch by searching beads:
+
 ```bash
 BRANCH=$(git branch --show-current)
-EPIC_ID=$(echo "$BRANCH" | grep -oP 'workspace-\w+' || echo "")
+# Show all in_progress epics to identify the active one
+npx bd list --status=open --type=epic 2>/dev/null | head -5
 ```
 
-If `EPIC_ID` is non-empty, look for an `[sp:07-implement]` child:
+Find the `[sp:07-implement]` child task of the epic — this is the correct parent for review-generated tasks so they appear in `bd ready` and are visible to `ralph`:
 
 ```bash
-PARENT_ID=$(npx bd list --parent "$EPIC_ID" --status in_progress --format json 2>/dev/null \
-  | jq -r '[.[] | select(.title | contains("[sp:07-implement]"))] | first | .id // empty')
-PARENT_ID=${PARENT_ID:-$EPIC_ID}
+npx bd list --parent "$EPIC_ID" 2>/dev/null | grep "sp:07-implement"
+# Use the task ID shown (e.g. tb-ltk.6)
+PARENT_ID="tb-ltk.6"
 ```
 
-If no epic found in branch name, create tasks without `--parent` and warn the user.
+**Note**: The `[sp:07-implement]` task may already be closed (✓) — that's fine. New review tasks still belong under it to maintain the hierarchy. Use the closed sp:07-implement ID as `--parent`.
+
+If no epic found, create tasks without `--parent` and warn the user.
 
 ### 5. Parse and create beads tasks
 
@@ -175,7 +199,10 @@ Run `npx bd ready` to see new tasks.
 
 ## Implementation Notes
 
-- Use `jq` to parse JSON from `gh api` — do not use Python or Node for this
-- Write task IDs to a temp accumulator file (`/tmp/pr-review-tasks.json`) between iterations to build the summary table
-- The `<!-- processed -->` sentinel is an HTML comment — invisible in rendered GitHub markdown
-- The `<!-- reviewer: ... -->` sentinel is injected by `.github/workflows/claude-code-review.yml` at the top of each review comment's body
+- **Pagination**: Always use `?per_page=100` (or `--paginate`) when fetching comments. The default 30-item page silently drops newer comments and causes "no unprocessed comments found" false negatives.
+- **HTML comment strings in jq**: Never use inline `jq` filters containing `<!--`. The `!` in HTML comment syntax triggers zsh history expansion inside jq filter arguments, producing `Invalid escape (while parsing '"\!"')` errors. Use Python scripts written to temp files instead (see Step 3).
+- **Deduplication**: Before creating a beads task, scan existing open tasks for the same file/line/finding. Note duplicates in the processed banner but do not create them again. Reference the existing task ID instead.
+- **Closed sp:07-implement parent**: The `[sp:07-implement]` task may be closed (✓) by the time reviews arrive. Still use it as `--parent` — tasks need the hierarchy for `ralph` visibility, and beads allows children under closed parents.
+- Write task IDs to a temp accumulator as you create them to build the final summary table.
+- The `<!-- processed -->` sentinel is an HTML comment — invisible in rendered GitHub markdown.
+- The `<!-- reviewer: ... -->` sentinel is injected by `.github/workflows/claude-code-review.yml` at the top of each review comment's body.
