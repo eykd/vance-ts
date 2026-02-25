@@ -258,5 +258,20 @@ describe('SignUpUseCase', () => {
         ip: '1.2.3.4',
       });
     });
+
+    it('falls back to full email as name when email prefix is empty (e.g. @domain.com)', async () => {
+      await useCase.execute({
+        email: '@domain.com',
+        password: 'correcthorse12',
+        ip: '1.2.3.4',
+      });
+
+      expect(authServiceMock.signUp).toHaveBeenCalledWith({
+        email: '@domain.com',
+        password: 'correcthorse12',
+        name: '@domain.com',
+        ip: '1.2.3.4',
+      });
+    });
   });
 });
