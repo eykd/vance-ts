@@ -1,5 +1,6 @@
 import type { Context } from 'hono';
 import { Hono } from 'hono/tiny';
+import type { MiddlewareHandler } from 'hono/types';
 
 import { getServiceFactory } from './di/serviceFactory';
 import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
@@ -11,26 +12,18 @@ import { applySecurityHeaders } from './presentation/utils/securityHeaders';
 const app = new Hono<AppEnv>();
 
 /**
- * Middleware: apply security headers to all Worker-handled API routes.
+ * Middleware: apply security headers after the downstream handler runs.
  *
  * Static assets served via the [assets] config use the _headers file instead.
  */
-app.use('/api/*', async (c, next): Promise<void> => {
+const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<void> => {
   await next();
   applySecurityHeaders(c.res.headers);
-});
+};
 
-/** Middleware: apply security headers to all app partial routes. */
-app.use('/app/_/*', async (c, next): Promise<void> => {
-  await next();
-  applySecurityHeaders(c.res.headers);
-});
-
-/** Middleware: apply security headers to all auth page routes. */
-app.use('/auth/*', async (c, next): Promise<void> => {
-  await next();
-  applySecurityHeaders(c.res.headers);
-});
+app.use('/api/*', withSecurityHeaders);
+app.use('/app/_/*', withSecurityHeaders);
+app.use('/auth/*', withSecurityHeaders);
 
 /** Middleware: require authentication for all app routes. */
 app.use('/app/*', async (c, next): Promise<Response | void> => {
