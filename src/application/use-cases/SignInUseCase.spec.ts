@@ -269,5 +269,51 @@ describe('SignInUseCase', () => {
 
       expect(mocks.verifyPassword).not.toHaveBeenCalled();
     });
+
+    it('returns ok: false kind: service_error when rateLimiter.check throws', async () => {
+      rateLimiterMock.check.mockRejectedValue(new Error('KV unavailable'));
+
+      const result = await useCase.execute(defaultRequest);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
+    it('returns ok: false kind: service_error when authService.signIn throws', async () => {
+      authServiceMock.signIn.mockRejectedValue(new Error('DB connection failed'));
+
+      const result = await useCase.execute(defaultRequest);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
+    it('returns ok: false kind: service_error when rateLimiter.increment throws', async () => {
+      authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
+      rateLimiterMock.increment.mockRejectedValue(new Error('KV write failed'));
+
+      const result = await useCase.execute(defaultRequest);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
+    it('returns ok: false kind: service_error when verifyPassword throws', async () => {
+      authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
+      mocks.verifyPassword.mockRejectedValue(new Error('crypto failure'));
+
+      const result = await useCase.execute(defaultRequest);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
   });
 });

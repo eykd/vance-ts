@@ -98,28 +98,32 @@ export class SignInUseCase {
    * @returns A typed result; never throws.
    */
   async execute(request: SignInRequest): Promise<SignInResult> {
-    const key = `ratelimit:sign-in:${request.ip}`;
+    try {
+      const key = `ratelimit:sign-in:${request.ip}`;
 
-    const rateCheck = await this.rateLimiter.check(key);
-    if (!rateCheck.allowed) {
-      return { ok: false, kind: 'rate_limited', retryAfter: rateCheck.retryAfter };
+      const rateCheck = await this.rateLimiter.check(key);
+      if (!rateCheck.allowed) {
+        return { ok: false, kind: 'rate_limited', retryAfter: rateCheck.retryAfter };
+      }
+
+      const result = await this.authService.signIn({
+        email: request.email,
+        password: request.password,
+        ip: request.ip,
+      });
+
+      if (!result.ok && result.kind === 'invalid_credentials') {
+        await this.rateLimiter.increment(key, SIGN_IN_WINDOW_SECONDS);
+      }
+
+      // Timing oracle defence — run PBKDF2 on every non-rate-limited failure (FR-007)
+      if (!result.ok && result.kind !== 'rate_limited') {
+        await verifyPassword(request.password, SignInUseCase.DUMMY_HASH);
+      }
+
+      return result;
+    } catch {
+      return { ok: false, kind: 'service_error' };
     }
-
-    const result = await this.authService.signIn({
-      email: request.email,
-      password: request.password,
-      ip: request.ip,
-    });
-
-    if (!result.ok && result.kind === 'invalid_credentials') {
-      await this.rateLimiter.increment(key, SIGN_IN_WINDOW_SECONDS);
-    }
-
-    // Timing oracle defence — run PBKDF2 on every non-rate-limited failure (FR-007)
-    if (!result.ok && result.kind !== 'rate_limited') {
-      await verifyPassword(request.password, SignInUseCase.DUMMY_HASH);
-    }
-
-    return result;
   }
 }
