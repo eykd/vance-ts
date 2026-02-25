@@ -6,19 +6,6 @@ import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js
 
 import { AuthPageHandlers } from './AuthPageHandlers.js';
 
-/**
- * Hoisted mock declarations — must be hoisted so they are available in the
- * vi.mock() factory function, which is executed before module imports.
- */
-const mocks = vi.hoisted(() => ({
-  verifyPassword: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
-}));
-
-vi.mock('../../domain/services/passwordHasher.js', () => ({
-  verifyPassword: mocks.verifyPassword,
-  hashPassword: vi.fn(),
-}));
-
 /** Fixed CSRF token used across test requests (64-char hex string). */
 const TEST_CSRF = 'a'.repeat(64);
 
@@ -179,17 +166,10 @@ describe('AuthPageHandlers', () => {
       signUpUseCaseMock as unknown as SignUpUseCase,
       signOutUseCaseMock as unknown as SignOutUseCase
     );
-    mocks.verifyPassword.mockResolvedValue(false);
   });
 
   afterEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe('DUMMY_HASH', () => {
-    it('is a valid pbkdf2 format with 600000 iterations, 32-char salt, 64-char derived key', () => {
-      expect(AuthPageHandlers.DUMMY_HASH).toMatch(/^pbkdf2\$600000\$[0-9a-f]{32}\$[0-9a-f]{64}$/);
-    });
   });
 
   describe('handleGetSignIn', () => {
@@ -422,12 +402,6 @@ describe('AuthPageHandlers', () => {
         expect(setCookies).toContain('Max-Age=0');
       });
 
-      it('does not call verifyPassword on successful sign-in', async () => {
-        const req = makePostRequest();
-        await handlers.handlePostSignIn(req);
-        expect(mocks.verifyPassword).not.toHaveBeenCalled();
-      });
-
       it('passes email, password, and IP to the sign-in use case', async () => {
         const req = makePostRequest({ email: 'alice@example.com', password: 'hunter2abcdef' });
         await handlers.handlePostSignIn(req);
@@ -453,15 +427,6 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(200);
         const body = await res.text();
         expect(body).toContain('Invalid email or password');
-      });
-
-      it('calls verifyPassword with the submitted password and DUMMY_HASH (FR-007)', async () => {
-        const req = makePostRequest({ password: 'wrongpassword12' });
-        await handlers.handlePostSignIn(req);
-        expect(mocks.verifyPassword).toHaveBeenCalledWith(
-          'wrongpassword12',
-          AuthPageHandlers.DUMMY_HASH
-        );
       });
 
       it('re-renders the login form with the submitted email pre-filled', async () => {
@@ -516,15 +481,6 @@ describe('AuthPageHandlers', () => {
         const body = await res.text();
         expect(body).toContain('Invalid email or password');
       });
-
-      it('calls verifyPassword with the submitted password and DUMMY_HASH (FR-007)', async () => {
-        const req = makePostRequest({ password: 'somepassword12' });
-        await handlers.handlePostSignIn(req);
-        expect(mocks.verifyPassword).toHaveBeenCalledWith(
-          'somepassword12',
-          AuthPageHandlers.DUMMY_HASH
-        );
-      });
     });
 
     describe('rate limited', () => {
@@ -554,13 +510,6 @@ describe('AuthPageHandlers', () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
         expect(res.headers.get('Retry-After')).toBeNull();
-      });
-
-      it('does not call verifyPassword on rate_limited (timing oracle defence skipped)', async () => {
-        signInUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
-        const req = makePostRequest();
-        await handlers.handlePostSignIn(req);
-        expect(mocks.verifyPassword).not.toHaveBeenCalled();
       });
     });
 

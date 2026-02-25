@@ -10,7 +10,6 @@
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
 import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
-import { verifyPassword } from '../../domain/services/passwordHasher.js';
 import { loginPage } from '../templates/pages/login.js';
 import { registerPage } from '../templates/pages/register.js';
 import {
@@ -56,18 +55,6 @@ const BETTER_AUTH_SESSION_COOKIE_FRAGMENT = 'better-auth.session';
  * depends on infrastructure directly.
  */
 export class AuthPageHandlers {
-  /**
-   * Pre-computed PBKDF2 dummy hash for timing oracle defence (FR-007).
-   *
-   * `verifyPassword(submittedPassword, DUMMY_HASH)` is called on every
-   * non-rate-limited authentication failure so that the "email not found"
-   * (~5 ms DB miss) code path takes the same wall-clock time as "email
-   * found, wrong password" (~30 ms PBKDF2), preventing timing-based
-   * email enumeration attacks.
-   */
-  static readonly DUMMY_HASH =
-    'pbkdf2$600000$d4e2f8056a3b7c91d4e2f8056a3b7c91$5f3a9b7c1e4d2a8f6b0c5e9d3a7f2b1e4c8d0a6f9e3c7b5a1f4e8d2c6a0f4e98';
-
   /** Injected sign-in use case. */
   private readonly signInUseCase: SignInUseCase;
 
@@ -183,9 +170,8 @@ export class AuthPageHandlers {
    *
    * Validates Content-Type, body size, and CSRF token before delegating to
    * {@link SignInUseCase}. On success, forwards the session cookie and
-   * issues a 303 redirect. On any non-rate-limited authentication failure,
-   * runs PBKDF2 via {@link verifyPassword} against {@link DUMMY_HASH} to
-   * equalise response timing and prevent email enumeration (FR-007).
+   * issues a 303 redirect. Timing oracle defence (FR-007) is enforced
+   * inside {@link SignInUseCase}.
    *
    * @param request - The incoming HTTP request.
    * @returns The appropriate HTTP response.
@@ -214,9 +200,6 @@ export class AuthPageHandlers {
     if (result.kind === 'rate_limited') {
       return AuthPageHandlers.buildRateLimitedResponse(result.retryAfter);
     }
-
-    // Timing oracle defence — run PBKDF2 on every non-rate-limited failure (FR-007)
-    await verifyPassword(password, AuthPageHandlers.DUMMY_HASH);
 
     const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
     const body = loginPage({

@@ -8,6 +8,7 @@
  * @module
  */
 
+import { verifyPassword } from '../../domain/services/passwordHasher.js';
 import type { AuthService } from '../ports/AuthService.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import { SIGN_IN_WINDOW_SECONDS } from '../ports/RateLimiter.js';
@@ -61,6 +62,18 @@ export type SignInResult =
  * ```
  */
 export class SignInUseCase {
+  /**
+   * Pre-computed PBKDF2 dummy hash for timing oracle defence (FR-007).
+   *
+   * `verifyPassword(submittedPassword, DUMMY_HASH)` is called on every
+   * non-rate-limited authentication failure so that the "email not found"
+   * (~5 ms DB miss) code path takes the same wall-clock time as "email
+   * found, wrong password" (~30 ms PBKDF2), preventing timing-based
+   * email enumeration attacks.
+   */
+  static readonly DUMMY_HASH =
+    'pbkdf2$600000$d4e2f8056a3b7c91d4e2f8056a3b7c91$5f3a9b7c1e4d2a8f6b0c5e9d3a7f2b1e4c8d0a6f9e3c7b5a1f4e8d2c6a0f4e98';
+
   /** Auth port interface, injected at construction time. */
   private readonly authService: AuthService;
 
@@ -100,6 +113,11 @@ export class SignInUseCase {
 
     if (!result.ok && result.kind === 'invalid_credentials') {
       await this.rateLimiter.increment(key, SIGN_IN_WINDOW_SECONDS);
+    }
+
+    // Timing oracle defence — run PBKDF2 on every non-rate-limited failure (FR-007)
+    if (!result.ok && result.kind !== 'rate_limited') {
+      await verifyPassword(request.password, SignInUseCase.DUMMY_HASH);
     }
 
     return result;
