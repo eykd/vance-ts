@@ -21,6 +21,7 @@ import {
 import { extractClientIp } from '../utils/extractClientIp.js';
 import { validateRedirectTo } from '../utils/redirectValidator.js';
 import { applySecurityHeaders } from '../utils/securityHeaders.js';
+import { timingSafeStringEqual } from '../utils/timingSafeEqual.js';
 
 /** Maximum allowed body size for HTML auth form submissions, in bytes (4 KB). */
 const MAX_BODY_BYTES = 4096;
@@ -125,7 +126,7 @@ export class AuthPageHandlers {
     const csrfFormToken = form.get('_csrf') ?? '';
     const csrfCookieToken = extractCsrfTokenFromCookies(request.headers.get('Cookie'));
 
-    if (csrfCookieToken === null || csrfFormToken !== csrfCookieToken) {
+    if (csrfCookieToken === null || !timingSafeStringEqual(csrfFormToken, csrfCookieToken)) {
       return new Response('Forbidden', { status: 403 });
     }
 
