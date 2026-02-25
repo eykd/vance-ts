@@ -11,16 +11,27 @@ const mocks = vi.hoisted(() => {
   const authHandlerFn = vi.fn<[Request], Promise<Response>>();
   const handleGetSignIn = vi.fn<[Request], Response>();
   const handlePostSignIn = vi.fn<[Request], Promise<Response>>();
+  const handleGetSignUp = vi.fn<[Request], Response>();
+  const handlePostSignUp = vi.fn<[Request], Promise<Response>>();
 
   const mockFactory = {
     authHandler: authHandlerFn,
     authPageHandlers: {
       handleGetSignIn,
       handlePostSignIn,
+      handleGetSignUp,
+      handlePostSignUp,
     },
   };
 
-  return { authHandlerFn, handleGetSignIn, handlePostSignIn, mockFactory };
+  return {
+    authHandlerFn,
+    handleGetSignIn,
+    handlePostSignIn,
+    handleGetSignUp,
+    handlePostSignUp,
+    mockFactory,
+  };
 });
 
 vi.mock('./di/serviceFactory', () => ({
@@ -194,6 +205,68 @@ describe('Worker', () => {
       );
 
       const req = new Request('https://example.com/auth/sign-in', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+  });
+
+  describe('GET /auth/sign-up', () => {
+    it('delegates to authPageHandlers.handleGetSignUp and returns the response', async () => {
+      const env = mockEnv();
+      const handlerResponse = new Response('<html>sign-up</html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      });
+      mocks.handleGetSignUp.mockReturnValue(handlerResponse);
+
+      const req = new Request('https://example.com/auth/sign-up');
+      const res = await app.fetch(req, env);
+
+      expect(mocks.handleGetSignUp).toHaveBeenCalledWith(req);
+      expect(res.status).toBe(200);
+    });
+
+    it('applies security headers to the response', async () => {
+      const env = mockEnv();
+      mocks.handleGetSignUp.mockReturnValue(new Response('<html>sign-up</html>', { status: 200 }));
+
+      const req = new Request('https://example.com/auth/sign-up');
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+  });
+
+  describe('POST /auth/sign-up', () => {
+    it('delegates to authPageHandlers.handlePostSignUp and returns the response', async () => {
+      const env = mockEnv();
+      const handlerResponse = new Response(null, {
+        status: 303,
+        headers: { Location: '/' },
+      });
+      mocks.handlePostSignUp.mockResolvedValue(handlerResponse);
+
+      const req = new Request('https://example.com/auth/sign-up', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(mocks.handlePostSignUp).toHaveBeenCalledWith(req);
+      expect(res.status).toBe(303);
+    });
+
+    it('applies security headers to the response', async () => {
+      const env = mockEnv();
+      mocks.handlePostSignUp.mockResolvedValue(
+        new Response(null, { status: 303, headers: { Location: '/' } })
+      );
+
+      const req = new Request('https://example.com/auth/sign-up', { method: 'POST' });
       const res = await app.fetch(req, env);
 
       expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
