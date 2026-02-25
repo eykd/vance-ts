@@ -564,25 +564,22 @@ describe('AuthPageHandlers', () => {
         expect(res.headers.get('Location')).toBe('/');
       });
 
-      it('redirects to / when redirectTo starts with /api/ (blocked prefix)', async () => {
+      it('redirects to / when redirectTo is /api/data (not on allowlist)', async () => {
         const req = makePostRequest({ redirectTo: '/api/data' });
         const res = await handlers.handlePostSignIn(req);
         expect(res.headers.get('Location')).toBe('/');
       });
 
-      it('redirects to / when redirectTo starts with /auth/ (blocked prefix)', async () => {
+      it('redirects to / when redirectTo is /auth/sign-in (not on allowlist)', async () => {
         const req = makePostRequest({ redirectTo: '/auth/sign-in' });
         const res = await handlers.handlePostSignIn(req);
         expect(res.headers.get('Location')).toBe('/');
       });
 
-      it('extracts only the pathname from an absolute URL (no open redirect to external host)', async () => {
-        // validateRedirectTo canonicalises via new URL(..., 'http://localhost'),
-        // which discards the origin and returns only pathname + search.
-        // 'https://evil.com/steal' → '/steal' (redirects to same server, not evil.com)
+      it('redirects to / for an absolute URL (cross-origin rejected by allowlist origin check)', async () => {
         const req = makePostRequest({ redirectTo: 'https://evil.com/steal' });
         const res = await handlers.handlePostSignIn(req);
-        expect(res.headers.get('Location')).toBe('/steal');
+        expect(res.headers.get('Location')).toBe('/');
       });
 
       it('redirects to validated path with query string preserved', async () => {

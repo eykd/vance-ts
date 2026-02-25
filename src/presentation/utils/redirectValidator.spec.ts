@@ -1,84 +1,115 @@
 import { validateRedirectTo } from './redirectValidator';
 
 describe('validateRedirectTo', () => {
-  it('returns / for null input', () => {
-    expect(validateRedirectTo(null)).toBe('/');
+  describe('null and empty inputs', () => {
+    it('returns / for null input', () => {
+      expect(validateRedirectTo(null)).toBe('/');
+    });
+
+    it('returns / for empty string', () => {
+      expect(validateRedirectTo('')).toBe('/');
+    });
   });
 
-  it('returns / for empty string', () => {
-    expect(validateRedirectTo('')).toBe('/');
+  describe('allowlisted paths — accepted', () => {
+    it('accepts the root path /', () => {
+      expect(validateRedirectTo('/')).toBe('/');
+    });
+
+    it('accepts /app/ paths', () => {
+      expect(validateRedirectTo('/app/dashboard')).toBe('/app/dashboard');
+    });
+
+    it('accepts /app/ paths with query string', () => {
+      expect(validateRedirectTo('/app/dashboard?tab=overview')).toBe('/app/dashboard?tab=overview');
+    });
+
+    it('accepts /app without trailing slash', () => {
+      expect(validateRedirectTo('/app')).toBe('/app');
+    });
+
+    it('accepts /posts/ paths', () => {
+      expect(validateRedirectTo('/posts/sample-post')).toBe('/posts/sample-post');
+    });
+
+    it('accepts /posts/ paths with query string', () => {
+      expect(validateRedirectTo('/posts/sample-post?q=1')).toBe('/posts/sample-post?q=1');
+    });
+
+    it('accepts /posts without trailing slash', () => {
+      expect(validateRedirectTo('/posts')).toBe('/posts');
+    });
+
+    it('accepts a URL-encoded allowlisted path: %2Fapp%2Fdashboard → /app/dashboard', () => {
+      expect(validateRedirectTo('%2Fapp%2Fdashboard')).toBe('/app/dashboard');
+    });
+
+    it('strips fragment from allowlisted /app/ path', () => {
+      expect(validateRedirectTo('/app/dashboard#section')).toBe('/app/dashboard');
+    });
+
+    it('strips fragment and preserves query string for allowlisted /posts/ path', () => {
+      expect(validateRedirectTo('/posts/post?q=1#frag')).toBe('/posts/post?q=1');
+    });
   });
 
-  it('accepts a simple valid relative path', () => {
-    expect(validateRedirectTo('/dashboard')).toBe('/dashboard');
+  describe('paths not on allowlist — rejected with default /', () => {
+    it('returns / for an arbitrary path not on the allowlist (/dashboard)', () => {
+      expect(validateRedirectTo('/dashboard')).toBe('/');
+    });
+
+    it('returns / for /api/ paths (not on allowlist)', () => {
+      expect(validateRedirectTo('/api/users')).toBe('/');
+    });
+
+    it('returns / for /auth/ paths (not on allowlist)', () => {
+      expect(validateRedirectTo('/auth/sign-in')).toBe('/');
+    });
+
+    it('returns / for /api/ exact prefix', () => {
+      expect(validateRedirectTo('/api/')).toBe('/');
+    });
+
+    it('returns / for /auth/ exact prefix', () => {
+      expect(validateRedirectTo('/auth/')).toBe('/');
+    });
+
+    it('returns / for a path whose first segment is not on the allowlist (/about)', () => {
+      expect(validateRedirectTo('/about')).toBe('/');
+    });
+
+    it('decodes and rejects %2Fapi%2Fusers (→ /api/users) as not on allowlist', () => {
+      expect(validateRedirectTo('%2Fapi%2Fusers')).toBe('/');
+    });
+
+    it('decodes and rejects %2Fauth%2Fsign-in (→ /auth/sign-in) as not on allowlist', () => {
+      expect(validateRedirectTo('%2Fauth%2Fsign-in')).toBe('/');
+    });
   });
 
-  it('accepts a path with query string', () => {
-    expect(validateRedirectTo('/dashboard?tab=overview')).toBe('/dashboard?tab=overview');
+  describe('cross-origin URLs — rejected by origin check', () => {
+    it('returns / for a // prefix (protocol-relative URL resolves to cross-origin)', () => {
+      expect(validateRedirectTo('//evil.com')).toBe('/');
+    });
+
+    it('returns / for an absolute URL with a protocol', () => {
+      expect(validateRedirectTo('https://evil.com')).toBe('/');
+    });
+
+    it('returns / for URL-encoded //: %2F%2Fevil.com → //evil.com → cross-origin rejected', () => {
+      expect(validateRedirectTo('%2F%2Fevil.com')).toBe('/');
+    });
   });
 
-  it('returns / for a // prefix (open redirect)', () => {
-    expect(validateRedirectTo('//evil.com')).toBe('/');
+  describe('non-leading-slash inputs — resolved same-origin but not on allowlist', () => {
+    it('returns / for a hostname-like input: evil.com/path → resolves to /evil.com/path → not on allowlist', () => {
+      expect(validateRedirectTo('evil.com/path')).toBe('/');
+    });
   });
 
-  it('returns / for a /api/ prefix', () => {
-    expect(validateRedirectTo('/api/users')).toBe('/');
-  });
-
-  it('returns / for a /auth/ prefix', () => {
-    expect(validateRedirectTo('/auth/sign-in')).toBe('/');
-  });
-
-  it('returns / for an absolute URL with a protocol', () => {
-    expect(validateRedirectTo('https://evil.com')).toBe('/');
-  });
-
-  it('canonicalises a non-leading-slash input to a relative path on the same origin', () => {
-    // new URL('evil.com/path', 'http://localhost') resolves to /evil.com/path — same origin, safe
-    expect(validateRedirectTo('evil.com/path')).toBe('/evil.com/path');
-  });
-
-  it('decodes URL-encoded bypass: %2F%2Fevil.com becomes //evil.com → rejected', () => {
-    expect(validateRedirectTo('%2F%2Fevil.com')).toBe('/');
-  });
-
-  it('decodes URL-encoded bypass: %2Fapi%2Fusers becomes /api/users → rejected', () => {
-    expect(validateRedirectTo('%2Fapi%2Fusers')).toBe('/');
-  });
-
-  it('decodes URL-encoded bypass: %2Fauth%2Fsign-in becomes /auth/sign-in → rejected', () => {
-    expect(validateRedirectTo('%2Fauth%2Fsign-in')).toBe('/');
-  });
-
-  it('accepts a URL-encoded valid path', () => {
-    expect(validateRedirectTo('%2Fdashboard')).toBe('/dashboard');
-  });
-
-  it('canonicalises by using only pathname and search (strips fragment)', () => {
-    expect(validateRedirectTo('/dashboard#secret')).toBe('/dashboard');
-  });
-
-  it('canonicalises a path with both search and fragment', () => {
-    expect(validateRedirectTo('/page?q=1#frag')).toBe('/page?q=1');
-  });
-
-  it('returns / for a malformed URL that cannot be decoded', () => {
-    expect(validateRedirectTo('%')).toBe('/');
-  });
-
-  it('returns / for /api/ with exact prefix match', () => {
-    expect(validateRedirectTo('/api/')).toBe('/');
-  });
-
-  it('returns / for /auth/ with exact prefix match', () => {
-    expect(validateRedirectTo('/auth/')).toBe('/');
-  });
-
-  it('accepts a path that contains "api" but does not start with /api/', () => {
-    expect(validateRedirectTo('/my-api-page')).toBe('/my-api-page');
-  });
-
-  it('accepts a path that contains "auth" but does not start with /auth/', () => {
-    expect(validateRedirectTo('/my-auth-page')).toBe('/my-auth-page');
+  describe('malformed inputs', () => {
+    it('returns / for a malformed percent-encoded string that cannot be decoded', () => {
+      expect(validateRedirectTo('%')).toBe('/');
+    });
   });
 });
