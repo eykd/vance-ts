@@ -63,43 +63,32 @@ export class AuthPageHandlers {
   }
 
   /**
-   * Handles GET /auth/sign-in.
+   * Builds standard HTML response headers for auth pages.
    *
-   * Generates a fresh CSRF token, stores it in the `__Secure-csrf` cookie,
-   * and renders the sign-in form. Sets `Cache-Control: no-store, no-cache`
-   * to prevent caching of the CSRF-bearing response.
-   *
-   * @param request - The incoming HTTP request.
-   * @returns A 200 HTML response with Set-Cookie and Cache-Control headers.
+   * Generates a fresh CSRF token, sets Content-Type, Cache-Control, the CSRF
+   * cookie, and all security headers. Returns both the Headers object and the
+   * raw token so callers can embed it in the rendered form.
    */
-  handleGetSignIn(request: Request): Response {
-    const url = new URL(request.url);
-    const registeredSuccess = url.searchParams.get('registered') === 'true';
-    const redirectTo = url.searchParams.get('redirectTo') ?? undefined;
-
+  private makeFreshAuthHeaders(): { headers: Headers; csrfToken: string } {
     const csrfToken = generateCsrfToken();
     const headers = new Headers();
     headers.set('Content-Type', 'text/html; charset=utf-8');
     headers.set('Set-Cookie', buildCsrfCookie(csrfToken));
     headers.set('Cache-Control', 'no-store, no-cache');
     applySecurityHeaders(headers);
-
-    return new Response(loginPage({ csrfToken, redirectTo, registeredSuccess }), { headers });
+    return { headers, csrfToken };
   }
 
   /**
-   * Handles POST /auth/sign-in.
+   * Validates and parses an HTML auth form submission.
    *
-   * Validates Content-Type, body size, and CSRF token before delegating to
-   * {@link SignInUseCase}. On success, forwards the session cookie and
-   * issues a 303 redirect. On any non-rate-limited authentication failure,
-   * runs PBKDF2 via {@link verifyPassword} against {@link DUMMY_HASH} to
-   * equalise response timing and prevent email enumeration (FR-007).
-   *
-   * @param request - The incoming HTTP request.
-   * @returns The appropriate HTTP response.
+   * Checks Content-Type, enforces the body-size limit, and verifies the
+   * double-submit CSRF token. Returns the parsed URLSearchParams on success or
+   * an early-exit Response (415 / 413 / 403) on any validation failure.
    */
-  async handlePostSignIn(request: Request): Promise<Response> {
+  private async parseValidatedAuthForm(
+    request: Request
+  ): Promise<URLSearchParams | Response> {
     const contentType = request.headers.get('Content-Type') ?? '';
     if (!contentType.includes('application/x-www-form-urlencoded')) {
       return new Response('Unsupported Media Type', { status: 415 });
@@ -118,9 +107,58 @@ export class AuthPageHandlers {
       return new Response('Forbidden', { status: 403 });
     }
 
-    const email = form.get('email') ?? '';
-    const password = form.get('password') ?? '';
-    const redirectTo = validateRedirectTo(form.get('redirectTo'));
+    return form;
+  }
+
+  /** Builds a 429 Too Many Requests response with an optional Retry-After header. */
+  private static buildRateLimitedResponse(retryAfter?: number): Response {
+    const headers = new Headers();
+    if (retryAfter !== undefined) {
+      headers.set('Retry-After', String(retryAfter));
+    }
+    return new Response('Too Many Requests', { status: 429, headers });
+  }
+
+  /**
+   * Handles GET /auth/sign-in.
+   *
+   * Generates a fresh CSRF token, stores it in the `__Secure-csrf` cookie,
+   * and renders the sign-in form. Sets `Cache-Control: no-store, no-cache`
+   * to prevent caching of the CSRF-bearing response.
+   *
+   * @param request - The incoming HTTP request.
+   * @returns A 200 HTML response with Set-Cookie and Cache-Control headers.
+   */
+  handleGetSignIn(request: Request): Response {
+    const url = new URL(request.url);
+    const registeredSuccess = url.searchParams.get('registered') === 'true';
+    const redirectTo = url.searchParams.get('redirectTo') ?? undefined;
+
+    const { headers, csrfToken } = this.makeFreshAuthHeaders();
+    return new Response(loginPage({ csrfToken, redirectTo, registeredSuccess }), { headers });
+  }
+
+  /**
+   * Handles POST /auth/sign-in.
+   *
+   * Validates Content-Type, body size, and CSRF token before delegating to
+   * {@link SignInUseCase}. On success, forwards the session cookie and
+   * issues a 303 redirect. On any non-rate-limited authentication failure,
+   * runs PBKDF2 via {@link verifyPassword} against {@link DUMMY_HASH} to
+   * equalise response timing and prevent email enumeration (FR-007).
+   *
+   * @param request - The incoming HTTP request.
+   * @returns The appropriate HTTP response.
+   */
+  async handlePostSignIn(request: Request): Promise<Response> {
+    const formOrError = await this.parseValidatedAuthForm(request);
+    if (formOrError instanceof Response) {
+      return formOrError;
+    }
+
+    const email = formOrError.get('email') ?? '';
+    const password = formOrError.get('password') ?? '';
+    const redirectTo = validateRedirectTo(formOrError.get('redirectTo'));
     const ip = extractClientIp(request);
 
     const result = await this.signInUseCase.execute({ email, password, ip });
@@ -134,23 +172,13 @@ export class AuthPageHandlers {
     }
 
     if (result.kind === 'rate_limited') {
-      const headers = new Headers();
-      if (result.retryAfter !== undefined) {
-        headers.set('Retry-After', String(result.retryAfter));
-      }
-      return new Response('Too Many Requests', { status: 429, headers });
+      return AuthPageHandlers.buildRateLimitedResponse(result.retryAfter);
     }
 
     // Timing oracle defence — run PBKDF2 on every non-rate-limited failure (FR-007)
     await verifyPassword(password, AuthPageHandlers.DUMMY_HASH);
 
-    const csrfToken = generateCsrfToken();
-    const errorHeaders = new Headers();
-    errorHeaders.set('Content-Type', 'text/html; charset=utf-8');
-    errorHeaders.set('Set-Cookie', buildCsrfCookie(csrfToken));
-    errorHeaders.set('Cache-Control', 'no-store, no-cache');
-    applySecurityHeaders(errorHeaders);
-
+    const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
     const body = loginPage({
       csrfToken,
       email,
@@ -172,13 +200,7 @@ export class AuthPageHandlers {
    * @returns A 200 HTML response with Set-Cookie and Cache-Control headers.
    */
   handleGetSignUp(_request: Request): Response {
-    const csrfToken = generateCsrfToken();
-    const headers = new Headers();
-    headers.set('Content-Type', 'text/html; charset=utf-8');
-    headers.set('Set-Cookie', buildCsrfCookie(csrfToken));
-    headers.set('Cache-Control', 'no-store, no-cache');
-    applySecurityHeaders(headers);
-
+    const { headers, csrfToken } = this.makeFreshAuthHeaders();
     return new Response(registerPage({ csrfToken }), { headers });
   }
 
@@ -195,26 +217,13 @@ export class AuthPageHandlers {
    * @returns The appropriate HTTP response.
    */
   async handlePostSignUp(request: Request): Promise<Response> {
-    const contentType = request.headers.get('Content-Type') ?? '';
-    if (!contentType.includes('application/x-www-form-urlencoded')) {
-      return new Response('Unsupported Media Type', { status: 415 });
+    const formOrError = await this.parseValidatedAuthForm(request);
+    if (formOrError instanceof Response) {
+      return formOrError;
     }
 
-    const rawBody = await request.text();
-    if (rawBody.length > MAX_BODY_BYTES) {
-      return new Response('Content Too Large', { status: 413 });
-    }
-
-    const form = new URLSearchParams(rawBody);
-    const csrfFormToken = form.get('_csrf') ?? '';
-    const csrfCookieToken = extractCsrfTokenFromCookies(request.headers.get('Cookie'));
-
-    if (csrfCookieToken === null || csrfFormToken !== csrfCookieToken) {
-      return new Response('Forbidden', { status: 403 });
-    }
-
-    const email = form.get('email') ?? '';
-    const password = form.get('password') ?? '';
+    const email = formOrError.get('email') ?? '';
+    const password = formOrError.get('password') ?? '';
     const ip = extractClientIp(request);
 
     const result = await this.signUpUseCase.execute({ email, password, ip });
@@ -227,11 +236,7 @@ export class AuthPageHandlers {
     }
 
     if (result.kind === 'rate_limited') {
-      const headers = new Headers();
-      if (result.retryAfter !== undefined) {
-        headers.set('Retry-After', String(result.retryAfter));
-      }
-      return new Response('Too Many Requests', { status: 429, headers });
+      return AuthPageHandlers.buildRateLimitedResponse(result.retryAfter);
     }
 
     // weak_password or service_error — re-render form with appropriate error
@@ -240,13 +245,7 @@ export class AuthPageHandlers {
         ? 'Password must be at least 12 characters'
         : 'An error occurred. Please try again.';
 
-    const csrfToken = generateCsrfToken();
-    const errorHeaders = new Headers();
-    errorHeaders.set('Content-Type', 'text/html; charset=utf-8');
-    errorHeaders.set('Set-Cookie', buildCsrfCookie(csrfToken));
-    errorHeaders.set('Cache-Control', 'no-store, no-cache');
-    applySecurityHeaders(errorHeaders);
-
+    const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
     const body = registerPage({ csrfToken, email, error: errorMessage });
 
     return new Response(body, { headers: errorHeaders });
