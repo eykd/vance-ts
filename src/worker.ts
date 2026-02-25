@@ -89,6 +89,11 @@ app.post('/auth/sign-up', async (c): Promise<Response> => {
   return getServiceFactory(c.env).authPageHandlers.handlePostSignUp(c.req.raw);
 });
 
+/** Terminates the authenticated user's session. */
+app.post('/auth/sign-out', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).authPageHandlers.handlePostSignOut(c.req.raw);
+});
+
 /** Catch-all for unimplemented app partial routes. */
 app.all('/app/_/*', appPartialNotFound);
 

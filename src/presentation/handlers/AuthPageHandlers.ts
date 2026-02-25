@@ -8,6 +8,7 @@
  */
 
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
+import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
 import { verifyPassword } from '../../domain/services/passwordHasher.js';
 import { loginPage } from '../templates/pages/login.js';
@@ -24,6 +25,15 @@ import { applySecurityHeaders } from '../utils/securityHeaders.js';
 
 /** Maximum allowed body size for HTML auth form submissions, in bytes (4 KB). */
 const MAX_BODY_BYTES = 4096;
+
+/**
+ * Substring present in all better-auth session cookie names, used to detect
+ * whether an active session cookie is present in the request.
+ *
+ * Matches both `__Host-better-auth.session_token` and
+ * `__Host-better-auth.session-token` (underscore or hyphen variant).
+ */
+const BETTER_AUTH_SESSION_COOKIE_FRAGMENT = 'better-auth.session';
 
 /**
  * HTTP handlers for HTML-rendered auth pages.
@@ -51,15 +61,24 @@ export class AuthPageHandlers {
   /** Injected sign-up use case. */
   private readonly signUpUseCase: SignUpUseCase;
 
+  /** Injected sign-out use case. */
+  private readonly signOutUseCase: SignOutUseCase;
+
   /**
    * Creates a new AuthPageHandlers instance.
    *
    * @param signInUseCase - The sign-in orchestration use case.
    * @param signUpUseCase - The sign-up orchestration use case.
+   * @param signOutUseCase - The sign-out orchestration use case.
    */
-  constructor(signInUseCase: SignInUseCase, signUpUseCase: SignUpUseCase) {
+  constructor(
+    signInUseCase: SignInUseCase,
+    signUpUseCase: SignUpUseCase,
+    signOutUseCase: SignOutUseCase
+  ) {
     this.signInUseCase = signInUseCase;
     this.signUpUseCase = signUpUseCase;
+    this.signOutUseCase = signOutUseCase;
   }
 
   /**
@@ -257,5 +276,51 @@ export class AuthPageHandlers {
     const body = registerPage({ csrfToken, email, error: errorMessage });
 
     return new Response(body, { headers: errorHeaders });
+  }
+
+  /**
+   * Handles POST /auth/sign-out.
+   *
+   * Validates Content-Type, body size, and CSRF token before checking for an
+   * active session cookie. Delegates to {@link SignOutUseCase} to invalidate
+   * the session server-side. On success, clears the session and CSRF cookies
+   * and redirects to the sign-in page. On service error, redirects to the
+   * home page gracefully — the session may still be valid and the user is
+   * sent home without disruption. If no session cookie is detected in the
+   * request, redirects to the sign-in page immediately without calling the
+   * use case.
+   *
+   * @param request - The incoming HTTP request.
+   * @returns The appropriate HTTP response.
+   */
+  async handlePostSignOut(request: Request): Promise<Response> {
+    const formOrError = await this.parseValidatedAuthForm(request);
+    if (formOrError instanceof Response) {
+      return formOrError;
+    }
+
+    const cookieHeader = request.headers.get('Cookie') ?? '';
+    if (!cookieHeader.includes(BETTER_AUTH_SESSION_COOKIE_FRAGMENT)) {
+      return new Response(null, {
+        status: 303,
+        headers: { Location: '/auth/sign-in' },
+      });
+    }
+
+    const result = await this.signOutUseCase.execute({ sessionCookie: cookieHeader });
+
+    if (result.ok) {
+      const headers = new Headers();
+      headers.set('Location', '/auth/sign-in');
+      headers.append('Set-Cookie', result.clearCookieHeader);
+      headers.append('Set-Cookie', clearCsrfCookie());
+      return new Response(null, { status: 303, headers });
+    }
+
+    // service_error — redirect home gracefully; session may still be valid
+    return new Response(null, {
+      status: 303,
+      headers: { Location: '/' },
+    });
   }
 }

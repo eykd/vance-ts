@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
   const handlePostSignIn = vi.fn<[Request], Promise<Response>>();
   const handleGetSignUp = vi.fn<[Request], Response>();
   const handlePostSignUp = vi.fn<[Request], Promise<Response>>();
+  const handlePostSignOut = vi.fn<[Request], Promise<Response>>();
   /** Default: passes through by calling next() (authenticated). */
   const requireAuthMiddlewareFn = vi.fn(
     async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
@@ -25,6 +26,7 @@ const mocks = vi.hoisted(() => {
       handlePostSignIn,
       handleGetSignUp,
       handlePostSignUp,
+      handlePostSignOut,
     },
     requireAuthMiddleware: requireAuthMiddlewareFn,
   };
@@ -35,6 +37,7 @@ const mocks = vi.hoisted(() => {
     handlePostSignIn,
     handleGetSignUp,
     handlePostSignUp,
+    handlePostSignOut,
     requireAuthMiddlewareFn,
     mockFactory,
   };
@@ -273,6 +276,38 @@ describe('Worker', () => {
       );
 
       const req = new Request('https://example.com/auth/sign-up', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+  });
+
+  describe('POST /auth/sign-out', () => {
+    it('delegates to authPageHandlers.handlePostSignOut and returns the response', async () => {
+      const env = mockEnv();
+      const handlerResponse = new Response(null, {
+        status: 303,
+        headers: { Location: '/auth/sign-in' },
+      });
+      mocks.handlePostSignOut.mockResolvedValue(handlerResponse);
+
+      const req = new Request('https://example.com/auth/sign-out', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(mocks.handlePostSignOut).toHaveBeenCalledWith(req);
+      expect(res.status).toBe(303);
+    });
+
+    it('applies security headers to the response', async () => {
+      const env = mockEnv();
+      mocks.handlePostSignOut.mockResolvedValue(
+        new Response(null, { status: 303, headers: { Location: '/auth/sign-in' } })
+      );
+
+      const req = new Request('https://example.com/auth/sign-out', { method: 'POST' });
       const res = await app.fetch(req, env);
 
       expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');

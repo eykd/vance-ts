@@ -137,7 +137,11 @@ export class ServiceFactory {
    * @returns The lazily-initialised AuthPageHandlers instance.
    */
   get authPageHandlers(): AuthPageHandlers {
-    this._authPageHandlers ??= new AuthPageHandlers(this.signInUseCase, this.signUpUseCase);
+    this._authPageHandlers ??= new AuthPageHandlers(
+      this.signInUseCase,
+      this.signUpUseCase,
+      this.signOutUseCase
+    );
     return this._authPageHandlers;
   }
 
