@@ -626,7 +626,7 @@ get_in_progress_tasks() {
     local epic_id="$1"
     local in_progress_json
 
-    in_progress_json=$(npx bd list --status in-progress --parent "$epic_id" --json 2>/dev/null) || {
+    in_progress_json=$(npx bd list --status=in_progress --parent "$epic_id" --json 2>/dev/null) || {
         echo "Error: Failed to query beads for in-progress tasks" >&2
         return 1
     }
