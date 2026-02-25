@@ -1,7 +1,12 @@
 const CSRF_COOKIE_NAME = '__Secure-csrf';
 const CSRF_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Strict; Path=/auth';
 
-/** Converts a byte array to a lowercase hex string. */
+/**
+ * Converts a byte array to a lowercase hex string.
+ *
+ * @param bytes - The byte array to convert
+ * @returns A lowercase hex string representation of the bytes
+ */
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
