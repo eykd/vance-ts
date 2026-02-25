@@ -15,22 +15,23 @@ import type { RateLimiter } from '../ports/RateLimiter.js';
 import { SIGN_IN_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
 /**
- * Generates a randomly-salted dummy PBKDF2 hash string at module load time.
+ * Generates a randomly-salted dummy Argon2id hash string at module load time.
  *
- * The hash is in `pbkdf2$<iterations>$<salt-hex>$<filler-hex>` format so
- * that {@link verifyPassword} performs the full PBKDF2 computation against it,
- * equalising response time for non-existent-email vs wrong-password paths.
+ * The hash is in `argon2id$<memory_kb>$<time_cost>$<parallelism>$<salt-hex>$<filler-hex>`
+ * format so that {@link verifyPassword} performs a full Argon2id computation
+ * against it, equalising response time for non-existent-email vs wrong-password
+ * paths (timing oracle defence, FR-007).
  *
  * Using fresh random bytes for both salt and filler ensures the value differs
  * on every Worker deployment, eliminating the timing-attack surface that a
  * hardcoded public constant would expose.
  *
- * @returns A valid-format PBKDF2 hash string with a fresh random salt.
+ * @returns A valid-format Argon2id hash string with a fresh random salt.
  */
 function generateDummyHash(): string {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const filler = crypto.getRandomValues(new Uint8Array(32));
-  return `pbkdf2$600000$${toHex(salt)}$${toHex(filler)}`;
+  return `argon2id$19456$2$1$${toHex(salt)}$${toHex(filler)}`;
 }
 
 /**
@@ -83,13 +84,13 @@ export type SignInResult =
  */
 export class SignInUseCase {
   /**
-   * Per-startup PBKDF2 dummy hash for timing oracle defence (FR-007).
+   * Per-startup Argon2id dummy hash for timing oracle defence (FR-007).
    *
    * `verifyPassword(submittedPassword, DUMMY_HASH)` is called on every
    * non-rate-limited authentication failure so that the "email not found"
-   * (~5 ms DB miss) code path takes the same wall-clock time as "email
-   * found, wrong password" (~30 ms PBKDF2), preventing timing-based
-   * email enumeration attacks.
+   * (fast DB miss) code path takes the same wall-clock time as "email
+   * found, wrong password" (full Argon2id computation), preventing
+   * timing-based email enumeration attacks.
    *
    * Generated once at module load with a fresh random salt — changes per
    * deployment so the value is never observable in source code or binaries.
@@ -138,7 +139,7 @@ export class SignInUseCase {
         await this.rateLimiter.increment(key, SIGN_IN_WINDOW_SECONDS);
       }
 
-      // Timing oracle defence — run PBKDF2 on every non-rate-limited failure (FR-007)
+      // Timing oracle defence — run Argon2id on every non-rate-limited failure (FR-007)
       if (!result.ok && result.kind !== 'rate_limited') {
         await verifyPassword(request.password, SignInUseCase.DUMMY_HASH);
       }

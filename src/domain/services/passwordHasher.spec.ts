@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { hashPassword, verifyPassword } from './passwordHasher';
 
-const HASH_FORMAT = /^pbkdf2\$\d+\$[0-9a-f]+\$[0-9a-f]+$/;
+const HASH_FORMAT = /^argon2id\$\d+\$\d+\$\d+\$[0-9a-f]+\$[0-9a-f]+$/;
 
 describe('hashPassword', () => {
-  it('returns a string in pbkdf2$<iterations>$<salt-hex>$<derived-hex> format', async () => {
+  it('returns a string in argon2id$<memory>$<time>$<parallelism>$<salt-hex>$<derived-hex> format', async () => {
     const hash = await hashPassword('correct-horse-battery-staple');
     expect(hash).toMatch(HASH_FORMAT);
   });
@@ -30,28 +30,30 @@ describe('verifyPassword', () => {
   });
 
   it('returns false for a malformed hash string (wrong prefix)', async () => {
-    expect(await verifyPassword('password', 'sha256$1000$abc$def')).toBe(false);
+    expect(await verifyPassword('password', 'pbkdf2$600000$abc$def')).toBe(false);
   });
 
   it('returns false for a malformed hash string (too few segments)', async () => {
-    expect(await verifyPassword('password', 'pbkdf2$600000$abc')).toBe(false);
+    expect(await verifyPassword('password', 'argon2id$19456$2$1$abc')).toBe(false);
   });
 
-  it('returns false for a hash with iterations below MIN_ITERATIONS (tamper protection)', async () => {
-    // Manually craft a hash with only 99_999 iterations
-    const lowIterHash = 'pbkdf2$99999$aabbccdd$eeff0011';
-    expect(await verifyPassword('password', lowIterHash)).toBe(false);
+  it('returns false for a hash with memory below MIN_MEMORY_KB (tamper protection)', async () => {
+    // Manually craft a hash with only 9215 KiB — below the 9216 KiB minimum
+    const lowMemHash =
+      'argon2id$9215$2$1$aabbccddaabbccdd$eeff001122334455eeff001122334455eeff001122334455eeff001122334455';
+    expect(await verifyPassword('password', lowMemHash)).toBe(false);
   });
 
   it('returns false when the salt hex segment has odd length (malformed fromHex input)', async () => {
     // Odd-length hex in salt segment — fromHex returns empty Uint8Array
-    const malformedSaltHash = 'pbkdf2$600000$abc$eeff001122334455';
+    const malformedSaltHash =
+      'argon2id$19456$2$1$abc$eeff001122334455eeff001122334455eeff001122334455eeff001122334455';
     expect(await verifyPassword('password', malformedSaltHash)).toBe(false);
   });
 
   it('returns false when the derived hex segment has odd length (malformed fromHex input)', async () => {
     // Odd-length hex in derived segment — fromHex returns empty Uint8Array
-    const malformedDerivedHash = 'pbkdf2$600000$aabbccdd$abc';
+    const malformedDerivedHash = 'argon2id$19456$2$1$aabbccddaabbccdd$abc';
     expect(await verifyPassword('password', malformedDerivedHash)).toBe(false);
   });
 });

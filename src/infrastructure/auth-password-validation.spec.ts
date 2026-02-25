@@ -57,7 +57,7 @@ function makeTestDb(): MemoryDB {
  * - maxPasswordLength: 128
  * - emailAndPassword enabled, email verification not required
  *
- * Uses better-auth's default password hasher (not the custom PBKDF2 hasher
+ * Uses better-auth's default password hasher (not the custom Argon2id hasher
  * from domain/services/passwordHasher) to keep the test self-contained.
  *
  * @param db - The MemoryDB instance to use for this auth instance.

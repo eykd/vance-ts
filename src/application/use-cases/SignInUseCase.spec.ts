@@ -54,13 +54,16 @@ function makeRateLimiterMock(): {
 
 describe('SignInUseCase', () => {
   describe('DUMMY_HASH', () => {
-    it('is a valid pbkdf2 format with 600000 iterations, 32-char salt, 64-char derived key', () => {
-      expect(SignInUseCase.DUMMY_HASH).toMatch(/^pbkdf2\$600000\$[0-9a-f]{32}\$[0-9a-f]{64}$/);
+    it('is a valid argon2id format with OWASP parameters, 32-char salt, 64-char derived key', () => {
+      expect(SignInUseCase.DUMMY_HASH).toMatch(
+        /^argon2id\$19456\$2\$1\$[0-9a-f]{32}\$[0-9a-f]{64}$/
+      );
     });
 
-    it('is not the previously hardcoded value (generated at startup with random salt)', () => {
+    it('is not a fixed constant (generated at startup with random salt)', () => {
+      // The value is generated with crypto.getRandomValues — it will never be this fixed string
       expect(SignInUseCase.DUMMY_HASH).not.toBe(
-        'pbkdf2$600000$d4e2f8056a3b7c91d4e2f8056a3b7c91$5f3a9b7c1e4d2a8f6b0c5e9d3a7f2b1e4c8d0a6f9e3c7b5a1f4e8d2c6a0f4e98'
+        'argon2id$19456$2$1$00000000000000000000000000000000$0000000000000000000000000000000000000000000000000000000000000000'
       );
     });
   });
