@@ -15,11 +15,14 @@
 import type { AuthService } from '../application/ports/AuthService';
 import type { RateLimiter } from '../application/ports/RateLimiter';
 import { SignInUseCase } from '../application/use-cases/SignInUseCase';
+import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
+import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
 import { getAuth, resetAuth } from '../infrastructure/auth';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
 import type { Env } from '../infrastructure/env';
 import { KvRateLimiter } from '../infrastructure/KvRateLimiter';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
+import { createRequireAuth } from '../presentation/middleware/requireAuth';
 
 /**
  * Composition root that lazily wires auth dependencies.
@@ -43,6 +46,12 @@ export class ServiceFactory {
 
   /** Cached SignInUseCase. */
   private _signInUseCase: SignInUseCase | null = null;
+
+  /** Cached SignUpUseCase. */
+  private _signUpUseCase: SignUpUseCase | null = null;
+
+  /** Cached SignOutUseCase. */
+  private _signOutUseCase: SignOutUseCase | null = null;
 
   /** Cached AuthPageHandlers. */
   private _authPageHandlers: AuthPageHandlers | null = null;
@@ -85,6 +94,44 @@ export class ServiceFactory {
   get signInUseCase(): SignInUseCase {
     this._signInUseCase ??= new SignInUseCase(this._authServiceInstance, this._rateLimiterInstance);
     return this._signInUseCase;
+  }
+
+  /**
+   * The sign-up use case orchestrator.
+   *
+   * @returns The lazily-initialised SignUpUseCase instance.
+   */
+  get signUpUseCase(): SignUpUseCase {
+    this._signUpUseCase ??= new SignUpUseCase(
+      this._authServiceInstance,
+      this._rateLimiterInstance
+    );
+    return this._signUpUseCase;
+  }
+
+  /**
+   * The sign-out use case orchestrator.
+   *
+   * @returns The lazily-initialised SignOutUseCase instance.
+   */
+  get signOutUseCase(): SignOutUseCase {
+    this._signOutUseCase ??= new SignOutUseCase(this._authServiceInstance);
+    return this._signOutUseCase;
+  }
+
+  /**
+   * Hono middleware that guards routes behind session authentication.
+   *
+   * Pre-injects the AuthService and BETTER_AUTH_SECRET so that `worker.ts`
+   * only needs: `app.use('/app/*', (c, next) => factory.requireAuthMiddleware(c, next))`.
+   *
+   * Returns a fresh function on each access; middleware functions are
+   * lightweight and do not need to be cached.
+   *
+   * @returns A Hono middleware function created by {@link createRequireAuth}.
+   */
+  get requireAuthMiddleware(): ReturnType<typeof createRequireAuth> {
+    return createRequireAuth(this._authServiceInstance, this.env.BETTER_AUTH_SECRET);
   }
 
   /**

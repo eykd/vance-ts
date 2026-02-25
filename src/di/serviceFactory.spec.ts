@@ -12,7 +12,10 @@ const mocks = vi.hoisted(() => ({
   BetterAuthService: vi.fn(),
   KvRateLimiter: vi.fn(),
   SignInUseCase: vi.fn(),
+  SignUpUseCase: vi.fn(),
+  SignOutUseCase: vi.fn(),
   AuthPageHandlers: vi.fn(),
+  createRequireAuth: vi.fn(),
   authInstanceHandler: vi.fn(),
 }));
 
@@ -33,8 +36,20 @@ vi.mock('../application/use-cases/SignInUseCase', () => ({
   SignInUseCase: mocks.SignInUseCase,
 }));
 
+vi.mock('../application/use-cases/SignUpUseCase', () => ({
+  SignUpUseCase: mocks.SignUpUseCase,
+}));
+
+vi.mock('../application/use-cases/SignOutUseCase', () => ({
+  SignOutUseCase: mocks.SignOutUseCase,
+}));
+
 vi.mock('../presentation/handlers/AuthPageHandlers', () => ({
   AuthPageHandlers: mocks.AuthPageHandlers,
+}));
+
+vi.mock('../presentation/middleware/requireAuth', () => ({
+  createRequireAuth: mocks.createRequireAuth,
 }));
 
 /**
@@ -212,6 +227,73 @@ describe('ServiceFactory', () => {
       const second = factory.signInUseCase;
       expect(first).toBe(second);
       expect(mocks.SignInUseCase).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('signUpUseCase', () => {
+    it('returns a SignUpUseCase instance', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.SignUpUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      expect(factory.signUpUseCase).toBe(mockUseCase);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.SignUpUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.signUpUseCase;
+      const second = factory.signUpUseCase;
+      expect(first).toBe(second);
+      expect(mocks.SignUpUseCase).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('signOutUseCase', () => {
+    it('returns a SignOutUseCase instance', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.SignOutUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      expect(factory.signOutUseCase).toBe(mockUseCase);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.SignOutUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.signOutUseCase;
+      const second = factory.signOutUseCase;
+      expect(first).toBe(second);
+      expect(mocks.SignOutUseCase).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('requireAuthMiddleware', () => {
+    it('returns the result of createRequireAuth pre-injected with authService and secret', () => {
+      const mockMiddleware = vi.fn();
+      mocks.createRequireAuth.mockReturnValue(mockMiddleware);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const middleware = factory.requireAuthMiddleware;
+      expect(middleware).toBe(mockMiddleware);
+      expect(mocks.createRequireAuth).toHaveBeenCalledWith(
+        expect.anything(), // authService instance
+        (env as { BETTER_AUTH_SECRET: string }).BETTER_AUTH_SECRET
+      );
     });
   });
 });
