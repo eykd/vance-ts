@@ -295,5 +295,18 @@ describe('ServiceFactory', () => {
         (env as { BETTER_AUTH_SECRET: string }).BETTER_AUTH_SECRET
       );
     });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockMiddleware = vi.fn();
+      mocks.createRequireAuth.mockReturnValue(mockMiddleware);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.requireAuthMiddleware;
+      const second = factory.requireAuthMiddleware;
+      expect(first).toBe(second);
+      expect(mocks.createRequireAuth).toHaveBeenCalledTimes(1);
+    });
   });
 });

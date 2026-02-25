@@ -56,6 +56,9 @@ export class ServiceFactory {
   /** Cached AuthPageHandlers. */
   private _authPageHandlers: AuthPageHandlers | null = null;
 
+  /** Cached requireAuth middleware. */
+  private _requireAuthMiddleware: ReturnType<typeof createRequireAuth> | null = null;
+
   /**
    * Creates a new ServiceFactory and initialises the better-auth instance.
    *
@@ -122,13 +125,17 @@ export class ServiceFactory {
    * Pre-injects the AuthService and BETTER_AUTH_SECRET so that `worker.ts`
    * only needs: `app.use('/app/*', (c, next) => factory.requireAuthMiddleware(c, next))`.
    *
-   * Returns a fresh function on each access; middleware functions are
-   * lightweight and do not need to be cached.
+   * Lazily created and cached on first access (same pattern as other singletons
+   * in this factory) to avoid re-allocating the closure on every request.
    *
    * @returns A Hono middleware function created by {@link createRequireAuth}.
    */
   get requireAuthMiddleware(): ReturnType<typeof createRequireAuth> {
-    return createRequireAuth(this._authServiceInstance, this.env.BETTER_AUTH_SECRET);
+    this._requireAuthMiddleware ??= createRequireAuth(
+      this._authServiceInstance,
+      this.env.BETTER_AUTH_SECRET
+    );
+    return this._requireAuthMiddleware;
   }
 
   /**
