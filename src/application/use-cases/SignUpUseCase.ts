@@ -72,10 +72,10 @@ export class SignUpUseCase {
    * @param _request - Registration details and client IP address.
    * @returns A typed result; never throws.
    */
-  async execute(_request: SignUpRequest): Promise<SignUpResult> {
-    // Stub — implementation in tb-ltk.6.9.2
+  execute(_request: SignUpRequest): Promise<SignUpResult> {
+    // Stub — implementation in tb-ltk.6.9.2 (fields used in real implementation)
     void this.authService;
     void this.rateLimiter;
-    return { ok: false, kind: 'service_error' };
+    return Promise.resolve({ ok: false, kind: 'service_error' as const });
   }
 }

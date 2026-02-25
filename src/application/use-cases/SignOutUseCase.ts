@@ -55,9 +55,9 @@ export class SignOutUseCase {
    * @param _request - Sign-out parameters including the session cookie.
    * @returns A typed result; never throws.
    */
-  async execute(_request: SignOutRequest): Promise<SignOutResult> {
-    // Stub — implementation in tb-ltk.6.11.1
+  execute(_request: SignOutRequest): Promise<SignOutResult> {
+    // Stub — implementation in tb-ltk.6.11.1 (field used in real implementation)
     void this.authService;
-    return { ok: false, kind: 'service_error' };
+    return Promise.resolve({ ok: false, kind: 'service_error' as const });
   }
 }

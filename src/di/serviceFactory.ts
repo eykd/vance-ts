@@ -102,10 +102,7 @@ export class ServiceFactory {
    * @returns The lazily-initialised SignUpUseCase instance.
    */
   get signUpUseCase(): SignUpUseCase {
-    this._signUpUseCase ??= new SignUpUseCase(
-      this._authServiceInstance,
-      this._rateLimiterInstance
-    );
+    this._signUpUseCase ??= new SignUpUseCase(this._authServiceInstance, this._rateLimiterInstance);
     return this._signUpUseCase;
   }
 
