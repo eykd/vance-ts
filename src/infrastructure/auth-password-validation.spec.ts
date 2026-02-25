@@ -101,4 +101,41 @@ describe('POST /api/auth/sign-up/email: password validation at the API boundary'
     expect(response.ok).toBe(false);
     expect(response.status).toBe(400);
   });
+
+  /**
+   * Verifies the maxPasswordLength:128 constraint is enforced by better-auth.
+   *
+   * A password of 129 characters exceeds the configured maximum and must be
+   * rejected with HTTP 400 before any database access occurs.
+   */
+  it('rejects a 129-character password with 400: it exceeds maxPasswordLength of 128', async () => {
+    const auth = makeTestAuth(makeTestDb());
+    const tooLongPassword = 'a'.repeat(129);
+
+    const response = await auth.api.signUpEmail({
+      body: { email: 'user@example.com', password: tooLongPassword, name: 'User' },
+      asResponse: true,
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.status).toBe(400);
+  });
+
+  /**
+   * Happy-path: a password that satisfies both length constraints is accepted.
+   *
+   * 'ValidPassw0rd!' is 14 characters — above minPasswordLength:12 and well
+   * below maxPasswordLength:128. better-auth must accept it with HTTP 200.
+   */
+  it('accepts a valid password with 200: 14 characters satisfies both length constraints', async () => {
+    const auth = makeTestAuth(makeTestDb());
+
+    const response = await auth.api.signUpEmail({
+      body: { email: 'user@example.com', password: 'ValidPassw0rd!', name: 'User' },
+      asResponse: true,
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.status).toBe(200);
+  });
 });
