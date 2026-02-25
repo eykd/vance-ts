@@ -13,6 +13,15 @@ const mocks = vi.hoisted(() => ({
   drizzle: vi.fn(() => ({ _type: 'drizzle-db' })),
 }));
 
+/**
+ * Returns the config object passed to the first `betterAuth()` call.
+ *
+ * @returns The betterAuth configuration record.
+ */
+function capturedBetterAuthConfig(): Record<string, unknown> {
+  return mocks.betterAuth.mock.calls[0]?.[0] as Record<string, unknown>;
+}
+
 vi.mock('better-auth', () => ({
   betterAuth: mocks.betterAuth,
 }));
@@ -72,6 +81,12 @@ describe('getAuth', () => {
       expect(() => getAuth(env)).toThrow('BETTER_AUTH_SECRET must be at least 32 characters');
     });
 
+    it('throws a descriptive error when BETTER_AUTH_SECRET is undefined (missing binding)', () => {
+      const env = makeEnv({ BETTER_AUTH_SECRET: undefined as unknown as string });
+
+      expect(() => getAuth(env)).toThrow('BETTER_AUTH_SECRET must be at least 32 characters');
+    });
+
     it('does not throw when BETTER_AUTH_SECRET is exactly 32 characters', () => {
       const env = makeEnv({ BETTER_AUTH_SECRET: 'a'.repeat(32) });
 
@@ -102,7 +117,7 @@ describe('getAuth', () => {
 
       getAuth(env);
 
-      const config = mocks.betterAuth.mock.calls[0]?.[0] as Record<string, unknown>;
+      const config = capturedBetterAuthConfig();
       expect(config).toBeDefined();
       const emailAndPassword = config['emailAndPassword'] as Record<string, unknown>;
       expect(emailAndPassword['enabled']).toBe(true);
@@ -115,7 +130,7 @@ describe('getAuth', () => {
 
       getAuth(env);
 
-      const config = mocks.betterAuth.mock.calls[0]?.[0] as Record<string, unknown>;
+      const config = capturedBetterAuthConfig();
       const session = config['session'] as Record<string, unknown>;
       expect(session['expiresIn']).toBe(2_592_000);
       expect(session['updateAge']).toBe(86_400);
@@ -126,7 +141,7 @@ describe('getAuth', () => {
 
       getAuth(env);
 
-      const config = mocks.betterAuth.mock.calls[0]?.[0] as Record<string, unknown>;
+      const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
       expect(advanced['useSecureCookies']).toBe(true);
     });
@@ -136,7 +151,7 @@ describe('getAuth', () => {
 
       getAuth(env);
 
-      const config = mocks.betterAuth.mock.calls[0]?.[0] as Record<string, unknown>;
+      const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
       expect(advanced['useSecureCookies']).toBe(false);
     });
@@ -146,7 +161,7 @@ describe('getAuth', () => {
 
       getAuth(env);
 
-      const config = mocks.betterAuth.mock.calls[0]?.[0] as Record<string, unknown>;
+      const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
       expect(advanced['cookiePrefix']).toBe('__Host-');
     });
@@ -156,7 +171,7 @@ describe('getAuth', () => {
 
       getAuth(env);
 
-      const config = mocks.betterAuth.mock.calls[0]?.[0] as Record<string, unknown>;
+      const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
       const ipAddress = advanced['ipAddress'] as Record<string, unknown>;
       expect(ipAddress['ipAddressHeaders']).toEqual(['CF-Connecting-IP']);
@@ -167,7 +182,7 @@ describe('getAuth', () => {
 
       getAuth(env);
 
-      const config = mocks.betterAuth.mock.calls[0]?.[0] as Record<string, unknown>;
+      const config = capturedBetterAuthConfig();
       const rateLimit = config['rateLimit'] as Record<string, unknown>;
       expect(rateLimit['enabled']).toBe(false);
     });
