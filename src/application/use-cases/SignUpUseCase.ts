@@ -8,6 +8,7 @@
  * @module
  */
 
+import { COMMON_PASSWORDS } from '../../domain/value-objects/common-passwords.js';
 import type { AuthService } from '../ports/AuthService.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import { REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
@@ -28,12 +29,12 @@ export type SignUpRequest = {
  * Result type returned by {@link SignUpUseCase.execute}.
  *
  * On success, the caller should redirect to sign-in. On failure, `kind`
- * identifies the error category:
- * - `email_taken` — an account with this email already exists
- * - `weak_password` — the password does not meet strength requirements (too short)
- * - `password_too_common` — the password is in a common-password blocklist
- * - `rate_limited` — IP has exceeded the allowed attempt window
- * - `service_error` — infrastructure failure (DB unavailable, etc.)
+ * identifies the error category and its origin:
+ * - `email_taken` — an account with this email already exists (from `AuthService.signUp`)
+ * - `weak_password` — password too short/long per auth config (from `AuthService.signUp`)
+ * - `password_too_common` — password is in the OWASP blocklist (detected in this use case)
+ * - `rate_limited` — IP exceeded the allowed attempt window (`RateLimiter` or `AuthService`)
+ * - `service_error` — infrastructure failure, e.g. DB unavailable (`AuthService` or `RateLimiter`)
  */
 export type SignUpResult =
   | { ok: true }
@@ -53,9 +54,11 @@ export type SignUpResult =
  *
  * Flow:
  * 1. Check KV rate limiter for the client IP; reject with `rate_limited` if exceeded.
- * 2. Derive `name` from the email prefix (required by better-auth v1.4.x).
- * 3. Delegate to {@link AuthService.signUp}; adapter maps better-auth responses to types.
- * 4. Increment the KV counter on `email_taken` or `weak_password`; not on other failures.
+ * 2. Check the password against the common-password blocklist; reject with
+ * `password_too_common` if found (better-auth v1.4.x provides no validate hook).
+ * 3. Derive `name` from the email prefix (required by better-auth v1.4.x).
+ * 4. Delegate to {@link AuthService.signUp}; adapter maps better-auth responses to types.
+ * 5. Increment the KV counter on `email_taken` or `weak_password`; not on other failures.
  *
  * @example
  * ```typescript
@@ -97,6 +100,10 @@ export class SignUpUseCase {
       const rateCheck = await this.rateLimiter.check(key);
       if (!rateCheck.allowed) {
         return { ok: false, kind: 'rate_limited', retryAfter: rateCheck.retryAfter };
+      }
+
+      if (COMMON_PASSWORDS.has(request.password.toLowerCase())) {
+        return { ok: false, kind: 'password_too_common' };
       }
 
       const name = request.email.split('@')[0] ?? request.email;

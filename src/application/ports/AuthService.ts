@@ -41,6 +41,16 @@ export interface AuthService {
   /**
    * Registers a new user account.
    *
+   * **Result kind origins** (for implementors and callers):
+   * - `email_taken` — `BetterAuthService`: better-auth HTTP 422.
+   * - `weak_password` — `BetterAuthService`: better-auth HTTP 400 (password too short/long).
+   * - `rate_limited` — `BetterAuthService`: better-auth HTTP 429 (not KV rate limiting).
+   * - `service_error` — `BetterAuthService`: non-2xx/400/422/429 response or thrown exception.
+   *
+   * Note: `password_too_common` is NOT produced by this port — it is detected in
+   * `SignUpUseCase` before calling this method, because better-auth v1.4.x provides
+   * no password validation hook at registration time.
+   *
    * @param params - Registration details and client IP for rate limiting.
    * @param params.email - The user's email address.
    * @param params.password - The user's plaintext password.

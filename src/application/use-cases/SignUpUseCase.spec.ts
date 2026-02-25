@@ -148,15 +148,16 @@ describe('SignUpUseCase', () => {
       }
     });
 
-    it('returns ok: false kind: password_too_common when authService returns password_too_common', async () => {
-      authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'password_too_common' });
-
-      const result = await useCase.execute(defaultRequest);
+    it('returns ok: false kind: password_too_common when password is in the common-password blocklist', async () => {
+      // 'password1234' is in COMMON_PASSWORDS and is 12 chars (meets auth length minimum).
+      // The use case must short-circuit before calling authService.signUp.
+      const result = await useCase.execute({ ...defaultRequest, password: 'password1234' });
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.kind).toBe('password_too_common');
       }
+      expect(authServiceMock.signUp).not.toHaveBeenCalled();
     });
 
     it('returns ok: false kind: service_error when authService.signUp throws', async () => {
@@ -220,9 +221,7 @@ describe('SignUpUseCase', () => {
     });
 
     it('does not increment rate limiter on password_too_common', async () => {
-      authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'password_too_common' });
-
-      await useCase.execute(defaultRequest);
+      await useCase.execute({ ...defaultRequest, password: 'password1234' });
 
       expect(rateLimiterMock.increment).not.toHaveBeenCalled();
     });
