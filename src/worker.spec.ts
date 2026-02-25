@@ -362,6 +362,23 @@ describe('Worker', () => {
     });
   });
 
+  describe('OAuth callback routing (US-5 extensibility)', () => {
+    it('routes GET /api/auth/callback/:provider to authHandler via the /api/auth/* wildcard (no dedicated route needed)', async () => {
+      const env = mockEnv();
+      const callbackRedirect = new Response(null, {
+        status: 302,
+        headers: { Location: '/app' },
+      });
+      mocks.authHandlerFn.mockResolvedValue(callbackRedirect);
+
+      const req = new Request('https://example.com/api/auth/callback/google');
+      const res = await app.fetch(req, env);
+
+      expect(mocks.authHandlerFn).toHaveBeenCalledWith(req);
+      expect(res.status).toBe(302);
+    });
+  });
+
   describe('POST /api/auth/*', () => {
     it('delegates POST /api/auth/sign-in/email to authHandler', async () => {
       const env = mockEnv();
