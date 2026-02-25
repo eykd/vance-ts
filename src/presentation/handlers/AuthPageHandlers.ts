@@ -68,6 +68,8 @@ export class AuthPageHandlers {
    * Generates a fresh CSRF token, sets Content-Type, Cache-Control, the CSRF
    * cookie, and all security headers. Returns both the Headers object and the
    * raw token so callers can embed it in the rendered form.
+   *
+   * @returns An object containing the populated Headers and the raw CSRF token string.
    */
   private makeFreshAuthHeaders(): { headers: Headers; csrfToken: string } {
     const csrfToken = generateCsrfToken();
@@ -85,10 +87,11 @@ export class AuthPageHandlers {
    * Checks Content-Type, enforces the body-size limit, and verifies the
    * double-submit CSRF token. Returns the parsed URLSearchParams on success or
    * an early-exit Response (415 / 413 / 403) on any validation failure.
+   *
+   * @param request - The incoming HTTP request to validate and parse.
+   * @returns The parsed URLSearchParams on success, or an early-exit Response on failure.
    */
-  private async parseValidatedAuthForm(
-    request: Request
-  ): Promise<URLSearchParams | Response> {
+  private async parseValidatedAuthForm(request: Request): Promise<URLSearchParams | Response> {
     const contentType = request.headers.get('Content-Type') ?? '';
     if (!contentType.includes('application/x-www-form-urlencoded')) {
       return new Response('Unsupported Media Type', { status: 415 });
@@ -110,7 +113,12 @@ export class AuthPageHandlers {
     return form;
   }
 
-  /** Builds a 429 Too Many Requests response with an optional Retry-After header. */
+  /**
+   * Builds a 429 Too Many Requests response with an optional Retry-After header.
+   *
+   * @param retryAfter - Optional seconds until the client may retry.
+   * @returns A 429 Response with an optional Retry-After header.
+   */
   private static buildRateLimitedResponse(retryAfter?: number): Response {
     const headers = new Headers();
     if (retryAfter !== undefined) {

@@ -2,6 +2,7 @@ import { Hono } from 'hono/tiny';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthService } from '../../application/ports/AuthService.js';
+
 import { createRequireAuth } from './requireAuth.js';
 
 /**
@@ -45,10 +46,7 @@ describe('createRequireAuth', () => {
    */
   function makeTestApp(): Hono {
     const app = new Hono();
-    const middleware = createRequireAuth(
-      authServiceMock as unknown as AuthService,
-      TEST_SECRET
-    );
+    const middleware = createRequireAuth(authServiceMock as unknown as AuthService, TEST_SECRET);
     app.use('*', middleware);
     app.get('/protected', (c) => c.text('protected content'));
     return app;
