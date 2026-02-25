@@ -263,7 +263,8 @@ export class AuthPageHandlers {
     }
 
     // weak_password, password_too_common, or service_error — re-render form with appropriate error
-    const errorMessage = SIGN_UP_ERROR_MESSAGES[result.kind];
+    const errorMessage =
+      SIGN_UP_ERROR_MESSAGES[result.kind] ?? 'An error occurred. Please try again.';
 
     const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
     const body = registerPage({ csrfToken, email, error: errorMessage });

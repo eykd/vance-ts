@@ -866,6 +866,22 @@ describe('AuthPageHandlers', () => {
       });
     });
 
+    describe('unrecognised error kind (future-proofing)', () => {
+      it('falls back to a generic error message when result.kind is not in the error message map', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue(
+          // Simulates a future kind added to SignUpResult without updating the handler
+          { ok: false, kind: 'unrecognised_future_kind' } as unknown as {
+            ok: false;
+            kind: 'service_error';
+          }
+        );
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('An error occurred. Please try again.');
+      });
+    });
+
     describe('email normalization', () => {
       beforeEach(() => {
         signUpUseCaseMock.execute.mockResolvedValue({ ok: true });
