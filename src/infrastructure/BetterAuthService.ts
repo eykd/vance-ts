@@ -82,7 +82,7 @@ export class BetterAuthService implements AuthService {
 
       if (response.ok) {
         const sessionCookie = response.headers.get('set-cookie');
-        if (!sessionCookie) {
+        if (sessionCookie === null || sessionCookie === '') {
           return { ok: false, kind: 'service_error' };
         }
         return { ok: true, sessionCookie };
@@ -188,7 +188,7 @@ export class BetterAuthService implements AuthService {
 
       if (response.ok) {
         const clearCookieHeader = response.headers.get('set-cookie');
-        if (!clearCookieHeader) {
+        if (clearCookieHeader === null || clearCookieHeader === '') {
           return { ok: false, kind: 'service_error' };
         }
         return { ok: true, clearCookieHeader };
