@@ -24,7 +24,7 @@ describe('buildCspHeaderValue', () => {
     expect(scriptDirective).toBe("script-src 'self'");
   });
 
-  it("includes style-src 'self' 'unsafe-inline' for Alpine.js compatibility", () => {
+  it("includes style-src 'self' 'unsafe-inline': accepted trade-off for Alpine.js x-show (nonces/hashes cannot replace this; see securityHeaders.ts for full rationale)", () => {
     expect(csp).toContain("style-src 'self' 'unsafe-inline'");
   });
 
