@@ -31,6 +31,11 @@ app.use('/auth/*', async (c, next): Promise<void> => {
   applySecurityHeaders(c.res.headers);
 });
 
+/** Middleware: require authentication for all app routes. */
+app.use('/app/*', async (c, next): Promise<Response | void> => {
+  return getServiceFactory(c.env).requireAuthMiddleware(c, next);
+});
+
 /** Health check endpoint. */
 app.get('/api/health', healthCheck);
 

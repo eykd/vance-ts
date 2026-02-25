@@ -13,6 +13,11 @@ const mocks = vi.hoisted(() => {
   const handlePostSignIn = vi.fn<[Request], Promise<Response>>();
   const handleGetSignUp = vi.fn<[Request], Response>();
   const handlePostSignUp = vi.fn<[Request], Promise<Response>>();
+  /** Default: passes through by calling next() (authenticated). */
+  const requireAuthMiddlewareFn = vi.fn(
+    async (_c: unknown, next: unknown): Promise<Response | void> =>
+      (next as () => Promise<void>)()
+  );
 
   const mockFactory = {
     authHandler: authHandlerFn,
@@ -22,6 +27,7 @@ const mocks = vi.hoisted(() => {
       handleGetSignUp,
       handlePostSignUp,
     },
+    requireAuthMiddleware: requireAuthMiddlewareFn,
   };
 
   return {
@@ -30,6 +36,7 @@ const mocks = vi.hoisted(() => {
     handlePostSignIn,
     handleGetSignUp,
     handlePostSignUp,
+    requireAuthMiddlewareFn,
     mockFactory,
   };
 });
@@ -347,6 +354,39 @@ describe('Worker', () => {
 
       expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
       expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    });
+  });
+
+  describe('/app/* requireAuth middleware', () => {
+    it('redirects unauthenticated requests to /auth/sign-in', async () => {
+      const env = mockEnv();
+      mocks.requireAuthMiddlewareFn.mockImplementationOnce(
+        (): Promise<Response> =>
+          Promise.resolve(
+            new Response(null, {
+              status: 302,
+              headers: { Location: '/auth/sign-in?redirectTo=%2Fapp%2Fdashboard' },
+            })
+          )
+      );
+
+      const req = new Request('https://example.com/app/dashboard');
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(302);
+      expect(res.headers.get('Location')).toBe(
+        '/auth/sign-in?redirectTo=%2Fapp%2Fdashboard'
+      );
+    });
+
+    it('passes through authenticated requests to the next handler', async () => {
+      const assetResponse = new Response('<html>app</html>', { status: 200 });
+      const env = mockEnv(assetResponse);
+
+      const req = new Request('https://example.com/app/dashboard');
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(200);
     });
   });
 });
