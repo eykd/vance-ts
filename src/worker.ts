@@ -1,3 +1,4 @@
+import type { Context } from 'hono';
 import { Hono } from 'hono/tiny';
 
 import { getServiceFactory } from './di/serviceFactory';
@@ -33,7 +34,7 @@ app.use('/auth/*', async (c, next): Promise<void> => {
 
 /** Middleware: require authentication for all app routes. */
 app.use('/app/*', async (c, next): Promise<Response | void> => {
-  return getServiceFactory(c.env).requireAuthMiddleware(c, next);
+  return getServiceFactory(c.env).requireAuthMiddleware(c as Context<AppEnv>, next);
 });
 
 /** Health check endpoint. */

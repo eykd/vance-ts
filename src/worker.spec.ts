@@ -15,8 +15,7 @@ const mocks = vi.hoisted(() => {
   const handlePostSignUp = vi.fn<[Request], Promise<Response>>();
   /** Default: passes through by calling next() (authenticated). */
   const requireAuthMiddlewareFn = vi.fn(
-    async (_c: unknown, next: unknown): Promise<Response | void> =>
-      (next as () => Promise<void>)()
+    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
   );
 
   const mockFactory = {
@@ -374,9 +373,7 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(302);
-      expect(res.headers.get('Location')).toBe(
-        '/auth/sign-in?redirectTo=%2Fapp%2Fdashboard'
-      );
+      expect(res.headers.get('Location')).toBe('/auth/sign-in?redirectTo=%2Fapp%2Fdashboard');
     });
 
     it('passes through authenticated requests to the next handler', async () => {
