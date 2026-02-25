@@ -1,4 +1,4 @@
-import type { AuthSession, AuthUser } from '../domain/entities/auth';
+import type { AuthSessionDto, AuthUserDto } from '../application/ports/AuthService';
 import type { Env } from '../shared/env';
 
 /**
@@ -15,10 +15,10 @@ export interface AppEnv {
   /** Per-request variables set by Hono middleware. */
   Variables: {
     /** The authenticated user, populated by requireAuth middleware. */
-    user: AuthUser;
+    user: AuthUserDto;
 
     /** The active session, populated by requireAuth middleware. */
-    session: AuthSession;
+    session: AuthSessionDto;
 
     /** Session-bound CSRF token derived via HMAC-SHA256, set by requireAuth. */
     csrfToken: string;

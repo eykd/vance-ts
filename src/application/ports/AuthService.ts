@@ -8,13 +8,43 @@
  * @module
  */
 
-import type { AuthSession, AuthUser } from '../../domain/entities/auth.js';
+/**
+ * Data Transfer Object representing an authenticated user at the application boundary.
+ *
+ * Presentation and application layers must use this type — never the domain
+ * entity — to preserve Clean Architecture layer boundaries.
+ */
+export interface AuthUserDto {
+  readonly id: string;
+  readonly email: string;
+  readonly name: string;
+  readonly emailVerified: boolean;
+  /** ISO 8601 UTC timestamp of account creation. */
+  readonly createdAt: string;
+}
+
+/**
+ * Data Transfer Object representing an active user session at the application boundary.
+ *
+ * Presentation and application layers must use this type — never the domain
+ * entity — to preserve Clean Architecture layer boundaries.
+ */
+export interface AuthSessionDto {
+  readonly id: string;
+  /** Session token stored in the cookie; used for CSRF derivation. */
+  readonly token: string;
+  readonly userId: string;
+  /** ISO 8601 UTC timestamp when the session expires. */
+  readonly expiresAt: string;
+  /** ISO 8601 UTC timestamp when the session was created. */
+  readonly createdAt: string;
+}
 
 /**
  * Port interface for email/password authentication and session management.
  *
  * The adapter (`BetterAuthService`) lives in `src/infrastructure/` and
- * translates better-auth responses into these domain result types.
+ * translates better-auth responses into these application DTO types.
  *
  * `Headers` is used in `getSession` because it is a Web Standard API
  * available at all runtime layers.
@@ -89,7 +119,7 @@ export interface AuthService {
    */
   getSession(params: {
     headers: Headers;
-  }): Promise<{ user: AuthUser; session: AuthSession } | null>;
+  }): Promise<{ user: AuthUserDto; session: AuthSessionDto } | null>;
 
   /**
    * Performs a constant-time dummy password verification for timing oracle defence (FR-007).
