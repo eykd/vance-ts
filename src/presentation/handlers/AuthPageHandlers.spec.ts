@@ -442,9 +442,9 @@ describe('AuthPageHandlers', () => {
         expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
       });
 
-      it('sets a fresh CSRF cookie on the error response', () => {
+      it('sets a fresh CSRF cookie on the error response', async () => {
         const req = makePostRequest();
-        const res = handlers.handleGetSignIn(req);
+        const res = await handlers.handlePostSignIn(req);
         const setCookie = res.headers.get('Set-Cookie') ?? '';
         expect(setCookie).toContain('__Secure-csrf=');
         expect(setCookie).toContain('Max-Age=3600');
