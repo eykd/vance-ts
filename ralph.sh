@@ -637,6 +637,19 @@ get_in_progress_tasks() {
         '[.[] | select(.id != $epic and .issue_type != "event")]'
 }
 
+# Check if a task has any active (open or in-progress) children
+task_has_active_children() {
+    local task_id="$1"
+    local open_count in_progress_count
+
+    open_count=$(npx bd list --status=open --parent "$task_id" --json 2>/dev/null | \
+        jq '[.[] | select(.issue_type != "event")] | length' 2>/dev/null || echo "0")
+    in_progress_count=$(npx bd list --status=in_progress --parent "$task_id" --json 2>/dev/null | \
+        jq '[.[] | select(.issue_type != "event")] | length' 2>/dev/null || echo "0")
+
+    [[ "$((open_count + in_progress_count))" -gt 0 ]]
+}
+
 # Check if there are in-progress tasks
 has_in_progress_tasks() {
     local epic_id="$1"
@@ -691,6 +704,54 @@ get_next_task() {
 
     ready_tasks=$(get_ready_tasks "$epic_id") || return 1
     echo "$ready_tasks" | jq -r '.[0] // empty'
+}
+
+# Find the deepest workable leaf task under the given parent.
+# Drills down through parent tasks that have active children, returning
+# only tasks that can be directly worked on (no pending child tasks).
+# Outputs the task JSON object on stdout. Returns 1 if no task found.
+find_leaf_task() {
+    local parent_id="$1"
+
+    # First: check for in-progress tasks at this level (prefer resuming)
+    local in_progress_json
+    in_progress_json=$(npx bd list --status=in_progress --parent "$parent_id" --json 2>/dev/null | \
+        jq --arg p "$parent_id" '[.[] | select(.id != $p and .issue_type != "event")]')
+
+    local count
+    count=$(echo "$in_progress_json" | jq 'length')
+    if [[ "$count" -gt 0 ]]; then
+        local task_id
+        task_id=$(echo "$in_progress_json" | jq -r '.[0].id')
+        if task_has_active_children "$task_id"; then
+            find_leaf_task "$task_id"
+            return
+        else
+            echo "$in_progress_json" | jq '.[0]'
+            return 0
+        fi
+    fi
+
+    # Second: check for ready tasks at this level
+    local ready_json
+    ready_json=$(npx bd ready --parent "$parent_id" --limit 1000 --json 2>/dev/null | \
+        jq --arg p "$parent_id" '[.[] | select(.id != $p and .issue_type != "event")]')
+
+    count=$(echo "$ready_json" | jq 'length')
+    if [[ "$count" -gt 0 ]]; then
+        local task_id
+        task_id=$(echo "$ready_json" | jq -r '.[0].id')
+        if task_has_active_children "$task_id"; then
+            find_leaf_task "$task_id"
+            return
+        else
+            echo "$ready_json" | jq '.[0]'
+            return 0
+        fi
+    fi
+
+    # No workable tasks found
+    return 1
 }
 
 # Get all open tasks for the epic (returns JSON array)
@@ -1593,45 +1654,44 @@ run_loop() {
 
         log_section "ITERATION $iteration/$MAX_ITERATIONS"
 
-        # Check for in-progress tasks first (resume interrupted work)
-        log DEBUG "Checking for in-progress tasks..."
-        if has_in_progress_tasks "$epic_id"; then
+        # Find the next leaf task to work on (drills down through parent tasks)
+        log DEBUG "Finding next workable leaf task..."
+        if ! next_task=$(find_leaf_task "$epic_id"); then
+            log DEBUG "No leaf tasks found. Checking for remaining open tasks..."
+            if has_open_tasks "$epic_id"; then
+                local open_tasks open_count
+                open_tasks=$(get_open_tasks "$epic_id")
+                open_count=$(echo "$open_tasks" | jq 'length')
+                log WARN "No ready tasks, but $open_count open task(s) remain (possibly P3 or blocked tasks)"
+                log_block "Remaining Open Tasks" "$(echo "$open_tasks" | jq -r '.[] | "\(.id): \(.title) [priority: \(.priority // "none")]"')"
+                log ERROR "Cannot complete epic with open tasks remaining"
+                echo "" >&2
+                echo "[ralph] ERROR: Epic has $open_count open task(s) that are not ready:" >&2
+                echo "$open_tasks" | jq -r '.[] | "  - \(.id): \(.title) [priority: \(.priority // "none"), status: \(.status)]"' >&2
+                echo "" >&2
+                echo "These tasks may be:" >&2
+                echo "  - Low priority (P3) tasks waiting to be started" >&2
+                echo "  - Tasks blocked by dependencies" >&2
+                echo "  - Tasks that need manual intervention" >&2
+                echo "" >&2
+                echo "Please review these tasks and either:" >&2
+                echo "  - Close them if they're no longer needed" >&2
+                echo "  - Unblock them and let ralph continue" >&2
+                echo "  - Complete them manually" >&2
+                return "$EXIT_FAILURE"
+            fi
+            log INFO "No more ready tasks and no open tasks. Feature complete!"
+            return "$EXIT_SUCCESS"
+        fi
+
+        # Determine resuming state from the leaf task's status
+        local leaf_status
+        leaf_status=$(echo "$next_task" | jq -r '.status // "open"')
+        if [[ "$leaf_status" == "in_progress" ]]; then
             is_resuming=true
-            next_task=$(get_in_progress_task "$epic_id")
             log INFO "Resuming interrupted task"
         else
-            # No in-progress tasks, check for ready tasks
             is_resuming=false
-            log DEBUG "Checking for ready tasks..."
-            if ! has_ready_tasks "$epic_id"; then
-                # No ready tasks, but check if there are still open tasks (e.g., P3 tasks)
-                log DEBUG "No ready tasks found. Checking for remaining open tasks..."
-                if has_open_tasks "$epic_id"; then
-                    local open_tasks open_count
-                    open_tasks=$(get_open_tasks "$epic_id")
-                    open_count=$(echo "$open_tasks" | jq 'length')
-                    log WARN "No ready tasks, but $open_count open task(s) remain (possibly P3 or blocked tasks)"
-                    log_block "Remaining Open Tasks" "$(echo "$open_tasks" | jq -r '.[] | "\(.id): \(.title) [priority: \(.priority // "none")]"')"
-                    log ERROR "Cannot complete epic with open tasks remaining"
-                    echo "" >&2
-                    echo "[ralph] ERROR: Epic has $open_count open task(s) that are not ready:" >&2
-                    echo "$open_tasks" | jq -r '.[] | "  - \(.id): \(.title) [priority: \(.priority // "none"), status: \(.status)]"' >&2
-                    echo "" >&2
-                    echo "These tasks may be:" >&2
-                    echo "  - Low priority (P3) tasks waiting to be started" >&2
-                    echo "  - Tasks blocked by dependencies" >&2
-                    echo "  - Tasks that need manual intervention" >&2
-                    echo "" >&2
-                    echo "Please review these tasks and either:" >&2
-                    echo "  - Close them if they're no longer needed" >&2
-                    echo "  - Unblock them and let ralph continue" >&2
-                    echo "  - Complete them manually" >&2
-                    return "$EXIT_FAILURE"
-                fi
-                log INFO "No more ready tasks and no open tasks. Feature complete!"
-                return "$EXIT_SUCCESS"
-            fi
-            next_task=$(get_next_task "$epic_id")
         fi
 
         # Extract task info for logging
