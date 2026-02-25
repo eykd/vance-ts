@@ -103,7 +103,8 @@ jobs:
 
             After generating the review, use `gh pr comment` to post the review as a comment on PR #${{ github.event.pull_request.number }}.
 
-            Start your comment with:
+            Start your comment with exactly this header (the HTML comment is invisible in rendered markdown and is used by automation — do not omit it):
+            <!-- reviewer: security -->
             ## Security Review
 
             Use the repository's CLAUDE.md for context on project standards.
@@ -184,7 +185,8 @@ jobs:
 
             After generating the review, use `gh pr comment` to post the review as a comment on PR #${{ github.event.pull_request.number }}.
 
-            Start your comment with:
+            Start your comment with exactly this header (the HTML comment is invisible in rendered markdown and is used by automation — do not omit it):
+            <!-- reviewer: architecture -->
             ## Architecture Review
 
             Use the repository's CLAUDE.md for context on project standards.
@@ -263,7 +265,8 @@ jobs:
 
             After generating the review, use `gh pr comment` to post the review as a comment on PR #${{ github.event.pull_request.number }}.
 
-            Start your comment with:
+            Start your comment with exactly this header (the HTML comment is invisible in rendered markdown and is used by automation — do not omit it):
+            <!-- reviewer: quality -->
             ## Code Quality Review
 
             Use the repository's CLAUDE.md for context on project standards.
