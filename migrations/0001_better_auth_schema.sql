@@ -21,6 +21,8 @@ CREATE TABLE `session` (
   PRIMARY KEY(`id`)
 );
 
+CREATE INDEX idx_session_userId ON session(userId);
+
 CREATE TABLE `account` (
   `id` text NOT NULL,
   `userId` text NOT NULL REFERENCES `user`(`id`) ON DELETE CASCADE,
