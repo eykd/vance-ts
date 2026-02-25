@@ -9,9 +9,29 @@
  */
 
 import { verifyPassword } from '../../domain/services/passwordHasher.js';
+import { toHex } from '../../shared/hex.js';
 import type { AuthService } from '../ports/AuthService.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import { SIGN_IN_WINDOW_SECONDS } from '../ports/RateLimiter.js';
+
+/**
+ * Generates a randomly-salted dummy PBKDF2 hash string at module load time.
+ *
+ * The hash is in `pbkdf2$<iterations>$<salt-hex>$<filler-hex>` format so
+ * that {@link verifyPassword} performs the full PBKDF2 computation against it,
+ * equalising response time for non-existent-email vs wrong-password paths.
+ *
+ * Using fresh random bytes for both salt and filler ensures the value differs
+ * on every Worker deployment, eliminating the timing-attack surface that a
+ * hardcoded public constant would expose.
+ *
+ * @returns A valid-format PBKDF2 hash string with a fresh random salt.
+ */
+function generateDummyHash(): string {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const filler = crypto.getRandomValues(new Uint8Array(32));
+  return `pbkdf2$600000$${toHex(salt)}$${toHex(filler)}`;
+}
 
 /**
  * Input DTO for the sign-in use case.
@@ -63,16 +83,18 @@ export type SignInResult =
  */
 export class SignInUseCase {
   /**
-   * Pre-computed PBKDF2 dummy hash for timing oracle defence (FR-007).
+   * Per-startup PBKDF2 dummy hash for timing oracle defence (FR-007).
    *
    * `verifyPassword(submittedPassword, DUMMY_HASH)` is called on every
    * non-rate-limited authentication failure so that the "email not found"
    * (~5 ms DB miss) code path takes the same wall-clock time as "email
    * found, wrong password" (~30 ms PBKDF2), preventing timing-based
    * email enumeration attacks.
+   *
+   * Generated once at module load with a fresh random salt — changes per
+   * deployment so the value is never observable in source code or binaries.
    */
-  static readonly DUMMY_HASH =
-    'pbkdf2$600000$d4e2f8056a3b7c91d4e2f8056a3b7c91$5f3a9b7c1e4d2a8f6b0c5e9d3a7f2b1e4c8d0a6f9e3c7b5a1f4e8d2c6a0f4e98';
+  static readonly DUMMY_HASH = generateDummyHash();
 
   /** Auth port interface, injected at construction time. */
   private readonly authService: AuthService;

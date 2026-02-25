@@ -57,6 +57,12 @@ describe('SignInUseCase', () => {
     it('is a valid pbkdf2 format with 600000 iterations, 32-char salt, 64-char derived key', () => {
       expect(SignInUseCase.DUMMY_HASH).toMatch(/^pbkdf2\$600000\$[0-9a-f]{32}\$[0-9a-f]{64}$/);
     });
+
+    it('is not the previously hardcoded value (generated at startup with random salt)', () => {
+      expect(SignInUseCase.DUMMY_HASH).not.toBe(
+        'pbkdf2$600000$d4e2f8056a3b7c91d4e2f8056a3b7c91$5f3a9b7c1e4d2a8f6b0c5e9d3a7f2b1e4c8d0a6f9e3c7b5a1f4e8d2c6a0f4e98'
+      );
+    });
   });
 
   let authServiceMock: ReturnType<typeof makeAuthServiceMock>;
