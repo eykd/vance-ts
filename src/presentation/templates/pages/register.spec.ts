@@ -50,8 +50,8 @@ describe('registerPage', () => {
       expect(result).not.toContain('id="register-error"');
     });
 
-    it('renders inputs with empty aria-describedby when no errors', () => {
-      expect(result).toContain('aria-describedby=""');
+    it('does not render aria-describedby when no errors', () => {
+      expect(result).not.toContain('aria-describedby');
     });
   });
 

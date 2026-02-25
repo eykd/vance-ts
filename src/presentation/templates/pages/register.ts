@@ -58,17 +58,19 @@ export function registerPage(props: RegisterPageProps): string {
         )
       : safe('');
 
-  // Compute aria-describedby for the email input.
+  // Compute aria-describedby for the email input (omit attribute when no IDs).
   const emailParts: string[] = [];
   if (props.error !== undefined) emailParts.push(GENERAL_ERROR_ID);
   if (emailFieldError !== undefined) emailParts.push(EMAIL_ERROR_ID);
-  const emailDescribedby = emailParts.join(' ');
+  const emailDescribedbyAttr =
+    emailParts.length > 0 ? safe(`aria-describedby="${emailParts.join(' ')}"`) : safe('');
 
-  // Compute aria-describedby for the password input.
+  // Compute aria-describedby for the password input (omit attribute when no IDs).
   const passwordParts: string[] = [];
   if (props.error !== undefined) passwordParts.push(GENERAL_ERROR_ID);
   if (passwordFieldError !== undefined) passwordParts.push(PASSWORD_ERROR_ID);
-  const passwordDescribedby = passwordParts.join(' ');
+  const passwordDescribedbyAttr =
+    passwordParts.length > 0 ? safe(`aria-describedby="${passwordParts.join(' ')}"`) : safe('');
 
   const content = html`
     <h1 class="card-title text-2xl font-bold mb-6">Create an Account</h1>
@@ -85,7 +87,7 @@ export function registerPage(props: RegisterPageProps): string {
           name="email"
           value="${props.email ?? ''}"
           autocomplete="email"
-          aria-describedby="${emailDescribedby}"
+          ${emailDescribedbyAttr}
           class="input input-bordered"
           required
         />
@@ -100,7 +102,7 @@ export function registerPage(props: RegisterPageProps): string {
           type="password"
           name="password"
           autocomplete="new-password"
-          aria-describedby="${passwordDescribedby}"
+          ${passwordDescribedbyAttr}
           class="input input-bordered"
           required
         />
