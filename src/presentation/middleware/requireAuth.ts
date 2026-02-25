@@ -12,7 +12,12 @@ import type { Context, Next } from 'hono';
 
 import type { AuthService } from '../../application/ports/AuthService.js';
 import type { AppEnv } from '../types.js';
-import { buildCsrfCookie, deriveCsrfToken } from '../utils/cookieBuilder.js';
+import {
+  buildCsrfCookie,
+  clearSessionCookie,
+  deriveCsrfToken,
+  hasSessionCookie,
+} from '../utils/cookieBuilder.js';
 
 /**
  * Creates a Hono middleware that guards routes behind session authentication.
@@ -47,6 +52,10 @@ export function createRequireAuth(
     if (session === null) {
       const url = new URL(c.req.url);
       const redirectTo = encodeURIComponent(url.pathname + url.search);
+      const cookieHeader = c.req.header('Cookie') ?? null;
+      if (hasSessionCookie(cookieHeader)) {
+        c.header('Set-Cookie', clearSessionCookie());
+      }
       return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
     }
 

@@ -103,6 +103,22 @@ describe('createRequireAuth', () => {
     expect(res.headers.get('Location')).toContain('/auth/sign-in');
   });
 
+  it('clears the session cookie when redirecting and a stale session cookie is present in the request', async () => {
+    authServiceMock.getSession.mockResolvedValue(null);
+
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: '__Host-better-auth.session_token=stale-token' },
+      })
+    );
+
+    expect(res.status).toBe(302);
+    const setCookie = res.headers.get('Set-Cookie') ?? '';
+    expect(setCookie).toContain('better-auth.session');
+    expect(setCookie).toContain('Max-Age=0');
+  });
+
   it('passes through to the next handler when session is valid (authenticated)', async () => {
     authServiceMock.getSession.mockResolvedValue({ user: TEST_USER, session: TEST_SESSION });
 

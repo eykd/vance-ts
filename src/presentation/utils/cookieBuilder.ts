@@ -1,15 +1,20 @@
 const CSRF_COOKIE_NAME = '__Secure-csrf';
 const CSRF_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Strict; Path=/auth';
 
+/** Converts a byte array to a lowercase hex string. */
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 /**
  * Generates a cryptographically random 256-bit CSRF token as a hex string.
  *
  * @returns A 64-character lowercase hex string
  */
 export function generateCsrfToken(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(32)))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  return toHex(crypto.getRandomValues(new Uint8Array(32)));
 }
 
 /**
@@ -32,9 +37,7 @@ export async function deriveCsrfToken(message: string, secret: string): Promise<
     ['sign']
   );
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
-  return Array.from(new Uint8Array(signature))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  return toHex(new Uint8Array(signature));
 }
 
 /**
@@ -54,6 +57,31 @@ export function buildCsrfCookie(token: string): string {
  */
 export function clearCsrfCookie(): string {
   return `${CSRF_COOKIE_NAME}=; ${CSRF_COOKIE_ATTRIBUTES}; Max-Age=0`;
+}
+
+const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
+const SESSION_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Lax; Path=/';
+
+/**
+ * Builds a Set-Cookie header value that clears the Better Auth session cookie.
+ *
+ * @returns A Set-Cookie header value string with Max-Age=0
+ */
+export function clearSessionCookie(): string {
+  return `${SESSION_COOKIE_NAME}=; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=0`;
+}
+
+/**
+ * Returns true when the Cookie request header contains a Better Auth session cookie.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @returns True if a session cookie is present
+ */
+export function hasSessionCookie(cookieHeader: string | null): boolean {
+  if (cookieHeader === null || cookieHeader === '') {
+    return false;
+  }
+  return cookieHeader.includes(`${SESSION_COOKIE_NAME}=`);
 }
 
 /**
