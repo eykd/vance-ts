@@ -19,8 +19,8 @@ const ALLOWED_FIRST_SEGMENTS = new Set(['', 'app', 'posts']);
  * Validation steps:
  * 1. Decode: decodeURIComponent(raw) — prevents URL-encoded bypass attempts
  * 2. Parse: new URL(decoded, 'http://localhost') — canonicalises the URL
- * 3. Origin check: reject any URL not resolving to the localhost origin (handles cross-origin
- *    and protocol-relative URLs such as //evil.com which resolve to http://evil.com)
+ * 3. Origin check: reject URLs not resolving to localhost origin (handles cross-origin URLs
+ * and protocol-relative URLs such as //evil.com which resolve to http://evil.com)
  * 4. Extract first segment: the path component between the first and second '/'
  * 5. Allowlist check: the first segment must be in ALLOWED_FIRST_SEGMENTS
  *
