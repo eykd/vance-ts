@@ -5,13 +5,12 @@
  * the {@link AuthService} port. Returns a typed result that callers use to
  * construct HTTP responses; never throws.
  *
- * NOTE: Stub implementation — full logic to be completed in tb-ltk.6.9.2.
- *
  * @module
  */
 
 import type { AuthService } from '../ports/AuthService.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
+import { REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
 /**
  * Input DTO for the sign-up use case.
@@ -46,7 +45,21 @@ export type SignUpResult =
 /**
  * Orchestrates email/password registration with IP rate limiting.
  *
- * Stub implementation — to be completed in tb-ltk.6.9.2.
+ * Flow:
+ * 1. Check KV rate limiter for the client IP; reject with `rate_limited` if exceeded.
+ * 2. Derive `name` from the email prefix (required by better-auth v1.4.x).
+ * 3. Delegate to {@link AuthService.signUp}; adapter maps better-auth responses to types.
+ * 4. Increment the KV counter on `email_taken` or `weak_password` to enforce the window.
+ *    Counter is not incremented on infrastructure errors, rate limits, or successes.
+ *
+ * @example
+ * ```typescript
+ * const useCase = new SignUpUseCase(authService, rateLimiter);
+ * const result = await useCase.execute({ email, password, ip });
+ * if (result.ok) {
+ *   return redirect('/auth/sign-in?registered=true');
+ * }
+ * ```
  */
 export class SignUpUseCase {
   /** Auth port interface, injected at construction time. */
@@ -69,13 +82,34 @@ export class SignUpUseCase {
   /**
    * Executes the sign-up flow.
    *
-   * @param _request - Registration details and client IP address.
+   * @param request - Registration details and client IP address.
    * @returns A typed result; never throws.
    */
-  execute(_request: SignUpRequest): Promise<SignUpResult> {
-    // Stub — implementation in tb-ltk.6.9.2 (fields used in real implementation)
-    void this.authService;
-    void this.rateLimiter;
-    return Promise.resolve({ ok: false, kind: 'service_error' as const });
+  async execute(request: SignUpRequest): Promise<SignUpResult> {
+    try {
+      const key = `ratelimit:register:${request.ip}`;
+
+      const rateCheck = await this.rateLimiter.check(key);
+      if (!rateCheck.allowed) {
+        return { ok: false, kind: 'rate_limited', retryAfter: rateCheck.retryAfter };
+      }
+
+      const name = request.email.split('@')[0] ?? request.email;
+
+      const result = await this.authService.signUp({
+        email: request.email,
+        password: request.password,
+        name,
+        ip: request.ip,
+      });
+
+      if (!result.ok && (result.kind === 'email_taken' || result.kind === 'weak_password')) {
+        await this.rateLimiter.increment(key, REGISTER_WINDOW_SECONDS);
+      }
+
+      return result;
+    } catch {
+      return { ok: false, kind: 'service_error' };
+    }
   }
 }
