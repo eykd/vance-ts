@@ -48,7 +48,8 @@ export function loginPage(props: LoginPageProps): string {
       ? safe(`<input type="hidden" name="redirectTo" value="${escapeHtml(props.redirectTo)}" />`)
       : safe('');
 
-  const ariaDescribedby = props.error !== undefined ? ERROR_ID : '';
+  const ariaDescribedby =
+    props.error !== undefined ? safe(`aria-describedby="${ERROR_ID}"`) : safe('');
 
   const content = html`
     <h1 class="card-title text-2xl font-bold mb-6">Sign In</h1>
@@ -66,7 +67,7 @@ export function loginPage(props: LoginPageProps): string {
           name="email"
           value="${props.email ?? ''}"
           autocomplete="email"
-          aria-describedby="${ariaDescribedby}"
+          ${ariaDescribedby}
           class="input input-bordered"
           required
         />
@@ -80,7 +81,7 @@ export function loginPage(props: LoginPageProps): string {
           type="password"
           name="password"
           autocomplete="current-password"
-          aria-describedby="${ariaDescribedby}"
+          ${ariaDescribedby}
           class="input input-bordered"
           required
         />

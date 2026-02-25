@@ -57,6 +57,10 @@ describe('loginPage', () => {
     it('does not render a registration success banner', () => {
       expect(result).not.toContain('alert-success');
     });
+
+    it('omits aria-describedby from the email input when no error is present', () => {
+      expect(result).not.toContain('aria-describedby');
+    });
   });
 
   describe('when error is provided', () => {
