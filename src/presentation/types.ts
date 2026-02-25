@@ -1,5 +1,5 @@
 import type { AuthSession, AuthUser } from '../domain/entities/auth';
-import type { Env } from '../infrastructure/env';
+import type { Env } from '../shared/env';
 
 /**
  * Hono environment type for this application.

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { Env } from '../shared/env';
+
 import { getAuth, resetAuth } from './auth';
-import type { Env } from './env';
 
 /**
  * Hoisted mock variables — must be hoisted so they are available in vi.mock()

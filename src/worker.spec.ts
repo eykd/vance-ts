@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Env } from './infrastructure/env';
+import type { Env } from './shared/env';
 import app from './worker';
 
 /**

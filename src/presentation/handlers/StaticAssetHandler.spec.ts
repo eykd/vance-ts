@@ -1,7 +1,7 @@
 import { Hono } from 'hono/tiny';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Env } from '../../infrastructure/env';
+import type { Env } from '../../shared/env';
 
 import { staticAssetFallthrough } from './StaticAssetHandler';
 

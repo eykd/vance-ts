@@ -19,10 +19,10 @@ import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
 import { getAuth, resetAuth } from '../infrastructure/auth';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
-import type { Env } from '../infrastructure/env';
 import { KvRateLimiter } from '../infrastructure/KvRateLimiter';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
+import type { Env } from '../shared/env';
 
 /**
  * Composition root that lazily wires auth dependencies.

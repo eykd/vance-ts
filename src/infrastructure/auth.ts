@@ -21,8 +21,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 
 import { hashPassword, verifyPassword } from '../domain/services/passwordHasher';
-
-import type { Env } from './env';
+import type { Env } from '../shared/env';
 
 /** Module-level singleton, lives for the lifetime of the Workers isolate. */
 let _auth: ReturnType<typeof betterAuth> | null = null;

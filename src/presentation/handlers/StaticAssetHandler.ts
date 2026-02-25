@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 
-import type { Env } from '../../infrastructure/env';
+import type { Env } from '../../shared/env';
 
 /**
  * Delegates the request to the ASSETS binding for static file serving.
