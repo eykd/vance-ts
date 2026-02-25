@@ -38,6 +38,8 @@ CREATE TABLE `account` (
   PRIMARY KEY(`id`)
 );
 
+CREATE INDEX idx_account_userId ON account(userId);
+
 CREATE TABLE `verification` (
   `id` text NOT NULL,
   `identifier` text NOT NULL,
