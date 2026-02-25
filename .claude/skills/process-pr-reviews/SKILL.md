@@ -123,16 +123,13 @@ ORIGINAL_BODY=<body from comment JSON>
 TASK_LIST="beads-xxx (Critical), beads-yyy (High)"  # collected from step 5
 TODAY=$(date -u +%Y-%m-%d)
 
-NEW_BODY="<!-- processed -->
-> ✅ **Processed** — Beads tasks created: ${TASK_LIST}
-> Run on: ${TODAY}
+# JSON-encode via jq to handle multi-line bodies and special characters safely
+NEW_BODY=$(printf '<!-- processed -->\n> ✅ **Processed** — Beads tasks created: %s\n> Run on: %s\n\n---\n\n%s' \
+  "${TASK_LIST}" "${TODAY}" "${ORIGINAL_BODY}" | jq -Rs .)
 
----
-
-${ORIGINAL_BODY}"
-
-gh api --method PATCH "/repos/${OWNER_REPO}/issues/comments/${COMMENT_ID}" \
-  -f body="${NEW_BODY}"
+printf '{"body":%s}' "${NEW_BODY}" | \
+  gh api --method PATCH "/repos/${OWNER_REPO}/issues/comments/${COMMENT_ID}" \
+    --input -
 ```
 
 ### 7. Print summary
