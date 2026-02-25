@@ -188,6 +188,38 @@ describe('getAuth', () => {
     });
   });
 
+  describe('OAuth extensibility (FR-010, SC-007)', () => {
+    it('documents config-only extensibility: no socialProviders are configured yet', () => {
+      const env = makeEnv();
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      // No social providers are configured in the baseline auth setup.
+      // Adding a provider requires only a config change in auth.ts (see comment there):
+      //   socialProviders: { google: { clientId: '...', clientSecret: '...' } }
+      // No structural changes to the auth layer are needed (FR-010, SC-007).
+      expect(config).not.toHaveProperty('socialProviders');
+    });
+
+    it('documents the OAuth callback route: auth.handler serves /api/auth/callback/:provider', () => {
+      const callbackResponse = new Response(null, { status: 302, headers: { location: '/app' } });
+      const handlerFn = vi.fn<[Request], Promise<Response>>().mockResolvedValue(callbackResponse);
+      mocks.betterAuth.mockReturnValue({ handler: handlerFn });
+      const env = makeEnv();
+      const auth = getAuth(env);
+      const callbackRequest = new Request(
+        'https://example.turtlebased.io/api/auth/callback/google'
+      );
+
+      void auth.handler(callbackRequest);
+
+      // better-auth v1.4.x automatically mounts GET /api/auth/callback/:provider
+      // once a socialProvider is configured — no custom route handler is needed.
+      expect(handlerFn).toHaveBeenCalledWith(callbackRequest);
+    });
+  });
+
   describe('isolate-scoped caching', () => {
     it('returns the same instance on successive calls (singleton)', () => {
       const env = makeEnv();

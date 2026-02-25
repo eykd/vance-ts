@@ -67,6 +67,19 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
     rateLimit: {
       enabled: false, // KV-backed rate limiter handles this; built-in is in-memory only
     },
+    // To add OAuth (e.g. Google sign-in), add a `socialProviders` block here
+    // and expose GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET bindings in wrangler.toml
+    // and env.ts. No structural changes to the auth layer are required (FR-010, SC-007):
+    //
+    //   socialProviders: {
+    //     google: {
+    //       clientId: env.GOOGLE_CLIENT_ID,
+    //       clientSecret: env.GOOGLE_CLIENT_SECRET,
+    //     },
+    //   },
+    //
+    // better-auth v1.4.x automatically mounts GET /api/auth/callback/google
+    // (and the corresponding redirect endpoint) once a provider is configured here.
   });
 
   return _auth;
