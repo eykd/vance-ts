@@ -751,8 +751,10 @@ find_leaf_task() {
     fi
 
     # Safety net: orphaned prerequisites not in the epic hierarchy
-    # Only fires at the top level (parent_id == EPIC_ID) to avoid infinite recursion
-    if [[ "$parent_id" == "$EPIC_ID" ]]; then
+    # Only fires at the top level (parent_id == EPIC_ID) to avoid infinite recursion,
+    # and only when the epic still has open tasks (meaning something is blocking progress,
+    # not that the epic is simply complete).
+    if [[ "$parent_id" == "$EPIC_ID" ]] && has_open_tasks "$EPIC_ID"; then
         local orphan_ready
         orphan_ready=$(npx bd ready --json 2>/dev/null | \
             jq --arg p "$EPIC_ID" \
