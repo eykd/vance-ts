@@ -750,6 +750,22 @@ find_leaf_task() {
         fi
     fi
 
+    # Safety net: orphaned prerequisites not in the epic hierarchy
+    # Only fires at the top level (parent_id == EPIC_ID) to avoid infinite recursion
+    if [[ "$parent_id" == "$EPIC_ID" ]]; then
+        local orphan_ready
+        orphan_ready=$(npx bd ready --json 2>/dev/null | \
+            jq --arg p "$EPIC_ID" \
+               '[.[] | select(.id != $p and .issue_type != "event" and ((.priority // 4) | tonumber) <= 2)]')
+        local orphan_count
+        orphan_count=$(echo "$orphan_ready" | jq 'length')
+        if [[ "$orphan_count" -gt 0 ]]; then
+            log_warn "Found $orphan_count globally-ready task(s) outside epic — likely orphaned prerequisites"
+            echo "$orphan_ready" | jq '.[0]'
+            return 0
+        fi
+    fi
+
     # No workable tasks found
     return 1
 }
