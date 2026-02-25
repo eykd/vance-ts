@@ -13,9 +13,31 @@ import type { betterAuth } from 'better-auth';
 
 import type { AuthService } from '../application/ports/AuthService.js';
 import type { AuthSession, AuthUser } from '../domain/entities/auth.js';
+import { verifyPassword } from '../domain/services/passwordHasher.js';
+import { toHex } from '../shared/hex.js';
 
 /** Type alias for the better-auth instance returned by `getAuth(env)`. */
 type AuthInstance = ReturnType<typeof betterAuth>;
+
+/**
+ * Generates a randomly-salted dummy Argon2id hash string at module load time.
+ *
+ * The hash is in `argon2id$<memory_kb>$<time_cost>$<parallelism>$<salt-hex>$<filler-hex>`
+ * format so that {@link verifyPassword} performs a full Argon2id computation
+ * against it, equalising response time for non-existent-email vs wrong-password
+ * paths (timing oracle defence, FR-007).
+ *
+ * Using fresh random bytes for both salt and filler ensures the value differs
+ * on every Worker deployment, eliminating the timing-attack surface that a
+ * hardcoded public constant would expose.
+ *
+ * @returns A valid-format Argon2id hash string with a fresh random salt.
+ */
+function generateDummyHash(): string {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const filler = crypto.getRandomValues(new Uint8Array(32));
+  return `argon2id$19456$2$1$${toHex(salt)}$${toHex(filler)}`;
+}
 
 /**
  * BetterAuth adapter for the {@link AuthService} port.
@@ -36,6 +58,20 @@ type AuthInstance = ReturnType<typeof betterAuth>;
  * ```
  */
 export class BetterAuthService implements AuthService {
+  /**
+   * Per-startup Argon2id dummy hash for timing oracle defence (FR-007).
+   *
+   * `verifyPassword(submittedPassword, DUMMY_HASH)` is called on every
+   * non-rate-limited authentication failure so that the "email not found"
+   * (fast DB miss) code path takes the same wall-clock time as "email
+   * found, wrong password" (full Argon2id computation), preventing
+   * timing-based email enumeration attacks.
+   *
+   * Generated once at module load with a fresh random salt — changes per
+   * deployment so the value is never observable in source code or binaries.
+   */
+  static readonly DUMMY_HASH = generateDummyHash();
+
   /** The better-auth instance obtained from `getAuth(env)`. */
   private readonly auth: AuthInstance;
 
@@ -246,5 +282,19 @@ export class BetterAuthService implements AuthService {
         createdAt: session.createdAt.toISOString(),
       },
     };
+  }
+
+  /**
+   * Performs a constant-time dummy password verification for timing oracle defence (FR-007).
+   *
+   * Calls {@link verifyPassword} against {@link BetterAuthService.DUMMY_HASH} so that the
+   * "email not found" code path takes the same wall-clock time as "email found,
+   * wrong password". The result is discarded — this method is awaited for its
+   * timing effect only.
+   *
+   * @param password - The submitted plaintext password to verify against the dummy hash.
+   */
+  async verifyDummyPassword(password: string): Promise<void> {
+    await verifyPassword(password, BetterAuthService.DUMMY_HASH);
   }
 }

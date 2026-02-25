@@ -90,4 +90,15 @@ export interface AuthService {
   getSession(params: {
     headers: Headers;
   }): Promise<{ user: AuthUser; session: AuthSession } | null>;
+
+  /**
+   * Performs a constant-time dummy password verification for timing oracle defence (FR-007).
+   *
+   * Runs the password hasher against an internal startup-generated dummy hash so that
+   * the "email not found" code path takes the same wall-clock time as "email found,
+   * wrong password". The result is discarded — callers await this for its timing effect only.
+   *
+   * @param password - The submitted plaintext password to verify against the dummy hash.
+   */
+  verifyDummyPassword(password: string): Promise<void>;
 }

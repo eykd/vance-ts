@@ -3,6 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BetterAuthService } from './BetterAuthService';
 
+/**
+ * Hoisted mock declarations — must be hoisted so they are available in the
+ * vi.mock() factory function, which is executed before module imports.
+ */
+const mocks = vi.hoisted(() => ({
+  verifyPassword: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
+}));
+
+vi.mock('../domain/services/passwordHasher.js', () => ({
+  verifyPassword: mocks.verifyPassword,
+}));
+
 /** Type alias for the better-auth instance type, used for casting test doubles. */
 type AuthInstance = ReturnType<typeof betterAuth>;
 
@@ -475,6 +487,45 @@ describe('BetterAuthService', () => {
       await expect(service.getSession({ headers: new Headers() })).rejects.toThrow(
         'D1 database unavailable'
       );
+    });
+  });
+
+  describe('DUMMY_HASH', () => {
+    it('is a valid argon2id format with OWASP parameters, 32-char salt, 64-char derived key', () => {
+      expect(BetterAuthService.DUMMY_HASH).toMatch(
+        /^argon2id\$19456\$2\$1\$[0-9a-f]{32}\$[0-9a-f]{64}$/
+      );
+    });
+
+    it('is not a fixed constant (generated at startup with random salt)', () => {
+      expect(BetterAuthService.DUMMY_HASH).not.toBe(
+        'argon2id$19456$2$1$00000000000000000000000000000000$0000000000000000000000000000000000000000000000000000000000000000'
+      );
+    });
+  });
+
+  describe('verifyDummyPassword', () => {
+    it('calls verifyPassword with submitted password and DUMMY_HASH (FR-007)', async () => {
+      mocks.verifyPassword.mockResolvedValue(false);
+
+      await service.verifyDummyPassword('testpassword123');
+
+      expect(mocks.verifyPassword).toHaveBeenCalledWith(
+        'testpassword123',
+        BetterAuthService.DUMMY_HASH
+      );
+    });
+
+    it('resolves void regardless of verifyPassword result', async () => {
+      mocks.verifyPassword.mockResolvedValue(true);
+
+      await expect(service.verifyDummyPassword('anypassword')).resolves.toBeUndefined();
+    });
+
+    it('propagates errors thrown by verifyPassword', async () => {
+      mocks.verifyPassword.mockRejectedValue(new Error('crypto failure'));
+
+      await expect(service.verifyDummyPassword('anypassword')).rejects.toThrow('crypto failure');
     });
   });
 });

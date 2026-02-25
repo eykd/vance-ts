@@ -17,6 +17,7 @@ describe('AuthService port', () => {
         signOut: (_params) =>
           Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.signIn({
@@ -38,6 +39,7 @@ describe('AuthService port', () => {
         signOut: (_params) =>
           Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.signIn({
@@ -60,6 +62,7 @@ describe('AuthService port', () => {
         signOut: (_params) =>
           Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.signIn({
@@ -82,6 +85,7 @@ describe('AuthService port', () => {
         signOut: (_params) =>
           Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.signIn({
@@ -105,6 +109,7 @@ describe('AuthService port', () => {
         signOut: (_params) =>
           Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.signUp({
@@ -124,6 +129,7 @@ describe('AuthService port', () => {
         signOut: (_params) =>
           Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.signUp({
@@ -146,6 +152,7 @@ describe('AuthService port', () => {
         signOut: (_params) =>
           Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.signUp({
@@ -168,6 +175,7 @@ describe('AuthService port', () => {
         signOut: (_params) =>
           Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.signUp({
@@ -190,6 +198,7 @@ describe('AuthService port', () => {
         signOut: (_params) =>
           Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.signUp({
@@ -214,6 +223,7 @@ describe('AuthService port', () => {
         signOut: (_params) =>
           Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0; Path=/' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.signOut({ sessionCookie: 'session=abc123' });
@@ -230,6 +240,7 @@ describe('AuthService port', () => {
         signUp: (_params) => Promise.resolve({ ok: true }),
         signOut: (_params) => Promise.resolve({ ok: false, kind: 'service_error' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.signOut({ sessionCookie: 'session=abc123' });
@@ -249,6 +260,7 @@ describe('AuthService port', () => {
         signOut: (_params) =>
           Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0' }),
         getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const result = await stub.getSession({ headers: new Headers() });
@@ -282,6 +294,7 @@ describe('AuthService port', () => {
               createdAt: now,
             },
           }),
+        verifyDummyPassword: (_password) => Promise.resolve(),
       };
 
       const headers = new Headers({ cookie: 'session=abc123' });
@@ -292,6 +305,21 @@ describe('AuthService port', () => {
       expect(result?.user.email).toBe('user@example.com');
       expect(result?.session.userId).toBe('user-1');
       expect(result?.session.token).toBe('tok-abc');
+    });
+  });
+
+  describe('verifyDummyPassword', () => {
+    it('can be satisfied by a test double that resolves void', async () => {
+      const stub: AuthService = {
+        signIn: (_params) => Promise.resolve({ ok: true, sessionCookie: 'session=abc123' }),
+        signUp: (_params) => Promise.resolve({ ok: true }),
+        signOut: (_params) =>
+          Promise.resolve({ ok: true, clearCookieHeader: 'session=; Max-Age=0' }),
+        getSession: (_params) => Promise.resolve(null),
+        verifyDummyPassword: (_password) => Promise.resolve(),
+      };
+
+      await expect(stub.verifyDummyPassword('anypassword')).resolves.toBeUndefined();
     });
   });
 });

@@ -15,12 +15,14 @@ function makeAuthServiceMock(): {
   signIn: ReturnType<typeof vi.fn>;
   signUp: ReturnType<typeof vi.fn>;
   signOut: ReturnType<typeof vi.fn>;
+  verifyDummyPassword: ReturnType<typeof vi.fn>;
 } {
   return {
     getSession: vi.fn(),
     signIn: vi.fn(),
     signUp: vi.fn(),
     signOut: vi.fn(),
+    verifyDummyPassword: vi.fn().mockResolvedValue(undefined),
   };
 }
 

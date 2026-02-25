@@ -7,18 +7,6 @@ import { SIGN_IN_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 import { SignInUseCase } from './SignInUseCase.js';
 
 /**
- * Hoisted mock declarations — must be hoisted so they are available in the
- * vi.mock() factory function, which is executed before module imports.
- */
-const mocks = vi.hoisted(() => ({
-  verifyPassword: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
-}));
-
-vi.mock('../../domain/services/passwordHasher.js', () => ({
-  verifyPassword: mocks.verifyPassword,
-}));
-
-/**
  * Creates a minimal AuthService mock with vi.fn() stubs.
  *
  * @returns An object with `vi.fn()` stubs for each AuthService method.
@@ -28,12 +16,14 @@ function makeAuthServiceMock(): {
   signUp: ReturnType<typeof vi.fn>;
   signOut: ReturnType<typeof vi.fn>;
   getSession: ReturnType<typeof vi.fn>;
+  verifyDummyPassword: ReturnType<typeof vi.fn>;
 } {
   return {
     signIn: vi.fn(),
     signUp: vi.fn(),
     signOut: vi.fn(),
     getSession: vi.fn(),
+    verifyDummyPassword: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -53,21 +43,6 @@ function makeRateLimiterMock(): {
 }
 
 describe('SignInUseCase', () => {
-  describe('DUMMY_HASH', () => {
-    it('is a valid argon2id format with OWASP parameters, 32-char salt, 64-char derived key', () => {
-      expect(SignInUseCase.DUMMY_HASH).toMatch(
-        /^argon2id\$19456\$2\$1\$[0-9a-f]{32}\$[0-9a-f]{64}$/
-      );
-    });
-
-    it('is not a fixed constant (generated at startup with random salt)', () => {
-      // The value is generated with crypto.getRandomValues — it will never be this fixed string
-      expect(SignInUseCase.DUMMY_HASH).not.toBe(
-        'argon2id$19456$2$1$00000000000000000000000000000000$0000000000000000000000000000000000000000000000000000000000000000'
-      );
-    });
-  });
-
   let authServiceMock: ReturnType<typeof makeAuthServiceMock>;
   let rateLimiterMock: ReturnType<typeof makeRateLimiterMock>;
   let useCase: SignInUseCase;
@@ -79,7 +54,6 @@ describe('SignInUseCase', () => {
     rateLimiterMock = makeRateLimiterMock();
     rateLimiterMock.check.mockResolvedValue({ allowed: true });
     rateLimiterMock.increment.mockResolvedValue(undefined);
-    mocks.verifyPassword.mockResolvedValue(false);
     useCase = new SignInUseCase(
       authServiceMock as unknown as AuthService,
       rateLimiterMock as unknown as RateLimiter
@@ -232,42 +206,39 @@ describe('SignInUseCase', () => {
       });
     });
 
-    it('calls verifyPassword with submitted password and DUMMY_HASH on invalid_credentials (FR-007)', async () => {
+    it('calls authService.verifyDummyPassword with submitted password on invalid_credentials (FR-007)', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
 
       await useCase.execute({ ...defaultRequest, password: 'wrongpassword12' });
 
-      expect(mocks.verifyPassword).toHaveBeenCalledWith(
-        'wrongpassword12',
-        SignInUseCase.DUMMY_HASH
-      );
+      expect(authServiceMock.verifyDummyPassword).toHaveBeenCalledWith('wrongpassword12');
     });
 
-    it('calls verifyPassword with submitted password and DUMMY_HASH on service_error (FR-007)', async () => {
+    it('calls authService.verifyDummyPassword with submitted password on service_error (FR-007)', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'service_error' });
 
       await useCase.execute({ ...defaultRequest, password: 'somepassword12' });
 
-      expect(mocks.verifyPassword).toHaveBeenCalledWith('somepassword12', SignInUseCase.DUMMY_HASH);
+      expect(authServiceMock.verifyDummyPassword).toHaveBeenCalledWith('somepassword12');
     });
 
-    it('does not call verifyPassword on successful sign-in', async () => {
+    it('does not call authService.verifyDummyPassword on successful sign-in', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: true, sessionCookie: 'abc' });
 
       await useCase.execute(defaultRequest);
 
-      expect(mocks.verifyPassword).not.toHaveBeenCalled();
+      expect(authServiceMock.verifyDummyPassword).not.toHaveBeenCalled();
     });
 
-    it('does not call verifyPassword when KV rate limit is exceeded', async () => {
+    it('does not call authService.verifyDummyPassword when KV rate limit is exceeded', async () => {
       rateLimiterMock.check.mockResolvedValue({ allowed: false, retryAfter: 900 });
 
       await useCase.execute(defaultRequest);
 
-      expect(mocks.verifyPassword).not.toHaveBeenCalled();
+      expect(authServiceMock.verifyDummyPassword).not.toHaveBeenCalled();
     });
 
-    it('does not call verifyPassword on rate_limited from auth service', async () => {
+    it('does not call authService.verifyDummyPassword on rate_limited from auth service', async () => {
       authServiceMock.signIn.mockResolvedValue({
         ok: false,
         kind: 'rate_limited',
@@ -276,7 +247,7 @@ describe('SignInUseCase', () => {
 
       await useCase.execute(defaultRequest);
 
-      expect(mocks.verifyPassword).not.toHaveBeenCalled();
+      expect(authServiceMock.verifyDummyPassword).not.toHaveBeenCalled();
     });
 
     it('returns ok: false kind: service_error when rateLimiter.check throws', async () => {
@@ -313,9 +284,9 @@ describe('SignInUseCase', () => {
       }
     });
 
-    it('returns ok: false kind: service_error when verifyPassword throws', async () => {
+    it('returns ok: false kind: service_error when authService.verifyDummyPassword throws', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
-      mocks.verifyPassword.mockRejectedValue(new Error('crypto failure'));
+      authServiceMock.verifyDummyPassword.mockRejectedValue(new Error('crypto failure'));
 
       const result = await useCase.execute(defaultRequest);
 
