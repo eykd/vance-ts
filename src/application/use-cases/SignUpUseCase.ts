@@ -106,7 +106,8 @@ export class SignUpUseCase {
         return { ok: false, kind: 'password_too_common' };
       }
 
-      const name = request.email.split('@')[0] || request.email;
+      const prefix = request.email.split('@')[0];
+      const name = prefix !== undefined && prefix !== '' ? prefix : request.email;
 
       const result = await this.authService.signUp({
         email: request.email,
