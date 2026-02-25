@@ -81,7 +81,11 @@ export class BetterAuthService implements AuthService {
       });
 
       if (response.ok) {
-        return { ok: true, sessionCookie: response.headers.get('set-cookie') ?? '' };
+        const sessionCookie = response.headers.get('set-cookie');
+        if (!sessionCookie) {
+          return { ok: false, kind: 'service_error' };
+        }
+        return { ok: true, sessionCookie };
       }
 
       if (response.status === 429) {
@@ -183,7 +187,11 @@ export class BetterAuthService implements AuthService {
       });
 
       if (response.ok) {
-        return { ok: true, clearCookieHeader: response.headers.get('set-cookie') ?? '' };
+        const clearCookieHeader = response.headers.get('set-cookie');
+        if (!clearCookieHeader) {
+          return { ok: false, kind: 'service_error' };
+        }
+        return { ok: true, clearCookieHeader };
       }
 
       return { ok: false, kind: 'service_error' };

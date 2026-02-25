@@ -189,7 +189,7 @@ describe('BetterAuthService', () => {
       }
     });
 
-    it('returns sessionCookie as empty string when Set-Cookie header is absent on 200', async () => {
+    it('returns ok: false kind: service_error when Set-Cookie header is absent on 200', async () => {
       authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 200 }));
 
       const result = await service.signIn({
@@ -198,9 +198,9 @@ describe('BetterAuthService', () => {
         ip: '1.2.3.4',
       });
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.sessionCookie).toBe('');
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
       }
     });
   });
@@ -376,14 +376,14 @@ describe('BetterAuthService', () => {
       );
     });
 
-    it('returns clearCookieHeader as empty string when Set-Cookie is absent on 200', async () => {
+    it('returns ok: false kind: service_error when Set-Cookie is absent on 200', async () => {
       authMock.api.signOut.mockResolvedValue(new Response(null, { status: 200 }));
 
       const result = await service.signOut({ sessionCookie: '__Host-session=abc123' });
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.clearCookieHeader).toBe('');
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
       }
     });
 
