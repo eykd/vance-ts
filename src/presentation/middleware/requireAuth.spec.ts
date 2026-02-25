@@ -140,7 +140,7 @@ describe('createRequireAuth', () => {
     expect(setCookie).toContain('HttpOnly');
     expect(setCookie).toContain('Secure');
     expect(setCookie).toContain('SameSite=Strict');
-    expect(setCookie).toContain('Path=/auth');
+    expect(setCookie).toContain('Path=/');
     expect(setCookie).toContain('Max-Age=3600');
   });
 

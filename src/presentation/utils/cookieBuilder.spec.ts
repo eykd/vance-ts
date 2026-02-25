@@ -62,8 +62,12 @@ describe('buildCsrfCookie', () => {
     expect(buildCsrfCookie('token')).toContain('SameSite=Strict');
   });
 
-  it('includes Path=/auth', () => {
-    expect(buildCsrfCookie('token')).toContain('Path=/auth');
+  it('includes Path=/ so the cookie is sent from all application routes', () => {
+    expect(buildCsrfCookie('token')).toContain('Path=/');
+  });
+
+  it('does not restrict cookie to /auth path (must be available on /app/* routes)', () => {
+    expect(buildCsrfCookie('token')).not.toContain('Path=/auth');
   });
 
   it('includes Max-Age=3600', () => {
@@ -90,8 +94,12 @@ describe('clearCsrfCookie', () => {
     expect(clearCsrfCookie()).toContain('SameSite=Strict');
   });
 
-  it('includes Path=/auth', () => {
-    expect(clearCsrfCookie()).toContain('Path=/auth');
+  it('includes Path=/ so the cookie is sent from all application routes', () => {
+    expect(clearCsrfCookie()).toContain('Path=/');
+  });
+
+  it('does not restrict cookie to /auth path (must be clearable from /app/* routes)', () => {
+    expect(clearCsrfCookie()).not.toContain('Path=/auth');
   });
 });
 

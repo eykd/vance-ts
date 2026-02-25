@@ -211,7 +211,7 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
     });
 
-    it('sets __Secure-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/auth', () => {
+    it('sets __Secure-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
       const req = new Request('https://example.com/auth/sign-in');
       const res = handlers.handleGetSignIn(req);
       const setCookie = res.headers.get('Set-Cookie') ?? '';
@@ -219,7 +219,7 @@ describe('AuthPageHandlers', () => {
       expect(setCookie).toContain('HttpOnly');
       expect(setCookie).toContain('Secure');
       expect(setCookie).toContain('SameSite=Strict');
-      expect(setCookie).toContain('Path=/auth');
+      expect(setCookie).toContain('Path=/');
     });
 
     it('applies security headers (X-Content-Type-Options, X-Frame-Options)', () => {
@@ -663,7 +663,7 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
     });
 
-    it('sets __Secure-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/auth', () => {
+    it('sets __Secure-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
       const req = new Request('https://example.com/auth/sign-up');
       const res = handlers.handleGetSignUp(req);
       const setCookie = res.headers.get('Set-Cookie') ?? '';
@@ -671,7 +671,7 @@ describe('AuthPageHandlers', () => {
       expect(setCookie).toContain('HttpOnly');
       expect(setCookie).toContain('Secure');
       expect(setCookie).toContain('SameSite=Strict');
-      expect(setCookie).toContain('Path=/auth');
+      expect(setCookie).toContain('Path=/');
     });
 
     it('applies security headers (X-Content-Type-Options, X-Frame-Options)', () => {
