@@ -15,6 +15,9 @@ const app = new Hono<AppEnv>();
  * Middleware: apply security headers after the downstream handler runs.
  *
  * Static assets served via the [assets] config use the _headers file instead.
+ *
+ * @param c - The Hono context.
+ * @param next - The next middleware function in the chain.
  */
 const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<void> => {
   await next();
