@@ -1,6 +1,6 @@
 import { toHex } from '../../shared/hex';
 
-const CSRF_COOKIE_NAME = '__Secure-csrf';
+const CSRF_COOKIE_NAME = '__Host-csrf';
 const CSRF_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Strict; Path=/';
 
 /**

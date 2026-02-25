@@ -47,7 +47,7 @@ describe('deriveCsrfToken', () => {
 describe('buildCsrfCookie', () => {
   it('returns a Set-Cookie header value with the token', () => {
     const value = buildCsrfCookie('abc123');
-    expect(value).toContain('__Secure-csrf=abc123');
+    expect(value).toContain('__Host-csrf=abc123');
   });
 
   it('includes HttpOnly flag', () => {
@@ -78,7 +78,7 @@ describe('buildCsrfCookie', () => {
 describe('clearCsrfCookie', () => {
   it('returns a Set-Cookie header value that clears the cookie', () => {
     const value = clearCsrfCookie();
-    expect(value).toContain('__Secure-csrf=');
+    expect(value).toContain('__Host-csrf=');
     expect(value).toContain('Max-Age=0');
   });
 
@@ -104,8 +104,8 @@ describe('clearCsrfCookie', () => {
 });
 
 describe('extractCsrfTokenFromCookies', () => {
-  it('extracts the __Secure-csrf token from a cookie header', () => {
-    const header = '__Secure-csrf=mytoken123; other=value';
+  it('extracts the __Host-csrf token from a cookie header', () => {
+    const header = '__Host-csrf=mytoken123; other=value';
     expect(extractCsrfTokenFromCookies(header)).toBe('mytoken123');
   });
 
@@ -113,16 +113,16 @@ describe('extractCsrfTokenFromCookies', () => {
     expect(extractCsrfTokenFromCookies(null)).toBeNull();
   });
 
-  it('returns null when the __Secure-csrf cookie is absent', () => {
+  it('returns null when the __Host-csrf cookie is absent', () => {
     expect(extractCsrfTokenFromCookies('session=abc; other=xyz')).toBeNull();
   });
 
   it('handles a cookie header with only the CSRF cookie', () => {
-    expect(extractCsrfTokenFromCookies('__Secure-csrf=onlyone')).toBe('onlyone');
+    expect(extractCsrfTokenFromCookies('__Host-csrf=onlyone')).toBe('onlyone');
   });
 
   it('handles the CSRF cookie at the end of a multi-cookie header', () => {
-    const header = 'session=abc; __Secure-csrf=endtoken';
+    const header = 'session=abc; __Host-csrf=endtoken';
     expect(extractCsrfTokenFromCookies(header)).toBe('endtoken');
   });
 

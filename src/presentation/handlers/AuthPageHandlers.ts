@@ -149,7 +149,7 @@ export class AuthPageHandlers {
   /**
    * Handles GET /auth/sign-in.
    *
-   * Generates a fresh CSRF token, stores it in the `__Secure-csrf` cookie,
+   * Generates a fresh CSRF token, stores it in the `__Host-csrf` cookie,
    * and renders the sign-in form. Sets `Cache-Control: no-store, no-cache`
    * to prevent caching of the CSRF-bearing response.
    *
@@ -215,7 +215,7 @@ export class AuthPageHandlers {
   /**
    * Handles GET /auth/sign-up.
    *
-   * Generates a fresh CSRF token, stores it in the `__Secure-csrf` cookie,
+   * Generates a fresh CSRF token, stores it in the `__Host-csrf` cookie,
    * and renders the registration form. Sets `Cache-Control: no-store, no-cache`
    * to prevent caching of the CSRF-bearing response.
    *

@@ -10,7 +10,7 @@ import { AuthPageHandlers } from './AuthPageHandlers.js';
 const TEST_CSRF = 'a'.repeat(64);
 
 /** Cookie header containing the test CSRF token. */
-const CSRF_COOKIE = `__Secure-csrf=${TEST_CSRF}`;
+const CSRF_COOKIE = `__Host-csrf=${TEST_CSRF}`;
 
 /**
  * Creates a minimal use case mock with a vi.fn stub for execute.
@@ -62,7 +62,7 @@ function makePostRequest(options?: {
     method: 'POST',
     headers: {
       'Content-Type': contentType,
-      Cookie: `__Secure-csrf=${csrfCookie}`,
+      Cookie: `__Host-csrf=${csrfCookie}`,
     },
     body: rawBody ?? params.toString(),
   });
@@ -95,7 +95,7 @@ function makeSignOutPostRequest(options?: {
   } = options ?? {};
 
   const params = new URLSearchParams({ _csrf: csrfToken });
-  const cookieParts: string[] = [`__Secure-csrf=${csrfCookie}`];
+  const cookieParts: string[] = [`__Host-csrf=${csrfCookie}`];
   if (sessionCookie !== null) {
     cookieParts.push(sessionCookie);
   }
@@ -145,7 +145,7 @@ function makeSignUpPostRequest(options?: {
     method: 'POST',
     headers: {
       'Content-Type': contentType,
-      Cookie: `__Secure-csrf=${csrfCookie}`,
+      Cookie: `__Host-csrf=${csrfCookie}`,
     },
     body: rawBody ?? params.toString(),
   });
@@ -191,11 +191,11 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
     });
 
-    it('sets __Secure-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
+    it('sets __Host-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
       const req = new Request('https://example.com/auth/sign-in');
       const res = handlers.handleGetSignIn(req);
       const setCookie = res.headers.get('Set-Cookie') ?? '';
-      expect(setCookie).toContain('__Secure-csrf=');
+      expect(setCookie).toContain('__Host-csrf=');
       expect(setCookie).toContain('HttpOnly');
       expect(setCookie).toContain('Secure');
       expect(setCookie).toContain('SameSite=Strict');
@@ -221,7 +221,7 @@ describe('AuthPageHandlers', () => {
       const req = new Request('https://example.com/auth/sign-in');
       const res = handlers.handleGetSignIn(req);
       const setCookie = res.headers.get('Set-Cookie') ?? '';
-      const match = /__Secure-csrf=([^;]+)/.exec(setCookie);
+      const match = /__Host-csrf=([^;]+)/.exec(setCookie);
       const csrfToken = match?.[1];
       expect(csrfToken).toBeDefined();
       const body = await res.text();
@@ -398,7 +398,7 @@ describe('AuthPageHandlers', () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
         const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('__Secure-csrf=');
+        expect(setCookies).toContain('__Host-csrf=');
         expect(setCookies).toContain('Max-Age=0');
       });
 
@@ -446,7 +446,7 @@ describe('AuthPageHandlers', () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
         const setCookie = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookie).toContain('__Secure-csrf=');
+        expect(setCookie).toContain('__Host-csrf=');
         expect(setCookie).toContain('Max-Age=3600');
       });
 
@@ -609,11 +609,11 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
     });
 
-    it('sets __Secure-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
+    it('sets __Host-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
       const req = new Request('https://example.com/auth/sign-up');
       const res = handlers.handleGetSignUp(req);
       const setCookie = res.headers.get('Set-Cookie') ?? '';
-      expect(setCookie).toContain('__Secure-csrf=');
+      expect(setCookie).toContain('__Host-csrf=');
       expect(setCookie).toContain('HttpOnly');
       expect(setCookie).toContain('Secure');
       expect(setCookie).toContain('SameSite=Strict');
@@ -639,7 +639,7 @@ describe('AuthPageHandlers', () => {
       const req = new Request('https://example.com/auth/sign-up');
       const res = handlers.handleGetSignUp(req);
       const setCookie = res.headers.get('Set-Cookie') ?? '';
-      const match = /__Secure-csrf=([^;]+)/.exec(setCookie);
+      const match = /__Host-csrf=([^;]+)/.exec(setCookie);
       const csrfToken = match?.[1];
       expect(csrfToken).toBeDefined();
       const body = await res.text();
@@ -836,7 +836,7 @@ describe('AuthPageHandlers', () => {
         const req = makeSignUpPostRequest();
         const res = await handlers.handlePostSignUp(req);
         const setCookie = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookie).toContain('__Secure-csrf=');
+        expect(setCookie).toContain('__Host-csrf=');
         expect(setCookie).toContain('Max-Age=3600');
       });
     });
@@ -971,7 +971,7 @@ describe('AuthPageHandlers', () => {
         const req = new Request('https://example.com/auth/sign-out', {
           method: 'POST',
           headers: {
-            Cookie: `__Secure-csrf=${TEST_CSRF}; __Host-better-auth.session-token=test`,
+            Cookie: `__Host-csrf=${TEST_CSRF}; __Host-better-auth.session-token=test`,
           },
           body: `_csrf=${TEST_CSRF}`,
         });
@@ -1047,7 +1047,7 @@ describe('AuthPageHandlers', () => {
         const req = makeSignOutPostRequest();
         const res = await handlers.handlePostSignOut(req);
         const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('__Secure-csrf=');
+        expect(setCookies).toContain('__Host-csrf=');
         expect(setCookies).toContain('Max-Age=0');
       });
 
@@ -1055,7 +1055,7 @@ describe('AuthPageHandlers', () => {
         const sessionCookie = '__Host-better-auth.session-token=sess_abc123';
         const req = makeSignOutPostRequest({ sessionCookie });
         await handlers.handlePostSignOut(req);
-        const expectedCookieHeader = `__Secure-csrf=${TEST_CSRF}; ${sessionCookie}`;
+        const expectedCookieHeader = `__Host-csrf=${TEST_CSRF}; ${sessionCookie}`;
         expect(signOutUseCaseMock.execute).toHaveBeenCalledWith({
           sessionCookie: expectedCookieHeader,
         });

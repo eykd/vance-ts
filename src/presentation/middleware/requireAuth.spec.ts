@@ -131,14 +131,14 @@ describe('createRequireAuth', () => {
     expect(await res.text()).toBe('protected content');
   });
 
-  it('sets __Secure-csrf cookie on valid session', async () => {
+  it('sets __Host-csrf cookie on valid session', async () => {
     authServiceMock.getSession.mockResolvedValue({ user: TEST_USER, session: TEST_SESSION });
 
     const app = makeTestApp();
     const res = await app.fetch(new Request('https://example.com/protected'));
 
     const setCookie = res.headers.get('Set-Cookie') ?? '';
-    expect(setCookie).toContain('__Secure-csrf=');
+    expect(setCookie).toContain('__Host-csrf=');
     expect(setCookie).toContain('HttpOnly');
     expect(setCookie).toContain('Secure');
     expect(setCookie).toContain('SameSite=Strict');

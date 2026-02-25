@@ -25,7 +25,7 @@ import {
  * Validates the session from request cookies via the AuthService port. On
  * failure, redirects to `/auth/sign-in` with the original URL preserved as
  * `redirectTo`. On D1 error, returns 503 with `Retry-After: 30`. On success,
- * derives a session-bound CSRF token via HMAC-SHA256, sets the `__Secure-csrf`
+ * derives a session-bound CSRF token via HMAC-SHA256, sets the `__Host-csrf`
  * cookie, and populates `c.var.user`, `c.var.session`, and `c.var.csrfToken`
  * for downstream handlers.
  *
