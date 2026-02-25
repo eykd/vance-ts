@@ -232,15 +232,61 @@ describe('getAuth', () => {
       expect(mocks.betterAuth).toHaveBeenCalledTimes(1);
     });
 
-    it('reuses cached instance even with a different env object', () => {
-      const env1 = makeEnv();
-      const env2 = makeEnv({ BETTER_AUTH_URL: 'https://other.example.com' });
+    it('reuses cached instance when only non-identity env fields differ (e.g., BETTER_AUTH_URL)', () => {
+      const sharedDb = {} as D1Database;
+      const env1 = makeEnv({ DB: sharedDb });
+      const env2 = makeEnv({ DB: sharedDb, BETTER_AUTH_URL: 'https://other.example.com' });
 
       const first = getAuth(env1);
       const second = getAuth(env2);
 
       expect(first).toBe(second);
       expect(mocks.betterAuth).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('env identity invalidation', () => {
+    it('recreates the auth instance when BETTER_AUTH_SECRET changes', () => {
+      const sharedDb = {} as D1Database;
+      const env1 = makeEnv({ DB: sharedDb, BETTER_AUTH_SECRET: 'a'.repeat(32) });
+      mocks.betterAuth.mockReturnValueOnce({ _type: 'auth-instance-1' });
+      const first = getAuth(env1);
+
+      const env2 = makeEnv({ DB: sharedDb, BETTER_AUTH_SECRET: 'b'.repeat(32) });
+      mocks.betterAuth.mockReturnValueOnce({ _type: 'auth-instance-2' });
+      const second = getAuth(env2);
+
+      expect(first).not.toBe(second);
+      expect(mocks.betterAuth).toHaveBeenCalledTimes(2);
+    });
+
+    it('recreates the auth instance when the DB binding reference changes', () => {
+      const db1 = { _type: 'db-1' } as unknown as D1Database;
+      const db2 = { _type: 'db-2' } as unknown as D1Database;
+      const env1 = makeEnv({ DB: db1 });
+      mocks.betterAuth.mockReturnValueOnce({ _type: 'auth-instance-1' });
+      const first = getAuth(env1);
+
+      const env2 = makeEnv({ DB: db2 });
+      mocks.betterAuth.mockReturnValueOnce({ _type: 'auth-instance-2' });
+      const second = getAuth(env2);
+
+      expect(first).not.toBe(second);
+      expect(mocks.betterAuth).toHaveBeenCalledTimes(2);
+    });
+
+    it('uses the fresh env on the new instance after invalidation', () => {
+      const db1 = { _type: 'db-1' } as unknown as D1Database;
+      const db2 = { _type: 'db-2' } as unknown as D1Database;
+      const env1 = makeEnv({ DB: db1 });
+      getAuth(env1);
+
+      const env2 = makeEnv({ DB: db2 });
+      getAuth(env2);
+
+      // The second betterAuth call must receive the updated DB binding.
+      const secondCallArgs = mocks.drizzle.mock.calls[1]?.[0] as D1Database;
+      expect(secondCallArgs).toBe(db2);
     });
   });
 });
