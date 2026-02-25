@@ -132,12 +132,12 @@ export class ServiceFactory {
   }
 
   /**
-   * HTML auth page handlers for sign-in form rendering and submission.
+   * HTML auth page handlers for sign-in and sign-up form rendering and submission.
    *
    * @returns The lazily-initialised AuthPageHandlers instance.
    */
   get authPageHandlers(): AuthPageHandlers {
-    this._authPageHandlers ??= new AuthPageHandlers(this.signInUseCase);
+    this._authPageHandlers ??= new AuthPageHandlers(this.signInUseCase, this.signUpUseCase);
     return this._authPageHandlers;
   }
 

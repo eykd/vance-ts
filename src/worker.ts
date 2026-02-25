@@ -68,6 +68,21 @@ app.post('/auth/sign-in', async (c): Promise<Response> => {
   return getServiceFactory(c.env).authPageHandlers.handlePostSignIn(c.req.raw);
 });
 
+/** Renders the registration form page. */
+app.get('/auth/sign-up', (c): Response => {
+  return getServiceFactory(c.env).authPageHandlers.handleGetSignUp(c.req.raw);
+});
+
+/**
+ * Creates a new user account.
+ *
+ * Rate limiting is enforced via the KvRateLimiter inside SignUpUseCase
+ * (invoked by AuthPageHandlers.handlePostSignUp).
+ */
+app.post('/auth/sign-up', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).authPageHandlers.handlePostSignUp(c.req.raw);
+});
+
 /** Catch-all for unimplemented app partial routes. */
 app.all('/app/_/*', appPartialNotFound);
 

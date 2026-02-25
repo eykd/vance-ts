@@ -8,8 +8,10 @@
  */
 
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
+import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
 import { verifyPassword } from '../../domain/services/passwordHasher.js';
 import { loginPage } from '../templates/pages/login.js';
+import { registerPage } from '../templates/pages/register.js';
 import {
   buildCsrfCookie,
   clearCsrfCookie,
@@ -46,13 +48,18 @@ export class AuthPageHandlers {
   /** Injected sign-in use case. */
   private readonly signInUseCase: SignInUseCase;
 
+  /** Injected sign-up use case. */
+  private readonly signUpUseCase: SignUpUseCase;
+
   /**
    * Creates a new AuthPageHandlers instance.
    *
    * @param signInUseCase - The sign-in orchestration use case.
+   * @param signUpUseCase - The sign-up orchestration use case.
    */
-  constructor(signInUseCase: SignInUseCase) {
+  constructor(signInUseCase: SignInUseCase, signUpUseCase: SignUpUseCase) {
     this.signInUseCase = signInUseCase;
+    this.signUpUseCase = signUpUseCase;
   }
 
   /**
@@ -150,6 +157,97 @@ export class AuthPageHandlers {
       error: 'Invalid email or password',
       redirectTo: redirectTo !== '/' ? redirectTo : undefined,
     });
+
+    return new Response(body, { headers: errorHeaders });
+  }
+
+  /**
+   * Handles GET /auth/sign-up.
+   *
+   * Generates a fresh CSRF token, stores it in the `__Secure-csrf` cookie,
+   * and renders the registration form. Sets `Cache-Control: no-store, no-cache`
+   * to prevent caching of the CSRF-bearing response.
+   *
+   * @param _request - The incoming HTTP request (unused; reserved for future use).
+   * @returns A 200 HTML response with Set-Cookie and Cache-Control headers.
+   */
+  handleGetSignUp(_request: Request): Response {
+    const csrfToken = generateCsrfToken();
+    const headers = new Headers();
+    headers.set('Content-Type', 'text/html; charset=utf-8');
+    headers.set('Set-Cookie', buildCsrfCookie(csrfToken));
+    headers.set('Cache-Control', 'no-store, no-cache');
+    applySecurityHeaders(headers);
+
+    return new Response(registerPage({ csrfToken }), { headers });
+  }
+
+  /**
+   * Handles POST /auth/sign-up.
+   *
+   * Validates Content-Type, body size, and CSRF token before delegating to
+   * {@link SignUpUseCase}. On success (or `email_taken`), redirects to
+   * `/auth/sign-in?registered=true` — both outcomes produce the same response
+   * to prevent email enumeration (FR-007). On `weak_password` or
+   * `service_error`, re-renders the form with an appropriate error message.
+   *
+   * @param request - The incoming HTTP request.
+   * @returns The appropriate HTTP response.
+   */
+  async handlePostSignUp(request: Request): Promise<Response> {
+    const contentType = request.headers.get('Content-Type') ?? '';
+    if (!contentType.includes('application/x-www-form-urlencoded')) {
+      return new Response('Unsupported Media Type', { status: 415 });
+    }
+
+    const rawBody = await request.text();
+    if (rawBody.length > MAX_BODY_BYTES) {
+      return new Response('Content Too Large', { status: 413 });
+    }
+
+    const form = new URLSearchParams(rawBody);
+    const csrfFormToken = form.get('_csrf') ?? '';
+    const csrfCookieToken = extractCsrfTokenFromCookies(request.headers.get('Cookie'));
+
+    if (csrfCookieToken === null || csrfFormToken !== csrfCookieToken) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    const email = form.get('email') ?? '';
+    const password = form.get('password') ?? '';
+    const ip = extractClientIp(request);
+
+    const result = await this.signUpUseCase.execute({ email, password, ip });
+
+    if (result.ok || result.kind === 'email_taken') {
+      return new Response(null, {
+        status: 303,
+        headers: { Location: '/auth/sign-in?registered=true' },
+      });
+    }
+
+    if (result.kind === 'rate_limited') {
+      const headers = new Headers();
+      if (result.retryAfter !== undefined) {
+        headers.set('Retry-After', String(result.retryAfter));
+      }
+      return new Response('Too Many Requests', { status: 429, headers });
+    }
+
+    // weak_password or service_error — re-render form with appropriate error
+    const errorMessage =
+      result.kind === 'weak_password'
+        ? 'Password must be at least 12 characters'
+        : 'An error occurred. Please try again.';
+
+    const csrfToken = generateCsrfToken();
+    const errorHeaders = new Headers();
+    errorHeaders.set('Content-Type', 'text/html; charset=utf-8');
+    errorHeaders.set('Set-Cookie', buildCsrfCookie(csrfToken));
+    errorHeaders.set('Cache-Control', 'no-store, no-cache');
+    applySecurityHeaders(errorHeaders);
+
+    const body = registerPage({ csrfToken, email, error: errorMessage });
 
     return new Response(body, { headers: errorHeaders });
   }

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
+import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
 
 import { AuthPageHandlers } from './AuthPageHandlers.js';
 
@@ -29,6 +30,15 @@ const CSRF_COOKIE = `__Secure-csrf=${TEST_CSRF}`;
  * @returns An object with an `execute` vi.fn stub.
  */
 function makeSignInUseCaseMock(): { execute: ReturnType<typeof vi.fn> } {
+  return { execute: vi.fn() };
+}
+
+/**
+ * Creates a minimal SignUpUseCase mock with a vi.fn stub for execute.
+ *
+ * @returns An object with an `execute` vi.fn stub.
+ */
+function makeSignUpUseCaseMock(): { execute: ReturnType<typeof vi.fn> } {
   return { execute: vi.fn() };
 }
 
@@ -79,13 +89,59 @@ function makePostRequest(options?: {
   });
 }
 
+/**
+ * Builds a POST /auth/sign-up request with CSRF token, cookie, and form body.
+ *
+ * @param options - Optional field overrides.
+ * @param options.csrfToken - CSRF token in the form body (default: TEST_CSRF).
+ * @param options.csrfCookie - CSRF token value in the Cookie header (default: TEST_CSRF).
+ * @param options.email - Email address in the form body.
+ * @param options.password - Password in the form body.
+ * @param options.contentType - Content-Type header value.
+ * @param options.rawBody - If set, overrides the computed form body.
+ * @returns A fully-formed POST Request for sign-up.
+ */
+function makeSignUpPostRequest(options?: {
+  csrfToken?: string;
+  csrfCookie?: string;
+  email?: string;
+  password?: string;
+  contentType?: string;
+  rawBody?: string;
+}): Request {
+  const {
+    csrfToken = TEST_CSRF,
+    csrfCookie = TEST_CSRF,
+    email = 'newuser@example.com',
+    password = 'correcthorse12',
+    contentType = 'application/x-www-form-urlencoded',
+    rawBody,
+  } = options ?? {};
+
+  const params = new URLSearchParams({ _csrf: csrfToken, email, password });
+
+  return new Request('https://example.com/auth/sign-up', {
+    method: 'POST',
+    headers: {
+      'Content-Type': contentType,
+      Cookie: `__Secure-csrf=${csrfCookie}`,
+    },
+    body: rawBody ?? params.toString(),
+  });
+}
+
 describe('AuthPageHandlers', () => {
   let signInUseCaseMock: ReturnType<typeof makeSignInUseCaseMock>;
+  let signUpUseCaseMock: ReturnType<typeof makeSignUpUseCaseMock>;
   let handlers: AuthPageHandlers;
 
   beforeEach(() => {
     signInUseCaseMock = makeSignInUseCaseMock();
-    handlers = new AuthPageHandlers(signInUseCaseMock as unknown as SignInUseCase);
+    signUpUseCaseMock = makeSignUpUseCaseMock();
+    handlers = new AuthPageHandlers(
+      signInUseCaseMock as unknown as SignInUseCase,
+      signUpUseCaseMock as unknown as SignUpUseCase
+    );
     mocks.verifyPassword.mockResolvedValue(false);
   });
 
@@ -522,6 +578,297 @@ describe('AuthPageHandlers', () => {
         const req = makePostRequest({ redirectTo: '/app/tasks?filter=active' });
         const res = await handlers.handlePostSignIn(req);
         expect(res.headers.get('Location')).toBe('/app/tasks?filter=active');
+      });
+    });
+  });
+
+  describe('handleGetSignUp', () => {
+    it('returns 200 status', () => {
+      const req = new Request('https://example.com/auth/sign-up');
+      const res = handlers.handleGetSignUp(req);
+      expect(res.status).toBe(200);
+    });
+
+    it('sets Content-Type to text/html', () => {
+      const req = new Request('https://example.com/auth/sign-up');
+      const res = handlers.handleGetSignUp(req);
+      expect(res.headers.get('Content-Type')).toContain('text/html');
+    });
+
+    it('sets Cache-Control: no-store, no-cache', () => {
+      const req = new Request('https://example.com/auth/sign-up');
+      const res = handlers.handleGetSignUp(req);
+      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+    });
+
+    it('sets __Secure-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/auth', () => {
+      const req = new Request('https://example.com/auth/sign-up');
+      const res = handlers.handleGetSignUp(req);
+      const setCookie = res.headers.get('Set-Cookie') ?? '';
+      expect(setCookie).toContain('__Secure-csrf=');
+      expect(setCookie).toContain('HttpOnly');
+      expect(setCookie).toContain('Secure');
+      expect(setCookie).toContain('SameSite=Strict');
+      expect(setCookie).toContain('Path=/auth');
+    });
+
+    it('applies security headers (X-Content-Type-Options, X-Frame-Options)', () => {
+      const req = new Request('https://example.com/auth/sign-up');
+      const res = handlers.handleGetSignUp(req);
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    });
+
+    it('renders the sign-up form with email and password inputs', async () => {
+      const req = new Request('https://example.com/auth/sign-up');
+      const res = handlers.handleGetSignUp(req);
+      const body = await res.text();
+      expect(body).toContain('name="email"');
+      expect(body).toContain('name="password"');
+    });
+
+    it('embeds the CSRF token in the form as a hidden _csrf field', async () => {
+      const req = new Request('https://example.com/auth/sign-up');
+      const res = handlers.handleGetSignUp(req);
+      const setCookie = res.headers.get('Set-Cookie') ?? '';
+      const match = /__Secure-csrf=([^;]+)/.exec(setCookie);
+      const csrfToken = match?.[1];
+      expect(csrfToken).toBeDefined();
+      const body = await res.text();
+      expect(body).toContain(`name="_csrf" value="${csrfToken ?? ''}"`);
+    });
+  });
+
+  describe('handlePostSignUp', () => {
+    describe('Content-Type validation', () => {
+      it('returns 415 when Content-Type is application/json', async () => {
+        const req = makeSignUpPostRequest({ contentType: 'application/json' });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(415);
+      });
+
+      it('returns 415 when Content-Type is text/plain', async () => {
+        const req = makeSignUpPostRequest({ contentType: 'text/plain' });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(415);
+      });
+
+      it('returns 415 when Content-Type header is absent', async () => {
+        const req = new Request('https://example.com/auth/sign-up', {
+          method: 'POST',
+          headers: { Cookie: CSRF_COOKIE },
+          body: `_csrf=${TEST_CSRF}&email=user@example.com&password=pass12345678`,
+        });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(415);
+      });
+
+      it('accepts Content-Type with charset suffix', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makeSignUpPostRequest({
+          contentType: 'application/x-www-form-urlencoded; charset=UTF-8',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).not.toBe(415);
+      });
+    });
+
+    describe('body size validation', () => {
+      it('returns 413 when body exceeds 4096 bytes', async () => {
+        const oversizedBody = 'x'.repeat(4097);
+        const req = new Request('https://example.com/auth/sign-up', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Cookie: CSRF_COOKIE,
+          },
+          body: oversizedBody,
+        });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(413);
+      });
+
+      it('accepts body of exactly 4096 bytes', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const prefix = `_csrf=${TEST_CSRF}&email=u@b.co&password=pass12345678&pad=`;
+        const paddedBody = prefix + 'x'.repeat(4096 - prefix.length);
+        expect(paddedBody.length).toBe(4096);
+        const req = new Request('https://example.com/auth/sign-up', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Cookie: CSRF_COOKIE,
+          },
+          body: paddedBody,
+        });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).not.toBe(413);
+      });
+    });
+
+    describe('CSRF validation', () => {
+      it('returns 403 when the CSRF cookie is absent', async () => {
+        const req = new Request('https://example.com/auth/sign-up', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `_csrf=${TEST_CSRF}&email=user@example.com&password=pass12345678`,
+        });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(403);
+      });
+
+      it('returns 403 when form _csrf token does not match cookie token', async () => {
+        const req = makeSignUpPostRequest({ csrfToken: 'wrong-token', csrfCookie: TEST_CSRF });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(403);
+      });
+
+      it('returns 403 when form _csrf token is empty', async () => {
+        const req = makeSignUpPostRequest({ csrfToken: '' });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(403);
+      });
+    });
+
+    describe('successful registration', () => {
+      beforeEach(() => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: true });
+      });
+
+      it('returns 303 redirect', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(303);
+      });
+
+      it('redirects to /auth/sign-in?registered=true', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.headers.get('Location')).toBe('/auth/sign-in?registered=true');
+      });
+
+      it('passes email, password, and IP to the sign-up use case', async () => {
+        const req = makeSignUpPostRequest({
+          email: 'alice@example.com',
+          password: 'supersecure12',
+        });
+        await handlers.handlePostSignUp(req);
+        expect(signUpUseCaseMock.execute).toHaveBeenCalledWith({
+          email: 'alice@example.com',
+          password: 'supersecure12',
+          ip: 'unknown',
+        });
+      });
+    });
+
+    describe('email already taken (FR-007 enumeration prevention)', () => {
+      beforeEach(() => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'email_taken' });
+      });
+
+      it('returns 303 redirect (same as success)', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(303);
+      });
+
+      it('redirects to /auth/sign-in?registered=true (same URL as success)', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.headers.get('Location')).toBe('/auth/sign-in?registered=true');
+      });
+    });
+
+    describe('weak password', () => {
+      beforeEach(() => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'weak_password' });
+      });
+
+      it('returns 200 status', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(200);
+      });
+
+      it('re-renders the form with a password error message', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('Password must be at least 12 characters');
+      });
+
+      it('re-renders the form with the submitted email pre-filled', async () => {
+        const req = makeSignUpPostRequest({ email: 'alice@example.com' });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('alice@example.com');
+      });
+
+      it('sets Cache-Control: no-store, no-cache on the error response', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+      });
+
+      it('sets a fresh CSRF cookie on the error response with Max-Age=3600', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const setCookie = res.headers.get('Set-Cookie') ?? '';
+        expect(setCookie).toContain('__Secure-csrf=');
+        expect(setCookie).toContain('Max-Age=3600');
+      });
+    });
+
+    describe('service error', () => {
+      beforeEach(() => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'service_error' });
+      });
+
+      it('returns 200 status', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(200);
+      });
+
+      it('re-renders the form with a generic error message', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('An error occurred. Please try again.');
+      });
+
+      it('re-renders the form with the submitted email pre-filled', async () => {
+        const req = makeSignUpPostRequest({ email: 'alice@example.com' });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('alice@example.com');
+      });
+    });
+
+    describe('rate limited', () => {
+      it('returns 429 when the use case returns rate_limited', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(429);
+      });
+
+      it('includes Retry-After header when retryAfter is provided', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({
+          ok: false,
+          kind: 'rate_limited',
+          retryAfter: 300,
+        });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.headers.get('Retry-After')).toBe('300');
+      });
+
+      it('does not include Retry-After header when retryAfter is undefined', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.headers.get('Retry-After')).toBeNull();
       });
     });
   });
