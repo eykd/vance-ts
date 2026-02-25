@@ -262,11 +262,21 @@ export class AuthPageHandlers {
       return AuthPageHandlers.buildRateLimitedResponse(result.retryAfter);
     }
 
-    // weak_password, password_too_common, or service_error — re-render form with appropriate error
+    const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
+
+    // weak_password and password_too_common — show as per-field error on the password input
+    if (result.kind === 'weak_password' || result.kind === 'password_too_common') {
+      const body = registerPage({
+        csrfToken,
+        email,
+        fieldErrors: { password: SIGN_UP_ERROR_MESSAGES[result.kind] },
+      });
+      return new Response(body, { headers: errorHeaders });
+    }
+
+    // service_error or unrecognised future kind — show as general error banner
     const errorMessage =
       SIGN_UP_ERROR_MESSAGES[result.kind] ?? 'An error occurred. Please try again.';
-
-    const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
     const body = registerPage({ csrfToken, email, error: errorMessage });
 
     return new Response(body, { headers: errorHeaders });

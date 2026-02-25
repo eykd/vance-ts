@@ -808,6 +808,20 @@ describe('AuthPageHandlers', () => {
         expect(body).toContain('Password must be at least 12 characters');
       });
 
+      it('renders the error as a per-field password error (id="password-error")', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('id="password-error"');
+      });
+
+      it('does not render a general error banner for a weak password', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).not.toContain('id="register-error"');
+      });
+
       it('re-renders the form with the submitted email pre-filled', async () => {
         const req = makeSignUpPostRequest({ email: 'alice@example.com' });
         const res = await handlers.handlePostSignUp(req);
@@ -837,6 +851,22 @@ describe('AuthPageHandlers', () => {
         const res = await handlers.handlePostSignUp(req);
         const body = await res.text();
         expect(body).toContain('Password is too common. Please choose a different password.');
+      });
+
+      it('renders the error as a per-field password error (id="password-error")', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'password_too_common' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('id="password-error"');
+      });
+
+      it('does not render a general error banner for a too-common password', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'password_too_common' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).not.toContain('id="register-error"');
       });
     });
 
