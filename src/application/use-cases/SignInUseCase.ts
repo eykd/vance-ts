@@ -46,13 +46,10 @@ export type SignInResult =
  * Orchestrates email/password sign-in with IP rate limiting.
  *
  * Flow:
- * 1. Check KV rate limiter for the client IP. Reject with `rate_limited`
- *    if the limit is exceeded.
- * 2. Delegate to {@link AuthService.signIn}. The adapter (`BetterAuthService`)
- *    translates better-auth HTTP responses into typed domain results.
- * 3. Increment the KV counter on `invalid_credentials` to enforce the brute-
- *    force window. Counter is not incremented on infrastructure errors or
- *    successes.
+ * 1. Check KV rate limiter for the client IP; reject with `rate_limited` if exceeded.
+ * 2. Delegate to {@link AuthService.signIn}; adapter maps better-auth responses to types.
+ * 3. Increment the KV counter on `invalid_credentials` to enforce the brute-force window.
+ * Counter is not incremented on infrastructure errors or successes.
  *
  * @example
  * ```typescript

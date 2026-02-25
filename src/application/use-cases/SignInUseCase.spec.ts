@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthService } from '../ports/AuthService.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import { SIGN_IN_WINDOW_SECONDS } from '../ports/RateLimiter.js';
+
 import { SignInUseCase } from './SignInUseCase.js';
 
 /**
@@ -129,7 +130,11 @@ describe('SignInUseCase', () => {
     });
 
     it('returns ok: false kind: rate_limited with retryAfter when auth service returns rate_limited', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'rate_limited', retryAfter: 300 });
+      authServiceMock.signIn.mockResolvedValue({
+        ok: false,
+        kind: 'rate_limited',
+        retryAfter: 300,
+      });
 
       const result = await useCase.execute(defaultRequest);
 
@@ -168,7 +173,11 @@ describe('SignInUseCase', () => {
     });
 
     it('does not increment rate limiter when auth service returns rate_limited', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'rate_limited', retryAfter: 300 });
+      authServiceMock.signIn.mockResolvedValue({
+        ok: false,
+        kind: 'rate_limited',
+        retryAfter: 300,
+      });
 
       await useCase.execute(defaultRequest);
 
