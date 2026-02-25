@@ -38,6 +38,9 @@ export class ServiceFactory {
   /** better-auth instance, initialised in constructor to validate the secret. */
   private readonly _authInstance: ReturnType<typeof getAuth>;
 
+  /** Validated secret extracted after getAuth confirms it is a non-empty string. */
+  private readonly _validatedSecret: string;
+
   /** Cached AuthService adapter. */
   private _authService: AuthService | null = null;
 
@@ -67,7 +70,8 @@ export class ServiceFactory {
    */
   constructor(env: Env) {
     this.env = env;
-    this._authInstance = getAuth(env);
+    this._authInstance = getAuth(env); // validates BETTER_AUTH_SECRET, throws if invalid
+    this._validatedSecret = env.BETTER_AUTH_SECRET as string; // safe: getAuth validated above
   }
 
   private get _authServiceInstance(): AuthService {
@@ -133,7 +137,7 @@ export class ServiceFactory {
   get requireAuthMiddleware(): ReturnType<typeof createRequireAuth> {
     this._requireAuthMiddleware ??= createRequireAuth(
       this._authServiceInstance,
-      this.env.BETTER_AUTH_SECRET
+      this._validatedSecret
     );
     return this._requireAuthMiddleware;
   }

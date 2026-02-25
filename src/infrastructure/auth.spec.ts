@@ -83,7 +83,7 @@ describe('getAuth', () => {
     });
 
     it('throws a descriptive error when BETTER_AUTH_SECRET is undefined (missing binding)', () => {
-      const env = makeEnv({ BETTER_AUTH_SECRET: undefined as unknown as string });
+      const env = makeEnv({ BETTER_AUTH_SECRET: undefined });
 
       expect(() => getAuth(env)).toThrow('BETTER_AUTH_SECRET must be at least 32 characters');
     });

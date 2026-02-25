@@ -9,6 +9,6 @@ export interface Env {
   readonly ASSETS: Fetcher;
   readonly DB: D1Database; // D1 database for user/session storage
   readonly BETTER_AUTH_URL: string; // Public base URL (e.g., https://app.turtlebased.io)
-  readonly BETTER_AUTH_SECRET: string; // MUST be >= 32 bytes of cryptographically random entropy — generate with: openssl rand -hex 32
+  readonly BETTER_AUTH_SECRET: string | undefined; // MUST be >= 32 bytes of cryptographically random entropy — generate with: openssl rand -hex 32
   readonly RATE_LIMIT: KVNamespace; // KV namespace for distributed rate limiting
 }

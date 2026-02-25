@@ -35,7 +35,7 @@ let _auth: ReturnType<typeof betterAuth> | null = null;
  * @throws {Error} When `BETTER_AUTH_SECRET` is shorter than 32 characters.
  */
 export function getAuth(env: Env): ReturnType<typeof betterAuth> {
-  if ((env.BETTER_AUTH_SECRET?.length ?? 0) < 32) {
+  if (env.BETTER_AUTH_SECRET === undefined || env.BETTER_AUTH_SECRET.length < 32) {
     throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
   }
 
