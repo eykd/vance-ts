@@ -49,8 +49,7 @@ export type SignUpResult =
  * 1. Check KV rate limiter for the client IP; reject with `rate_limited` if exceeded.
  * 2. Derive `name` from the email prefix (required by better-auth v1.4.x).
  * 3. Delegate to {@link AuthService.signUp}; adapter maps better-auth responses to types.
- * 4. Increment the KV counter on `email_taken` or `weak_password` to enforce the window.
- *    Counter is not incremented on infrastructure errors, rate limits, or successes.
+ * 4. Increment the KV counter on `email_taken` or `weak_password`; not on other failures.
  *
  * @example
  * ```typescript

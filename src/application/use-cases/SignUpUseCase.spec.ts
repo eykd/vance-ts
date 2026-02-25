@@ -217,13 +217,21 @@ describe('SignUpUseCase', () => {
     });
 
     it('checks rate limiter with key ratelimit:register:{ip}', async () => {
-      await useCase.execute({ email: 'user@example.com', password: 'correcthorse12', ip: '9.8.7.6' });
+      await useCase.execute({
+        email: 'user@example.com',
+        password: 'correcthorse12',
+        ip: '9.8.7.6',
+      });
 
       expect(rateLimiterMock.check).toHaveBeenCalledWith('ratelimit:register:9.8.7.6');
     });
 
     it('calls authService.signUp with email, password, name derived from email prefix, and ip', async () => {
-      await useCase.execute({ email: 'alice@example.com', password: 'correcthorse12', ip: '1.2.3.4' });
+      await useCase.execute({
+        email: 'alice@example.com',
+        password: 'correcthorse12',
+        ip: '1.2.3.4',
+      });
 
       expect(authServiceMock.signUp).toHaveBeenCalledWith({
         email: 'alice@example.com',
