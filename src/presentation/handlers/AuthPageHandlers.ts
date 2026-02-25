@@ -27,6 +27,19 @@ import { applySecurityHeaders } from '../utils/securityHeaders.js';
 const MAX_BODY_BYTES = 4096;
 
 /**
+ * Maps sign-up failure kinds to user-facing error messages rendered in the
+ * registration form. Covers weak passwords, common passwords, and service errors.
+ */
+const SIGN_UP_ERROR_MESSAGES: Record<
+  'weak_password' | 'password_too_common' | 'service_error',
+  string
+> = {
+  weak_password: 'Password must be at least 12 characters',
+  password_too_common: 'Password is too common. Please choose a different password.',
+  service_error: 'An error occurred. Please try again.',
+};
+
+/**
  * Substring present in all better-auth session cookie names, used to detect
  * whether an active session cookie is present in the request.
  *
@@ -266,11 +279,8 @@ export class AuthPageHandlers {
       return AuthPageHandlers.buildRateLimitedResponse(result.retryAfter);
     }
 
-    // weak_password or service_error — re-render form with appropriate error
-    const errorMessage =
-      result.kind === 'weak_password'
-        ? 'Password must be at least 12 characters'
-        : 'An error occurred. Please try again.';
+    // weak_password, password_too_common, or service_error — re-render form with appropriate error
+    const errorMessage = SIGN_UP_ERROR_MESSAGES[result.kind];
 
     const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
     const body = registerPage({ csrfToken, email, error: errorMessage });

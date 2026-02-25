@@ -26,29 +26,11 @@ const TEST_CSRF = 'a'.repeat(64);
 const CSRF_COOKIE = `__Secure-csrf=${TEST_CSRF}`;
 
 /**
- * Creates a minimal SignInUseCase mock with a vi.fn stub for execute.
+ * Creates a minimal use case mock with a vi.fn stub for execute.
  *
  * @returns An object with an `execute` vi.fn stub.
  */
-function makeSignInUseCaseMock(): { execute: ReturnType<typeof vi.fn> } {
-  return { execute: vi.fn() };
-}
-
-/**
- * Creates a minimal SignUpUseCase mock with a vi.fn stub for execute.
- *
- * @returns An object with an `execute` vi.fn stub.
- */
-function makeSignUpUseCaseMock(): { execute: ReturnType<typeof vi.fn> } {
-  return { execute: vi.fn() };
-}
-
-/**
- * Creates a minimal SignOutUseCase mock with a vi.fn stub for execute.
- *
- * @returns An object with an `execute` vi.fn stub.
- */
-function makeSignOutUseCaseMock(): { execute: ReturnType<typeof vi.fn> } {
+function makeUseCaseMock(): { execute: ReturnType<typeof vi.fn> } {
   return { execute: vi.fn() };
 }
 
@@ -183,15 +165,15 @@ function makeSignUpPostRequest(options?: {
 }
 
 describe('AuthPageHandlers', () => {
-  let signInUseCaseMock: ReturnType<typeof makeSignInUseCaseMock>;
-  let signUpUseCaseMock: ReturnType<typeof makeSignUpUseCaseMock>;
-  let signOutUseCaseMock: ReturnType<typeof makeSignOutUseCaseMock>;
+  let signInUseCaseMock: ReturnType<typeof makeUseCaseMock>;
+  let signUpUseCaseMock: ReturnType<typeof makeUseCaseMock>;
+  let signOutUseCaseMock: ReturnType<typeof makeUseCaseMock>;
   let handlers: AuthPageHandlers;
 
   beforeEach(() => {
-    signInUseCaseMock = makeSignInUseCaseMock();
-    signUpUseCaseMock = makeSignUpUseCaseMock();
-    signOutUseCaseMock = makeSignOutUseCaseMock();
+    signInUseCaseMock = makeUseCaseMock();
+    signUpUseCaseMock = makeUseCaseMock();
+    signOutUseCaseMock = makeUseCaseMock();
     handlers = new AuthPageHandlers(
       signInUseCaseMock as unknown as SignInUseCase,
       signUpUseCaseMock as unknown as SignUpUseCase,
@@ -871,6 +853,16 @@ describe('AuthPageHandlers', () => {
         const setCookie = res.headers.get('Set-Cookie') ?? '';
         expect(setCookie).toContain('__Secure-csrf=');
         expect(setCookie).toContain('Max-Age=3600');
+      });
+    });
+
+    describe('common password (password_too_common)', () => {
+      it('re-renders the form with a "too common" password error message', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'password_too_common' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('Password is too common. Please choose a different password.');
       });
     });
 

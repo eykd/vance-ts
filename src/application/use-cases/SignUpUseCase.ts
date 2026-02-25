@@ -30,7 +30,8 @@ export type SignUpRequest = {
  * On success, the caller should redirect to sign-in. On failure, `kind`
  * identifies the error category:
  * - `email_taken` — an account with this email already exists
- * - `weak_password` — the password does not meet strength requirements
+ * - `weak_password` — the password does not meet strength requirements (too short)
+ * - `password_too_common` — the password is in a common-password blocklist
  * - `rate_limited` — IP has exceeded the allowed attempt window
  * - `service_error` — infrastructure failure (DB unavailable, etc.)
  */
@@ -38,7 +39,12 @@ export type SignUpResult =
   | { ok: true }
   | {
       ok: false;
-      kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error';
+      kind:
+        | 'email_taken'
+        | 'weak_password'
+        | 'password_too_common'
+        | 'rate_limited'
+        | 'service_error';
       retryAfter?: number;
     };
 

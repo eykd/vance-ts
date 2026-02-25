@@ -148,6 +148,17 @@ describe('SignUpUseCase', () => {
       }
     });
 
+    it('returns ok: false kind: password_too_common when authService returns password_too_common', async () => {
+      authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'password_too_common' });
+
+      const result = await useCase.execute(defaultRequest);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('password_too_common');
+      }
+    });
+
     it('returns ok: false kind: service_error when authService.signUp throws', async () => {
       authServiceMock.signUp.mockRejectedValue(new Error('DB unavailable'));
 
@@ -202,6 +213,14 @@ describe('SignUpUseCase', () => {
 
     it('does not increment rate limiter on service_error', async () => {
       authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'service_error' });
+
+      await useCase.execute(defaultRequest);
+
+      expect(rateLimiterMock.increment).not.toHaveBeenCalled();
+    });
+
+    it('does not increment rate limiter on password_too_common', async () => {
+      authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'password_too_common' });
 
       await useCase.execute(defaultRequest);
 
