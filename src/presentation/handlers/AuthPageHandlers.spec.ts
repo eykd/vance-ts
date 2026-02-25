@@ -1024,11 +1024,10 @@ describe('AuthPageHandlers', () => {
         const sessionCookie = '__Host-better-auth.session-token=sess_abc123';
         const req = makeSignOutPostRequest({ sessionCookie });
         await handlers.handlePostSignOut(req);
-        expect(signOutUseCaseMock.execute).toHaveBeenCalledWith(
-          expect.objectContaining({
-            sessionCookie: expect.stringContaining('better-auth.session-token=sess_abc123'),
-          })
-        );
+        const expectedCookieHeader = `__Secure-csrf=${TEST_CSRF}; ${sessionCookie}`;
+        expect(signOutUseCaseMock.execute).toHaveBeenCalledWith({
+          sessionCookie: expectedCookieHeader,
+        });
       });
     });
 
