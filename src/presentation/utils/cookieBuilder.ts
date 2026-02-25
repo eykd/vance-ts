@@ -1,17 +1,7 @@
+import { toHex } from '../../shared/hex';
+
 const CSRF_COOKIE_NAME = '__Secure-csrf';
 const CSRF_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Strict; Path=/';
-
-/**
- * Converts a byte array to a lowercase hex string.
- *
- * @param bytes - The byte array to convert
- * @returns A lowercase hex string representation of the bytes
- */
-function toHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
 
 /**
  * Generates a cryptographically random 256-bit CSRF token as a hex string.

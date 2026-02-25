@@ -12,21 +12,11 @@
  * @module
  */
 
+import { toHex } from '../../shared/hex';
+
 const ITERATIONS = 600_000; // OWASP 2023 minimum for PBKDF2-HMAC-SHA-256
 const DERIVED_BITS = 256;
 const MIN_ITERATIONS = 100_000; // Reject hashes with fewer iterations (tamper protection)
-
-/**
- * Converts an ArrayBuffer or Uint8Array to a lowercase hex string.
- *
- * @param buf - The buffer to convert.
- * @returns Lowercase hex string.
- */
-function toHex(buf: ArrayBuffer | Uint8Array<ArrayBuffer>): string {
-  return Array.from(buf instanceof ArrayBuffer ? new Uint8Array(buf) : buf)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
 
 /**
  * Converts a hex string to a Uint8Array backed by a plain ArrayBuffer.
