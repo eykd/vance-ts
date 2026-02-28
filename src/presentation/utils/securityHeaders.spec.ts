@@ -91,6 +91,10 @@ describe('applySecurityHeaders', () => {
     );
   });
 
+  it('sets Cross-Origin-Opener-Policy to same-origin', () => {
+    expect(headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
+  });
+
   it('preserves existing headers', () => {
     const existing = new Headers({ 'X-Custom': 'keep-me' });
     applySecurityHeaders(existing);
