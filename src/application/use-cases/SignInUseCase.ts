@@ -102,6 +102,7 @@ export class SignInUseCase {
 
       // Timing oracle defence — run Argon2id on every non-rate-limited failure (FR-007)
       if (!result.ok && result.kind !== 'rate_limited') {
+        // Intentional: return value discarded; only the Argon2id timing side-effect matters.
         await this.authService.verifyDummyPassword(request.password);
       }
 
