@@ -79,7 +79,7 @@ export class DurableObjectRateLimiter implements RateLimiter {
     const response = await stub.fetch(`${DO_BASE_URL}/check`, { method: 'GET' });
     const entry = await response.json<CheckResponseBody | null>();
 
-    if (entry === null) {
+    if (entry === null || !Number.isFinite(entry.count) || !Number.isFinite(entry.resetAt)) {
       return { allowed: true };
     }
 

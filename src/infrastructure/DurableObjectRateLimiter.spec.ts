@@ -120,6 +120,30 @@ describe('DurableObjectRateLimiter', () => {
         expect.objectContaining({ method: 'GET' })
       );
     });
+
+    it('returns allowed: true when entry count is NaN (non-finite count treated as no window)', async () => {
+      // NaN cannot survive JSON serialisation (becomes null), but can appear via in-memory
+      // bugs or future arithmetic errors. Number.isFinite guards prevent silent bypass.
+      stub.fetch.mockResolvedValue({
+        json: vi.fn().mockResolvedValue({ count: NaN, resetAt: FIXED_NOW + 60_000 }),
+      });
+
+      const result = await limiter.check('ratelimit:sign-in:1.2.3.4');
+
+      expect(result).toEqual({ allowed: true });
+    });
+
+    it('returns allowed: true when entry resetAt is NaN (non-finite resetAt produces NaN retryAfter)', async () => {
+      // If resetAt is NaN, Math.max(1, NaN) returns NaN — a corrupt retryAfter value.
+      // The entry must be treated as invalid and discarded rather than forwarded.
+      stub.fetch.mockResolvedValue({
+        json: vi.fn().mockResolvedValue({ count: MAX_ATTEMPTS, resetAt: NaN }),
+      });
+
+      const result = await limiter.check('ratelimit:sign-in:1.2.3.4');
+
+      expect(result).toEqual({ allowed: true });
+    });
   });
 
   describe('increment', () => {
