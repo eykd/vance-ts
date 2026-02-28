@@ -107,6 +107,7 @@ export class SignUpUseCase {
         return { ok: false, kind: 'password_too_common' };
       }
 
+      // noUncheckedIndexedAccess: split('@')[0] is always defined; undefined check is unreachable.
       const prefix = request.email.split('@')[0];
       const name = prefix !== undefined && prefix !== '' ? prefix : request.email;
 
