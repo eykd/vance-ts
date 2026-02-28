@@ -1,9 +1,11 @@
 import {
   buildCsrfCookie,
   clearCsrfCookie,
+  clearSessionCookie,
   deriveCsrfToken,
   extractCsrfTokenFromCookies,
   generateCsrfToken,
+  hasSessionCookie,
 } from './cookieBuilder';
 
 describe('generateCsrfToken', () => {
@@ -100,6 +102,54 @@ describe('clearCsrfCookie', () => {
 
   it('does not restrict cookie to /auth path (must be clearable from /app/* routes)', () => {
     expect(clearCsrfCookie()).not.toContain('Path=/auth');
+  });
+});
+
+describe('clearSessionCookie', () => {
+  it('returns a Set-Cookie header value that clears the session cookie', () => {
+    const value = clearSessionCookie();
+    expect(value).toContain('__Host-better-auth.session_token=');
+    expect(value).toContain('Max-Age=0');
+  });
+
+  it('includes HttpOnly flag', () => {
+    expect(clearSessionCookie()).toContain('HttpOnly');
+  });
+
+  it('includes Secure flag', () => {
+    expect(clearSessionCookie()).toContain('Secure');
+  });
+
+  it('includes SameSite=Lax', () => {
+    expect(clearSessionCookie()).toContain('SameSite=Lax');
+  });
+
+  it('includes Path=/', () => {
+    expect(clearSessionCookie()).toContain('Path=/');
+  });
+});
+
+describe('hasSessionCookie', () => {
+  it('returns false when cookieHeader is null', () => {
+    expect(hasSessionCookie(null)).toBe(false);
+  });
+
+  it('returns false when cookieHeader is empty string', () => {
+    expect(hasSessionCookie('')).toBe(false);
+  });
+
+  it('returns false when session cookie is absent from the header', () => {
+    expect(hasSessionCookie('other=value; __Host-csrf=token')).toBe(false);
+  });
+
+  it('returns true when session cookie is present in the header', () => {
+    expect(hasSessionCookie('__Host-better-auth.session_token=abc123')).toBe(true);
+  });
+
+  it('returns true when session cookie is present alongside other cookies', () => {
+    expect(
+      hasSessionCookie('other=value; __Host-better-auth.session_token=abc123; more=stuff')
+    ).toBe(true);
   });
 });
 
