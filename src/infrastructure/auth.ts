@@ -112,6 +112,9 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
         maxPasswordLength: 128,
         password: {
           hash: hashPassword,
+          // Wrapper required: better-auth passes { password, hash } as a single object, but
+          // verifyPassword takes positional args (password, stored). Cannot pass verifyPassword
+          // directly.
           verify: ({ password, hash }: { password: string; hash: string }): Promise<boolean> =>
             verifyPassword(password, hash),
         },
