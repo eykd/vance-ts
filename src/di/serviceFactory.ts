@@ -14,6 +14,7 @@
 
 import type { AuthService } from '../application/ports/AuthService';
 import type { RateLimiter } from '../application/ports/RateLimiter';
+import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../application/ports/RateLimiter';
 import { SignInUseCase } from '../application/use-cases/SignInUseCase';
 import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
@@ -21,6 +22,7 @@ import { getAuth, resetAuth } from '../infrastructure/auth';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
 import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
+import { createApiAuthRateLimit } from '../presentation/middleware/apiAuthRateLimit';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
 import type { Env } from '../shared/env';
 
@@ -61,6 +63,12 @@ export class ServiceFactory {
 
   /** Cached requireAuth middleware. */
   private _requireAuthMiddleware: ReturnType<typeof createRequireAuth> | null = null;
+
+  /** Cached API rate limit middleware for POST /api/auth/sign-in/*. */
+  private _signInApiRateLimitMiddleware: ReturnType<typeof createApiAuthRateLimit> | null = null;
+
+  /** Cached API rate limit middleware for POST /api/auth/sign-up/*. */
+  private _signUpApiRateLimitMiddleware: ReturnType<typeof createApiAuthRateLimit> | null = null;
 
   /**
    * Creates a new ServiceFactory and initialises the better-auth instance.
@@ -155,6 +163,42 @@ export class ServiceFactory {
       this._authServiceInstance
     );
     return this._authPageHandlers;
+  }
+
+  /**
+   * Rate limit middleware for `POST /api/auth/sign-in/*` API endpoints.
+   *
+   * Applies the DurableObjectRateLimiter using the same key format as
+   * {@link SignInUseCase} (`ratelimit:sign-in:<ip>`), so API and form-based
+   * attack vectors share a single counter per IP.
+   *
+   * @returns The lazily-initialised rate limit middleware for sign-in.
+   */
+  get signInApiRateLimitMiddleware(): ReturnType<typeof createApiAuthRateLimit> {
+    this._signInApiRateLimitMiddleware ??= createApiAuthRateLimit(
+      this._rateLimiterInstance,
+      'sign-in',
+      SIGN_IN_WINDOW_SECONDS
+    );
+    return this._signInApiRateLimitMiddleware;
+  }
+
+  /**
+   * Rate limit middleware for `POST /api/auth/sign-up/*` API endpoints.
+   *
+   * Applies the DurableObjectRateLimiter using the same key format as
+   * {@link SignUpUseCase} (`ratelimit:register:<ip>`), so API and form-based
+   * attack vectors share a single counter per IP.
+   *
+   * @returns The lazily-initialised rate limit middleware for sign-up.
+   */
+  get signUpApiRateLimitMiddleware(): ReturnType<typeof createApiAuthRateLimit> {
+    this._signUpApiRateLimitMiddleware ??= createApiAuthRateLimit(
+      this._rateLimiterInstance,
+      'register',
+      REGISTER_WINDOW_SECONDS
+    );
+    return this._signUpApiRateLimitMiddleware;
   }
 
   /**

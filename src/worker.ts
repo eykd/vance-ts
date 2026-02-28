@@ -41,6 +41,33 @@ app.use('/app/*', async (c, next): Promise<Response | void> => {
 app.get('/api/health', healthCheck);
 
 /**
+ * Rate limit middleware for POST /api/auth/sign-in/*.
+ *
+ * better-auth's built-in rate limiter is disabled (see src/infrastructure/auth.ts).
+ * This middleware applies the DurableObjectRateLimiter to the JSON API endpoint
+ * that attackers can POST to directly, bypassing the HTML form handlers and
+ * their use-case-level rate limiting.
+ *
+ * GET requests are passed through without rate limiting (not a brute-force vector).
+ * The counter key matches SignInUseCase so API and form paths share one counter per IP.
+ */
+app.use('/api/auth/sign-in/*', async (c, next): Promise<Response | void> => {
+  if (c.req.method !== 'POST') return next();
+  return getServiceFactory(c.env).signInApiRateLimitMiddleware(c as Context<AppEnv>, next);
+});
+
+/**
+ * Rate limit middleware for POST /api/auth/sign-up/*.
+ *
+ * Same rationale as the sign-in middleware above. The counter key matches
+ * SignUpUseCase so API and form paths share one counter per IP.
+ */
+app.use('/api/auth/sign-up/*', async (c, next): Promise<Response | void> => {
+  if (c.req.method !== 'POST') return next();
+  return getServiceFactory(c.env).signUpApiRateLimitMiddleware(c as Context<AppEnv>, next);
+});
+
+/**
  * better-auth API pass-through.
  *
  * Delegates all GET/POST requests under `/api/auth/*` to the better-auth

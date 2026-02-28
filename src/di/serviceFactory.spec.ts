@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   SignOutUseCase: vi.fn(),
   AuthPageHandlers: vi.fn(),
   createRequireAuth: vi.fn(),
+  createApiAuthRateLimit: vi.fn(),
   authInstanceHandler: vi.fn(),
 }));
 
@@ -50,6 +51,10 @@ vi.mock('../presentation/handlers/AuthPageHandlers', () => ({
 
 vi.mock('../presentation/middleware/requireAuth', () => ({
   createRequireAuth: mocks.createRequireAuth,
+}));
+
+vi.mock('../presentation/middleware/apiAuthRateLimit', () => ({
+  createApiAuthRateLimit: mocks.createApiAuthRateLimit,
 }));
 
 /**
@@ -307,6 +312,68 @@ describe('ServiceFactory', () => {
       const second = factory.requireAuthMiddleware;
       expect(first).toBe(second);
       expect(mocks.createRequireAuth).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('signInApiRateLimitMiddleware', () => {
+    it('returns the result of createApiAuthRateLimit with sign-in endpoint config', () => {
+      const mockMiddleware = vi.fn();
+      mocks.createApiAuthRateLimit.mockReturnValue(mockMiddleware);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const middleware = factory.signInApiRateLimitMiddleware;
+      expect(middleware).toBe(mockMiddleware);
+      expect(mocks.createApiAuthRateLimit).toHaveBeenCalledWith(
+        expect.anything(), // rateLimiter instance
+        'sign-in',
+        900 // SIGN_IN_WINDOW_SECONDS
+      );
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockMiddleware = vi.fn();
+      mocks.createApiAuthRateLimit.mockReturnValue(mockMiddleware);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.signInApiRateLimitMiddleware;
+      const second = factory.signInApiRateLimitMiddleware;
+      expect(first).toBe(second);
+      expect(mocks.createApiAuthRateLimit).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('signUpApiRateLimitMiddleware', () => {
+    it('returns the result of createApiAuthRateLimit with register endpoint config', () => {
+      const mockMiddleware = vi.fn();
+      mocks.createApiAuthRateLimit.mockReturnValue(mockMiddleware);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const middleware = factory.signUpApiRateLimitMiddleware;
+      expect(middleware).toBe(mockMiddleware);
+      expect(mocks.createApiAuthRateLimit).toHaveBeenCalledWith(
+        expect.anything(), // rateLimiter instance
+        'register',
+        300 // REGISTER_WINDOW_SECONDS
+      );
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockMiddleware = vi.fn();
+      mocks.createApiAuthRateLimit.mockReturnValue(mockMiddleware);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.signUpApiRateLimitMiddleware;
+      const second = factory.signUpApiRateLimitMiddleware;
+      expect(first).toBe(second);
+      expect(mocks.createApiAuthRateLimit).toHaveBeenCalledTimes(1);
     });
   });
 });

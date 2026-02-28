@@ -18,6 +18,14 @@ const mocks = vi.hoisted(() => {
   const requireAuthMiddlewareFn = vi.fn(
     async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
   );
+  /** Default: passes through by calling next() (not rate limited). */
+  const signInApiRateLimitMiddlewareFn = vi.fn(
+    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+  );
+  /** Default: passes through by calling next() (not rate limited). */
+  const signUpApiRateLimitMiddlewareFn = vi.fn(
+    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+  );
 
   const mockFactory = {
     authHandler: authHandlerFn,
@@ -29,6 +37,8 @@ const mocks = vi.hoisted(() => {
       handlePostSignOut,
     },
     requireAuthMiddleware: requireAuthMiddlewareFn,
+    signInApiRateLimitMiddleware: signInApiRateLimitMiddlewareFn,
+    signUpApiRateLimitMiddleware: signUpApiRateLimitMiddlewareFn,
   };
 
   return {
@@ -39,6 +49,8 @@ const mocks = vi.hoisted(() => {
     handlePostSignUp,
     handlePostSignOut,
     requireAuthMiddlewareFn,
+    signInApiRateLimitMiddlewareFn,
+    signUpApiRateLimitMiddlewareFn,
     mockFactory,
   };
 });
@@ -405,6 +417,86 @@ describe('Worker', () => {
 
       expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
       expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    });
+  });
+
+  describe('POST /api/auth/sign-in/* rate limiting', () => {
+    it('returns 429 when signInApiRateLimitMiddleware short-circuits the request', async () => {
+      const env = mockEnv();
+      mocks.signInApiRateLimitMiddlewareFn.mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'Too many requests' }), {
+          status: 429,
+          headers: { 'Retry-After': '60', 'Content-Type': 'application/json' },
+        })
+      );
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(429);
+      expect(mocks.authHandlerFn).not.toHaveBeenCalled();
+    });
+
+    it('delegates to authHandler when rate limit middleware passes through', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(mocks.signInApiRateLimitMiddlewareFn).toHaveBeenCalled();
+      expect(mocks.authHandlerFn).toHaveBeenCalledWith(req);
+      expect(res.status).toBe(200);
+    });
+
+    it('does not apply sign-in rate limiting to GET /api/auth/sign-in/* requests', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'GET' });
+      await app.fetch(req, env);
+
+      expect(mocks.signInApiRateLimitMiddlewareFn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/auth/sign-up/* rate limiting', () => {
+    it('returns 429 when signUpApiRateLimitMiddleware short-circuits the request', async () => {
+      const env = mockEnv();
+      mocks.signUpApiRateLimitMiddlewareFn.mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'Too many requests' }), {
+          status: 429,
+          headers: { 'Retry-After': '60', 'Content-Type': 'application/json' },
+        })
+      );
+
+      const req = new Request('https://example.com/api/auth/sign-up/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(429);
+      expect(mocks.authHandlerFn).not.toHaveBeenCalled();
+    });
+
+    it('delegates to authHandler when rate limit middleware passes through', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
+
+      const req = new Request('https://example.com/api/auth/sign-up/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(mocks.signUpApiRateLimitMiddlewareFn).toHaveBeenCalled();
+      expect(mocks.authHandlerFn).toHaveBeenCalledWith(req);
+      expect(res.status).toBe(200);
+    });
+
+    it('does not apply sign-up rate limiting to GET /api/auth/sign-up/* requests', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
+
+      const req = new Request('https://example.com/api/auth/sign-up/email', { method: 'GET' });
+      await app.fetch(req, env);
+
+      expect(mocks.signUpApiRateLimitMiddlewareFn).not.toHaveBeenCalled();
     });
   });
 
