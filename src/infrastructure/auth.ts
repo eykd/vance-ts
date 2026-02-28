@@ -13,6 +13,27 @@
  * not expose a `password.validate` hook. Reject common passwords in the
  * application use-case layer before delegating to `auth.api.signUpEmail`.
  *
+ * ## Token hashing
+ *
+ * `databaseHooks` hash `session.token` and `verification.value` before they
+ * are written to D1, replacing plaintext token values with HMAC-SHA256 digests
+ * keyed on `BETTER_AUTH_SECRET`. This limits the blast radius of a database
+ * exfiltration: an attacker who obtains only the D1 dump cannot recover usable
+ * token strings.
+ *
+ * **Session tokens**: better-auth derives the session cookie value from the
+ * data returned by the `create` hook, so the cookie and the database row hold
+ * the same HMAC digest. The signed-cookie layer (`better-call`) remains the
+ * primary protection — an attacker still needs `BETTER_AUTH_SECRET` to forge
+ * a valid signed cookie, even if they have the hash from the database.
+ *
+ * **Verification tokens** (`verification.value`): hashed before storage.
+ * Note that password-reset and email-OTP flows (if enabled in future) store
+ * functionally significant data in `value`; any plugin that reads `value`
+ * after lookup will receive the hash, not the original. This is acceptable
+ * because those features are not currently active and any future additions must
+ * account for this hashing.
+ *
  * @module
  */
 
@@ -22,6 +43,8 @@ import { drizzle } from 'drizzle-orm/d1';
 
 import { hashPassword, verifyPassword } from '../domain/services/passwordHasher';
 import type { Env } from '../shared/env';
+
+import { hashToken } from './tokenHasher';
 
 /**
  * Snapshot of the env bindings that were active when `_auth` was created.
@@ -69,10 +92,14 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
   }
 
   if (_auth === null) {
+    // Capture the validated secret into a const so the databaseHooks closures
+    // below can reference it without TypeScript requiring further narrowing.
+    const secret: string = env.BETTER_AUTH_SECRET;
+
     _auth = betterAuth({
       database: drizzleAdapter(drizzle(env.DB), { provider: 'sqlite' }),
       baseURL: env.BETTER_AUTH_URL,
-      secret: env.BETTER_AUTH_SECRET,
+      secret,
       emailAndPassword: {
         enabled: true,
         requireEmailVerification: false,
@@ -96,6 +123,43 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
       rateLimit: {
         enabled: false, // KV-backed rate limiter handles this; built-in is in-memory only
       },
+      databaseHooks: {
+        session: {
+          create: {
+            /**
+             * Hash the session token with HMAC-SHA256 before it is written to D1.
+             * The cookie value is derived from the returned data, so the cookie and
+             * the database row both hold the same digest.
+             *
+             * @param session - The session data being created, including the raw token.
+             * @returns Updated session data with the HMAC-SHA256 hash of the token.
+             */
+            before: async (
+              session: { token: string } & Record<string, unknown>
+            ): Promise<{ data: { token: string } }> => ({
+              data: { token: await hashToken(session.token, secret) },
+            }),
+          },
+        },
+        verification: {
+          create: {
+            /**
+             * Hash the verification value with HMAC-SHA256 before it is written to D1.
+             * Any feature that reads `verification.value` after a successful lookup will
+             * receive the hash; future plugins that store sensitive tokens in this field
+             * must account for this transform.
+             *
+             * @param verification - The verification data being created, including the raw value.
+             * @returns Updated verification data with the HMAC-SHA256 hash of the value.
+             */
+            before: async (
+              verification: { value: string } & Record<string, unknown>
+            ): Promise<{ data: { value: string } }> => ({
+              data: { value: await hashToken(verification.value, secret) },
+            }),
+          },
+        },
+      },
       // To add OAuth (e.g. Google sign-in), add a `socialProviders` block here
       // and expose GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET bindings in wrangler.toml
       // and env.ts. No structural changes to the auth layer are required (FR-010, SC-007):
@@ -110,7 +174,7 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
       // better-auth v1.4.x automatically mounts GET /api/auth/callback/google
       // (and the corresponding redirect endpoint) once a provider is configured here.
     });
-    _authEnvIdentity = { secret: env.BETTER_AUTH_SECRET, db: env.DB };
+    _authEnvIdentity = { secret, db: env.DB };
   }
 
   return _auth;

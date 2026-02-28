@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Env } from '../shared/env';
 
 import { getAuth, resetAuth } from './auth';
+import { hashToken } from './tokenHasher';
 
 /**
  * Hoisted mock variables — must be hoisted so they are available in vi.mock()
@@ -186,6 +187,104 @@ describe('getAuth', () => {
       const config = capturedBetterAuthConfig();
       const rateLimit = config['rateLimit'] as Record<string, unknown>;
       expect(rateLimit['enabled']).toBe(false);
+    });
+  });
+
+  describe('token hashing (databaseHooks)', () => {
+    it('configures databaseHooks with both session and verification create hooks', () => {
+      const env = makeEnv();
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const hooks = config['databaseHooks'] as Record<string, unknown>;
+      expect(hooks).toBeDefined();
+      expect(hooks['session']).toBeDefined();
+      expect(hooks['verification']).toBeDefined();
+    });
+
+    it('session create.before hook hashes the token field with HMAC-SHA256', async () => {
+      const secret = 'x'.repeat(32);
+      const env = makeEnv({ BETTER_AUTH_SECRET: secret });
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const hooks = config['databaseHooks'] as Record<string, unknown>;
+      const sessionCreate = (hooks['session'] as Record<string, unknown>)['create'] as Record<
+        string,
+        unknown
+      >;
+      const beforeHook = sessionCreate['before'] as (
+        session: Record<string, unknown>
+      ) => Promise<{ data: { token: string } }>;
+
+      const rawToken = 'test-session-token-abc123';
+      const result = await beforeHook({ token: rawToken });
+
+      const expected = await hashToken(rawToken, secret);
+      expect(result.data.token).toBe(expected);
+    });
+
+    it('session create.before hook produces a 64-character hex output', async () => {
+      const env = makeEnv();
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const hooks = config['databaseHooks'] as Record<string, unknown>;
+      const sessionCreate = (hooks['session'] as Record<string, unknown>)['create'] as Record<
+        string,
+        unknown
+      >;
+      const beforeHook = sessionCreate['before'] as (
+        session: Record<string, unknown>
+      ) => Promise<{ data: { token: string } }>;
+
+      const result = await beforeHook({ token: 'any-token' });
+
+      expect(result.data.token).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it('verification create.before hook hashes the value field with HMAC-SHA256', async () => {
+      const secret = 'x'.repeat(32);
+      const env = makeEnv({ BETTER_AUTH_SECRET: secret });
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const hooks = config['databaseHooks'] as Record<string, unknown>;
+      const verificationCreate = (hooks['verification'] as Record<string, unknown>)[
+        'create'
+      ] as Record<string, unknown>;
+      const beforeHook = verificationCreate['before'] as (
+        verification: Record<string, unknown>
+      ) => Promise<{ data: { value: string } }>;
+
+      const rawValue = 'test-verification-value-xyz';
+      const result = await beforeHook({ value: rawValue });
+
+      const expected = await hashToken(rawValue, secret);
+      expect(result.data.value).toBe(expected);
+    });
+
+    it('verification create.before hook produces a 64-character hex output', async () => {
+      const env = makeEnv();
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const hooks = config['databaseHooks'] as Record<string, unknown>;
+      const verificationCreate = (hooks['verification'] as Record<string, unknown>)[
+        'create'
+      ] as Record<string, unknown>;
+      const beforeHook = verificationCreate['before'] as (
+        verification: Record<string, unknown>
+      ) => Promise<{ data: { value: string } }>;
+
+      const result = await beforeHook({ value: 'any-value' });
+
+      expect(result.data.value).toMatch(/^[0-9a-f]{64}$/);
     });
   });
 
