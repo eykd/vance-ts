@@ -115,7 +115,6 @@ export class SignUpUseCase {
         email: request.email,
         password: request.password,
         name,
-        ip: request.ip,
       });
 
       return result;

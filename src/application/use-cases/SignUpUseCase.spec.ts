@@ -224,7 +224,7 @@ describe('SignUpUseCase', () => {
       expect(capturedKey).toMatch(/^ratelimit:register:[0-9a-f-]+$/);
     });
 
-    it('calls authService.signUp with email, password, name derived from email prefix, and ip', async () => {
+    it('calls authService.signUp with email, password, and name derived from email prefix', async () => {
       await useCase.execute({
         email: 'alice@example.com',
         password: 'correcthorse12',
@@ -235,7 +235,6 @@ describe('SignUpUseCase', () => {
         email: 'alice@example.com',
         password: 'correcthorse12',
         name: 'alice',
-        ip: '1.2.3.4',
       });
     });
 
@@ -250,7 +249,6 @@ describe('SignUpUseCase', () => {
         email: '@domain.com',
         password: 'correcthorse12',
         name: '@domain.com',
-        ip: '1.2.3.4',
       });
     });
   });

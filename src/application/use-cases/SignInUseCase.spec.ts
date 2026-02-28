@@ -162,7 +162,7 @@ describe('SignInUseCase', () => {
       );
     });
 
-    it('calls authService.signIn with email, password, and ip', async () => {
+    it('calls authService.signIn with email and password', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       await useCase.execute(defaultRequest);
@@ -170,7 +170,6 @@ describe('SignInUseCase', () => {
       expect(authServiceMock.signIn).toHaveBeenCalledWith({
         email: 'user@example.com',
         password: 'correcthorse12',
-        ip: '1.2.3.4',
       });
     });
 

@@ -52,15 +52,14 @@ export interface AuthService {
   /**
    * Attempts to sign in a user with email and password.
    *
-   * @param params - Sign-in credentials and client IP for rate limiting.
+   * @param params - Sign-in credentials.
    * @param params.email - The user's email address.
    * @param params.password - The user's plaintext password.
-   * @param params.ip - Client IP address used for rate limiting.
    * @returns `{ ok: true, sessionToken }` on success, or a typed failure.
    * The `sessionToken` is an opaque string; the presentation layer constructs
    * the Set-Cookie header from it using `buildSessionCookie`.
    */
-  signIn(params: { email: string; password: string; ip: string }): Promise<
+  signIn(params: { email: string; password: string }): Promise<
     | { ok: true; sessionToken: string }
     | {
         ok: false;
@@ -82,18 +81,16 @@ export interface AuthService {
    * `SignUpUseCase` before calling this method, because better-auth v1.4.x provides
    * no password validation hook at registration time.
    *
-   * @param params - Registration details and client IP for rate limiting.
+   * @param params - Registration details.
    * @param params.email - The user's email address.
    * @param params.password - The user's plaintext password.
    * @param params.name - The user's display name.
-   * @param params.ip - Client IP address used for rate limiting.
    * @returns `{ ok: true }` on success, or a typed failure.
    */
   signUp(params: {
     email: string;
     password: string;
     name: string;
-    ip: string;
   }): Promise<
     | { ok: true }
     | { ok: false; kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error' }

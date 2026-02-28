@@ -97,7 +97,6 @@ export class SignInUseCase {
       const result = await this.authService.signIn({
         email: request.email,
         password: request.password,
-        ip: request.ip,
       });
 
       // Timing oracle defence — run Argon2id on every non-rate-limited failure (FR-007)

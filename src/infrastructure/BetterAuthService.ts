@@ -52,16 +52,10 @@ function generateDummyHash(): string {
  * Constructed with the auth instance returned by `getAuth(env)` and wired
  * into the application layer via `src/di/serviceFactory.ts`.
  *
- * The `ip` parameter present on `signIn` and `signUp` is part of the port
- * contract (used by use cases for KV-based rate limiting before calling this
- * adapter). It is not forwarded to better-auth because better-auth's built-in
- * rate limiter is disabled (`rateLimit: { enabled: false }`) in favour of the
- * KV-backed `KvRateLimiter`.
- *
  * @example
  * ```typescript
  * const service = new BetterAuthService(getAuth(env));
- * const result = await service.signIn({ email, password, ip });
+ * const result = await service.signIn({ email, password });
  * ```
  */
 export class BetterAuthService implements AuthService {
@@ -103,13 +97,12 @@ export class BetterAuthService implements AuthService {
    * - other: service error
    * - throws: service error
    *
-   * @param params - Sign-in credentials and client IP for rate limiting.
+   * @param params - Sign-in credentials.
    * @param params.email - The user's email address.
    * @param params.password - The user's plaintext password.
-   * @param params.ip - Client IP address (used by use cases for KV rate limiting).
    * @returns Typed result indicating success or failure kind.
    */
-  async signIn(params: { email: string; password: string; ip: string }): Promise<
+  async signIn(params: { email: string; password: string }): Promise<
     | { ok: true; sessionToken: string }
     | {
         ok: false;
@@ -164,18 +157,16 @@ export class BetterAuthService implements AuthService {
    * - other: service error
    * - throws: service error
    *
-   * @param params - Registration details and client IP for rate limiting.
+   * @param params - Registration details.
    * @param params.email - The user's email address.
    * @param params.password - The user's plaintext password.
    * @param params.name - The user's display name.
-   * @param params.ip - Client IP address (used by use cases for KV rate limiting).
    * @returns Typed result indicating success or failure kind.
    */
   async signUp(params: {
     email: string;
     password: string;
     name: string;
-    ip: string;
   }): Promise<
     | { ok: true }
     | { ok: false; kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error' }

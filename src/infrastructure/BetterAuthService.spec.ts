@@ -70,7 +70,6 @@ describe('BetterAuthService', () => {
       const result = await service.signIn({
         email: 'user@example.com',
         password: 'correcthorse12',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(true);
@@ -85,7 +84,6 @@ describe('BetterAuthService', () => {
       await service.signIn({
         email: 'user@example.com',
         password: 'correcthorse12',
-        ip: '1.2.3.4',
       });
 
       expect(authMock.api.signInEmail).toHaveBeenCalledWith(
@@ -99,7 +97,6 @@ describe('BetterAuthService', () => {
       await service.signIn({
         email: 'user@example.com',
         password: 'correcthorse12',
-        ip: '1.2.3.4',
       });
 
       expect(authMock.api.signInEmail).toHaveBeenCalledWith(
@@ -113,7 +110,6 @@ describe('BetterAuthService', () => {
       const result = await service.signIn({
         email: 'user@example.com',
         password: 'wrongpassword12',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
@@ -128,7 +124,6 @@ describe('BetterAuthService', () => {
       const result = await service.signIn({
         email: 'not-an-email',
         password: 'correcthorse12',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
@@ -145,7 +140,6 @@ describe('BetterAuthService', () => {
       const result = await service.signIn({
         email: 'user@example.com',
         password: 'correcthorse12',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
@@ -161,7 +155,6 @@ describe('BetterAuthService', () => {
       const result = await service.signIn({
         email: 'user@example.com',
         password: 'correcthorse12',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
@@ -177,7 +170,6 @@ describe('BetterAuthService', () => {
       const result = await service.signIn({
         email: 'user@example.com',
         password: 'correcthorse12',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
@@ -192,7 +184,6 @@ describe('BetterAuthService', () => {
       const result = await service.signIn({
         email: 'user@example.com',
         password: 'correcthorse12',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
@@ -207,7 +198,6 @@ describe('BetterAuthService', () => {
       const result = await service.signIn({
         email: 'user@example.com',
         password: 'correcthorse12',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
@@ -225,7 +215,6 @@ describe('BetterAuthService', () => {
         email: 'new@example.com',
         password: 'correcthorse12',
         name: 'Alice',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(true);
@@ -238,7 +227,6 @@ describe('BetterAuthService', () => {
         email: 'new@example.com',
         password: 'correcthorse12',
         name: 'Alice',
-        ip: '1.2.3.4',
       });
 
       expect(authMock.api.signUpEmail).toHaveBeenCalledWith(
@@ -255,7 +243,6 @@ describe('BetterAuthService', () => {
         email: 'new@example.com',
         password: 'correcthorse12',
         name: 'Alice',
-        ip: '1.2.3.4',
       });
 
       expect(authMock.api.signUpEmail).toHaveBeenCalledWith(
@@ -270,7 +257,6 @@ describe('BetterAuthService', () => {
         email: 'existing@example.com',
         password: 'correcthorse12',
         name: 'Bob',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
@@ -286,7 +272,6 @@ describe('BetterAuthService', () => {
         email: 'new@example.com',
         password: 'short',
         name: 'Carol',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
@@ -302,7 +287,6 @@ describe('BetterAuthService', () => {
         email: 'new@example.com',
         password: 'correcthorse12',
         name: 'Dave',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
@@ -318,7 +302,6 @@ describe('BetterAuthService', () => {
         email: 'new@example.com',
         password: 'correcthorse12',
         name: 'Eve',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
@@ -334,7 +317,6 @@ describe('BetterAuthService', () => {
         email: 'new@example.com',
         password: 'correcthorse12',
         name: 'Frank',
-        ip: '1.2.3.4',
       });
 
       expect(result.ok).toBe(false);
