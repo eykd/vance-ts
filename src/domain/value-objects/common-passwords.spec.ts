@@ -1,3 +1,5 @@
+import { describe, expect, it } from 'vitest';
+
 import { COMMON_PASSWORDS } from './common-passwords';
 
 describe('COMMON_PASSWORDS', () => {
