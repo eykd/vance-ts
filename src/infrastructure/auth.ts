@@ -16,10 +16,15 @@
  * ## Token hashing
  *
  * `databaseHooks` hash `session.token` and `verification.value` before they
- * are written to D1, replacing plaintext token values with HMAC-SHA256 digests
- * keyed on `BETTER_AUTH_SECRET`. This limits the blast radius of a database
- * exfiltration: an attacker who obtains only the D1 dump cannot recover usable
- * token strings.
+ * are written to D1, replacing plaintext token values with HMAC-SHA256 digests.
+ * Each purpose uses a dedicated sub-key derived from `BETTER_AUTH_SECRET`:
+ * `sessionSubKey = HMAC(secret, 'session-token-v1')` and
+ * `verificationSubKey = HMAC(secret, 'verification-token-v1')`.
+ *
+ * This key-separation principle ensures that a digest stored under one purpose
+ * cannot collide with a digest stored under another, even if an attacker knows
+ * the master secret. It also limits the blast radius of a database exfiltration:
+ * an attacker who obtains only the D1 dump cannot recover usable token strings.
  *
  * **Session tokens**: better-auth derives the session cookie value from the
  * data returned by the `create` hook, so the cookie and the database row hold
@@ -158,8 +163,9 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
           create: {
             /**
              * Hash the session token with HMAC-SHA256 before it is written to D1.
-             * The cookie value is derived from the returned data, so the cookie and
-             * the database row both hold the same digest.
+             * Uses the dedicated 'session-token-v1' sub-key derived from the master
+             * secret for key separation. The cookie value is derived from the returned
+             * data, so the cookie and the database row both hold the same digest.
              *
              * @param session - The session data being created, including the raw token.
              * @returns Updated session data with the HMAC-SHA256 hash of the token.
@@ -167,7 +173,7 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
             before: async (
               session: { token: string } & Record<string, unknown>
             ): Promise<{ data: { token: string } }> => ({
-              data: { token: await hashToken(session.token, secret) },
+              data: { token: await hashToken(session.token, secret, 'session-token-v1') },
             }),
           },
         },
@@ -175,9 +181,10 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
           create: {
             /**
              * Hash the verification value with HMAC-SHA256 before it is written to D1.
-             * Any feature that reads `verification.value` after a successful lookup will
-             * receive the hash; future plugins that store sensitive tokens in this field
-             * must account for this transform.
+             * Uses the dedicated 'verification-token-v1' sub-key derived from the master
+             * secret for key separation. Any feature that reads `verification.value` after
+             * a successful lookup will receive the hash; future plugins that store sensitive
+             * tokens in this field must account for this transform.
              *
              * @param verification - The verification data being created, including the raw value.
              * @returns Updated verification data with the HMAC-SHA256 hash of the value.
@@ -185,7 +192,7 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
             before: async (
               verification: { value: string } & Record<string, unknown>
             ): Promise<{ data: { value: string } }> => ({
-              data: { value: await hashToken(verification.value, secret) },
+              data: { value: await hashToken(verification.value, secret, 'verification-token-v1') },
             }),
           },
         },

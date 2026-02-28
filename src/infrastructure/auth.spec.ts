@@ -265,7 +265,7 @@ describe('getAuth', () => {
       const rawToken = 'test-session-token-abc123';
       const result = await beforeHook({ token: rawToken });
 
-      const expected = await hashToken(rawToken, secret);
+      const expected = await hashToken(rawToken, secret, 'session-token-v1');
       expect(result.data.token).toBe(expected);
     });
 
@@ -307,7 +307,7 @@ describe('getAuth', () => {
       const rawValue = 'test-verification-value-xyz';
       const result = await beforeHook({ value: rawValue });
 
-      const expected = await hashToken(rawValue, secret);
+      const expected = await hashToken(rawValue, secret, 'verification-token-v1');
       expect(result.data.value).toBe(expected);
     });
 

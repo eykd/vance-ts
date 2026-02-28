@@ -67,8 +67,11 @@ export function createRequireAuth(
       return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
     }
 
-    // Derive a session-bound CSRF token via HMAC-SHA256(key=secret, message="csrf:v1:{token}").
-    // The domain-separation prefix "csrf:v1:" prevents cross-protocol token confusion.
+    // Derive a session-bound CSRF token via two-step HMAC-SHA256:
+    //   csrfSubKey = HMAC(masterSecret, 'csrf-v1')
+    //   csrfToken  = HMAC(csrfSubKey, "csrf:v1:{sessionToken}")
+    // The dedicated sub-key enforces key separation; the domain prefix further
+    // prevents cross-protocol confusion within the CSRF domain.
     // Deterministic per session — consistent across multi-tab usage, no KV storage required.
     const csrfToken = await deriveCsrfToken(`csrf:v1:${session.session.token}`, secret);
     c.header('Set-Cookie', buildCsrfCookie(csrfToken), { append: true });

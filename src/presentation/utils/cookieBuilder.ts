@@ -13,25 +13,40 @@ export function generateCsrfToken(): string {
 }
 
 /**
- * Derives a CSRF token via HMAC-SHA256 keyed on the provided secret.
+ * Derives a CSRF token via two-step HMAC-SHA256 with a dedicated sub-key.
+ *
+ * Key separation ensures the CSRF sub-key is distinct from any other key
+ * derived from the same master secret:
+ * `csrfSubKey = HMAC(masterSecret, 'csrf-v1')`,
+ * then `token = HMAC(csrfSubKey, message)`.
  *
  * The message should include a domain-separation prefix (e.g. "csrf:v1:{sessionToken}")
- * to prevent cross-protocol token reuse.
+ * to additionally prevent cross-protocol token reuse within the CSRF domain.
  *
- * @param message - The message to sign (e.g. "csrf:v1:{sessionToken}")
- * @param secret  - The signing secret (e.g. AUTH_SECRET from env)
+ * @param message      - The message to sign (e.g. "csrf:v1:{sessionToken}")
+ * @param masterSecret - The master signing secret (e.g. BETTER_AUTH_SECRET from env)
  * @returns A 64-character lowercase hex string
  */
-export async function deriveCsrfToken(message: string, secret: string): Promise<string> {
+export async function deriveCsrfToken(message: string, masterSecret: string): Promise<string> {
   const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
+  // Step 1: derive the dedicated csrf-v1 sub-key
+  const masterKey = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(secret),
+    encoder.encode(masterSecret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
   );
-  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
+  const csrfSubKeyBuffer = await crypto.subtle.sign('HMAC', masterKey, encoder.encode('csrf-v1'));
+  // Step 2: sign the message with the sub-key
+  const csrfKey = await crypto.subtle.importKey(
+    'raw',
+    csrfSubKeyBuffer,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', csrfKey, encoder.encode(message));
   return toHex(new Uint8Array(signature));
 }
 
