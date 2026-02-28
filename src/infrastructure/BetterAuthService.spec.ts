@@ -399,6 +399,21 @@ describe('BetterAuthService', () => {
       }
     });
 
+    it('returns ok: false kind: service_error when Set-Cookie header is empty string on 200', async () => {
+      authMock.api.signOut.mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: { get: (name: string) => (name.toLowerCase() === 'set-cookie' ? '' : null) },
+      } as unknown as Response);
+
+      const result = await service.signOut({ sessionCookie: '__Host-session=abc123' });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
     it('returns ok: false kind: service_error when response is not ok (500)', async () => {
       authMock.api.signOut.mockResolvedValue(new Response(null, { status: 500 }));
 
