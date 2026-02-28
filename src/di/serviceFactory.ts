@@ -82,11 +82,21 @@ export class ServiceFactory {
     this._validatedSecret = env.BETTER_AUTH_SECRET as string; // safe: getAuth validated above
   }
 
+  /**
+   * Lazily initialises and returns the AuthService implementation.
+   *
+   * @returns The lazily-initialised BetterAuthService instance.
+   */
   private get _authServiceInstance(): AuthService {
     this._authService ??= new BetterAuthService(this._authInstance);
     return this._authService;
   }
 
+  /**
+   * Lazily initialises and returns the RateLimiter implementation.
+   *
+   * @returns The lazily-initialised DurableObjectRateLimiter instance.
+   */
   private get _rateLimiterInstance(): RateLimiter {
     this._rateLimiter ??= new DurableObjectRateLimiter(this.env.RATE_LIMIT);
     return this._rateLimiter;
