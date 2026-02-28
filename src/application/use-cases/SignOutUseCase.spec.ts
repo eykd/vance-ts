@@ -27,7 +27,7 @@ describe('SignOutUseCase', () => {
   let authServiceMock: ReturnType<typeof makeAuthServiceMock>;
   let useCase: SignOutUseCase;
 
-  const defaultRequest = { sessionCookie: '__Host-better-auth.session-token=abc123' };
+  const defaultRequest = { sessionToken: 'abc123' };
 
   beforeEach(() => {
     authServiceMock = makeAuthServiceMock();
@@ -39,17 +39,12 @@ describe('SignOutUseCase', () => {
   });
 
   describe('execute', () => {
-    it('returns ok: true with clearCookieHeader when authService.signOut succeeds', async () => {
-      const clearCookieHeader =
-        '__Host-better-auth.session-token=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax; Secure';
-      authServiceMock.signOut.mockResolvedValue({ ok: true, clearCookieHeader });
+    it('returns ok: true when authService.signOut succeeds', async () => {
+      authServiceMock.signOut.mockResolvedValue({ ok: true });
 
       const result = await useCase.execute(defaultRequest);
 
       expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.clearCookieHeader).toBe(clearCookieHeader);
-      }
     });
 
     it('returns ok: false kind: service_error when authService.signOut returns service_error', async () => {
@@ -74,15 +69,12 @@ describe('SignOutUseCase', () => {
       }
     });
 
-    it('calls authService.signOut with the sessionCookie from the request', async () => {
-      authServiceMock.signOut.mockResolvedValue({
-        ok: true,
-        clearCookieHeader: 'clear-cookie-value',
-      });
+    it('calls authService.signOut with the sessionToken from the request', async () => {
+      authServiceMock.signOut.mockResolvedValue({ ok: true });
 
-      await useCase.execute({ sessionCookie: 'session-token-xyz' });
+      await useCase.execute({ sessionToken: 'session-token-xyz' });
 
-      expect(authServiceMock.signOut).toHaveBeenCalledWith({ sessionCookie: 'session-token-xyz' });
+      expect(authServiceMock.signOut).toHaveBeenCalledWith({ sessionToken: 'session-token-xyz' });
     });
   });
 });

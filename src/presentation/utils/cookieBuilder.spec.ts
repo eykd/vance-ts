@@ -1,9 +1,11 @@
 import {
   buildCsrfCookie,
+  buildSessionCookie,
   clearCsrfCookie,
   clearSessionCookie,
   deriveCsrfToken,
   extractCsrfTokenFromCookies,
+  extractSessionToken,
   generateCsrfToken,
   hasSessionCookie,
 } from './cookieBuilder';
@@ -178,5 +180,61 @@ describe('extractCsrfTokenFromCookies', () => {
 
   it('returns null for empty cookie header', () => {
     expect(extractCsrfTokenFromCookies('')).toBeNull();
+  });
+});
+
+describe('buildSessionCookie', () => {
+  it('returns a Set-Cookie header value with the token', () => {
+    expect(buildSessionCookie('abc123')).toContain('__Host-better-auth.session_token=abc123');
+  });
+
+  it('includes HttpOnly flag', () => {
+    expect(buildSessionCookie('tok')).toContain('HttpOnly');
+  });
+
+  it('includes Secure flag', () => {
+    expect(buildSessionCookie('tok')).toContain('Secure');
+  });
+
+  it('includes SameSite=Lax', () => {
+    expect(buildSessionCookie('tok')).toContain('SameSite=Lax');
+  });
+
+  it('includes Path=/', () => {
+    expect(buildSessionCookie('tok')).toContain('Path=/');
+  });
+
+  it('includes Max-Age=2592000 (30 days)', () => {
+    expect(buildSessionCookie('tok')).toContain('Max-Age=2592000');
+  });
+});
+
+describe('extractSessionToken', () => {
+  it('extracts the session token from a cookie header', () => {
+    expect(extractSessionToken('__Host-better-auth.session_token=abc123')).toBe('abc123');
+  });
+
+  it('returns null when cookieHeader is null', () => {
+    expect(extractSessionToken(null)).toBeNull();
+  });
+
+  it('returns null when cookieHeader is empty string', () => {
+    expect(extractSessionToken('')).toBeNull();
+  });
+
+  it('returns null when session cookie is absent', () => {
+    expect(extractSessionToken('__Host-csrf=token; other=value')).toBeNull();
+  });
+
+  it('extracts the token when session cookie is present alongside other cookies', () => {
+    expect(
+      extractSessionToken('__Host-csrf=xyz; __Host-better-auth.session_token=tok123; more=stuff')
+    ).toBe('tok123');
+  });
+
+  it('handles the session cookie at the end of a multi-cookie header', () => {
+    expect(extractSessionToken('other=abc; __Host-better-auth.session_token=endtok')).toBe(
+      'endtok'
+    );
   });
 });

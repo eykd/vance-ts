@@ -15,8 +15,11 @@ import { loginPage } from '../templates/pages/login.js';
 import { registerPage } from '../templates/pages/register.js';
 import {
   buildCsrfCookie,
+  buildSessionCookie,
   clearCsrfCookie,
+  clearSessionCookie,
   extractCsrfTokenFromCookies,
+  extractSessionToken,
   generateCsrfToken,
 } from '../utils/cookieBuilder.js';
 import { extractClientIp } from '../utils/extractClientIp.js';
@@ -191,7 +194,7 @@ export class AuthPageHandlers {
     if (result.ok) {
       const headers = new Headers();
       headers.set('Location', redirectTo);
-      headers.append('Set-Cookie', result.sessionCookie);
+      headers.append('Set-Cookie', buildSessionCookie(result.sessionToken));
       headers.append('Set-Cookie', clearCsrfCookie());
       return new Response(null, { status: 303, headers });
     }
@@ -310,12 +313,13 @@ export class AuthPageHandlers {
       });
     }
 
-    const result = await this.signOutUseCase.execute({ sessionCookie: cookieHeader });
+    const sessionToken = extractSessionToken(cookieHeader) ?? '';
+    const result = await this.signOutUseCase.execute({ sessionToken });
 
     if (result.ok) {
       const headers = new Headers();
       headers.set('Location', '/auth/sign-in');
-      headers.append('Set-Cookie', result.clearCookieHeader);
+      headers.append('Set-Cookie', clearSessionCookie());
       headers.append('Set-Cookie', clearCsrfCookie());
       return new Response(null, { status: 303, headers });
     }

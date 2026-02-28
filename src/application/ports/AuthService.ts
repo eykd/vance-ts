@@ -45,9 +45,8 @@ export interface AuthSessionDto {
  *
  * The adapter (`BetterAuthService`) lives in `src/infrastructure/` and
  * translates better-auth responses into these application DTO types.
- *
- * `Headers` is used in `getSession` because it is a Web Standard API
- * available at all runtime layers.
+ * All methods are transport-agnostic: no HTTP headers, cookies, or response
+ * objects appear in the signatures.
  */
 export interface AuthService {
   /**
@@ -57,10 +56,12 @@ export interface AuthService {
    * @param params.email - The user's email address.
    * @param params.password - The user's plaintext password.
    * @param params.ip - Client IP address used for rate limiting.
-   * @returns `{ ok: true, sessionCookie }` on success, or a typed failure.
+   * @returns `{ ok: true, sessionToken }` on success, or a typed failure.
+   * The `sessionToken` is an opaque string; the presentation layer constructs
+   * the Set-Cookie header from it using `buildSessionCookie`.
    */
   signIn(params: { email: string; password: string; ip: string }): Promise<
-    | { ok: true; sessionCookie: string }
+    | { ok: true; sessionToken: string }
     | {
         ok: false;
         kind: 'invalid_credentials' | 'rate_limited' | 'service_error';
@@ -99,26 +100,27 @@ export interface AuthService {
   >;
 
   /**
-   * Signs out the user associated with the given session cookie.
+   * Signs out the user associated with the given session token.
    *
    * @param params - Sign-out parameters.
-   * @param params.sessionCookie - The session cookie value from the request.
-   * @returns `{ ok: true, clearCookieHeader }` on success, or a typed failure.
+   * @param params.sessionToken - The opaque session token value (not the full cookie string).
+   * @returns `{ ok: true }` on success, or a typed failure. The presentation layer
+   * is responsible for constructing the Set-Cookie header to clear the session cookie.
    */
   signOut(params: {
-    sessionCookie: string;
-  }): Promise<{ ok: true; clearCookieHeader: string } | { ok: false; kind: 'service_error' }>;
+    sessionToken: string;
+  }): Promise<{ ok: true } | { ok: false; kind: 'service_error' }>;
 
   /**
-   * Retrieves the authenticated user and session from request headers.
+   * Retrieves the authenticated user and session for the given session token.
    *
-   * Returns `null` when no valid session is present.
+   * Returns `null` when the token is invalid or expired.
    *
-   * @param params - Request parameters.
-   * @param params.headers - Request headers containing the session cookie.
+   * @param params - Session lookup parameters.
+   * @param params.sessionToken - The opaque session token extracted from the request cookie.
    */
   getSession(params: {
-    headers: Headers;
+    sessionToken: string;
   }): Promise<{ user: AuthUserDto; session: AuthSessionDto } | null>;
 
   /**

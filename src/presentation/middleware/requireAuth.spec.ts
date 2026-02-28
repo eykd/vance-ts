@@ -29,6 +29,9 @@ function makeAuthServiceMock(): {
 /** Secret used in tests — 32-char minimum for HMAC-SHA256 derivation. */
 const TEST_SECRET = 'a'.repeat(32);
 
+/** Session cookie header for a valid session token. */
+const SESSION_COOKIE = '__Host-better-auth.session_token=test-session-token';
+
 /** A full AuthUser fixture satisfying the domain interface. */
 const TEST_USER = {
   id: 'user-1',
@@ -76,15 +79,17 @@ describe('createRequireAuth', () => {
     authServiceMock.getSession.mockRejectedValue(new Error('D1 unavailable'));
 
     const app = makeTestApp();
-    const res = await app.fetch(new Request('https://example.com/protected'));
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: SESSION_COOKIE },
+      })
+    );
 
     expect(res.status).toBe(503);
     expect(res.headers.get('Retry-After')).toBe('30');
   });
 
-  it('redirects to /auth/sign-in with redirectTo when session is null (unauthenticated)', async () => {
-    authServiceMock.getSession.mockResolvedValue(null);
-
+  it('redirects to /auth/sign-in with redirectTo when no session cookie is present', async () => {
     const app = makeTestApp();
     const res = await app.fetch(new Request('https://example.com/protected?q=1'));
 
@@ -99,7 +104,11 @@ describe('createRequireAuth', () => {
     authServiceMock.getSession.mockResolvedValue(null);
 
     const app = makeTestApp();
-    const res = await app.fetch(new Request('https://example.com/protected'));
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: '__Host-better-auth.session_token=expired-token' },
+      })
+    );
 
     expect(res.status).toBe(302);
     expect(res.headers.get('Location')).toContain('/auth/sign-in');
@@ -125,7 +134,11 @@ describe('createRequireAuth', () => {
     authServiceMock.getSession.mockResolvedValue({ user: TEST_USER, session: TEST_SESSION });
 
     const app = makeTestApp();
-    const res = await app.fetch(new Request('https://example.com/protected'));
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: SESSION_COOKIE },
+      })
+    );
 
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('protected content');
@@ -135,7 +148,11 @@ describe('createRequireAuth', () => {
     authServiceMock.getSession.mockResolvedValue({ user: TEST_USER, session: TEST_SESSION });
 
     const app = makeTestApp();
-    const res = await app.fetch(new Request('https://example.com/protected'));
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: SESSION_COOKIE },
+      })
+    );
 
     const setCookie = res.headers.get('Set-Cookie') ?? '';
     expect(setCookie).toContain('__Host-csrf=');
@@ -163,7 +180,11 @@ describe('createRequireAuth', () => {
       return c.text('ok');
     });
 
-    await app.fetch(new Request('https://example.com/protected'));
+    await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: SESSION_COOKIE },
+      })
+    );
 
     expect(capturedUser).toEqual(TEST_USER);
     expect(capturedSession).toEqual(TEST_SESSION);

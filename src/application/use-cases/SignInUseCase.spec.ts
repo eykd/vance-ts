@@ -66,15 +66,14 @@ describe('SignInUseCase', () => {
   });
 
   describe('execute', () => {
-    it('returns ok: true with sessionCookie when sign-in succeeds', async () => {
-      const sessionCookieValue = '__Host-better-auth.session-token=abc123; Path=/; HttpOnly';
-      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionCookie: sessionCookieValue });
+    it('returns ok: true with sessionToken when sign-in succeeds', async () => {
+      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc123' });
 
       const result = await useCase.execute(defaultRequest);
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.sessionCookie).toBe(sessionCookieValue);
+        expect(result.sessionToken).toBe('abc123');
       }
     });
 
@@ -149,7 +148,7 @@ describe('SignInUseCase', () => {
     });
 
     it('calls checkAndIncrement with key ratelimit:sign-in:{ip} and SIGN_IN_WINDOW_SECONDS', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionCookie: 'abc' });
+      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       await useCase.execute({ email: 'user@example.com', password: 'password12', ip: '9.8.7.6' });
 
@@ -160,7 +159,7 @@ describe('SignInUseCase', () => {
     });
 
     it('calls authService.signIn with email, password, and ip', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionCookie: 'abc' });
+      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       await useCase.execute(defaultRequest);
 
@@ -188,7 +187,7 @@ describe('SignInUseCase', () => {
     });
 
     it('does not call authService.verifyDummyPassword on successful sign-in', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionCookie: 'abc' });
+      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       await useCase.execute(defaultRequest);
 
@@ -250,7 +249,7 @@ describe('SignInUseCase', () => {
     });
 
     it('does not use shared unknown bucket when IP is unknown', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionCookie: 'abc' });
+      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       await useCase.execute({ ...defaultRequest, ip: 'unknown' });
 
@@ -261,7 +260,7 @@ describe('SignInUseCase', () => {
     });
 
     it('uses a UUID-based key when IP is unknown', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionCookie: 'abc' });
+      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       let capturedKey = '';
       rateLimiterMock.checkAndIncrement.mockImplementation((key: unknown) => {

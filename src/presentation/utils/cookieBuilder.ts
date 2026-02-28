@@ -67,6 +67,39 @@ export function clearSessionCookie(): string {
 }
 
 /**
+ * Builds a Set-Cookie header value for the Better Auth session cookie.
+ *
+ * Sets a 30-day Max-Age to match the server-side session lifetime configured in
+ * better-auth (`session.expiresIn: 2_592_000`).
+ *
+ * @param token - The opaque session token returned by the auth service
+ * @returns A Set-Cookie header value string
+ */
+export function buildSessionCookie(token: string): string {
+  return `${SESSION_COOKIE_NAME}=${token}; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=2592000`;
+}
+
+/**
+ * Extracts the session token value from a Cookie request header string.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @returns The session token string, or null if the session cookie is not present
+ */
+export function extractSessionToken(cookieHeader: string | null): string | null {
+  if (cookieHeader === null || cookieHeader === '') {
+    return null;
+  }
+  const prefix = `${SESSION_COOKIE_NAME}=`;
+  for (const part of cookieHeader.split(';')) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith(prefix)) {
+      return trimmed.slice(prefix.length);
+    }
+  }
+  return null;
+}
+
+/**
  * Returns true when the Cookie request header contains a Better Auth session cookie.
  *
  * @param cookieHeader - The value of the Cookie request header, or null if absent

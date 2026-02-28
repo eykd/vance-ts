@@ -16,6 +16,13 @@ import type { AuthSession, AuthUser } from '../domain/entities/auth.js';
 import { verifyPassword } from '../domain/services/passwordHasher.js';
 import { toHex } from '../shared/hex.js';
 
+/**
+ * The better-auth session cookie name, derived from `cookiePrefix: '__Host-better-auth'`
+ * and better-auth's default session token cookie name. Used internally to construct
+ * Cookie headers for sign-out and getSession API calls.
+ */
+const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
+
 /** Type alias for the better-auth instance returned by `getAuth(env)`. */
 type AuthInstance = ReturnType<typeof betterAuth>;
 
@@ -89,7 +96,7 @@ export class BetterAuthService implements AuthService {
    *
    * Delegates to `auth.api.signInEmail` with `asResponse: true` and
    * interprets the HTTP response status to produce a typed result:
-   * - 200: success with session cookie from `Set-Cookie` header
+   * - 200: success with session token extracted from `Set-Cookie` header
    * - 401: invalid credentials (wrong email or password)
    * - 400: invalid credentials (malformed email)
    * - 429: rate limited (optional `Retry-After` header parsed to seconds)
@@ -103,7 +110,7 @@ export class BetterAuthService implements AuthService {
    * @returns Typed result indicating success or failure kind.
    */
   async signIn(params: { email: string; password: string; ip: string }): Promise<
-    | { ok: true; sessionCookie: string }
+    | { ok: true; sessionToken: string }
     | {
         ok: false;
         kind: 'invalid_credentials' | 'rate_limited' | 'service_error';
@@ -117,11 +124,15 @@ export class BetterAuthService implements AuthService {
       });
 
       if (response.ok) {
-        const sessionCookie = response.headers.get('set-cookie');
-        if (sessionCookie === null || sessionCookie === '') {
+        const setCookieHeader = response.headers.get('set-cookie');
+        if (setCookieHeader === null || setCookieHeader === '') {
           return { ok: false, kind: 'service_error' };
         }
-        return { ok: true, sessionCookie };
+        // Extract token value from "Name=tokenValue; attr=val..." format
+        const eqIdx = setCookieHeader.indexOf('=');
+        const semiIdx = setCookieHeader.indexOf(';');
+        const sessionToken = setCookieHeader.slice(eqIdx + 1, semiIdx === -1 ? undefined : semiIdx);
+        return { ok: true, sessionToken };
       }
 
       if (response.status === 429) {
@@ -198,36 +209,32 @@ export class BetterAuthService implements AuthService {
   }
 
   /**
-   * Signs out the user associated with the given session cookie.
+   * Signs out the user associated with the given session token.
    *
-   * Delegates to `auth.api.signOut` with the session cookie passed as the
+   * Delegates to `auth.api.signOut` with the session token used to construct the
    * `Cookie` request header and `asResponse: true`. Interprets the response:
-   * - 200: success with cookie-clearing `Set-Cookie` value
+   * - 200: success (session invalidated server-side)
    * - other: service error
    * - throws: service error
    *
+   * The presentation layer is responsible for constructing the `Set-Cookie`
+   * header to clear the session cookie in the browser (using `clearSessionCookie()`).
+   *
    * @param params - Sign-out parameters.
-   * @param params.sessionCookie - The raw session cookie string from the request
-   * (e.g., `__Host-better-auth.session-token=abc123`). Passed as the `Cookie`
-   * header to better-auth so it can read and invalidate the session.
-   * @returns Typed result with the Set-Cookie header to clear the session, or a
-   * service error.
+   * @param params.sessionToken - The opaque session token value (not the full cookie string).
+   * @returns `{ ok: true }` on success, or a typed failure.
    */
   async signOut(params: {
-    sessionCookie: string;
-  }): Promise<{ ok: true; clearCookieHeader: string } | { ok: false; kind: 'service_error' }> {
+    sessionToken: string;
+  }): Promise<{ ok: true } | { ok: false; kind: 'service_error' }> {
     try {
       const response = await this.auth.api.signOut({
-        headers: new Headers({ cookie: params.sessionCookie }),
+        headers: new Headers({ cookie: `${SESSION_COOKIE_NAME}=${params.sessionToken}` }),
         asResponse: true,
       });
 
       if (response.ok) {
-        const clearCookieHeader = response.headers.get('set-cookie');
-        if (clearCookieHeader === null || clearCookieHeader === '') {
-          return { ok: false, kind: 'service_error' };
-        }
-        return { ok: true, clearCookieHeader };
+        return { ok: true };
       }
 
       return { ok: false, kind: 'service_error' };
@@ -237,28 +244,29 @@ export class BetterAuthService implements AuthService {
   }
 
   /**
-   * Retrieves the authenticated user and session from request headers.
+   * Retrieves the authenticated user and session for the given session token.
    *
-   * Delegates to `auth.api.getSession` (without `asResponse`) so that the
-   * typed domain result is returned directly. Returns `null` when no valid
-   * session is present. Better-auth `Date` objects are converted to ISO 8601
-   * UTC strings to match the domain entity contract.
+   * Constructs the `Cookie` header internally from `sessionToken` and delegates
+   * to `auth.api.getSession`. Returns `null` when no valid session is present.
+   * Better-auth `Date` objects are converted to ISO 8601 UTC strings to match
+   * the domain entity contract.
    *
    * Unlike the other methods, this one does NOT swallow errors — a thrown
    * exception (e.g., D1 unavailable) propagates to the caller. The
    * `requireAuth` middleware is responsible for wrapping this in a try/catch
    * and returning an appropriate error response (503).
    *
-   * @param params - Request parameters.
-   * @param params.headers - Request headers containing the session cookie.
+   * @param params - Session lookup parameters.
+   * @param params.sessionToken - The opaque session token extracted from the request cookie.
    * @returns The authenticated user and session, or `null` if no valid session.
    * @throws {Error} When better-auth encounters an infrastructure error (e.g.,
    * D1 database unavailable).
    */
   async getSession(params: {
-    headers: Headers;
+    sessionToken: string;
   }): Promise<{ user: AuthUser; session: AuthSession } | null> {
-    const data = await this.auth.api.getSession({ headers: params.headers });
+    const headers = new Headers({ cookie: `${SESSION_COOKIE_NAME}=${params.sessionToken}` });
+    const data = await this.auth.api.getSession({ headers });
 
     if (data === null) {
       return null;

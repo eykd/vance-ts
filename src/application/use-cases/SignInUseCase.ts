@@ -27,15 +27,15 @@ export type SignInRequest = {
 /**
  * Result type returned by {@link SignInUseCase.execute}.
  *
- * On success, `sessionCookie` is the raw `Set-Cookie` header value from
- * better-auth that the handler must forward to the browser. On failure,
- * `kind` identifies the error category:
+ * On success, `sessionToken` is the opaque session token that the presentation
+ * layer uses to construct a `Set-Cookie` header via `buildSessionCookie`. On
+ * failure, `kind` identifies the error category:
  * - `invalid_credentials` — wrong email or password
  * - `rate_limited` — IP has exceeded the allowed attempt window
  * - `service_error` — infrastructure failure (DB unavailable, etc.)
  */
 export type SignInResult =
-  | { ok: true; sessionCookie: string }
+  | { ok: true; sessionToken: string }
   | {
       ok: false;
       kind: 'invalid_credentials' | 'rate_limited' | 'service_error';
@@ -56,7 +56,7 @@ export type SignInResult =
  * const useCase = new SignInUseCase(authService, rateLimiter);
  * const result = await useCase.execute({ email, password, ip });
  * if (result.ok) {
- *   response.headers.set('Set-Cookie', result.sessionCookie);
+ *   response.headers.set('Set-Cookie', buildSessionCookie(result.sessionToken));
  * }
  * ```
  */

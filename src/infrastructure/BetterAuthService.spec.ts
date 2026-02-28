@@ -58,12 +58,12 @@ describe('BetterAuthService', () => {
   });
 
   describe('signIn', () => {
-    it('returns ok: true with sessionCookie extracted from Set-Cookie header on 200', async () => {
-      const sessionCookieValue = '__Host-better-auth.session-token=abc123; Path=/; HttpOnly';
+    it('returns ok: true with sessionToken extracted from Set-Cookie header on 200', async () => {
+      const setCookieValue = '__Host-better-auth.session_token=abc123; Path=/; HttpOnly';
       authMock.api.signInEmail.mockResolvedValue(
         new Response(null, {
           status: 200,
-          headers: { 'set-cookie': sessionCookieValue },
+          headers: { 'set-cookie': setCookieValue },
         })
       );
 
@@ -75,7 +75,7 @@ describe('BetterAuthService', () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.sessionCookie).toBe(sessionCookieValue);
+        expect(result.sessionToken).toBe('abc123');
       }
     });
 
@@ -345,79 +345,46 @@ describe('BetterAuthService', () => {
   });
 
   describe('signOut', () => {
-    it('returns ok: true with clearCookieHeader extracted from Set-Cookie header on 200', async () => {
-      const clearCookieValue = '__Host-better-auth.session-token=; Path=/; HttpOnly; Max-Age=0';
+    it('returns ok: true on successful sign-out (200)', async () => {
       authMock.api.signOut.mockResolvedValue(
         new Response(null, {
           status: 200,
-          headers: { 'set-cookie': clearCookieValue },
+          headers: { 'set-cookie': '__Host-better-auth.session_token=; Max-Age=0' },
         })
       );
 
-      const result = await service.signOut({
-        sessionCookie: '__Host-better-auth.session-token=abc123',
-      });
+      const result = await service.signOut({ sessionToken: 'abc123' });
 
       expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.clearCookieHeader).toBe(clearCookieValue);
-      }
     });
 
-    it('passes the sessionCookie as the Cookie request header', async () => {
+    it('constructs the Cookie header from the session token', async () => {
       authMock.api.signOut.mockResolvedValue(new Response(null, { status: 200 }));
-      const sessionCookie = '__Host-better-auth.session-token=abc123';
 
-      await service.signOut({ sessionCookie });
+      await service.signOut({ sessionToken: 'abc123' });
 
       const call = authMock.api.signOut.mock.calls[0] as [
         { headers: Headers; asResponse: boolean },
       ];
       const passedHeaders = call[0]?.headers;
       expect(passedHeaders).toBeInstanceOf(Headers);
-      expect(passedHeaders?.get('cookie')).toBe(sessionCookie);
+      expect(passedHeaders?.get('cookie')).toBe('__Host-better-auth.session_token=abc123');
     });
 
     it('calls auth.api.signOut with asResponse: true', async () => {
       authMock.api.signOut.mockResolvedValue(new Response(null, { status: 200 }));
 
-      await service.signOut({ sessionCookie: '__Host-session=abc123' });
+      await service.signOut({ sessionToken: 'abc123' });
 
       expect(authMock.api.signOut).toHaveBeenCalledWith(
         expect.objectContaining({ asResponse: true })
       );
     });
 
-    it('returns ok: false kind: service_error when Set-Cookie is absent on 200', async () => {
-      authMock.api.signOut.mockResolvedValue(new Response(null, { status: 200 }));
-
-      const result = await service.signOut({ sessionCookie: '__Host-session=abc123' });
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('service_error');
-      }
-    });
-
-    it('returns ok: false kind: service_error when Set-Cookie header is empty string on 200', async () => {
-      authMock.api.signOut.mockResolvedValue({
-        ok: true,
-        status: 200,
-        headers: { get: (name: string) => (name.toLowerCase() === 'set-cookie' ? '' : null) },
-      } as unknown as Response);
-
-      const result = await service.signOut({ sessionCookie: '__Host-session=abc123' });
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('service_error');
-      }
-    });
-
     it('returns ok: false kind: service_error when response is not ok (500)', async () => {
       authMock.api.signOut.mockResolvedValue(new Response(null, { status: 500 }));
 
-      const result = await service.signOut({ sessionCookie: '__Host-session=abc123' });
+      const result = await service.signOut({ sessionToken: 'abc123' });
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -428,7 +395,7 @@ describe('BetterAuthService', () => {
     it('returns ok: false kind: service_error when auth.api.signOut throws', async () => {
       authMock.api.signOut.mockRejectedValue(new Error('network error'));
 
-      const result = await service.signOut({ sessionCookie: '__Host-session=abc123' });
+      const result = await service.signOut({ sessionToken: 'abc123' });
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -441,7 +408,7 @@ describe('BetterAuthService', () => {
     it('returns null when auth.api.getSession returns null', async () => {
       authMock.api.getSession.mockResolvedValue(null);
 
-      const result = await service.getSession({ headers: new Headers() });
+      const result = await service.getSession({ sessionToken: 'tok-abc' });
 
       expect(result).toBeNull();
     });
@@ -469,9 +436,7 @@ describe('BetterAuthService', () => {
         },
       });
 
-      const result = await service.getSession({
-        headers: new Headers({ cookie: 'session=tok-abc' }),
-      });
+      const result = await service.getSession({ sessionToken: 'tok-abc' });
 
       expect(result).not.toBeNull();
       expect(result?.user.id).toBe('user-1');
@@ -486,20 +451,22 @@ describe('BetterAuthService', () => {
       expect(result?.session.createdAt).toBe('2026-02-25T00:00:00.000Z');
     });
 
-    it('passes the request headers to auth.api.getSession', async () => {
+    it('constructs Cookie header from sessionToken and passes to auth.api.getSession', async () => {
       authMock.api.getSession.mockResolvedValue(null);
-      const headers = new Headers({ cookie: 'session=tok-abc' });
 
-      await service.getSession({ headers });
+      await service.getSession({ sessionToken: 'tok-abc' });
 
-      expect(authMock.api.getSession).toHaveBeenCalledWith(expect.objectContaining({ headers }));
+      const call = authMock.api.getSession.mock.calls[0] as [{ headers: Headers }];
+      const passedHeaders = call[0]?.headers;
+      expect(passedHeaders).toBeInstanceOf(Headers);
+      expect(passedHeaders?.get('cookie')).toBe('__Host-better-auth.session_token=tok-abc');
     });
 
     it('propagates errors thrown by auth.api.getSession', async () => {
       const error = new Error('D1 database unavailable');
       authMock.api.getSession.mockRejectedValue(error);
 
-      await expect(service.getSession({ headers: new Headers() })).rejects.toThrow(
+      await expect(service.getSession({ sessionToken: 'tok-abc' })).rejects.toThrow(
         'D1 database unavailable'
       );
     });

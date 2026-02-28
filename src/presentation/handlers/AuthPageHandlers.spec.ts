@@ -90,7 +90,7 @@ function makeSignOutPostRequest(options?: {
   const {
     csrfToken = TEST_CSRF,
     csrfCookie = TEST_CSRF,
-    sessionCookie = '__Host-better-auth.session-token=test_session',
+    sessionCookie = '__Host-better-auth.session_token=test_session',
     contentType = 'application/x-www-form-urlencoded',
     rawBody,
   } = options ?? {};
@@ -371,10 +371,10 @@ describe('AuthPageHandlers', () => {
     });
 
     describe('successful sign-in', () => {
-      const sessionCookie = '__Host-better-auth.session-token=sess123; Path=/; HttpOnly; Secure';
+      const sessionToken = 'sess123';
 
       beforeEach(() => {
-        signInUseCaseMock.execute.mockResolvedValue({ ok: true, sessionCookie });
+        signInUseCaseMock.execute.mockResolvedValue({ ok: true, sessionToken });
       });
 
       it('returns 303 redirect', async () => {
@@ -395,11 +395,11 @@ describe('AuthPageHandlers', () => {
         expect(res.headers.get('Location')).toBe('/app/dashboard');
       });
 
-      it('forwards the session cookie from better-auth', async () => {
+      it('sets the session cookie from better-auth token', async () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
         const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('better-auth.session-token=sess123');
+        expect(setCookies).toContain('better-auth.session_token=sess123');
       });
 
       it('clears the CSRF cookie on success', async () => {
@@ -525,7 +525,7 @@ describe('AuthPageHandlers', () => {
       beforeEach(() => {
         signInUseCaseMock.execute.mockResolvedValue({
           ok: true,
-          sessionCookie: 'session=abc; Path=/; HttpOnly',
+          sessionToken: 'abc',
         });
       });
 
@@ -550,7 +550,7 @@ describe('AuthPageHandlers', () => {
       beforeEach(() => {
         signInUseCaseMock.execute.mockResolvedValue({
           ok: true,
-          sessionCookie: 'session=abc; Path=/; HttpOnly',
+          sessionToken: 'abc',
         });
       });
 
@@ -1025,11 +1025,8 @@ describe('AuthPageHandlers', () => {
     });
 
     describe('successful sign-out', () => {
-      const clearCookieHeader =
-        '__Host-better-auth.session-token=; Path=/; HttpOnly; Max-Age=0; SameSite=Lax';
-
       beforeEach(() => {
-        signOutUseCaseMock.execute.mockResolvedValue({ ok: true, clearCookieHeader });
+        signOutUseCaseMock.execute.mockResolvedValue({ ok: true });
       });
 
       it('returns 303 redirect', async () => {
@@ -1044,11 +1041,12 @@ describe('AuthPageHandlers', () => {
         expect(res.headers.get('Location')).toBe('/auth/sign-in');
       });
 
-      it('forwards the clearCookieHeader from the use case', async () => {
+      it('clears the session cookie via clearSessionCookie()', async () => {
         const req = makeSignOutPostRequest();
         const res = await handlers.handlePostSignOut(req);
         const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('better-auth.session-token=');
+        expect(setCookies).toContain('better-auth.session_token=');
+        expect(setCookies).toContain('Max-Age=0');
       });
 
       it('clears the CSRF cookie on success', async () => {
@@ -1059,18 +1057,18 @@ describe('AuthPageHandlers', () => {
         expect(setCookies).toContain('Max-Age=0');
       });
 
-      it('passes the raw Cookie header as sessionCookie to the use case', async () => {
-        const sessionCookie = '__Host-better-auth.session-token=sess_abc123';
-        const req = makeSignOutPostRequest({ sessionCookie });
+      it('passes the extracted sessionToken to the use case', async () => {
+        const req = makeSignOutPostRequest({
+          sessionCookie: '__Host-better-auth.session_token=sess_abc123',
+        });
         await handlers.handlePostSignOut(req);
-        const expectedCookieHeader = `__Host-csrf=${TEST_CSRF}; ${sessionCookie}`;
         expect(signOutUseCaseMock.execute).toHaveBeenCalledWith({
-          sessionCookie: expectedCookieHeader,
+          sessionToken: 'sess_abc123',
         });
       });
 
       it('calls authService.hasSession with the raw Cookie header to detect session presence', async () => {
-        const sessionCookie = '__Host-better-auth.session-token=sess_abc123';
+        const sessionCookie = '__Host-better-auth.session_token=sess_abc123';
         const req = makeSignOutPostRequest({ sessionCookie });
         await handlers.handlePostSignOut(req);
         expect(authServiceMock.hasSession).toHaveBeenCalledWith(
