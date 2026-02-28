@@ -295,5 +295,33 @@ describe('SignInUseCase', () => {
         expect(result.kind).toBe('service_error');
       }
     });
+
+    it('does not use shared unknown bucket when IP is unknown', async () => {
+      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionCookie: 'abc' });
+
+      await useCase.execute({ ...defaultRequest, ip: 'unknown' });
+
+      expect(rateLimiterMock.check).not.toHaveBeenCalledWith('ratelimit:sign-in:unknown');
+    });
+
+    it('uses consistent non-unknown key for check and increment when IP is unknown', async () => {
+      authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
+
+      let capturedCheckKey = '';
+      let capturedIncrementKey = '';
+      rateLimiterMock.check.mockImplementation((key: unknown) => {
+        capturedCheckKey = String(key);
+        return Promise.resolve({ allowed: true });
+      });
+      rateLimiterMock.increment.mockImplementation((key: unknown) => {
+        capturedIncrementKey = String(key);
+        return Promise.resolve(undefined);
+      });
+
+      await useCase.execute({ ...defaultRequest, ip: 'unknown' });
+
+      expect(capturedCheckKey).not.toBe('ratelimit:sign-in:unknown');
+      expect(capturedCheckKey).toBe(capturedIncrementKey);
+    });
   });
 });

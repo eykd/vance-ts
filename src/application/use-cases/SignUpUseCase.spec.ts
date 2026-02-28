@@ -234,6 +234,32 @@ describe('SignUpUseCase', () => {
       expect(rateLimiterMock.increment).not.toHaveBeenCalled();
     });
 
+    it('does not use shared unknown bucket when IP is unknown', async () => {
+      await useCase.execute({ ...defaultRequest, ip: 'unknown' });
+
+      expect(rateLimiterMock.check).not.toHaveBeenCalledWith('ratelimit:register:unknown');
+    });
+
+    it('uses consistent non-unknown key for check and increment when IP is unknown', async () => {
+      authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'email_taken' });
+
+      let capturedCheckKey = '';
+      let capturedIncrementKey = '';
+      rateLimiterMock.check.mockImplementation((key: unknown) => {
+        capturedCheckKey = String(key);
+        return Promise.resolve({ allowed: true });
+      });
+      rateLimiterMock.increment.mockImplementation((key: unknown) => {
+        capturedIncrementKey = String(key);
+        return Promise.resolve(undefined);
+      });
+
+      await useCase.execute({ ...defaultRequest, ip: 'unknown' });
+
+      expect(capturedCheckKey).not.toBe('ratelimit:register:unknown');
+      expect(capturedCheckKey).toBe(capturedIncrementKey);
+    });
+
     it('checks rate limiter with key ratelimit:register:{ip}', async () => {
       await useCase.execute({
         email: 'user@example.com',
