@@ -179,4 +179,64 @@ describe('DurableObjectRateLimiter', () => {
       );
     });
   });
+
+  describe('checkAndIncrement', () => {
+    it('returns allowed: true when DO returns allowed: true', async () => {
+      stub.fetch.mockResolvedValue(Response.json({ allowed: true }));
+
+      const result = await limiter.checkAndIncrement(
+        'ratelimit:sign-in:1.2.3.4',
+        SIGN_IN_WINDOW_SECONDS
+      );
+
+      expect(result).toEqual({ allowed: true });
+    });
+
+    it('returns allowed: false with retryAfter when DO returns allowed: false', async () => {
+      stub.fetch.mockResolvedValue(Response.json({ allowed: false, retryAfter: 60 }));
+
+      const result = await limiter.checkAndIncrement(
+        'ratelimit:sign-in:1.2.3.4',
+        SIGN_IN_WINDOW_SECONDS
+      );
+
+      expect(result).toEqual({ allowed: false, retryAfter: 60 });
+    });
+
+    it('returns allowed: false without retryAfter when DO omits retryAfter', async () => {
+      stub.fetch.mockResolvedValue(Response.json({ allowed: false }));
+
+      const result = await limiter.checkAndIncrement(
+        'ratelimit:sign-in:1.2.3.4',
+        SIGN_IN_WINDOW_SECONDS
+      );
+
+      expect(result.allowed).toBe(false);
+      expect(result.retryAfter).toBeUndefined();
+    });
+
+    it('routes to the DO stub identified by the given key', async () => {
+      stub.fetch.mockResolvedValue(Response.json({ allowed: true }));
+      const key = 'ratelimit:sign-in:5.5.5.5';
+
+      await limiter.checkAndIncrement(key, SIGN_IN_WINDOW_SECONDS);
+
+      expect(namespace.idFromName).toHaveBeenCalledWith(key);
+      expect(namespace.get).toHaveBeenCalled();
+    });
+
+    it('sends POST /check-and-increment with ttlSeconds and maxAttempts in the request body', async () => {
+      stub.fetch.mockResolvedValue(Response.json({ allowed: true }));
+
+      await limiter.checkAndIncrement('ratelimit:sign-in:1.2.3.4', SIGN_IN_WINDOW_SECONDS);
+
+      expect(stub.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/check-and-increment'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ ttlSeconds: SIGN_IN_WINDOW_SECONDS, maxAttempts: MAX_ATTEMPTS }),
+        })
+      );
+    });
+  });
 });

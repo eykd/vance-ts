@@ -25,10 +25,12 @@ import { createApiAuthRateLimit } from './apiAuthRateLimit';
 function makeRateLimiterMock(): {
   check: ReturnType<typeof vi.fn>;
   increment: ReturnType<typeof vi.fn>;
+  checkAndIncrement: ReturnType<typeof vi.fn>;
 } {
   return {
     check: vi.fn(),
     increment: vi.fn().mockResolvedValue(undefined),
+    checkAndIncrement: vi.fn().mockResolvedValue({ allowed: true }),
   };
 }
 

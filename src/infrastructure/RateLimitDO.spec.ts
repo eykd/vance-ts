@@ -154,6 +154,115 @@ describe('RateLimitDO', () => {
     });
   });
 
+  describe('POST /check-and-increment', () => {
+    it('returns allowed: true and creates entry with count 1 when no entry exists', async () => {
+      storage.get.mockResolvedValue(undefined);
+
+      const request = new Request('https://do/check-and-increment', {
+        method: 'POST',
+        body: JSON.stringify({ ttlSeconds: SIGN_IN_WINDOW_SECONDS, maxAttempts: MAX_ATTEMPTS }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const response = await rateLimitDO.fetch(request);
+      const result: unknown = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(result).toEqual({ allowed: true });
+      expect(storage.put).toHaveBeenCalledWith('entry', {
+        count: 1,
+        resetAt: FIXED_NOW + SIGN_IN_WINDOW_SECONDS * 1000,
+      });
+    });
+
+    it('returns allowed: true and increments count when under the limit', async () => {
+      const resetAt = FIXED_NOW + 300_000;
+      storage.get.mockResolvedValue({ count: MAX_ATTEMPTS - 1, resetAt });
+
+      const request = new Request('https://do/check-and-increment', {
+        method: 'POST',
+        body: JSON.stringify({ ttlSeconds: SIGN_IN_WINDOW_SECONDS, maxAttempts: MAX_ATTEMPTS }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const response = await rateLimitDO.fetch(request);
+      const result: unknown = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(result).toEqual({ allowed: true });
+      expect(storage.put).toHaveBeenCalledWith('entry', {
+        count: MAX_ATTEMPTS,
+        resetAt,
+      });
+    });
+
+    it('returns allowed: false with retryAfter and does not increment when limit is reached', async () => {
+      const resetAt = FIXED_NOW + 60_000;
+      storage.get.mockResolvedValue({ count: MAX_ATTEMPTS, resetAt });
+
+      const request = new Request('https://do/check-and-increment', {
+        method: 'POST',
+        body: JSON.stringify({ ttlSeconds: SIGN_IN_WINDOW_SECONDS, maxAttempts: MAX_ATTEMPTS }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const response = await rateLimitDO.fetch(request);
+      const result: unknown = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(result).toEqual({ allowed: false, retryAfter: 60 });
+      expect(storage.put).not.toHaveBeenCalled();
+    });
+
+    it('returns allowed: false with retryAfter and does not increment when limit is exceeded', async () => {
+      const resetAt = FIXED_NOW + 500;
+      storage.get.mockResolvedValue({ count: MAX_ATTEMPTS + 2, resetAt });
+
+      const request = new Request('https://do/check-and-increment', {
+        method: 'POST',
+        body: JSON.stringify({ ttlSeconds: SIGN_IN_WINDOW_SECONDS, maxAttempts: MAX_ATTEMPTS }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const response = await rateLimitDO.fetch(request);
+      const result: unknown = await response.json();
+
+      expect(result).toEqual({ allowed: false, retryAfter: 1 });
+      expect(storage.put).not.toHaveBeenCalled();
+    });
+
+    it('returns allowed: true and resets counter when existing entry is expired', async () => {
+      storage.get.mockResolvedValue({ count: MAX_ATTEMPTS, resetAt: FIXED_NOW - 1_000 });
+
+      const request = new Request('https://do/check-and-increment', {
+        method: 'POST',
+        body: JSON.stringify({ ttlSeconds: SIGN_IN_WINDOW_SECONDS, maxAttempts: MAX_ATTEMPTS }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const response = await rateLimitDO.fetch(request);
+      const result: unknown = await response.json();
+
+      expect(result).toEqual({ allowed: true });
+      expect(storage.put).toHaveBeenCalledWith('entry', {
+        count: 1,
+        resetAt: FIXED_NOW + SIGN_IN_WINDOW_SECONDS * 1000,
+      });
+    });
+
+    it('reads from storage using the fixed key "entry"', async () => {
+      const request = new Request('https://do/check-and-increment', {
+        method: 'POST',
+        body: JSON.stringify({ ttlSeconds: SIGN_IN_WINDOW_SECONDS, maxAttempts: MAX_ATTEMPTS }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      await rateLimitDO.fetch(request);
+
+      expect(storage.get).toHaveBeenCalledWith('entry');
+    });
+  });
+
   describe('unknown routes', () => {
     it('returns 404 for an unknown path', async () => {
       const response = await rateLimitDO.fetch(new Request('https://do/unknown'));

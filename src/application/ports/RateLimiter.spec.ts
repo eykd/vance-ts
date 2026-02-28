@@ -15,6 +15,8 @@ describe('RateLimiter port', () => {
       const stub: RateLimiter = {
         check: (_key: string) => Promise.resolve({ allowed: true }),
         increment: (_key: string, _ttlSeconds: number): Promise<void> => Promise.resolve(),
+        checkAndIncrement: (_key: string, _ttlSeconds: number) =>
+          Promise.resolve({ allowed: true }),
       };
 
       const result = await stub.check('ratelimit:sign-in:1.2.3.4');
@@ -26,6 +28,8 @@ describe('RateLimiter port', () => {
       const stub: RateLimiter = {
         check: (_key: string) => Promise.resolve({ allowed: false, retryAfter: 300 }),
         increment: (_key: string, _ttlSeconds: number): Promise<void> => Promise.resolve(),
+        checkAndIncrement: (_key: string, _ttlSeconds: number) =>
+          Promise.resolve({ allowed: true }),
       };
 
       const result = await stub.check('ratelimit:sign-in:1.2.3.4');
@@ -38,9 +42,38 @@ describe('RateLimiter port', () => {
       const stub: RateLimiter = {
         check: (_key: string) => Promise.resolve({ allowed: true }),
         increment: (_key: string, _ttlSeconds: number): Promise<void> => Promise.resolve(),
+        checkAndIncrement: (_key: string, _ttlSeconds: number) =>
+          Promise.resolve({ allowed: true }),
       };
 
       await expect(stub.increment('ratelimit:sign-in:1.2.3.4', 900)).resolves.toBeUndefined();
+    });
+
+    it('checkAndIncrement resolves with allowed: true when under the limit', async () => {
+      const stub: RateLimiter = {
+        check: (_key: string) => Promise.resolve({ allowed: true }),
+        increment: (_key: string, _ttlSeconds: number): Promise<void> => Promise.resolve(),
+        checkAndIncrement: (_key: string, _ttlSeconds: number) =>
+          Promise.resolve({ allowed: true }),
+      };
+
+      const result = await stub.checkAndIncrement('ratelimit:sign-in:1.2.3.4', 900);
+
+      expect(result.allowed).toBe(true);
+    });
+
+    it('checkAndIncrement resolves with allowed: false and retryAfter when limit is exceeded', async () => {
+      const stub: RateLimiter = {
+        check: (_key: string) => Promise.resolve({ allowed: true }),
+        increment: (_key: string, _ttlSeconds: number): Promise<void> => Promise.resolve(),
+        checkAndIncrement: (_key: string, _ttlSeconds: number) =>
+          Promise.resolve({ allowed: false, retryAfter: 300 }),
+      };
+
+      const result = await stub.checkAndIncrement('ratelimit:sign-in:1.2.3.4', 900);
+
+      expect(result.allowed).toBe(false);
+      expect(result.retryAfter).toBe(300);
     });
   });
 

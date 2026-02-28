@@ -46,10 +46,10 @@ export type SignInResult =
  * Orchestrates email/password sign-in with IP rate limiting.
  *
  * Flow:
- * 1. Check KV rate limiter for the client IP; reject with `rate_limited` if exceeded.
+ * 1. Atomically check-and-increment the rate limiter for the client IP in a single DO call;
+ * reject with `rate_limited` if the limit is exceeded (counter unchanged on rejection).
  * 2. Delegate to {@link AuthService.signIn}; adapter maps better-auth responses to types.
- * 3. Increment the KV counter on `invalid_credentials` to enforce the brute-force window.
- * Counter is not incremented on infrastructure errors or successes.
+ * 3. Run timing-oracle defence on non-rate-limited failures (FR-007).
  *
  * @example
  * ```typescript
@@ -89,7 +89,7 @@ export class SignInUseCase {
       const ipKey = request.ip !== 'unknown' ? request.ip : crypto.randomUUID();
       const key = `ratelimit:sign-in:${ipKey}`;
 
-      const rateCheck = await this.rateLimiter.check(key);
+      const rateCheck = await this.rateLimiter.checkAndIncrement(key, SIGN_IN_WINDOW_SECONDS);
       if (!rateCheck.allowed) {
         return { ok: false, kind: 'rate_limited', retryAfter: rateCheck.retryAfter };
       }
@@ -99,10 +99,6 @@ export class SignInUseCase {
         password: request.password,
         ip: request.ip,
       });
-
-      if (!result.ok && result.kind === 'invalid_credentials') {
-        await this.rateLimiter.increment(key, SIGN_IN_WINDOW_SECONDS);
-      }
 
       // Timing oracle defence — run Argon2id on every non-rate-limited failure (FR-007)
       if (!result.ok && result.kind !== 'rate_limited') {

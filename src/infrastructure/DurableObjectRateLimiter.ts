@@ -26,6 +26,14 @@ interface CheckResponseBody {
   resetAt: number;
 }
 
+/** Shape of the JSON body returned by the DO `/check-and-increment` endpoint. */
+interface CheckAndIncrementResponseBody {
+  /** Whether the request is allowed to proceed. */
+  allowed: boolean;
+  /** Seconds until the rate limit window resets; present only when `allowed` is `false`. */
+  retryAfter?: number;
+}
+
 /**
  * Rate limiter backed by a `RateLimitDO` Durable Object.
  *
@@ -110,5 +118,37 @@ export class DurableObjectRateLimiter implements RateLimiter {
       body: JSON.stringify({ ttlSeconds }),
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  /**
+   * Atomically checks the rate limit and increments the counter via the Durable Object.
+   *
+   * Performs a single sequential DO invocation that eliminates the TOCTOU race
+   * between a separate {@link check} and {@link increment} call. If the limit is already
+   * exceeded, the counter is not modified.
+   *
+   * @param key - Rate limit key (e.g., `ratelimit:sign-in:1.2.3.4`).
+   * @param ttlSeconds - Window duration in seconds, used only when creating a new entry.
+   * @returns `{ allowed: true }` when the request may proceed (counter incremented), or
+   * `{ allowed: false, retryAfter }` (seconds until reset) when the limit is exceeded.
+   */
+  async checkAndIncrement(
+    key: string,
+    ttlSeconds: number
+  ): Promise<{ allowed: boolean; retryAfter?: number }> {
+    const stub = this.getStub(key);
+    const response = await stub.fetch(`${DO_BASE_URL}/check-and-increment`, {
+      method: 'POST',
+      body: JSON.stringify({ ttlSeconds, maxAttempts: MAX_ATTEMPTS }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const body = await response.json<CheckAndIncrementResponseBody>();
+
+    if (!body.allowed) {
+      const retryAfter = Number.isFinite(body.retryAfter) ? body.retryAfter : undefined;
+      return { allowed: false, retryAfter };
+    }
+
+    return { allowed: true };
   }
 }

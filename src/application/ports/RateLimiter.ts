@@ -46,4 +46,24 @@ export interface RateLimiter {
    * @param ttlSeconds - Window duration in seconds used only when creating a new counter.
    */
   increment(key: string, ttlSeconds: number): Promise<void>;
+
+  /**
+   * Atomically checks the rate limit and increments the counter in a single
+   * Durable Object invocation, eliminating the TOCTOU race between a separate
+   * `check` and `increment` call.
+   *
+   * If the limit is already exceeded, the counter is **not** incremented and
+   * `{ allowed: false, retryAfter }` is returned. If the limit is not exceeded,
+   * the counter is incremented before returning `{ allowed: true }`.
+   *
+   * @param key - The rate limit key (e.g., `ratelimit:sign-in:1.2.3.4`).
+   * @param ttlSeconds - Window duration in seconds used only when creating a new counter.
+   * @returns `{ allowed: true }` when the request may proceed (counter incremented), or
+   * `{ allowed: false, retryAfter }` (seconds until reset) when the limit is exceeded
+   * (counter unchanged).
+   */
+  checkAndIncrement(
+    key: string,
+    ttlSeconds: number
+  ): Promise<{ allowed: boolean; retryAfter?: number }>;
 }

@@ -53,12 +53,12 @@ export type SignUpResult =
  * Orchestrates email/password registration with IP rate limiting.
  *
  * Flow:
- * 1. Check KV rate limiter for the client IP; reject with `rate_limited` if exceeded.
+ * 1. Atomically check-and-increment the rate limiter for the client IP in a single DO call;
+ * reject with `rate_limited` if the limit is exceeded (counter unchanged on rejection).
  * 2. Check the password against the common-password blocklist; reject with
  * `password_too_common` if found (better-auth v1.4.x provides no validate hook).
  * 3. Derive `name` from the email prefix (required by better-auth v1.4.x).
  * 4. Delegate to {@link AuthService.signUp}; adapter maps better-auth responses to types.
- * 5. Increment the KV counter on `email_taken` or `weak_password`; not on other failures.
  *
  * @example
  * ```typescript
@@ -98,7 +98,7 @@ export class SignUpUseCase {
       const ipKey = request.ip !== 'unknown' ? request.ip : crypto.randomUUID();
       const key = `ratelimit:register:${ipKey}`;
 
-      const rateCheck = await this.rateLimiter.check(key);
+      const rateCheck = await this.rateLimiter.checkAndIncrement(key, REGISTER_WINDOW_SECONDS);
       if (!rateCheck.allowed) {
         return { ok: false, kind: 'rate_limited', retryAfter: rateCheck.retryAfter };
       }
@@ -116,10 +116,6 @@ export class SignUpUseCase {
         name,
         ip: request.ip,
       });
-
-      if (!result.ok && (result.kind === 'email_taken' || result.kind === 'weak_password')) {
-        await this.rateLimiter.increment(key, REGISTER_WINDOW_SECONDS);
-      }
 
       return result;
     } catch {

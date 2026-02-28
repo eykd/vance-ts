@@ -30,15 +30,17 @@ function makeAuthServiceMock(): {
 /**
  * Creates a minimal RateLimiter mock with vi.fn() stubs.
  *
- * @returns An object with `vi.fn()` stubs for `check` and `increment`.
+ * @returns An object with `vi.fn()` stubs for each RateLimiter method.
  */
 function makeRateLimiterMock(): {
   check: ReturnType<typeof vi.fn>;
   increment: ReturnType<typeof vi.fn>;
+  checkAndIncrement: ReturnType<typeof vi.fn>;
 } {
   return {
     check: vi.fn(),
     increment: vi.fn(),
+    checkAndIncrement: vi.fn(),
   };
 }
 
@@ -52,8 +54,7 @@ describe('SignInUseCase', () => {
   beforeEach(() => {
     authServiceMock = makeAuthServiceMock();
     rateLimiterMock = makeRateLimiterMock();
-    rateLimiterMock.check.mockResolvedValue({ allowed: true });
-    rateLimiterMock.increment.mockResolvedValue(undefined);
+    rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: true });
     useCase = new SignInUseCase(
       authServiceMock as unknown as AuthService,
       rateLimiterMock as unknown as RateLimiter
@@ -77,8 +78,8 @@ describe('SignInUseCase', () => {
       }
     });
 
-    it('returns ok: false kind: rate_limited with retryAfter when KV rate limit is exceeded', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: false, retryAfter: 900 });
+    it('returns ok: false kind: rate_limited with retryAfter when rate limit is exceeded', async () => {
+      rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false, retryAfter: 900 });
 
       const result = await useCase.execute(defaultRequest);
 
@@ -89,8 +90,8 @@ describe('SignInUseCase', () => {
       }
     });
 
-    it('returns ok: false kind: rate_limited without retryAfter when KV check omits Retry-After', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: false });
+    it('returns ok: false kind: rate_limited without retryAfter when checkAndIncrement omits retryAfter', async () => {
+      rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false });
 
       const result = await useCase.execute(defaultRequest);
 
@@ -102,7 +103,7 @@ describe('SignInUseCase', () => {
     });
 
     it('does not call authService.signIn when rate limit is exceeded', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: false, retryAfter: 900 });
+      rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false, retryAfter: 900 });
 
       await useCase.execute(defaultRequest);
 
@@ -118,17 +119,6 @@ describe('SignInUseCase', () => {
       if (!result.ok) {
         expect(result.kind).toBe('invalid_credentials');
       }
-    });
-
-    it('increments rate limiter with correct key and window on invalid_credentials', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
-
-      await useCase.execute({ ...defaultRequest, ip: '5.6.7.8' });
-
-      expect(rateLimiterMock.increment).toHaveBeenCalledWith(
-        'ratelimit:sign-in:5.6.7.8',
-        SIGN_IN_WINDOW_SECONDS
-      );
     });
 
     it('returns ok: false kind: rate_limited with retryAfter when auth service returns rate_limited', async () => {
@@ -158,40 +148,15 @@ describe('SignInUseCase', () => {
       }
     });
 
-    it('does not increment rate limiter on successful sign-in', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionCookie: 'abc' });
-
-      await useCase.execute(defaultRequest);
-
-      expect(rateLimiterMock.increment).not.toHaveBeenCalled();
-    });
-
-    it('does not increment rate limiter on service_error', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'service_error' });
-
-      await useCase.execute(defaultRequest);
-
-      expect(rateLimiterMock.increment).not.toHaveBeenCalled();
-    });
-
-    it('does not increment rate limiter when auth service returns rate_limited', async () => {
-      authServiceMock.signIn.mockResolvedValue({
-        ok: false,
-        kind: 'rate_limited',
-        retryAfter: 300,
-      });
-
-      await useCase.execute(defaultRequest);
-
-      expect(rateLimiterMock.increment).not.toHaveBeenCalled();
-    });
-
-    it('checks rate limiter with key ratelimit:sign-in:{ip}', async () => {
+    it('calls checkAndIncrement with key ratelimit:sign-in:{ip} and SIGN_IN_WINDOW_SECONDS', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: true, sessionCookie: 'abc' });
 
       await useCase.execute({ email: 'user@example.com', password: 'password12', ip: '9.8.7.6' });
 
-      expect(rateLimiterMock.check).toHaveBeenCalledWith('ratelimit:sign-in:9.8.7.6');
+      expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
+        'ratelimit:sign-in:9.8.7.6',
+        SIGN_IN_WINDOW_SECONDS
+      );
     });
 
     it('calls authService.signIn with email, password, and ip', async () => {
@@ -230,8 +195,8 @@ describe('SignInUseCase', () => {
       expect(authServiceMock.verifyDummyPassword).not.toHaveBeenCalled();
     });
 
-    it('does not call authService.verifyDummyPassword when KV rate limit is exceeded', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: false, retryAfter: 900 });
+    it('does not call authService.verifyDummyPassword when rate limit is exceeded', async () => {
+      rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false, retryAfter: 900 });
 
       await useCase.execute(defaultRequest);
 
@@ -250,8 +215,8 @@ describe('SignInUseCase', () => {
       expect(authServiceMock.verifyDummyPassword).not.toHaveBeenCalled();
     });
 
-    it('returns ok: false kind: service_error when rateLimiter.check throws', async () => {
-      rateLimiterMock.check.mockRejectedValue(new Error('KV unavailable'));
+    it('returns ok: false kind: service_error when rateLimiter.checkAndIncrement throws', async () => {
+      rateLimiterMock.checkAndIncrement.mockRejectedValue(new Error('DO unavailable'));
 
       const result = await useCase.execute(defaultRequest);
 
@@ -263,18 +228,6 @@ describe('SignInUseCase', () => {
 
     it('returns ok: false kind: service_error when authService.signIn throws', async () => {
       authServiceMock.signIn.mockRejectedValue(new Error('DB connection failed'));
-
-      const result = await useCase.execute(defaultRequest);
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('service_error');
-      }
-    });
-
-    it('returns ok: false kind: service_error when rateLimiter.increment throws', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
-      rateLimiterMock.increment.mockRejectedValue(new Error('KV write failed'));
 
       const result = await useCase.execute(defaultRequest);
 
@@ -301,27 +254,25 @@ describe('SignInUseCase', () => {
 
       await useCase.execute({ ...defaultRequest, ip: 'unknown' });
 
-      expect(rateLimiterMock.check).not.toHaveBeenCalledWith('ratelimit:sign-in:unknown');
+      expect(rateLimiterMock.checkAndIncrement).not.toHaveBeenCalledWith(
+        'ratelimit:sign-in:unknown',
+        expect.anything()
+      );
     });
 
-    it('uses consistent non-unknown key for check and increment when IP is unknown', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
+    it('uses a UUID-based key when IP is unknown', async () => {
+      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionCookie: 'abc' });
 
-      let capturedCheckKey = '';
-      let capturedIncrementKey = '';
-      rateLimiterMock.check.mockImplementation((key: unknown) => {
-        capturedCheckKey = String(key);
+      let capturedKey = '';
+      rateLimiterMock.checkAndIncrement.mockImplementation((key: unknown) => {
+        capturedKey = String(key);
         return Promise.resolve({ allowed: true });
-      });
-      rateLimiterMock.increment.mockImplementation((key: unknown) => {
-        capturedIncrementKey = String(key);
-        return Promise.resolve(undefined);
       });
 
       await useCase.execute({ ...defaultRequest, ip: 'unknown' });
 
-      expect(capturedCheckKey).not.toBe('ratelimit:sign-in:unknown');
-      expect(capturedCheckKey).toBe(capturedIncrementKey);
+      expect(capturedKey).not.toBe('ratelimit:sign-in:unknown');
+      expect(capturedKey).toMatch(/^ratelimit:sign-in:[0-9a-f-]+$/);
     });
   });
 });

@@ -8,9 +8,10 @@
  * read-modify-write race that exists with plain KV storage.
  *
  * **Protocol** — the enclosing Worker calls this DO via HTTP:
- * - `GET  /check`     → `200 { count, resetAt } | null`
- * - `POST /increment` → `204` (body: `{ ttlSeconds }`)
- * - Anything else     → `404`
+ * - `GET  /check`               → `200 { count, resetAt } | null`
+ * - `POST /increment`           → `204` (body: `{ ttlSeconds }`)
+ * - `POST /check-and-increment` → `200 { allowed, retryAfter? }` (body: `{ ttlSeconds, maxAttempts }`)
+ * - Anything else               → `404`
  *
  * @module
  */
@@ -77,6 +78,10 @@ export class RateLimitDO implements DurableObject {
       return this.handleIncrement(request);
     }
 
+    if (request.method === 'POST' && url.pathname === '/check-and-increment') {
+      return this.handleCheckAndIncrement(request);
+    }
+
     return new Response('Not found', { status: 404 });
   }
 
@@ -125,5 +130,49 @@ export class RateLimitDO implements DurableObject {
     }
 
     return new Response(null, { status: 204 });
+  }
+
+  /**
+   * Atomically checks the rate limit and increments the counter in a single operation.
+   *
+   * Eliminates the TOCTOU race between a separate `check` and `increment` call:
+   * because this entire read-check-write sequence executes inside the Durable Object's
+   * single-threaded event loop, no two concurrent callers can both pass the check before
+   * either increments.
+   *
+   * - If the active window has `count >= maxAttempts`: returns `{ allowed: false, retryAfter }`
+   * **without** modifying storage.
+   * - Otherwise (no entry, expired window, or count below limit): increments (or creates) the
+   * counter and returns `{ allowed: true }`.
+   *
+   * @param request - The incoming POST request; body must be `{ ttlSeconds: number, maxAttempts: number }`.
+   * @returns `200` with `{ allowed: boolean; retryAfter?: number }`.
+   */
+  private async handleCheckAndIncrement(request: Request): Promise<Response> {
+    const { ttlSeconds, maxAttempts } = await request.json<{
+      ttlSeconds: number;
+      maxAttempts: number;
+    }>();
+    const entry = await this.state.storage.get<RateLimitEntry>(STORAGE_KEY);
+    const now = Date.now();
+
+    if (entry !== undefined && entry.resetAt > now && entry.count >= maxAttempts) {
+      const retryAfter = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+      return Response.json({ allowed: false, retryAfter });
+    }
+
+    if (entry === undefined || entry.resetAt <= now) {
+      await this.state.storage.put<RateLimitEntry>(STORAGE_KEY, {
+        count: 1,
+        resetAt: now + ttlSeconds * 1000,
+      });
+    } else {
+      await this.state.storage.put<RateLimitEntry>(STORAGE_KEY, {
+        count: entry.count + 1,
+        resetAt: entry.resetAt,
+      });
+    }
+
+    return Response.json({ allowed: true });
   }
 }
