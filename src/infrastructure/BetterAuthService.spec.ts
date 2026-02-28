@@ -504,6 +504,30 @@ describe('BetterAuthService', () => {
     });
   });
 
+  describe('hasSession', () => {
+    it('returns true when cookie header contains better-auth.session_token variant', () => {
+      expect(service.hasSession('__Host-better-auth.session_token=abc')).toBe(true);
+    });
+
+    it('returns true when cookie header contains better-auth.session-token variant', () => {
+      expect(service.hasSession('__Host-better-auth.session-token=abc')).toBe(true);
+    });
+
+    it('returns true when session cookie is present alongside other cookies', () => {
+      expect(service.hasSession('__Host-csrf=xyz; __Host-better-auth.session-token=abc')).toBe(
+        true
+      );
+    });
+
+    it('returns false when cookie header contains only non-session cookies', () => {
+      expect(service.hasSession('__Host-csrf=abc123')).toBe(false);
+    });
+
+    it('returns false for empty cookie header', () => {
+      expect(service.hasSession('')).toBe(false);
+    });
+  });
+
   describe('verifyDummyPassword', () => {
     it('calls verifyPassword with submitted password and DUMMY_HASH (FR-007)', async () => {
       mocks.verifyPassword.mockResolvedValue(false);

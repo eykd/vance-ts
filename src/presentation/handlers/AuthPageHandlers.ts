@@ -7,6 +7,7 @@
  * @module
  */
 
+import type { AuthService } from '../../application/ports/AuthService.js';
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
 import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
@@ -40,15 +41,6 @@ const SIGN_UP_ERROR_MESSAGES: Record<
 };
 
 /**
- * Substring present in all better-auth session cookie names, used to detect
- * whether an active session cookie is present in the request.
- *
- * Matches both `__Host-better-auth.session_token` and
- * `__Host-better-auth.session-token` (underscore or hyphen variant).
- */
-const BETTER_AUTH_SESSION_COOKIE_FRAGMENT = 'better-auth.session';
-
-/**
  * HTTP handlers for HTML-rendered auth pages.
  *
  * Coordinates sign-in form rendering (GET) and form submission (POST).
@@ -65,21 +57,27 @@ export class AuthPageHandlers {
   /** Injected sign-out use case. */
   private readonly signOutUseCase: SignOutUseCase;
 
+  /** Injected auth service port (used for session cookie detection). */
+  private readonly authService: AuthService;
+
   /**
    * Creates a new AuthPageHandlers instance.
    *
    * @param signInUseCase - The sign-in orchestration use case.
    * @param signUpUseCase - The sign-up orchestration use case.
    * @param signOutUseCase - The sign-out orchestration use case.
+   * @param authService - The auth service port (for session presence detection).
    */
   constructor(
     signInUseCase: SignInUseCase,
     signUpUseCase: SignUpUseCase,
-    signOutUseCase: SignOutUseCase
+    signOutUseCase: SignOutUseCase,
+    authService: AuthService
   ) {
     this.signInUseCase = signInUseCase;
     this.signUpUseCase = signUpUseCase;
     this.signOutUseCase = signOutUseCase;
+    this.authService = authService;
   }
 
   /**
@@ -305,7 +303,7 @@ export class AuthPageHandlers {
     }
 
     const cookieHeader = request.headers.get('Cookie') ?? '';
-    if (!cookieHeader.includes(BETTER_AUTH_SESSION_COOKIE_FRAGMENT)) {
+    if (!this.authService.hasSession(cookieHeader)) {
       return new Response(null, {
         status: 303,
         headers: { Location: '/auth/sign-in' },
