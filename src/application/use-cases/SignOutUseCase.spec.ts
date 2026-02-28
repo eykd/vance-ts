@@ -27,7 +27,7 @@ describe('SignOutUseCase', () => {
   let authServiceMock: ReturnType<typeof makeAuthServiceMock>;
   let useCase: SignOutUseCase;
 
-  const defaultRequest = { sessionToken: 'abc123' };
+  const defaultRequest = Object.freeze({ sessionToken: 'abc123' });
 
   beforeEach(() => {
     authServiceMock = makeAuthServiceMock();

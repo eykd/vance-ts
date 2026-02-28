@@ -49,7 +49,11 @@ describe('SignInUseCase', () => {
   let rateLimiterMock: ReturnType<typeof makeRateLimiterMock>;
   let useCase: SignInUseCase;
 
-  const defaultRequest = { email: 'user@example.com', password: 'correcthorse12', ip: '1.2.3.4' };
+  const defaultRequest = Object.freeze({
+    email: 'user@example.com',
+    password: 'correcthorse12',
+    ip: '1.2.3.4',
+  });
 
   beforeEach(() => {
     authServiceMock = makeAuthServiceMock();
