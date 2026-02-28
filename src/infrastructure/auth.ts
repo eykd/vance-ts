@@ -107,6 +107,18 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
       secret,
       emailAndPassword: {
         enabled: true,
+        // FR-013: users MUST be able to sign in immediately after registration —
+        // email verification is intentionally disabled in this iteration.
+        //
+        // Accepted risk: an attacker could register with a victim's email address before
+        // the legitimate owner does (account squatting). The practical impact is limited
+        // because registration responses are identical for email_taken and success
+        // (FR-007 anti-enumeration), so the attacker gains no confirmation the email was
+        // taken. The victim can contact support to reclaim the address.
+        //
+        // When email delivery infrastructure (Resend or similar) is available, set this
+        // to true and wire an emailVerification.sendVerificationEmail handler to
+        // eliminate this risk entirely.
         requireEmailVerification: false,
         minPasswordLength: 12,
         maxPasswordLength: 128,

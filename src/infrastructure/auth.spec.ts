@@ -127,6 +127,27 @@ describe('getAuth', () => {
       expect(emailAndPassword['maxPasswordLength']).toBe(128);
     });
 
+    it('sets requireEmailVerification to false per FR-013 (sign in immediately after registration)', () => {
+      // FR-013: Users MUST be able to sign in immediately after registration —
+      // no email verification is required in this iteration.
+      //
+      // Accepted risk: an attacker could register with a victim's email before the
+      // legitimate owner does (account squatting). Because registration responses are
+      // identical for email_taken and success (FR-007 anti-enumeration), the practical
+      // impact is low — the victim can contact support to reclaim their address.
+      //
+      // When email delivery infrastructure (Resend or similar) is added in a future
+      // iteration, set this to true and wire an emailVerification.sendVerificationEmail
+      // handler to eliminate this risk entirely.
+      const env = makeEnv();
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const emailAndPassword = config['emailAndPassword'] as Record<string, unknown>;
+      expect(emailAndPassword['requireEmailVerification']).toBe(false);
+    });
+
     it('passes session config with correct expiresIn and updateAge', () => {
       const env = makeEnv();
 
