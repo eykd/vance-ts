@@ -3,10 +3,34 @@
  * Registered via vitest.config.ts for the acceptance project.
  */
 
-import { beforeEach } from 'vitest';
+import { applyD1Migrations, env } from 'cloudflare:test';
+import { beforeAll, beforeEach } from 'vitest';
 
-// Add global beforeEach hooks here as the project grows.
-// For example: database reset between tests when D1 is wired up.
-beforeEach(() => {
-  // Placeholder — add setup logic here when needed.
+/** Auth schema migration, inlined to avoid Node.js file-system access from the Workers runtime. */
+const AUTH_MIGRATIONS = [
+  {
+    name: '0001_better_auth_schema.sql',
+    queries: [
+      "CREATE TABLE `user` (`id` text NOT NULL, `name` text NOT NULL, `email` text NOT NULL UNIQUE, `emailVerified` integer NOT NULL DEFAULT 0, `image` text, `createdAt` text NOT NULL, `updatedAt` text NOT NULL, PRIMARY KEY(`id`))",
+      "CREATE TABLE `session` (`id` text NOT NULL, `userId` text NOT NULL REFERENCES `user`(`id`) ON DELETE CASCADE, `token` text NOT NULL UNIQUE, `expiresAt` text NOT NULL, `ipAddress` text, `userAgent` text, `createdAt` text NOT NULL, `updatedAt` text NOT NULL, PRIMARY KEY(`id`))",
+      'CREATE INDEX idx_session_userId ON session(userId)',
+      "CREATE TABLE `account` (`id` text NOT NULL, `userId` text NOT NULL REFERENCES `user`(`id`) ON DELETE CASCADE, `accountId` text NOT NULL, `providerId` text NOT NULL, `accessToken` text, `refreshToken` text, `idToken` text, `accessTokenExpiresAt` text, `refreshTokenExpiresAt` text, `scope` text, `password` text, `createdAt` text NOT NULL, `updatedAt` text NOT NULL, PRIMARY KEY(`id`))",
+      'CREATE INDEX idx_account_userId ON account(userId)',
+      "CREATE TABLE `verification` (`id` text NOT NULL, `identifier` text NOT NULL, `value` text NOT NULL, `expiresAt` text NOT NULL, `createdAt` text, `updatedAt` text, PRIMARY KEY(`id`))",
+    ],
+  },
+];
+
+// Apply the auth schema once per worker isolate (i.e., once per test file).
+beforeAll(async () => {
+  await applyD1Migrations(env.DB, AUTH_MIGRATIONS);
+});
+
+beforeEach(async () => {
+  // Clear auth tables before each test to ensure isolation.
+  // Delete order respects FK constraints (children before parent).
+  await env.DB.exec('DELETE FROM session');
+  await env.DB.exec('DELETE FROM account');
+  await env.DB.exec('DELETE FROM verification');
+  await env.DB.exec('DELETE FROM user');
 });

@@ -34,6 +34,12 @@ export default defineConfig({
           poolOptions: {
             workers: {
               wrangler: { configPath: './wrangler.toml' },
+              miniflare: {
+                bindings: {
+                  BETTER_AUTH_SECRET: 'test-acceptance-suite-secret-minimum-32-chars',
+                  BETTER_AUTH_URL: 'https://example.com',
+                },
+              },
             },
           },
         },

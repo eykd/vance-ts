@@ -44,6 +44,8 @@ import { drizzle } from 'drizzle-orm/d1';
 import { hashPassword, verifyPassword } from '../domain/services/passwordHasher';
 import type { Env } from '../shared/env';
 
+import * as authSchema from './authSchema.js';
+import { wrapD1ForDrizzle } from './d1DateProxy.js';
 import { hashToken } from './tokenHasher';
 
 /**
@@ -97,7 +99,10 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
     const secret: string = env.BETTER_AUTH_SECRET;
 
     _auth = betterAuth({
-      database: drizzleAdapter(drizzle(env.DB), { provider: 'sqlite' }),
+      database: drizzleAdapter(drizzle(wrapD1ForDrizzle(env.DB)), {
+        provider: 'sqlite',
+        schema: authSchema,
+      }),
       baseURL: env.BETTER_AUTH_URL,
       secret,
       emailAndPassword: {
@@ -116,8 +121,18 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
         updateAge: 86_400, // 1 day — refresh token when < 1 day remaining
       },
       advanced: {
-        useSecureCookies: !env.BETTER_AUTH_URL.startsWith('http://localhost'),
-        cookiePrefix: '__Host-',
+        // better-auth prepends SECURE_COOKIE_PREFIX ("__Secure-") when useSecureCookies is
+        // true, which would produce "__Secure-__Host-better-auth.session_token" — not a valid
+        // __Host- cookie. We suppress this by setting useSecureCookies: false and instead
+        // enforce the Secure attribute via defaultCookieAttributes below.
+        useSecureCookies: false,
+        // With cookiePrefix "__Host-better-auth" and useSecureCookies false, the cookie name
+        // becomes "__Host-better-auth.session_token" — a valid __Host- cookie that browsers
+        // enforce as Secure + Path=/ + no Domain.
+        cookiePrefix: '__Host-better-auth',
+        defaultCookieAttributes: {
+          secure: !env.BETTER_AUTH_URL.startsWith('http://localhost'),
+        },
         ipAddress: { ipAddressHeaders: ['CF-Connecting-IP'] },
       },
       rateLimit: {

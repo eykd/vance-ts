@@ -138,18 +138,12 @@ describe('getAuth', () => {
       expect(session['updateAge']).toBe(86_400);
     });
 
-    it('sets useSecureCookies to true for non-localhost URL', () => {
+    it('sets useSecureCookies to false to prevent better-auth adding the __Secure- prefix', () => {
+      // better-auth prepends __Secure- to cookie names when useSecureCookies is true, which
+      // would produce names like __Secure-__Host-better-auth.session_token instead of the
+      // intended __Host-better-auth.session_token. We always set this to false and instead
+      // control the Secure attribute via defaultCookieAttributes.
       const env = makeEnv({ BETTER_AUTH_URL: 'https://app.turtlebased.io' });
-
-      getAuth(env);
-
-      const config = capturedBetterAuthConfig();
-      const advanced = config['advanced'] as Record<string, unknown>;
-      expect(advanced['useSecureCookies']).toBe(true);
-    });
-
-    it('sets useSecureCookies to false for localhost URL', () => {
-      const env = makeEnv({ BETTER_AUTH_URL: 'http://localhost:8787' });
 
       getAuth(env);
 
@@ -158,14 +152,42 @@ describe('getAuth', () => {
       expect(advanced['useSecureCookies']).toBe(false);
     });
 
-    it('sets cookiePrefix to __Host-', () => {
+    it('sets cookiePrefix to __Host-better-auth so cookies are named __Host-better-auth.session_token', () => {
       const env = makeEnv();
 
       getAuth(env);
 
       const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
-      expect(advanced['cookiePrefix']).toBe('__Host-');
+      expect(advanced['cookiePrefix']).toBe('__Host-better-auth');
+    });
+
+    it('sets defaultCookieAttributes.secure to true for non-localhost BETTER_AUTH_URL', () => {
+      const env = makeEnv({ BETTER_AUTH_URL: 'https://app.turtlebased.io' });
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const advanced = config['advanced'] as Record<string, unknown>;
+      const defaultCookieAttributes = advanced['defaultCookieAttributes'] as Record<
+        string,
+        unknown
+      >;
+      expect(defaultCookieAttributes['secure']).toBe(true);
+    });
+
+    it('sets defaultCookieAttributes.secure to false for localhost BETTER_AUTH_URL', () => {
+      const env = makeEnv({ BETTER_AUTH_URL: 'http://localhost:8787' });
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const advanced = config['advanced'] as Record<string, unknown>;
+      const defaultCookieAttributes = advanced['defaultCookieAttributes'] as Record<
+        string,
+        unknown
+      >;
+      expect(defaultCookieAttributes['secure']).toBe(false);
     });
 
     it('sets CF-Connecting-IP as the sole IP address header', () => {
@@ -383,9 +405,11 @@ describe('getAuth', () => {
       const env2 = makeEnv({ DB: db2 });
       getAuth(env2);
 
-      // The second betterAuth call must receive the updated DB binding.
-      const secondCallArgs = mocks.drizzle.mock.calls[1]?.[0] as D1Database;
-      expect(secondCallArgs).toBe(db2);
+      // drizzle() receives a D1 proxy wrapping the underlying binding; the proxy
+      // differs between the two calls because the DB binding changed.
+      const firstCallArg = mocks.drizzle.mock.calls[0]?.[0] as D1Database;
+      const secondCallArg = mocks.drizzle.mock.calls[1]?.[0] as D1Database;
+      expect(secondCallArg).not.toBe(firstCallArg);
     });
   });
 });
