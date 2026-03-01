@@ -6,7 +6,15 @@
 import { applyD1Migrations, env } from 'cloudflare:test';
 import { beforeAll, beforeEach } from 'vitest';
 
-/** Auth schema migration, inlined to avoid Node.js file-system access from the Workers runtime. */
+/**
+ * Auth schema migration, inlined to avoid Node.js file-system access from the Workers runtime.
+ *
+ * SOURCE OF TRUTH: migrations/0001_better_auth_schema.sql
+ *
+ * This constant duplicates the SQL from that file and MUST be kept in sync manually.
+ * If you update migrations/0001_better_auth_schema.sql, update the queries array below
+ * to match, or acceptance tests will run against a stale schema without any warning.
+ */
 const AUTH_MIGRATIONS = [
   {
     name: '0001_better_auth_schema.sql',
