@@ -1,4 +1,3 @@
-const IP_PATTERN = /^[0-9A-Fa-f:.]+$/;
 const MAX_IP_LENGTH = 45;
 
 /**
@@ -14,9 +13,6 @@ const MAX_IP_LENGTH = 45;
 export function sanitizeIp(raw: string): string {
   const sanitized = raw.replace(/[^0-9A-Fa-f:.]/g, '');
   if (sanitized.length === 0 || sanitized.length > MAX_IP_LENGTH) {
-    return 'unknown';
-  }
-  if (!IP_PATTERN.test(sanitized)) {
     return 'unknown';
   }
   return sanitized;
