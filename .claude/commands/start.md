@@ -76,7 +76,7 @@ Ask: "What would you like to name your project? This will become part of your si
 
 **Handle validation errors**: If the name doesn't meet requirements, explain the constraints and ask for a different name.
 
-**Update wrangler.toml**: Edit the `name` field with the user's chosen name.
+**Update wrangler.toml**: Edit both the `name` field **and** the `database_name` field under `[[d1_databases]]` with the user's chosen name.
 
 ### Step 3: Deploy
 

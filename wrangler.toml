@@ -1,3 +1,4 @@
+# STARTUPFIXME: Change this to your project name (3-30 chars, lowercase, hyphens only)
 name = "turtlebased-ts"
 main = "src/worker.ts"
 compatibility_date = "2025-01-01"
@@ -9,8 +10,9 @@ binding = "ASSETS"
 
 [[d1_databases]]
 binding = "DB"
+# STARTUPFIXME: Change this to match your project name above
 database_name = "turtlebased-ts"
-# Replace with the output of: wrangler d1 create turtlebased-ts
+# STARTUPFIXME: Replace with the output of: wrangler d1 create <your-project-name>
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
 
