@@ -13,7 +13,7 @@ export interface Env {
   /** Public base URL (e.g., https://app.turtlebased.io). */
   readonly BETTER_AUTH_URL: string;
   /** MUST be >= 32 bytes of cryptographically random entropy — generate with: openssl rand -hex 32 */
-  readonly BETTER_AUTH_SECRET: string | undefined;
+  readonly BETTER_AUTH_SECRET: string;
   /** Durable Object namespace for atomic rate limiting. */
   readonly RATE_LIMIT: DurableObjectNamespace;
 }
