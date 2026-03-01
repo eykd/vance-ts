@@ -7,13 +7,11 @@
     "build": "tsc",
     "build:watch": "tsc --watch",
     "clean": "rm -rf dist coverage",
-    "lint": "eslint src .claude/memory .claude/types tools --ext .ts --no-error-on-unmatched-pattern",
-    "lint:fix": "eslint src .claude/memory .claude/types tools --ext .ts --fix --no-error-on-unmatched-pattern",
-    "format": "prettier --write --no-error-on-unmatched-pattern \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\" \"tools/**/*.ts\"",
-    "format:check": "prettier --check --no-error-on-unmatched-pattern \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\" \"tools/**/*.ts\"",
-    "test": "vitest run --project=workers && vitest run --project=node && vitest run --project=acceptance",
-    "test:workers": "vitest run --project=workers",
-    "test:acceptance": "vitest run --project=acceptance",
+    "lint": "eslint src .claude/memory .claude/types --ext .ts",
+    "lint:fix": "eslint src .claude/memory .claude/types --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\"",
+    "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --project=node",
     "type-check": "tsc --noEmit",
@@ -48,15 +46,9 @@
     ],
     ".claude/**/*.ts": [
       "prettier --write",
-      "eslint --fix --max-warnings 0",
+      "eslint --fix --max-warnings 0 --no-warn-ignored",
       "bash -c 'tsc --noEmit'",
-      "vitest related --run --passWithNoTests"
-    ],
-    "tools/**/*.ts": [
-      "prettier --write",
-      "eslint --fix --max-warnings 0",
-      "bash -c 'tsc --noEmit -p tools/galaxy-generator/tsconfig.json'",
-      "vitest related --run --passWithNoTests"
+      "vitest related --run"
     ],
     "hugo/**/*.html": [
       "bash -c 'cd hugo && npm test'"
@@ -70,13 +62,12 @@
     ]
   },
   "devDependencies": {
-    "@beads/bd": "^0.55.4",
+    "@beads/bd": "^0.56.1",
     "@cloudflare/vitest-pool-workers": "^0.12.14",
-    "@cloudflare/workers-types": "^4.20260227.0",
+    "@cloudflare/workers-types": "^4.20260302.0",
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
     "@tktco/node-actionlint": "^1.6.0",
-    "@types/node": "^25.2.3",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.52.0",
     "@vitest/coverage-v8": "^3.2.4",
@@ -92,7 +83,6 @@
     "prettier": "^3.8.1",
     "prettier-plugin-go-template": "^0.0.15",
     "prettier-plugin-tailwindcss": "^0.7.2",
-    "simplex-noise": "^4.0.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",
@@ -100,6 +90,8 @@
   },
   "dependencies": {
     "@noble/hashes": "^2.0.1",
-    "hono": "^4.12.0"
+    "better-auth": "^1.4.19",
+    "drizzle-orm": "^0.44.7",
+    "hono": "^4.12.2"
   }
 }

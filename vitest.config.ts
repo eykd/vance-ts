@@ -20,12 +20,8 @@ export default defineConfig({
         test: {
           name: 'node',
           globals: true,
-          include: [
-            'acceptance/**/*.spec.ts',
-            'scripts/**/*.spec.ts',
-            '.claude/**/*.spec.ts',
-            'tools/**/*.spec.ts',
-          ],
+          include: ['acceptance/**/*.spec.ts', 'scripts/**/*.spec.ts', '.claude/**/*.spec.ts'],
+          exclude: ['.claude/worktrees/**'],
           environment: 'node',
         },
       },
@@ -38,6 +34,12 @@ export default defineConfig({
           poolOptions: {
             workers: {
               wrangler: { configPath: './wrangler.toml' },
+              miniflare: {
+                bindings: {
+                  BETTER_AUTH_SECRET: 'test-acceptance-suite-secret-minimum-32-chars',
+                  BETTER_AUTH_URL: 'https://example.com',
+                },
+              },
             },
           },
         },

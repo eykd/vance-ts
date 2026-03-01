@@ -87,6 +87,20 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Check if wrangler.toml is configured
+        id: check-configured
+        if: steps.check-wrangler.outputs.exists == 'true'
+        run: |
+          NAME=$(grep -E '^name\s*=' wrangler.toml | head -1 | sed 's/^name\s*=\s*"\([^"]*\)".*/\1/')
+          DB_ID=$(grep -E '^database_id\s*=' wrangler.toml | head -1 | sed 's/^database_id\s*=\s*"\([^"]*\)".*/\1/')
+          if [ "$NAME" = "turtlebased-ts" ] || [ "$NAME" = "turtlebased" ] || \
+             [ "$DB_ID" = "00000000-0000-0000-0000-000000000000" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning::wrangler.toml has placeholder values. Run the 'start' command to configure your project before deploying."
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Check for Hugo site
         id: check-hugo
         run: |
@@ -122,18 +136,18 @@ jobs:
           echo "name=$PROJECT_NAME" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
-        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true'
+        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-configured.outputs.configured == 'true' && steps.check-credentials.outputs.configured == 'true'
         run: npm ci
 
       - name: Build Hugo site
-        if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true'
+        if: steps.check-hugo.outputs.exists == 'true' && steps.check-wrangler.outputs.exists == 'true' && steps.check-configured.outputs.configured == 'true' && steps.check-credentials.outputs.configured == 'true'
         run: |
           cd hugo && npm install && npx hugo --minify && cd ..
           node scripts/sync-asset-paths.js
           node scripts/check-route-collisions.js
 
       - name: Deploy to Cloudflare Workers
-        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-hugo.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true' && github.event_name == 'push'
+        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-configured.outputs.configured == 'true' && steps.check-hugo.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true' && github.event_name == 'push'
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -141,27 +155,9 @@ jobs:
           command: deploy
 
       - name: Deploy Preview (PR)
-        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-hugo.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true' && github.event_name == 'pull_request'
+        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-configured.outputs.configured == 'true' && steps.check-hugo.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true' && github.event_name == 'pull_request'
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --name ${{ steps.worker-name.outputs.name }}-pr-${{ github.event.pull_request.number }}
-
-      # Deploy Worker for scheduled tasks (if wrangler.worker.toml exists)
-      - name: Check for wrangler.worker.toml
-        id: check-worker
-        run: |
-          if [ -f "wrangler.worker.toml" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Deploy Cron Worker
-        if: steps.check-worker.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true' && github.ref == 'refs/heads/master'
-        uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config wrangler.worker.toml

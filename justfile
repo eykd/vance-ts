@@ -30,12 +30,6 @@ format:
 test:
     npx vitest run
 
-# Run all tests serially (workers → node → acceptance); use on resource-constrained hosts
-test-serial:
-    npx vitest run --project=workers
-    npx vitest run --project=node
-    npx vitest run --project=acceptance
-
 # Run tests in watch mode
 test-watch:
     npx vitest

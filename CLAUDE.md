@@ -26,7 +26,7 @@ All code changes must be tested:
   - Vitest enforces 100% threshold for branches, functions, lines, statements
   - Pre-commit hooks will fail on less than 100% coverage
   - Use istanbul ignore comments ONLY for truly untestable edge cases (see typescript-unit-testing skill)
-  - Run `npx vitest run --coverage --project=node` to verify before committing
+  - Run `npx vitest run --coverage` to verify before committing
 - **Hugo static site**: Build verification tests (zero errors, zero warnings)
 
 ## Getting Started
@@ -196,10 +196,6 @@ ESLint enforces Clean Architecture layer boundaries (once enabled in `eslint.con
   `acceptance/**/*.ts` (Node.js pipeline code) only. This is a runtime constraint,
   not an oversight (see `vitest.config.ts` for details).
 
-> **Resource Constraint**: Running all three Vitest projects concurrently (`vitest run`)
-> causes `Timeout calling "fetch"` errors on this host. Use `just test-serial` or
-> `npm test` (which runs projects sequentially) instead of bare `vitest run`.
-
 ### Pre-commit Validation
 
 Husky + lint-staged enforces:
@@ -228,6 +224,10 @@ Conventional commits enforced via commitlint:
 
 - **ALWAYS include `--description`** when creating beads tasks with `npx bd create`
 - Descriptions should explain the task's purpose, not just repeat the title
+- When creating beads tasks ad hoc (during planning, reviews, or mid-implementation discovery),
+  check `bd list --status=in_progress --type=epic` for the active epic. If one exists, always pass
+  `--parent <implement-task-id>` (the `[sp:07-implement]` child of the epic, not the epic root
+  itself). Orphaned tasks are invisible to `ralph` automation.
 
 ### Warnings and Deprecations
 
@@ -258,8 +258,7 @@ When adding new functionality:
 3. Run `npx vitest` or `just test-watch`
 4. Implement code to pass tests
 5. Ensure 100% coverage maintained
-   - Run `npx vitest run --coverage --project=node` to verify (workers can't produce v8 coverage)
-   - On resource-constrained hosts, use `just test-serial` to run all three projects
+   - Run `npx vitest run --coverage` to verify
    - All four metrics must show 100%: branches, functions, lines, statements
    - If stuck below 100%, ask: "Can I mock the dependency?" before using istanbul ignore
    - See `/typescript-unit-testing` skill for guidance on achieving 100%
@@ -309,6 +308,10 @@ Build verification is required for all Hugo changes:
 - **Specification**: Identifying and clarifying domain terms (sp:01-specify)
 - **Planning**: Ensuring architecture uses canonical terminology (sp:03-plan)
 - **Quality Review**: Validating naming matches glossary (sp:10-code-quality-review)
+
+## Specs
+
+Before implementing any feature, read `specs/readme.md` first. It lists all specs with keywords that bridge search terms to spec paths — preventing hallucination when your first search misses.
 
 ## ATDD Workflow
 

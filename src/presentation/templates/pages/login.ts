@@ -1,73 +1,99 @@
-import { html, safe } from '../../utils/html';
+import { escapeHtml, html, safe } from '../../utils/html';
 import { authLayout } from '../layouts/authLayout';
-import { errorAlert } from '../partials/errorAlert';
 
 /** Props for the login page template. */
-interface LoginPageProps {
-  /** CSRF token for the hidden form field. */
+export interface LoginPageProps {
+  /** CSRF token rendered in a hidden form field. */
   readonly csrfToken: string;
-  /** Optional error message to display. */
-  readonly error?: string;
-  /** Optional pre-filled email address. */
-  readonly email?: string;
-  /** Optional redirect URL after login. */
+  /** Optional redirect destination preserved across sign-in. */
   readonly redirectTo?: string;
+  /** Optional error message to display above the form inputs. */
+  readonly error?: string;
+  /** Optional pre-filled email address (e.g. after a failed sign-in attempt). */
+  readonly email?: string;
+  /** When true, shows a success banner confirming account creation. */
+  readonly registeredSuccess?: boolean;
 }
 
+/** ID shared between the error container and aria-describedby attributes. */
+const ERROR_ID = 'login-error';
+
 /**
- * Renders the login page with email/password form.
+ * Renders the sign-in page as a complete HTML document.
  *
- * Uses HTMX for form submission and includes CSRF protection.
+ * All user-supplied values are escaped via {@link escapeHtml} to prevent XSS.
+ * The error container (role="alert") is rendered before the first form input so
+ * that assistive technologies announce it when focus enters the form.
  *
  * @param props - The login page properties
- * @returns A complete HTML page string
+ * @returns A complete HTML document string
  */
 export function loginPage(props: LoginPageProps): string {
-  const errorHtml = props.error !== undefined ? errorAlert(props.error) : '';
-  const emailValue = props.email ?? '';
-  const redirectField =
-    props.redirectTo !== undefined
-      ? html`<input type="hidden" name="redirectTo" value="${props.redirectTo}" />`
-      : '';
+  const successBanner =
+    props.registeredSuccess === true
+      ? safe(
+          '<div role="alert" class="alert alert-success mb-4">Account created successfully. Please sign in.</div>'
+        )
+      : safe('');
 
-  const content = html`<h2 class="card-title justify-center text-2xl">Login</h2>
-    ${safe(errorHtml)}
-    <form hx-post="/auth/login" hx-swap="outerHTML" class="space-y-4">
+  const errorBanner =
+    props.error !== undefined
+      ? safe(
+          `<div role="alert" class="alert alert-error mb-4" id="${ERROR_ID}">${escapeHtml(props.error)}</div>`
+        )
+      : safe('');
+
+  const redirectToField =
+    props.redirectTo !== undefined
+      ? safe(`<input type="hidden" name="redirectTo" value="${escapeHtml(props.redirectTo)}" />`)
+      : safe('');
+
+  const ariaDescribedby =
+    props.error !== undefined ? safe(`aria-describedby="${ERROR_ID}"`) : safe('');
+
+  const content = html`
+    <h1 class="card-title text-2xl font-bold mb-6">Sign In</h1>
+    ${successBanner} ${errorBanner}
+    <form method="POST" action="/auth/sign-in">
       <input type="hidden" name="_csrf" value="${props.csrfToken}" />
-      ${safe(redirectField)}
-      <div class="form-control">
-        <label class="label" for="email">
+      ${redirectToField}
+      <div class="form-control mb-4">
+        <label for="email" class="label">
           <span class="label-text">Email</span>
         </label>
         <input
-          type="email"
           id="email"
+          type="email"
           name="email"
-          value="${emailValue}"
-          class="input input-bordered w-full"
-          required
+          value="${props.email ?? ''}"
           autocomplete="email"
+          ${ariaDescribedby}
+          class="input input-bordered"
+          required
         />
       </div>
-      <div class="form-control">
-        <label class="label" for="password">
+      <div class="form-control mb-6">
+        <label for="password" class="label">
           <span class="label-text">Password</span>
         </label>
         <input
-          type="password"
           id="password"
+          type="password"
           name="password"
-          class="input input-bordered w-full"
-          required
           autocomplete="current-password"
+          ${ariaDescribedby}
+          class="input input-bordered"
+          required
         />
       </div>
-      <button type="submit" class="btn btn-primary w-full">Login</button>
+      <div class="form-control mt-2">
+        <button type="submit" class="btn btn-primary">Sign In</button>
+      </div>
     </form>
-    <p class="text-center text-sm mt-4">
-      Don&#x27;t have an account?
-      <a href="/auth/register" class="link link-primary">Register</a>
-    </p>`;
+    <div class="mt-4 text-center">
+      <a href="/auth/sign-up" class="link link-primary">Create an account</a>
+    </div>
+  `;
 
-  return authLayout({ title: 'Login', content });
+  return authLayout({ title: 'Sign In', content });
 }

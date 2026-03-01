@@ -1,90 +1,121 @@
-import { html, safe } from '../../utils/html';
+import { escapeHtml, html, safe } from '../../utils/html';
 import { authLayout } from '../layouts/authLayout';
-import { errorAlert, fieldErrors } from '../partials/errorAlert';
 
 /** Props for the register page template. */
-interface RegisterPageProps {
-  /** CSRF token for the hidden form field. */
+export interface RegisterPageProps {
+  /** CSRF token rendered in a hidden form field. */
   readonly csrfToken: string;
-  /** Optional error message to display. */
+  /** Optional general error message displayed above all form inputs. */
   readonly error?: string;
-  /** Optional pre-filled email address. */
+  /** Optional per-field validation errors keyed by field name (e.g. "email", "password"). */
+  readonly fieldErrors?: Record<string, string>;
+  /** Optional pre-filled email address after a failed registration attempt. */
   readonly email?: string;
-  /** Optional per-field validation errors. */
-  readonly fieldErrors?: Record<string, string[]>;
 }
 
+/** ID for the general error alert container, referenced by aria-describedby. */
+const GENERAL_ERROR_ID = 'register-error';
+
+/** ID for the email field error element, referenced by aria-describedby. */
+const EMAIL_ERROR_ID = 'email-error';
+
+/** ID for the password field error element, referenced by aria-describedby. */
+const PASSWORD_ERROR_ID = 'password-error';
+
 /**
- * Renders the registration page with email/password form.
+ * Renders the registration page as a complete HTML document.
  *
- * Uses HTMX for form submission and includes CSRF protection.
- * Shows per-field validation errors when provided.
+ * All user-supplied values are escaped via {@link escapeHtml} to prevent XSS.
+ * The general error container (role="alert") is rendered before the first form
+ * input so that assistive technologies announce it when focus enters the form.
+ * Per-field errors are rendered inline below their respective inputs.
  *
  * @param props - The register page properties
- * @returns A complete HTML page string
+ * @returns A complete HTML document string
  */
 export function registerPage(props: RegisterPageProps): string {
-  const errorHtml = props.error !== undefined ? errorAlert(props.error) : '';
-  const emailValue = props.email ?? '';
-  const emailErrors = fieldErrors(props.fieldErrors?.['email']);
-  const passwordErrors = fieldErrors(props.fieldErrors?.['password']);
-  const confirmErrors = fieldErrors(props.fieldErrors?.['confirmPassword']);
+  const emailFieldError: string | undefined = props.fieldErrors?.['email'];
+  const passwordFieldError: string | undefined = props.fieldErrors?.['password'];
 
-  const content = html`<h2 class="card-title justify-center text-2xl">Register</h2>
-    ${safe(errorHtml)}
-    <form hx-post="/auth/register" hx-swap="outerHTML" class="space-y-4">
+  const generalErrorBanner =
+    props.error !== undefined
+      ? safe(
+          `<div role="alert" class="alert alert-error mb-4" id="${GENERAL_ERROR_ID}">${escapeHtml(props.error)}</div>`
+        )
+      : safe('');
+
+  const emailErrorEl =
+    emailFieldError !== undefined
+      ? safe(
+          `<p id="${EMAIL_ERROR_ID}" class="text-error text-sm mt-1">${escapeHtml(emailFieldError)}</p>`
+        )
+      : safe('');
+
+  const passwordErrorEl =
+    passwordFieldError !== undefined
+      ? safe(
+          `<p id="${PASSWORD_ERROR_ID}" class="text-error text-sm mt-1">${escapeHtml(passwordFieldError)}</p>`
+        )
+      : safe('');
+
+  // Compute aria-describedby for the email input (omit attribute when no IDs).
+  const emailParts: string[] = [];
+  if (props.error !== undefined) emailParts.push(GENERAL_ERROR_ID);
+  if (emailFieldError !== undefined) emailParts.push(EMAIL_ERROR_ID);
+  const emailDescribedbyAttr =
+    emailParts.length > 0 ? safe(`aria-describedby="${emailParts.join(' ')}"`) : safe('');
+
+  // Compute aria-describedby for the password input (omit attribute when no IDs).
+  const passwordParts: string[] = [];
+  if (props.error !== undefined) passwordParts.push(GENERAL_ERROR_ID);
+  if (passwordFieldError !== undefined) passwordParts.push(PASSWORD_ERROR_ID);
+  const passwordDescribedbyAttr =
+    passwordParts.length > 0 ? safe(`aria-describedby="${passwordParts.join(' ')}"`) : safe('');
+
+  const content = html`
+    <h1 class="card-title text-2xl font-bold mb-6">Create an Account</h1>
+    ${generalErrorBanner}
+    <form method="POST" action="/auth/sign-up">
       <input type="hidden" name="_csrf" value="${props.csrfToken}" />
-      <div class="form-control">
-        <label class="label" for="email">
+      <div class="form-control mb-4">
+        <label for="email" class="label">
           <span class="label-text">Email</span>
         </label>
         <input
-          type="email"
           id="email"
+          type="email"
           name="email"
-          value="${emailValue}"
-          class="input input-bordered w-full"
-          required
+          value="${props.email ?? ''}"
           autocomplete="email"
+          ${emailDescribedbyAttr}
+          class="input input-bordered"
+          required
         />
-        ${safe(emailErrors)}
+        ${emailErrorEl}
       </div>
-      <div class="form-control">
-        <label class="label" for="password">
+      <div class="form-control mb-6">
+        <label for="password" class="label">
           <span class="label-text">Password</span>
         </label>
         <input
-          type="password"
           id="password"
-          name="password"
-          class="input input-bordered w-full"
-          required
-          autocomplete="new-password"
-          minlength="12"
-        />
-        ${safe(passwordErrors)}
-      </div>
-      <div class="form-control">
-        <label class="label" for="confirmPassword">
-          <span class="label-text">Confirm Password</span>
-        </label>
-        <input
           type="password"
-          id="confirmPassword"
-          name="confirmPassword"
-          class="input input-bordered w-full"
-          required
+          name="password"
           autocomplete="new-password"
-          minlength="12"
+          ${passwordDescribedbyAttr}
+          class="input input-bordered"
+          required
         />
-        ${safe(confirmErrors)}
+        ${passwordErrorEl}
       </div>
-      <button type="submit" class="btn btn-primary w-full">Register</button>
+      <div class="form-control mt-2">
+        <button type="submit" class="btn btn-primary">Create Account</button>
+      </div>
     </form>
-    <p class="text-center text-sm mt-4">
-      Already have an account?
-      <a href="/auth/login" class="link link-primary">Login</a>
-    </p>`;
+    <div class="mt-4 text-center">
+      <a href="/auth/sign-in" class="link link-primary">Already have an account? Sign in</a>
+    </div>
+  `;
 
-  return authLayout({ title: 'Register', content });
+  return authLayout({ title: 'Create an Account', content });
 }

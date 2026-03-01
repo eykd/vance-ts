@@ -1,5 +1,6 @@
-name = "vance-ts"
-main = "src/index.ts"
+# STARTUPFIXME: Change this to your project name (3-30 chars, lowercase, hyphens only)
+name = "turtlebased-ts"
+main = "src/worker.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
@@ -7,21 +8,18 @@ compatibility_flags = ["nodejs_compat"]
 directory = "./hugo/public"
 binding = "ASSETS"
 
-[vars]
-ENVIRONMENT = "production"
-
-# D1 database binding for user persistence
 [[d1_databases]]
 binding = "DB"
-database_name = "vance-db"
-database_id = "LOCAL_DEV_PLACEHOLDER"
+# STARTUPFIXME: Change this to match your project name above
+database_name = "turtlebased-ts"
+# STARTUPFIXME: Replace with the output of: wrangler d1 create <your-project-name>
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
 
-# KV namespace binding for session storage
-[[kv_namespaces]]
-binding = "SESSIONS"
-id = "LOCAL_DEV_PLACEHOLDER"
+[[durable_objects.bindings]]
+name = "RATE_LIMIT"
+class_name = "RateLimitDO"
 
-# KV namespace binding for rate limit state
-[[kv_namespaces]]
-binding = "RATE_LIMITS"
-id = "LOCAL_DEV_PLACEHOLDER"
+[[migrations]]
+tag = "v1"
+new_classes = ["RateLimitDO"]

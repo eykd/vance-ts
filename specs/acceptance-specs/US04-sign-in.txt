@@ -1,0 +1,36 @@
+;=============================================
+; A registered user can sign in.
+;=============================================
+GIVEN a registered user is on the sign-in page.
+WHEN they submit their email address and correct password.
+THEN they are signed in and redirected to the application.
+
+;=============================================
+; An incorrect password shows a generic error.
+;=============================================
+GIVEN a registered user is on the sign-in page.
+WHEN they submit their email address with an incorrect password.
+THEN they remain on the sign-in page.
+THEN they see a generic error that does not reveal whether the email exists.
+
+;=============================================
+; An unregistered email shows the same generic error.
+;=============================================
+GIVEN a visitor is on the sign-in page.
+WHEN they submit an email address with no registered account.
+THEN they remain on the sign-in page.
+THEN they see the same generic error as for an incorrect password.
+
+;=============================================
+; Sign-in is blocked after too many failed attempts.
+;=============================================
+GIVEN a visitor has exceeded the allowed number of sign-in attempts.
+WHEN they attempt to sign in again.
+THEN they are told to wait before trying again.
+
+;=============================================
+; The original destination is preserved through sign-in.
+;=============================================
+GIVEN an unauthenticated visitor attempts to access a protected page.
+WHEN they are redirected to the sign-in page and sign in successfully.
+THEN they are sent to the page they originally requested.

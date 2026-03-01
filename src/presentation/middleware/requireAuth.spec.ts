@@ -1,158 +1,194 @@
-import type { Mocked } from 'vitest';
+import { Hono } from 'hono/tiny';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { UserResponse } from '../../application/dto/UserResponse';
-import type { GetCurrentUserUseCase } from '../../application/use-cases/GetCurrentUserUseCase';
-import { UnauthorizedError } from '../../domain/errors/UnauthorizedError';
-import { ok, err } from '../../domain/types/Result';
+import type { AuthService } from '../../application/ports/AuthService.js';
 
-import { requireAuth } from './requireAuth';
-
-vi.mock('../../application/use-cases/GetCurrentUserUseCase');
+import { createRequireAuth } from './requireAuth.js';
 
 /**
- * Creates a mock GetCurrentUserUseCase.
+ * Creates a minimal AuthService mock with vi.fn() stubs.
  *
- * @returns A mock use case instance
+ * @returns An object with `vi.fn()` stubs for each AuthService method.
  */
-function createMockUseCase(): Mocked<GetCurrentUserUseCase> {
+function makeAuthServiceMock(): {
+  getSession: ReturnType<typeof vi.fn>;
+  signIn: ReturnType<typeof vi.fn>;
+  signUp: ReturnType<typeof vi.fn>;
+  signOut: ReturnType<typeof vi.fn>;
+  verifyDummyPassword: ReturnType<typeof vi.fn>;
+} {
   return {
-    execute: vi.fn(),
-  } as unknown as Mocked<GetCurrentUserUseCase>;
+    getSession: vi.fn(),
+    signIn: vi.fn(),
+    signUp: vi.fn(),
+    signOut: vi.fn(),
+    verifyDummyPassword: vi.fn().mockResolvedValue(undefined),
+  };
 }
 
-const mockUser: UserResponse = {
-  id: '00000000-0000-4000-a000-000000000001',
+/** Secret used in tests — 32-char minimum for HMAC-SHA256 derivation. */
+const TEST_SECRET = 'a'.repeat(32);
+
+/** Session cookie header for a valid session token. */
+const SESSION_COOKIE = '__Host-better-auth.session_token=test-session-token';
+
+/** A full AuthUser fixture satisfying the domain interface. */
+const TEST_USER = {
+  id: 'user-1',
   email: 'test@example.com',
-  createdAt: '2025-01-01T00:00:00.000Z',
-  lastLoginAt: '2025-01-02T00:00:00.000Z',
-};
+  name: 'test',
+  emailVerified: false,
+  createdAt: '2026-01-01T00:00:00.000Z',
+} as const;
 
-describe('requireAuth', () => {
-  it('returns UserResponse when session is valid', async () => {
-    const useCase = createMockUseCase();
-    useCase.execute.mockResolvedValue(ok(mockUser));
+/** A full AuthSession fixture satisfying the domain interface. */
+const TEST_SESSION = {
+  id: 'sess-1',
+  token: 'session-token-abc',
+  userId: 'user-1',
+  expiresAt: '2026-03-01T00:00:00.000Z',
+  createdAt: '2026-02-01T00:00:00.000Z',
+} as const;
 
-    const request = new Request('https://example.com/dashboard', {
-      headers: { Cookie: '__Host-session=valid-session-id' },
+describe('createRequireAuth', () => {
+  let authServiceMock: ReturnType<typeof makeAuthServiceMock>;
+
+  beforeEach(() => {
+    authServiceMock = makeAuthServiceMock();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /**
+   * Builds a minimal Hono app with the requireAuth middleware applied to all
+   * routes and one protected GET route for exercising the middleware.
+   *
+   * @returns A Hono app instance.
+   */
+  function makeTestApp(): Hono {
+    const app = new Hono();
+    const middleware = createRequireAuth(authServiceMock as unknown as AuthService, TEST_SECRET);
+    app.use('*', middleware);
+    app.get('/protected', (c) => c.text('protected content'));
+    return app;
+  }
+
+  it('returns 503 with Retry-After: 30 when authService.getSession throws (D1 error)', async () => {
+    authServiceMock.getSession.mockRejectedValue(new Error('D1 unavailable'));
+
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: SESSION_COOKIE },
+      })
+    );
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get('Retry-After')).toBe('30');
+  });
+
+  it('redirects to /auth/sign-in with redirectTo when no session cookie is present', async () => {
+    const app = makeTestApp();
+    const res = await app.fetch(new Request('https://example.com/protected?q=1'));
+
+    expect(res.status).toBe(302);
+    const location = res.headers.get('Location') ?? '';
+    expect(location).toContain('/auth/sign-in');
+    expect(location).toContain('redirectTo=');
+    expect(location).toContain(encodeURIComponent('/protected?q=1'));
+  });
+
+  it('redirects to /auth/sign-in when session has expired (null return from getSession)', async () => {
+    authServiceMock.getSession.mockResolvedValue(null);
+
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: '__Host-better-auth.session_token=expired-token' },
+      })
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toContain('/auth/sign-in');
+  });
+
+  it('clears the session cookie when redirecting and a stale session cookie is present in the request', async () => {
+    authServiceMock.getSession.mockResolvedValue(null);
+
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: '__Host-better-auth.session_token=stale-token' },
+      })
+    );
+
+    expect(res.status).toBe(302);
+    const setCookie = res.headers.get('Set-Cookie') ?? '';
+    expect(setCookie).toContain('better-auth.session');
+    expect(setCookie).toContain('Max-Age=0');
+  });
+
+  it('passes through to the next handler when session is valid (authenticated)', async () => {
+    authServiceMock.getSession.mockResolvedValue({ user: TEST_USER, session: TEST_SESSION });
+
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: SESSION_COOKIE },
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('protected content');
+  });
+
+  it('sets __Host-csrf cookie on valid session', async () => {
+    authServiceMock.getSession.mockResolvedValue({ user: TEST_USER, session: TEST_SESSION });
+
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: SESSION_COOKIE },
+      })
+    );
+
+    const setCookie = res.headers.get('Set-Cookie') ?? '';
+    expect(setCookie).toContain('__Host-csrf=');
+    expect(setCookie).toContain('HttpOnly');
+    expect(setCookie).toContain('Secure');
+    expect(setCookie).toContain('SameSite=Strict');
+    expect(setCookie).toContain('Path=/');
+    expect(setCookie).toContain('Max-Age=3600');
+  });
+
+  it('sets user, session, and csrfToken on Hono context for valid session', async () => {
+    authServiceMock.getSession.mockResolvedValue({ user: TEST_USER, session: TEST_SESSION });
+
+    let capturedUser: unknown;
+    let capturedSession: unknown;
+    let capturedCsrfToken: unknown;
+
+    const app = new Hono();
+    const middleware = createRequireAuth(authServiceMock as unknown as AuthService, TEST_SECRET);
+    app.use('*', middleware);
+    app.get('/protected', (c) => {
+      capturedUser = c.get('user' as never);
+      capturedSession = c.get('session' as never);
+      capturedCsrfToken = c.get('csrfToken' as never);
+      return c.text('ok');
     });
 
-    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
-    expect(result).toEqual({ type: 'authenticated', user: mockUser });
-  });
+    await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: SESSION_COOKIE },
+      })
+    );
 
-  it('returns redirect to login with redirectTo when no session cookie', async () => {
-    const useCase = createMockUseCase();
-
-    const request = new Request('https://example.com/dashboard');
-
-    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
-    expect(result.type).toBe('redirect');
-    if (result.type === 'redirect') {
-      expect(result.response.status).toBe(303);
-      expect(result.response.headers.get('Location')).toBe('/auth/login?redirectTo=%2Fdashboard');
-    }
-  });
-
-  it('returns redirect to login with redirectTo when session is invalid', async () => {
-    const useCase = createMockUseCase();
-    useCase.execute.mockResolvedValue(err(new UnauthorizedError('Invalid session')));
-
-    const request = new Request('https://example.com/dashboard', {
-      headers: { Cookie: '__Host-session=invalid-session' },
-    });
-
-    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
-    expect(result.type).toBe('redirect');
-    if (result.type === 'redirect') {
-      expect(result.response.status).toBe(303);
-      expect(result.response.headers.get('Location')).toBe('/auth/login?redirectTo=%2Fdashboard');
-    }
-  });
-
-  it('calls use case with extracted session ID', async () => {
-    const useCase = createMockUseCase();
-    useCase.execute.mockResolvedValue(ok(mockUser));
-
-    const request = new Request('https://example.com/dashboard', {
-      headers: { Cookie: '__Host-session=my-sess-id; other=val' },
-    });
-
-    await requireAuth(request, { getCurrentUserUseCase: useCase });
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(useCase.execute).toHaveBeenCalledWith('my-sess-id');
-  });
-
-  it('omits redirectTo when request URL is under /auth/', async () => {
-    const useCase = createMockUseCase();
-
-    const request = new Request('https://example.com/auth/register');
-
-    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
-    expect(result.type).toBe('redirect');
-    if (result.type === 'redirect') {
-      expect(result.response.status).toBe(303);
-      expect(result.response.headers.get('Location')).toBe('/auth/login');
-    }
-  });
-
-  it('redirect response includes security headers', async () => {
-    const useCase = createMockUseCase();
-
-    const request = new Request('https://example.com/dashboard');
-
-    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
-    if (result.type === 'redirect') {
-      expect(result.response.headers.get('X-Content-Type-Options')).toBe('nosniff');
-    }
-  });
-
-  it('omits redirectTo when pathname starts with double slash', async () => {
-    const useCase = createMockUseCase();
-
-    const request = new Request('https://example.com//evil.com');
-
-    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
-    expect(result.type).toBe('redirect');
-    if (result.type === 'redirect') {
-      expect(result.response.headers.get('Location')).toBe('/auth/login');
-    }
-  });
-
-  it('omits redirectTo when pathname contains newlines', async () => {
-    const useCase = createMockUseCase();
-
-    const request = new Request('https://example.com/foo%0Abar');
-
-    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
-    expect(result.type).toBe('redirect');
-    if (result.type === 'redirect') {
-      expect(result.response.headers.get('Location')).toBe('/auth/login');
-    }
-  });
-
-  it('includes redirectTo for normal non-auth paths', async () => {
-    const useCase = createMockUseCase();
-
-    const request = new Request('https://example.com/dashboard/tasks');
-
-    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
-    expect(result.type).toBe('redirect');
-    if (result.type === 'redirect') {
-      expect(result.response.headers.get('Location')).toBe(
-        '/auth/login?redirectTo=%2Fdashboard%2Ftasks'
-      );
-    }
-  });
-
-  it('omits redirectTo when pathname contains null bytes', async () => {
-    const useCase = createMockUseCase();
-
-    const request = new Request('https://example.com/foo%00bar');
-
-    const result = await requireAuth(request, { getCurrentUserUseCase: useCase });
-    expect(result.type).toBe('redirect');
-    if (result.type === 'redirect') {
-      expect(result.response.headers.get('Location')).toBe('/auth/login');
-    }
+    expect(capturedUser).toEqual(TEST_USER);
+    expect(capturedSession).toEqual(TEST_SESSION);
+    expect(typeof capturedCsrfToken).toBe('string');
+    expect(capturedCsrfToken as string).toMatch(/^[0-9a-f]{64}$/);
   });
 });

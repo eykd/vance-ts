@@ -1,0 +1,14 @@
+;=============================================
+; A signed-in user can sign out.
+;=============================================
+GIVEN a signed-in user.
+WHEN they sign out.
+THEN their session ends.
+THEN they are redirected to the sign-in page.
+
+;=============================================
+; After signing out, protected pages are inaccessible.
+;=============================================
+GIVEN a user who has just signed out.
+WHEN they attempt to access a protected page.
+THEN they are redirected to the sign-in page.

@@ -1,115 +1,83 @@
-import type { UserResponse } from '../../application/dto/UserResponse';
-import type { GetCurrentUserUseCase } from '../../application/use-cases/GetCurrentUserUseCase';
-import type { CookieOptions } from '../../domain/types/CookieOptions';
-import { DEFAULT_COOKIE_OPTIONS } from '../../domain/types/CookieOptions';
-import { extractSessionIdFromCookies } from '../utils/cookieBuilder';
-import { applySecurityHeaders } from '../utils/securityHeaders';
+/**
+ * requireAuth middleware — session validation for protected routes.
+ *
+ * Creates a Hono middleware that validates the session token on every request
+ * to protected routes. Redirects unauthenticated requests to the sign-in page,
+ * preserving the original URL via `redirectTo`. Returns 503 on D1 errors.
+ *
+ * @module
+ */
 
-/** Dependencies required by the requireAuth middleware. */
-export interface RequireAuthDeps {
-  /** Use case for validating the session and retrieving user data. */
-  readonly getCurrentUserUseCase: GetCurrentUserUseCase;
+import type { Context, Next } from 'hono';
 
-  /** Cookie naming and security options. */
-  readonly cookieOptions?: CookieOptions;
-}
-
-/** Result when the user is authenticated. */
-interface AuthenticatedResult {
-  readonly type: 'authenticated';
-  readonly user: UserResponse;
-}
-
-/** Result when authentication fails and a redirect is needed. */
-interface RedirectResult {
-  readonly type: 'redirect';
-  readonly response: Response;
-}
-
-/** Discriminated union result of the auth check. */
-type AuthCheckResult = AuthenticatedResult | RedirectResult;
+import type { AuthService } from '../../application/ports/AuthService.js';
+import type { AppEnv } from '../types.js';
+import {
+  buildCsrfCookie,
+  clearSessionCookie,
+  deriveCsrfToken,
+  extractSessionToken,
+  hasSessionCookie,
+} from '../utils/cookieBuilder.js';
 
 /**
- * Checks whether the request has a valid session.
+ * Creates a Hono middleware that guards routes behind session authentication.
  *
- * Returns the authenticated user if the session is valid, or a redirect
- * Response to the login page if not.
+ * Extracts the session token from the request cookies and validates it via the
+ * AuthService port. If no session cookie is present, redirects immediately to
+ * `/auth/sign-in`. If the token is present but invalid/expired, clears the
+ * stale cookie and redirects. On D1 error, returns 503 with `Retry-After: 30`.
+ * On success, derives a session-bound CSRF token via HMAC-SHA256, sets the
+ * `__Host-csrf` cookie, and populates `c.var.user`, `c.var.session`, and
+ * `c.var.csrfToken` for downstream handlers.
  *
- * @param request - The incoming HTTP request
- * @param deps - The middleware dependencies
- * @returns Auth check result with either user data or redirect response
+ * @param authService - The AuthService port for session validation.
+ * @param secret - The BETTER_AUTH_SECRET for HMAC-SHA256 CSRF derivation.
+ * @returns A Hono middleware function for use with `app.use()`.
  */
-export async function requireAuth(
-  request: Request,
-  deps: RequireAuthDeps
-): Promise<AuthCheckResult> {
-  const options = deps.cookieOptions ?? DEFAULT_COOKIE_OPTIONS;
-  const cookieHeader = request.headers.get('Cookie');
-  const sessionId = extractSessionIdFromCookies(cookieHeader, options);
+export function createRequireAuth(
+  authService: AuthService,
+  secret: string
+): (c: Context<AppEnv>, next: Next) => Promise<Response | void> {
+  return async function requireAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
+    const url = new URL(c.req.url);
+    const redirectTo = encodeURIComponent(url.pathname + url.search);
+    const cookieHeader = c.req.header('Cookie') ?? '';
 
-  if (sessionId === null) {
-    return { type: 'redirect', response: buildLoginRedirect(request.url) };
-  }
+    const sessionToken = extractSessionToken(cookieHeader);
+    if (sessionToken === null) {
+      return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
+    }
 
-  const result = await deps.getCurrentUserUseCase.execute(sessionId);
-  if (!result.success) {
-    return { type: 'redirect', response: buildLoginRedirect(request.url) };
-  }
+    let session: Awaited<ReturnType<AuthService['getSession']>>;
+    try {
+      session = await authService.getSession({ sessionToken });
+    } catch {
+      // D1 or infrastructure error: signal temporary unavailability
+      return new Response('Service Unavailable', {
+        status: 503,
+        headers: { 'Retry-After': '30' },
+      });
+    }
 
-  return { type: 'authenticated', user: result.value };
-}
+    if (session === null) {
+      if (hasSessionCookie(cookieHeader)) {
+        c.header('Set-Cookie', clearSessionCookie());
+      }
+      return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
+    }
 
-/**
- * Checks whether a pathname is safe for use as a redirect target.
- *
- * Rejects paths that could be used for open redirect attacks:
- * protocol-relative URLs (`//evil.com`), newline injection, and null bytes.
- *
- * @param pathname - The pathname to validate
- * @returns True if the path is safe for redirect
- */
-function isSafeRedirectPath(pathname: string): boolean {
-  /**
-   * Per the URL specification, `URL.pathname` always starts with '/' for
-   * HTTP(S) URLs, making this branch unreachable in practice. The defensive
-   * guard prevents an open redirect if the assumption ever breaks.
-   */
-  /* istanbul ignore next -- guaranteed by URL spec for HTTP(S) */
-  if (!pathname.startsWith('/')) {
-    return false;
-  }
-  if (pathname.startsWith('//')) {
-    return false;
-  }
-  if (/[\n\r\0]|%0[aAdD]|%00/i.test(pathname)) {
-    return false;
-  }
-  return true;
-}
-
-/**
- * Builds a 303 redirect response to the login page.
- *
- * Preserves the original request path as a `redirectTo` query parameter
- * so the login page can redirect back after successful authentication.
- * Paths under `/auth/` are excluded to avoid redirect loops. Unsafe
- * paths (protocol-relative, containing newlines or null bytes) are
- * excluded to prevent open redirect attacks.
- *
- * @param requestUrl - The full URL of the original request
- * @returns A redirect Response with security headers
- */
-function buildLoginRedirect(requestUrl: string): Response {
-  const { pathname } = new URL(requestUrl);
-
-  let location = '/auth/login';
-  if (!pathname.startsWith('/auth/') && isSafeRedirectPath(pathname)) {
-    location += `?redirectTo=${encodeURIComponent(pathname)}`;
-  }
-
-  const headers = new Headers();
-  headers.set('Location', location);
-  applySecurityHeaders(headers);
-
-  return new Response(null, { status: 303, headers });
+    // Derive a session-bound CSRF token via two-step HMAC-SHA256:
+    //   csrfSubKey = HMAC(masterSecret, 'csrf-v1')
+    //   csrfToken  = HMAC(csrfSubKey, "csrf:v1:{sessionToken}")
+    // The dedicated sub-key enforces key separation; the domain prefix further
+    // prevents cross-protocol confusion within the CSRF domain.
+    // Deterministic per session — consistent across multi-tab usage, no KV storage required.
+    const csrfToken = await deriveCsrfToken(`csrf:v1:${session.session.token}`, secret);
+    c.header('Set-Cookie', buildCsrfCookie(csrfToken), { append: true });
+    c.set('user', session.user);
+    c.set('session', session.session);
+    c.set('csrfToken', csrfToken);
+    await next();
+  };
 }

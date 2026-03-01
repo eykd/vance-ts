@@ -1,0 +1,21 @@
+;=============================================
+; An unauthenticated visitor is redirected from a protected page.
+;=============================================
+GIVEN a visitor with no active session.
+WHEN they attempt to access a protected page.
+THEN they are redirected to the sign-in page.
+THEN the sign-in page retains the address of the page they originally requested.
+
+;=============================================
+; An authenticated user can access protected pages.
+;=============================================
+GIVEN a signed-in user.
+WHEN they access a protected page.
+THEN they are served the protected content.
+
+;=============================================
+; An expired session is treated as no session.
+;=============================================
+GIVEN a user whose session has expired.
+WHEN they attempt to access a protected page.
+THEN they are redirected to the sign-in page.

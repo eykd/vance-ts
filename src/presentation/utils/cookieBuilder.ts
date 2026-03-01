@@ -1,132 +1,148 @@
-import type { CookieOptions } from '../../domain/types/CookieOptions';
-import { DEFAULT_COOKIE_OPTIONS } from '../../domain/types/CookieOptions';
+import { toHex } from '../../shared/hex';
 
-/** Cookie name for the session identifier. Uses `__Host-` prefix for origin binding. */
-export const SESSION_COOKIE_NAME = '__Host-session';
-
-/** Cookie name for the CSRF token. Uses `__Host-` prefix for origin binding. */
-export const CSRF_COOKIE_NAME = '__Host-csrf';
-
-/** Default session max age in seconds (7 days). */
-export const SESSION_MAX_AGE_SECONDS = 604800;
+const CSRF_COOKIE_NAME = '__Host-csrf';
+const CSRF_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Strict; Path=/';
 
 /**
- * Builds a secure session cookie string.
+ * Generates a cryptographically random 256-bit CSRF token as a hex string.
  *
- * Attributes: HttpOnly (no JS access), SameSite=Lax, Path=/.
- * Secure attribute is included unless `options.secure` is false.
- *
- * @param sessionId - The session identifier value
- * @param maxAge - Cookie max age in seconds (defaults to 7 days)
- * @param options - Cookie naming and security options (defaults to production)
- * @returns The formatted Set-Cookie value
+ * @returns A 64-character lowercase hex string
  */
-export function buildSessionCookie(
-  sessionId: string,
-  maxAge: number = SESSION_MAX_AGE_SECONDS,
-  options: CookieOptions = DEFAULT_COOKIE_OPTIONS
-): string {
-  const secure = options.secure ? '; Secure' : '';
-  return `${options.sessionName}=${sessionId}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=${String(maxAge)}`;
+export function generateCsrfToken(): string {
+  return toHex(crypto.getRandomValues(new Uint8Array(32)));
 }
 
 /**
- * Builds a CSRF cookie string readable by JavaScript.
+ * Derives a CSRF token via two-step HMAC-SHA256 with a dedicated sub-key.
  *
- * NOT HttpOnly so that client-side JS can read the token for double-submit.
- * Attributes: SameSite=Lax, Path=/.
- * Secure attribute is included unless `options.secure` is false.
+ * Key separation ensures the CSRF sub-key is distinct from any other key
+ * derived from the same master secret:
+ * `csrfSubKey = HMAC(masterSecret, 'csrf-v1')`,
+ * then `token = HMAC(csrfSubKey, message)`.
  *
- * @param csrfToken - The CSRF token value
- * @param maxAge - Cookie max age in seconds (defaults to 7 days)
- * @param options - Cookie naming and security options (defaults to production)
- * @returns The formatted Set-Cookie value
+ * The message should include a domain-separation prefix (e.g. "csrf:v1:{sessionToken}")
+ * to additionally prevent cross-protocol token reuse within the CSRF domain.
+ *
+ * @param message      - The message to sign (e.g. "csrf:v1:{sessionToken}")
+ * @param masterSecret - The master signing secret (e.g. BETTER_AUTH_SECRET from env)
+ * @returns A 64-character lowercase hex string
  */
-export function buildCsrfCookie(
-  csrfToken: string,
-  maxAge: number = SESSION_MAX_AGE_SECONDS,
-  options: CookieOptions = DEFAULT_COOKIE_OPTIONS
-): string {
-  const secure = options.secure ? '; Secure' : '';
-  return `${options.csrfName}=${csrfToken}${secure}; SameSite=Lax; Path=/; Max-Age=${String(maxAge)}`;
+export async function deriveCsrfToken(message: string, masterSecret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  // Step 1: derive the dedicated csrf-v1 sub-key
+  const masterKey = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(masterSecret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const csrfSubKeyBuffer = await crypto.subtle.sign('HMAC', masterKey, encoder.encode('csrf-v1'));
+  // Step 2: sign the message with the sub-key
+  const csrfKey = await crypto.subtle.importKey(
+    'raw',
+    csrfSubKeyBuffer,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', csrfKey, encoder.encode(message));
+  return toHex(new Uint8Array(signature));
 }
 
 /**
- * Builds a Set-Cookie value that clears the session cookie.
+ * Builds a Set-Cookie header value for the CSRF cookie with a 1-hour expiry.
  *
- * @param options - Cookie naming and security options (defaults to production)
- * @returns The formatted Set-Cookie value with Max-Age=0
+ * @param token - The CSRF token to store in the cookie
+ * @returns A Set-Cookie header value string
  */
-export function clearSessionCookie(options: CookieOptions = DEFAULT_COOKIE_OPTIONS): string {
-  const secure = options.secure ? '; Secure' : '';
-  return `${options.sessionName}=; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=0`;
+export function buildCsrfCookie(token: string): string {
+  return `${CSRF_COOKIE_NAME}=${token}; ${CSRF_COOKIE_ATTRIBUTES}; Max-Age=3600`;
 }
 
 /**
- * Builds a Set-Cookie value that clears the CSRF cookie.
+ * Builds a Set-Cookie header value that clears the CSRF cookie.
  *
- * @param options - Cookie naming and security options (defaults to production)
- * @returns The formatted Set-Cookie value with Max-Age=0
+ * @returns A Set-Cookie header value string with Max-Age=0
  */
-export function clearCsrfCookie(options: CookieOptions = DEFAULT_COOKIE_OPTIONS): string {
-  const secure = options.secure ? '; Secure' : '';
-  return `${options.csrfName}=${secure}; SameSite=Lax; Path=/; Max-Age=0`;
+export function clearCsrfCookie(): string {
+  return `${CSRF_COOKIE_NAME}=; ${CSRF_COOKIE_ATTRIBUTES}; Max-Age=0`;
+}
+
+const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
+const SESSION_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Lax; Path=/';
+
+/**
+ * Builds a Set-Cookie header value that clears the Better Auth session cookie.
+ *
+ * @returns A Set-Cookie header value string with Max-Age=0
+ */
+export function clearSessionCookie(): string {
+  return `${SESSION_COOKIE_NAME}=; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=0`;
 }
 
 /**
- * Parses a named cookie value from a Cookie header string.
+ * Builds a Set-Cookie header value for the Better Auth session cookie.
  *
- * @param cookieHeader - The raw Cookie header value
- * @param name - The cookie name to find
- * @returns The cookie value, or null if not found
+ * Sets a 30-day Max-Age to match the server-side session lifetime configured in
+ * better-auth (`session.expiresIn: 2_592_000`).
+ *
+ * @param token - The opaque session token returned by the auth service
+ * @returns A Set-Cookie header value string
  */
-function parseCookie(cookieHeader: string | null, name: string): string | null {
+export function buildSessionCookie(token: string): string {
+  return `${SESSION_COOKIE_NAME}=${token}; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=2592000`;
+}
+
+/**
+ * Extracts the session token value from a Cookie request header string.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @returns The session token string, or null if the session cookie is not present
+ */
+export function extractSessionToken(cookieHeader: string | null): string | null {
   if (cookieHeader === null || cookieHeader === '') {
     return null;
   }
-
-  const pairs = cookieHeader.split(';');
-  for (const pair of pairs) {
-    const [key, ...rest] = pair.split('=');
-    /**
-     * `String.prototype.split()` is guaranteed by the ECMAScript specification
-     * to return an array with at least one element, so `key` is always defined.
-     * The optional chain (`?.`) satisfies TypeScript's `noUncheckedIndexedAccess`.
-     */
-    /* istanbul ignore next -- guaranteed by ECMAScript spec */
-    if (key?.trim() === name) {
-      const value = rest.join('=').trim();
-      return value === '' ? null : value;
+  const prefix = `${SESSION_COOKIE_NAME}=`;
+  for (const part of cookieHeader.split(';')) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith(prefix)) {
+      return trimmed.slice(prefix.length);
     }
   }
-
   return null;
 }
 
 /**
- * Extracts the session ID from a Cookie header.
+ * Returns true when the Cookie request header contains a Better Auth session cookie.
  *
- * @param cookieHeader - The raw Cookie header value
- * @param options - Cookie naming and security options (defaults to production)
- * @returns The session ID, or null if not present
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @returns True if a session cookie is present
  */
-export function extractSessionIdFromCookies(
-  cookieHeader: string | null,
-  options: CookieOptions = DEFAULT_COOKIE_OPTIONS
-): string | null {
-  return parseCookie(cookieHeader, options.sessionName);
+export function hasSessionCookie(cookieHeader: string | null): boolean {
+  if (cookieHeader === null || cookieHeader === '') {
+    return false;
+  }
+  return cookieHeader.includes(`${SESSION_COOKIE_NAME}=`);
 }
 
 /**
- * Extracts the CSRF token from a Cookie header.
+ * Extracts the CSRF token value from a Cookie header string.
  *
- * @param cookieHeader - The raw Cookie header value
- * @param options - Cookie naming and security options (defaults to production)
- * @returns The CSRF token, or null if not present
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @returns The CSRF token string, or null if the cookie is not present
  */
-export function extractCsrfTokenFromCookies(
-  cookieHeader: string | null,
-  options: CookieOptions = DEFAULT_COOKIE_OPTIONS
-): string | null {
-  return parseCookie(cookieHeader, options.csrfName);
+export function extractCsrfTokenFromCookies(cookieHeader: string | null): string | null {
+  if (cookieHeader === null || cookieHeader === '') {
+    return null;
+  }
+  const prefix = `${CSRF_COOKIE_NAME}=`;
+  for (const part of cookieHeader.split(';')) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith(prefix)) {
+      return trimmed.slice(prefix.length);
+    }
+  }
+  return null;
 }
