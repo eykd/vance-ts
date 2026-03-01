@@ -79,7 +79,7 @@ export class ServiceFactory {
   constructor(env: Env) {
     this.env = env;
     this._authInstance = getAuth(env); // validates BETTER_AUTH_SECRET, throws if invalid
-    this._validatedSecret = env.BETTER_AUTH_SECRET as string; // safe: getAuth validated above
+    this._validatedSecret = env.BETTER_AUTH_SECRET;
   }
 
   /**
