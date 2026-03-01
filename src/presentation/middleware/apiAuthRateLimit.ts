@@ -26,10 +26,10 @@ import { extractClientIp } from '../utils/extractClientIp';
  *
  * On each request:
  * 1. Extracts the client IP via `CF-Connecting-IP` (Cloudflare-trusted header).
- * 2. Atomically checks and increments the rate limit counter for
- *    `ratelimit:<endpoint>:<ip>` in a single Durable Object round-trip,
- *    eliminating the TOCTOU race that the two-step `check` + `increment`
- *    pattern would introduce during the 100–500 ms Argon2id hashing window.
+ * 2. Atomically checks and increments the counter for `ratelimit:<endpoint>:<ip>`
+ * in a single Durable Object round-trip, eliminating the TOCTOU race that
+ * the two-step `check` + `increment` pattern would introduce during the
+ * 100–500 ms Argon2id hashing window.
  * 3. Returns 429 JSON with `Retry-After` if the limit is exceeded.
  * 4. Calls `next()` to pass through to the better-auth handler.
  *
