@@ -11,8 +11,7 @@
 
 import type { betterAuth } from 'better-auth';
 
-import type { AuthService } from '../application/ports/AuthService.js';
-import type { AuthSession, AuthUser } from '../domain/entities/auth.js';
+import type { AuthService, AuthSessionDto, AuthUserDto } from '../application/ports/AuthService.js';
 import { verifyPassword } from '../domain/services/passwordHasher.js';
 import { toHex } from '../shared/hex.js';
 
@@ -255,7 +254,7 @@ export class BetterAuthService implements AuthService {
    */
   async getSession(params: {
     sessionToken: string;
-  }): Promise<{ user: AuthUser; session: AuthSession } | null> {
+  }): Promise<{ user: AuthUserDto; session: AuthSessionDto } | null> {
     const headers = new Headers({ cookie: `${SESSION_COOKIE_NAME}=${params.sessionToken}` });
     const data = await this.auth.api.getSession({ headers });
 
