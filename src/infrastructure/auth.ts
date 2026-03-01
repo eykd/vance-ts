@@ -65,6 +65,20 @@ interface AuthEnvIdentity {
   db: D1Database;
 }
 
+/**
+ * Returns true when the given URL is a localhost origin (http://localhost or http://127.0.0.1).
+ *
+ * Used to choose between the `__Host-` cookie prefix (production) and a plain prefix
+ * (localhost), because the `__Host-` spec invariant requires `Secure: true` on all
+ * origins — a requirement that cannot be satisfied on plain HTTP localhost.
+ *
+ * @param url - The BETTER_AUTH_URL value from the Workers env.
+ * @returns `true` when the URL starts with `http://localhost` or `http://127.0.0.1`.
+ */
+function isLocalhost(url: string): boolean {
+  return url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
+}
+
 /** Module-level singleton, lives for the lifetime of the Workers isolate. */
 let _auth: ReturnType<typeof betterAuth> | null = null;
 
@@ -146,12 +160,16 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
         // __Host- cookie. We suppress this by setting useSecureCookies: false and instead
         // enforce the Secure attribute via defaultCookieAttributes below.
         useSecureCookies: false,
-        // With cookiePrefix "__Host-better-auth" and useSecureCookies false, the cookie name
-        // becomes "__Host-better-auth.session_token" — a valid __Host- cookie that browsers
-        // enforce as Secure + Path=/ + no Domain.
-        cookiePrefix: '__Host-better-auth',
+        // The __Host- cookie prefix requires Secure:true by spec (RFC 6265bis). Browsers that
+        // strictly enforce this invariant silently drop __Host-* cookies when Secure is false,
+        // causing silent auth failures in local dev. On localhost we drop the __Host- prefix
+        // entirely so Secure can be false without violating the invariant.
+        //
+        // Production: "__Host-better-auth.session_token" — enforces Secure + Path=/ + no Domain.
+        // Localhost:  "better-auth.session_token" — no special prefix; Secure=false is valid.
+        cookiePrefix: isLocalhost(env.BETTER_AUTH_URL) ? 'better-auth' : '__Host-better-auth',
         defaultCookieAttributes: {
-          secure: !env.BETTER_AUTH_URL.startsWith('http://localhost'),
+          secure: !isLocalhost(env.BETTER_AUTH_URL),
         },
         ipAddress: { ipAddressHeaders: ['CF-Connecting-IP'] },
       },

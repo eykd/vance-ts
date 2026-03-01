@@ -173,14 +173,29 @@ describe('getAuth', () => {
       expect(advanced['useSecureCookies']).toBe(false);
     });
 
-    it('sets cookiePrefix to __Host-better-auth so cookies are named __Host-better-auth.session_token', () => {
-      const env = makeEnv();
+    it('sets cookiePrefix to __Host-better-auth for production URLs (satisfies __Host- invariant)', () => {
+      const env = makeEnv({ BETTER_AUTH_URL: 'https://app.turtlebased.io' });
 
       getAuth(env);
 
       const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
       expect(advanced['cookiePrefix']).toBe('__Host-better-auth');
+    });
+
+    it('sets cookiePrefix to better-auth (no __Host- prefix) on localhost to satisfy the __Host- Secure invariant', () => {
+      // The __Host- cookie prefix requires Secure:true by spec (RFC 6265bis).
+      // Browsers that strictly enforce this invariant will silently drop cookies
+      // named __Host-* when Secure is false, causing auth failures in local dev.
+      // On localhost we drop the __Host- prefix entirely so Secure can be false
+      // without violating the invariant.
+      const env = makeEnv({ BETTER_AUTH_URL: 'http://localhost:8787' });
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const advanced = config['advanced'] as Record<string, unknown>;
+      expect(advanced['cookiePrefix']).toBe('better-auth');
     });
 
     it('sets defaultCookieAttributes.secure to true for non-localhost BETTER_AUTH_URL', () => {
