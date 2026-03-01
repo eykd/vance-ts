@@ -86,7 +86,7 @@ Find the `[sp:07-implement]` child task of the epic — this is the correct pare
 ```bash
 npx bd list --parent "$EPIC_ID" 2>/dev/null | grep "sp:07-implement"
 # Use the task ID shown (e.g. tb-ltk.6)
-PARENT_ID="tb-ltk.6"
+PARENT_ID="<implement-task-id-from-above>"
 ```
 
 **Note**: The `[sp:07-implement]` task may already be closed (✓) — that's fine. New review tasks still belong under it to maintain the hierarchy. Use the closed sp:07-implement ID as `--parent`.
