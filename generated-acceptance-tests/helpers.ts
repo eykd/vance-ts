@@ -38,18 +38,18 @@ export async function post(path: string, body: unknown): Promise<Response> {
  * GETs an auth form page and extracts the CSRF token from the Set-Cookie header.
  *
  * @param path - The auth page path (e.g. "/auth/sign-up").
- * @returns The response and the extracted CSRF token string.
+ * @returns The extracted CSRF token string.
  */
 export async function getAuthForm(
   path: string
-): Promise<{ response: Response; csrfToken: string }> {
+): Promise<{ csrfToken: string }> {
   const response = await SELF.fetch(
     new Request(`https://example.com${path}`, { redirect: 'manual' })
   );
   const setCookie = response.headers.get('Set-Cookie') ?? '';
   const match = setCookie.match(/__Host-csrf=([^;]+)/);
   const csrfToken = match?.[1] ?? '';
-  return { response, csrfToken };
+  return { csrfToken };
 }
 
 /**
