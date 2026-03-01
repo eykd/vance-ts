@@ -16,12 +16,16 @@ function makeAuthServiceMock(): {
   signUp: ReturnType<typeof vi.fn>;
   signOut: ReturnType<typeof vi.fn>;
   getSession: ReturnType<typeof vi.fn>;
+  verifyDummyPassword: ReturnType<typeof vi.fn>;
+  hasSession: ReturnType<typeof vi.fn>;
 } {
   return {
     signIn: vi.fn(),
     signUp: vi.fn(),
     signOut: vi.fn(),
     getSession: vi.fn(),
+    verifyDummyPassword: vi.fn().mockResolvedValue(undefined),
+    hasSession: vi.fn().mockReturnValue(false),
   };
 }
 
@@ -58,10 +62,7 @@ describe('SignUpUseCase', () => {
     rateLimiterMock = makeRateLimiterMock();
     rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: true });
     authServiceMock.signUp.mockResolvedValue({ ok: true });
-    useCase = new SignUpUseCase(
-      authServiceMock as unknown as AuthService,
-      rateLimiterMock as unknown as RateLimiter
-    );
+    useCase = new SignUpUseCase(authServiceMock, rateLimiterMock as unknown as RateLimiter);
   });
 
   afterEach(() => {

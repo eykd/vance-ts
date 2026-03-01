@@ -14,12 +14,16 @@ function makeAuthServiceMock(): {
   signUp: ReturnType<typeof vi.fn>;
   signOut: ReturnType<typeof vi.fn>;
   getSession: ReturnType<typeof vi.fn>;
+  verifyDummyPassword: ReturnType<typeof vi.fn>;
+  hasSession: ReturnType<typeof vi.fn>;
 } {
   return {
     signIn: vi.fn(),
     signUp: vi.fn(),
     signOut: vi.fn(),
     getSession: vi.fn(),
+    verifyDummyPassword: vi.fn().mockResolvedValue(undefined),
+    hasSession: vi.fn().mockReturnValue(false),
   };
 }
 
@@ -31,7 +35,7 @@ describe('SignOutUseCase', () => {
 
   beforeEach(() => {
     authServiceMock = makeAuthServiceMock();
-    useCase = new SignOutUseCase(authServiceMock as unknown as AuthService);
+    useCase = new SignOutUseCase(authServiceMock);
   });
 
   afterEach(() => {
