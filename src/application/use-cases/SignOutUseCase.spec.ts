@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthService } from '../ports/AuthService.js';
-
 import { SignOutUseCase } from './SignOutUseCase.js';
 
 /**

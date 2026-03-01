@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthService } from '../ports/AuthService.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import { REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
