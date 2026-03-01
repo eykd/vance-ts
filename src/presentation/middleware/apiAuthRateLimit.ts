@@ -22,14 +22,16 @@ import { extractClientIp } from '../utils/extractClientIp';
 
 /**
  * Creates a Hono middleware that applies IP-based rate limiting to a specific
- * auth API endpoint.
+ * auth API endpoint using an atomic `checkAndIncrement` operation.
  *
  * On each request:
  * 1. Extracts the client IP via `CF-Connecting-IP` (Cloudflare-trusted header).
- * 2. Checks the rate limit for `ratelimit:<endpoint>:<ip>`.
+ * 2. Atomically checks and increments the rate limit counter for
+ *    `ratelimit:<endpoint>:<ip>` in a single Durable Object round-trip,
+ *    eliminating the TOCTOU race that the two-step `check` + `increment`
+ *    pattern would introduce during the 100–500 ms Argon2id hashing window.
  * 3. Returns 429 JSON with `Retry-After` if the limit is exceeded.
  * 4. Calls `next()` to pass through to the better-auth handler.
- * 5. Increments the counter if the downstream response is 4xx (auth failure).
  *
  * @param rateLimiter - Rate limiter port; implemented by DurableObjectRateLimiter.
  * @param endpoint - The endpoint label used in the key ('sign-in' or 'register').
@@ -46,7 +48,7 @@ export function createApiAuthRateLimit(
     const ipKey = ip !== 'unknown' ? ip : crypto.randomUUID();
     const key = `ratelimit:${endpoint}:${ipKey}`;
 
-    const check = await rateLimiter.check(key);
+    const check = await rateLimiter.checkAndIncrement(key, windowSeconds);
     if (!check.allowed) {
       return new Response(JSON.stringify({ error: 'Too many requests' }), {
         status: 429,
@@ -58,11 +60,5 @@ export function createApiAuthRateLimit(
     }
 
     await next();
-
-    // Increment on auth failure (4xx). 5xx responses indicate infrastructure
-    // errors rather than invalid credentials and should not penalise the IP.
-    if (c.res.status >= 400 && c.res.status < 500) {
-      await rateLimiter.increment(key, windowSeconds);
-    }
   };
 }

@@ -2,8 +2,13 @@
  * Tests for the API auth rate limit middleware.
  *
  * Verifies that POST requests to /api/auth/sign-in/* and /api/auth/sign-up/*
- * are rate-limited using the DurableObjectRateLimiter, sharing the same key
- * format as the form-based use cases (SignInUseCase, SignUpUseCase).
+ * are rate-limited using an atomic `checkAndIncrement` operation, sharing the
+ * same key format as the form-based use cases (SignInUseCase, SignUpUseCase).
+ *
+ * The middleware uses `checkAndIncrement` (a single Durable Object round-trip)
+ * instead of the two-step `check` + `increment` pattern, eliminating the TOCTOU
+ * race that would otherwise allow concurrent bursts to bypass the rate limit
+ * during the 100–500 ms Argon2id hashing window.
  */
 
 import { Hono } from 'hono/tiny';
@@ -76,8 +81,8 @@ describe('createApiAuthRateLimit', () => {
   }
 
   describe('rate limit enforcement', () => {
-    it('returns 429 when the rate limiter denies the request', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: false, retryAfter: 60 });
+    it('returns 429 when checkAndIncrement denies the request', async () => {
+      rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false, retryAfter: 60 });
 
       const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS);
       const res = await app.fetch(
@@ -87,8 +92,8 @@ describe('createApiAuthRateLimit', () => {
       expect(res.status).toBe(429);
     });
 
-    it('includes Retry-After header from the rate limiter in the 429 response', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: false, retryAfter: 120 });
+    it('includes Retry-After header from checkAndIncrement in the 429 response', async () => {
+      rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false, retryAfter: 120 });
 
       const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS);
       const res = await app.fetch(
@@ -99,7 +104,7 @@ describe('createApiAuthRateLimit', () => {
     });
 
     it('uses Retry-After: 60 as default when retryAfter is undefined', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: false });
+      rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false });
 
       const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS);
       const res = await app.fetch(
@@ -110,7 +115,7 @@ describe('createApiAuthRateLimit', () => {
     });
 
     it('returns JSON error body on 429', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: false, retryAfter: 60 });
+      rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false, retryAfter: 60 });
 
       const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS);
       const res = await app.fetch(
@@ -120,8 +125,8 @@ describe('createApiAuthRateLimit', () => {
       expect(await res.json()).toEqual({ error: 'Too many requests' });
     });
 
-    it('passes through to the downstream handler when the rate limiter allows the request', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: true });
+    it('passes through to the downstream handler when checkAndIncrement allows the request', async () => {
+      rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: true });
 
       const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS, 200);
       const res = await app.fetch(
@@ -132,10 +137,8 @@ describe('createApiAuthRateLimit', () => {
     });
   });
 
-  describe('rate limit key construction', () => {
-    it('uses ratelimit:sign-in:<ip> key for the sign-in endpoint', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: true });
-
+  describe('rate limit key and window', () => {
+    it('calls checkAndIncrement with ratelimit:sign-in:<ip> and SIGN_IN_WINDOW_SECONDS', async () => {
       const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS);
       await app.fetch(
         new Request('https://example.com/api/auth/sign-in/email', {
@@ -144,12 +147,13 @@ describe('createApiAuthRateLimit', () => {
         })
       );
 
-      expect(rateLimiterMock.check).toHaveBeenCalledWith('ratelimit:sign-in:1.2.3.4');
+      expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
+        'ratelimit:sign-in:1.2.3.4',
+        SIGN_IN_WINDOW_SECONDS
+      );
     });
 
-    it('uses ratelimit:register:<ip> key for the register endpoint', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: true });
-
+    it('calls checkAndIncrement with ratelimit:register:<ip> and REGISTER_WINDOW_SECONDS', async () => {
       const app = makeTestApp('register', REGISTER_WINDOW_SECONDS);
       await app.fetch(
         new Request('https://example.com/api/auth/sign-up/email', {
@@ -158,28 +162,39 @@ describe('createApiAuthRateLimit', () => {
         })
       );
 
-      expect(rateLimiterMock.check).toHaveBeenCalledWith('ratelimit:register:5.6.7.8');
+      expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
+        'ratelimit:register:5.6.7.8',
+        REGISTER_WINDOW_SECONDS
+      );
     });
 
     it('uses a UUID as ip key when CF-Connecting-IP is absent (unknown IP)', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: true });
-
       const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS);
       await app.fetch(
         new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' })
       );
 
-      const [calledKey] = rateLimiterMock.check.mock.calls[0] as [string];
+      const [calledKey] = rateLimiterMock.checkAndIncrement.mock.calls[0] as [string, number];
       expect(calledKey).toMatch(
         /^ratelimit:sign-in:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
       );
     });
   });
 
-  describe('attempt counter increment', () => {
-    it('increments the counter using the correct key after a 4xx response', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: true });
+  describe('atomic operation: no separate check or increment calls', () => {
+    it('never calls check() separately', async () => {
+      const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS);
+      await app.fetch(
+        new Request('https://example.com/api/auth/sign-in/email', {
+          method: 'POST',
+          headers: { 'CF-Connecting-IP': '1.2.3.4' },
+        })
+      );
 
+      expect(rateLimiterMock.check).not.toHaveBeenCalled();
+    });
+
+    it('never calls increment() separately after a 4xx auth failure', async () => {
       const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS, 401);
       await app.fetch(
         new Request('https://example.com/api/auth/sign-in/email', {
@@ -188,61 +203,11 @@ describe('createApiAuthRateLimit', () => {
         })
       );
 
-      expect(rateLimiterMock.increment).toHaveBeenCalledWith(
-        'ratelimit:sign-in:1.2.3.4',
-        SIGN_IN_WINDOW_SECONDS
-      );
+      expect(rateLimiterMock.increment).not.toHaveBeenCalled();
     });
 
-    it('increments using REGISTER_WINDOW_SECONDS for the register endpoint', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: true });
-
-      const app = makeTestApp('register', REGISTER_WINDOW_SECONDS, 422);
-      await app.fetch(
-        new Request('https://example.com/api/auth/sign-up/email', {
-          method: 'POST',
-          headers: { 'CF-Connecting-IP': '1.2.3.4' },
-        })
-      );
-
-      expect(rateLimiterMock.increment).toHaveBeenCalledWith(
-        'ratelimit:register:1.2.3.4',
-        REGISTER_WINDOW_SECONDS
-      );
-    });
-
-    it('does not increment after a successful 200 response', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: true });
-
+    it('never calls increment() separately after a 200 success response', async () => {
       const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS, 200);
-      await app.fetch(
-        new Request('https://example.com/api/auth/sign-in/email', {
-          method: 'POST',
-          headers: { 'CF-Connecting-IP': '1.2.3.4' },
-        })
-      );
-
-      expect(rateLimiterMock.increment).not.toHaveBeenCalled();
-    });
-
-    it('does not increment after a 5xx server error response', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: true });
-
-      const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS, 500);
-      await app.fetch(
-        new Request('https://example.com/api/auth/sign-in/email', {
-          method: 'POST',
-          headers: { 'CF-Connecting-IP': '1.2.3.4' },
-        })
-      );
-
-      expect(rateLimiterMock.increment).not.toHaveBeenCalled();
-    });
-
-    it('does not increment when the request is blocked by rate limiting', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: false, retryAfter: 60 });
-
-      const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS);
       await app.fetch(
         new Request('https://example.com/api/auth/sign-in/email', {
           method: 'POST',
