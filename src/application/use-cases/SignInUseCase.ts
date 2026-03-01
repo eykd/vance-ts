@@ -1,0 +1,113 @@
+/**
+ * SignInUseCase — orchestrates email/password sign-in.
+ *
+ * Enforces KV-backed IP rate limiting before delegating credential
+ * verification to the {@link AuthService} port. Returns a typed result
+ * that callers use to construct HTTP responses; never throws.
+ *
+ * @module
+ */
+
+import type { AuthService } from '../ports/AuthService.js';
+import type { RateLimiter } from '../ports/RateLimiter.js';
+import { SIGN_IN_WINDOW_SECONDS } from '../ports/RateLimiter.js';
+
+/**
+ * Input DTO for the sign-in use case.
+ */
+export type SignInRequest = {
+  /** The user's email address. */
+  email: string;
+  /** The user's plaintext password. */
+  password: string;
+  /** Client IP address used for rate limit key construction. */
+  ip: string;
+};
+
+/**
+ * Result type returned by {@link SignInUseCase.execute}.
+ *
+ * On success, `sessionToken` is the opaque session token that the presentation
+ * layer uses to construct a `Set-Cookie` header via `buildSessionCookie`. On
+ * failure, `kind` identifies the error category:
+ * - `invalid_credentials` — wrong email or password
+ * - `rate_limited` — IP has exceeded the allowed attempt window
+ * - `service_error` — infrastructure failure (DB unavailable, etc.)
+ */
+export type SignInResult =
+  | { ok: true; sessionToken: string }
+  | {
+      ok: false;
+      kind: 'invalid_credentials' | 'rate_limited' | 'service_error';
+      retryAfter?: number;
+    };
+
+/**
+ * Orchestrates email/password sign-in with IP rate limiting.
+ *
+ * Flow:
+ * 1. Atomically check-and-increment the rate limiter for the client IP in a single DO call;
+ * reject with `rate_limited` if the limit is exceeded (counter unchanged on rejection).
+ * 2. Delegate to {@link AuthService.signIn}; adapter maps better-auth responses to types.
+ * 3. Run timing-oracle defence on non-rate-limited failures (FR-007).
+ *
+ * @example
+ * ```typescript
+ * const useCase = new SignInUseCase(authService, rateLimiter);
+ * const result = await useCase.execute({ email, password, ip });
+ * if (result.ok) {
+ *   response.headers.set('Set-Cookie', buildSessionCookie(result.sessionToken));
+ * }
+ * ```
+ */
+export class SignInUseCase {
+  /** Auth port interface, injected at construction time. */
+  private readonly authService: AuthService;
+
+  /** Rate limiter port interface, injected at construction time. */
+  private readonly rateLimiter: RateLimiter;
+
+  /**
+   * Creates a new SignInUseCase.
+   *
+   * @param authService - Auth service port; implemented by BetterAuthService.
+   * @param rateLimiter - Rate limiter port; implemented by KvRateLimiter.
+   */
+  constructor(authService: AuthService, rateLimiter: RateLimiter) {
+    this.authService = authService;
+    this.rateLimiter = rateLimiter;
+  }
+
+  /**
+   * Executes the sign-in flow.
+   *
+   * @param request - Sign-in credentials and client IP address.
+   * @returns A typed result; never throws.
+   */
+  async execute(request: SignInRequest): Promise<SignInResult> {
+    try {
+      const ipKey = request.ip !== 'unknown' ? request.ip : crypto.randomUUID();
+      const key = `ratelimit:sign-in:${ipKey}`;
+
+      const rateCheck = await this.rateLimiter.checkAndIncrement(key, SIGN_IN_WINDOW_SECONDS);
+      if (!rateCheck.allowed) {
+        return { ok: false, kind: 'rate_limited', retryAfter: rateCheck.retryAfter };
+      }
+
+      const result = await this.authService.signIn({
+        email: request.email,
+        password: request.password,
+      });
+
+      // Timing oracle defence — run Argon2id on every non-rate-limited failure (FR-007)
+      if (!result.ok && result.kind !== 'rate_limited') {
+        // Intentional: return value discarded; only the Argon2id timing side-effect matters.
+        await this.authService.verifyDummyPassword(request.password);
+      }
+
+      return result;
+    } catch {
+      return { ok: false, kind: 'service_error' };
+    }
+  }
+}

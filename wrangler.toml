@@ -1,0 +1,23 @@
+name = "turtlebased-ts"
+main = "src/worker.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./hugo/public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "turtlebased-ts"
+# Replace with the output of: wrangler d1 create turtlebased-ts
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[[durable_objects.bindings]]
+name = "RATE_LIMIT"
+class_name = "RateLimitDO"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RateLimitDO"]

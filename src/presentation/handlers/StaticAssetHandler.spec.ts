@@ -1,7 +1,7 @@
 import { Hono } from 'hono/tiny';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Env } from '../../infrastructure/env';
+import type { Env } from '../../shared/env';
 
 import { staticAssetFallthrough } from './StaticAssetHandler';
 
@@ -21,6 +21,10 @@ describe('StaticAssetHandler', () => {
           fetch: fetchSpy,
           connect: vi.fn(),
         } as unknown as Fetcher,
+        DB: {} as D1Database,
+        BETTER_AUTH_URL: 'http://localhost',
+        BETTER_AUTH_SECRET: 'a'.repeat(32),
+        RATE_LIMIT: {} as KVNamespace,
       };
       const req = new Request('https://example.com/about');
 
