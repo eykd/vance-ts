@@ -81,6 +81,10 @@ If critical info missing (e.g., ratification date truly unknown), insert `TODO(<
 
 Do not create a new template; always operate on the existing `.specify/memory/constitution.md` file.
 
+## Commit Changes
+
+Run the `/commit` skill to stage and commit all changes made during this phase. Do not push.
+
 ---
 
 Use subagents liberally and aggressively to conserve the main context window.

@@ -490,6 +490,10 @@ If beads commands fail during execution:
 The specification workflow should complete even if beads integration encounters errors. Beads is an enhancement for task tracking, not a blocker for spec creation.
 ````
 
+## Commit Changes
+
+Run the `/commit` skill to stage and commit all changes made during this phase. Do not push.
+
 ---
 
 Use subagents liberally and aggressively to conserve the main context window.
