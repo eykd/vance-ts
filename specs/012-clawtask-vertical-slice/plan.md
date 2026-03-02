@@ -601,6 +601,43 @@ The existing Content Security Policy (confirmed in `src/presentation/utils/secur
 ```
 For the clarify form expansion, add `x-on:htmx:after-settle.window` on the swap target element. For the dashboard quick-capture form reset, use `x-on:htmx:after-settle.window` on the form element. Do **not** add `'unsafe-eval'` to `script-src` — the CSP restriction is correct and should be preserved.
 
+### SQL Parameterization in WorkspaceProvisioningService (HIGH)
+
+The plan explicitly states that `WorkspaceProvisioningService` "constructs its own statement array using raw SQL strings (not Drizzle ORM)" and uses `env.DB.batch([...])` directly. This bypasses all Drizzle parameterization. User-controlled values flow into this code path: `user.id` (UUID from better-auth) and `user.email` (email address from the registration form). If a developer implements this with string interpolation rather than D1's `.bind()` API, the provisioning batch is a SQL injection vector.
+
+**Mitigation**: All statements in `WorkspaceProvisioningService` MUST use the D1 parameterized form — `env.DB.prepare(sql).bind(...params)` — never string interpolation of any value that originates from outside the provisioner itself. This applies to `user.id` and `user.email` specifically:
+
+```typescript
+env.DB.prepare('INSERT INTO workspace (id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?)')
+  .bind(workspaceId, userId, now, now),
+// NOT:
+env.DB.prepare(`INSERT INTO workspace (id, user_id, ...) VALUES ('${workspaceId}', '${userId}', ...)`)
+```
+
+The seed data (area names, context names) is hardcoded — these may still be inlined as literals in SQL for readability. Only values derived from external input (user ID, email) require `.bind()`. Add a code comment in `WorkspaceProvisioningService` noting which values are externally supplied and thus bound via parameters.
+
+### Open Redirect via `redirectTo` Parameter (MEDIUM)
+
+When `requireAuth` redirects unauthenticated requests, it generates `redirectTo` from `url.pathname`:
+```typescript
+`/auth/sign-in?redirectTo=${encodeURIComponent(url.pathname)}`
+```
+The sign-in page handler that processes `redirectTo` after successful login is not addressed in this plan. If the sign-in page redirects to `redirectTo` without validating it is a same-origin relative path, an attacker can craft a URL like `/app/_/inbox?redirectTo=%2F%2Fevil.com%2Fphish` — the browser follows `//evil.com/phish` after login (protocol-relative URL). The user has authenticated legitimately, making this hard to detect.
+
+**Mitigation**: The sign-in page's post-login redirect handler (in `AuthPageHandlers.ts`) MUST validate the `redirectTo` query parameter before redirecting. Safe validation:
+```typescript
+function safeRedirectTo(value: string | null, fallback: string): string {
+  if (!value) return fallback;
+  // Allow only relative paths starting with / but NOT // (protocol-relative)
+  if (/^\/[^/]/.test(value) || value === '/') return value;
+  return fallback;
+}
+// Usage:
+const target = safeRedirectTo(c.req.query('redirectTo'), '/app');
+return c.redirect(target, 302);
+```
+This is a cross-cutting concern that applies to the existing `AuthPageHandlers.ts` post-login redirect logic — not just the new middleware. Add a test in `AuthPageHandlers.spec.ts` asserting that `redirectTo=//evil.com` falls back to `/app` rather than redirecting to the external URL.
+
 ### Request Body Size Limit Before JSON Parsing (LOW)
 
 `POST /api/v1/inbox` and `POST /api/v1/inbox/:id/clarify` call `req.json()` which reads the full request body into Worker memory before parsing. A malicious client can send a 10MB+ request body, forcing the Worker to buffer it entirely before the Content-Type or domain validation runs. Cloudflare Workers have a 128MB memory limit per isolate; repeated large-body attacks can force isolate recycling and increase cold-start frequency across other tenants.
@@ -846,6 +883,34 @@ The plan defines HTMX error response shapes in detail (inline form with errors, 
 
 **Template structure discipline**: The two different swap targets (inner `<div>` for form expansion via `innerHTML`; outer row wrapper for row replacement via `outerHTML`) must use different `id` attributes so HTMX `hx-target` selectors are unambiguous. Confirm IDs are unique per-row (e.g., `id="inbox-row-${item.id}"`).
 
+### Capture Success HX-Trigger Undefined (MEDIUM)
+
+The plan defines `HX-Trigger: {"inboxItemClarified": null}` on the clarify success response, explaining that the dashboard inbox-count badge listens for this event via `hx-trigger="inboxItemClarified from:body"` to decrement the displayed count. However, the capture success response (`POST /app/_/inbox`) also changes the inbox count — it increments it. The plan does not specify what event (if any) the capture endpoint emits, leaving the dashboard count badge stale after a successful capture. This directly violates US02 acceptance scenario 2: "the item is added to my inbox and the dashboard count updates without a full page reload."
+
+**Mitigation**: The capture endpoint (`POST /app/_/inbox` HTMX handler) MUST emit `HX-Trigger: {"inboxItemCaptured": null}` on the 201 success response. The dashboard inbox-count badge must listen for both events that change the inbox count:
+
+```html
+<!-- Dashboard inbox count badge — in pages/dashboard.ts -->
+<span id="inbox-count-badge"
+      hx-get="/app/_/inbox/count"
+      hx-trigger="load, inboxItemCaptured from:body, inboxItemClarified from:body"
+      hx-swap="innerHTML">
+  ...
+</span>
+```
+
+This requires a new HTMX partial endpoint `GET /app/_/inbox/count` that returns just the count number (e.g., `<span>3</span>`). The `hx-trigger="load"` ensures the count renders on initial page load; the event triggers ensure it refreshes without a full page reload on capture and clarification.
+
+**Complete HX-Trigger event set for HTMX partials:**
+| Endpoint | Success HX-Trigger | Purpose |
+|---|---|---|
+| `POST /app/_/inbox` | `{"inboxItemCaptured": null}` | Increment dashboard inbox count |
+| `POST /app/_/inbox/:id/clarify` | `{"inboxItemClarified": null}` | Decrement dashboard inbox count |
+| `POST /app/_/actions/:id/activate` | *(none)* | Row swap is sufficient |
+| `POST /app/_/actions/:id/complete` | *(none)* | Row swap is sufficient |
+
+**Active action count badge**: Similarly, the dashboard active action count must update when an action is activated or completed. Follow the same pattern with `hx-trigger="load, actionActivated from:body, actionCompleted from:body"` on the active action count badge, with `POST /app/_/actions/:id/activate` emitting `{"actionActivated": null}` and `POST /app/_/actions/:id/complete` emitting `{"actionCompleted": null}`.
+
 ### `clarifiedIntoType`/`clarifiedIntoId` Nullability Invariant (LOW)
 
 The domain enforces that `clarifiedIntoType` and `clarifiedIntoId` are always set together (both non-null when `status='clarified'`, both null when `status='inbox'`). However, `reconstitute(row)` hydrates from D1 without validating this invariant. A corrupted row with `status='clarified'` but `clarified_into_id=NULL` would produce an inconsistent DTO without any error.
@@ -889,6 +954,24 @@ if (items.length === 500) {
 No rate limiting is defined for any of the new API endpoints (`POST /api/v1/inbox`, `POST /api/v1/inbox/:id/clarify`, `POST /api/v1/actions/*`, HTMX partials). A user or bot could flood the inbox with thousands of items per second, exhausting D1 write capacity.
 
 **Mitigation**: For this slice, rely on the existing session-based authentication as a first line of defense (unauthenticated requests are rejected). Document that per-user rate limiting is a follow-up task for the next slice. If D1 write capacity is a concern in production, add a simple per-user counter in KV (e.g., `ratelimit:inbox:{userId}`) with a 60-second window.
+
+### Dashboard Count Queries Inefficiency (MEDIUM)
+
+US02 acceptance scenario 1 requires the dashboard to display inbox count and active action count. The plan defines `ListInboxItemsUseCase` and `ListActionsUseCase` for list pages, but does not define dedicated count queries for the dashboard. If handlers reuse these list use cases and call `.length` on the result, the dashboard loads up to 500 inbox rows and 500 action rows into Worker memory on every visit — just to display two numbers. At 10 rows this is harmless; at 400+ rows per workspace this wastes significant D1 read quota and Worker CPU.
+
+**Mitigation**: Add two dedicated count methods to the repository interfaces — do NOT add new use cases (that would over-engineer; handlers can call repositories directly via the use case, or add a `count()` method):
+
+```typescript
+// In InboxItemRepository:
+countByWorkspaceId(workspaceId: string, status: InboxItemStatus): Promise<number>;
+
+// In ActionRepository:
+countByWorkspaceId(workspaceId: string, status: ActionStatus): Promise<number>;
+```
+
+D1 implementation uses `SELECT COUNT(*) FROM inbox_item WHERE workspace_id = ? AND status = ?` with a single `.first<{ count: number }>()` call. The dashboard page handler calls these two count methods (which together are 2 D1 round trips, the same as the current `requireWorkspace` overhead), NOT the full list use cases. This keeps the dashboard load cost O(1) regardless of workspace item count.
+
+**Alternative**: If adding count methods introduces too much interface surface area for this slice, the dashboard can call `listByWorkspaceId()` and take `.length` with a documented `TODO: replace with COUNT(*)`. Mark it with `// PERF: List loaded for count — replace with COUNT(*) when workspaces grow`.
 
 ### `requireWorkspace` Double D1 Round Trip (LOW)
 
@@ -995,6 +1078,31 @@ const CTX_ERROR_ID   = 'clarify-ctx-error';
 4. When multiple errors exist on one field (e.g., required + too long), collapse them into a single `<p>` element — `aria-describedby` points to one ID only. Priority order: required > format > length.
 
 This pattern is consistent with the existing auth pages and requires no new utility functions.
+
+### Ambiguous Button Labels in List Rows (MEDIUM)
+
+The inbox list and actions list each render multiple rows with "Clarify", "Activate", and "Complete" buttons — one per row. When a screen reader user navigates by button (Tab or screen reader's forms/button list), they hear "Clarify, button / Clarify, button / Clarify, button" with no context about which inbox item each button acts on. This violates WCAG 2.4.6 "Headings and Labels" and WCAG 2.4.9 "Link Purpose (Link Only)" — buttons must be identifiable without surrounding context.
+
+**Mitigation**: Add `aria-label` attributes to all action buttons in list rows, incorporating the item's title. Use the escaped item title from the template — the `html` tagged template literal handles escaping:
+
+```typescript
+// In partials/inboxList.ts — Clarify button:
+html`<button aria-label="Clarify: ${item.title}" hx-post="/app/_/inbox/${item.id}/clarify" ...>
+  Clarify
+</button>`
+
+// In partials/actionRow.ts — Activate button:
+html`<button aria-label="Activate: ${action.title}" hx-post="/app/_/actions/${action.id}/activate" ...>
+  Activate
+</button>`
+
+// In partials/actionRow.ts — Complete button:
+html`<button aria-label="Complete: ${action.title}" hx-post="/app/_/actions/${action.id}/complete" ...>
+  Complete
+</button>`
+```
+
+The visible button text ("Clarify", "Activate", "Complete") is unchanged — the `aria-label` overrides the accessible name only for assistive technology. Keep the `aria-label` pattern consistent across all three button types. Maximum recommended `aria-label` length is ~80 characters; since item titles are capped at 255 chars, truncate if needed: `aria-label="Clarify: ${item.title.slice(0, 60)}${item.title.length > 60 ? '…' : ''}"`.
 
 ### Activate/Complete Buttons Missing In-Flight Disabled State (MEDIUM)
 
