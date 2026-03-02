@@ -272,7 +272,9 @@ No prior solutions documented yet in `.specify/solutions/`. This is the first fe
 
 All templates are pure TypeScript string concatenation. User-supplied fields (`title`, `description`) rendered directly into HTML without escaping are a stored XSS vector. An inbox item with title `<script>alert(1)</script>` would execute in any user's browser who views the page.
 
-**Mitigation**: Implement a mandatory `escapeHtml(value: string): string` utility in `src/presentation/templates/` and call it on every user-supplied string before interpolation into HTML. Apply to: `title`, `description`, `name`, and any other user-provided field rendered in templates. See the `/typescript-html-templates` skill for the standard pattern.
+**Mitigation**: The codebase already provides `html` tagged template literal and `safe()` in `src/presentation/utils/html.ts`. New templates (`pages/dashboard.ts`, `pages/inbox.ts`, `pages/actions.ts`, `partials/inboxList.ts`, `partials/clarifyForm.ts`, `partials/actionRow.ts`) MUST use the `html` tagged template — NOT raw string concatenation or manual `escapeHtml()` calls. The tagged template automatically escapes every interpolated value unless wrapped with `safe()` (reserved for pre-escaped nested template output). All template functions must import `html` from `../utils/html.js` and use it consistently. See the `/typescript-html-templates` skill for the standard pattern.
+
+**Correction note**: Earlier plan drafts described implementing a new `escapeHtml` utility. The utility already exists in `src/presentation/utils/html.ts`. Do not duplicate it.
 
 ### CSRF for HTMX Mutation Endpoints (HIGH)
 
@@ -292,11 +294,61 @@ Path parameters like `:id` in `/api/v1/inbox/:id/clarify` are used directly in D
 
 **Mitigation**: Validate that `:id` path parameters match UUID v4 format (`/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i`) before dispatching to the use case. Return 400 on invalid format.
 
+### Content-Type Validation on JSON Endpoints (MEDIUM)
+
+`POST /api/v1/inbox` and `POST /api/v1/inbox/:id/clarify` call `req.json()` to parse the request body. If a client sends a request with `Content-Type: text/plain` or `Content-Type: multipart/form-data`, `req.json()` throws a runtime exception that propagates as an unhandled 500 error rather than a clean 400 validation error.
+
+**Mitigation**: Before calling `req.json()`, validate that `req.headers.get('content-type')?.includes('application/json')` is true. Return 400 `{ "error": { "code": "validation_error", "message": "Content-Type must be application/json" } }` if the check fails.
+
+### Error Code Enum Inconsistency (MEDIUM)
+
+The OpenAPI `ErrorEnvelope` schema defines an `error.code` enum that does not include `unauthenticated`, but the `Unauthenticated` response object references that exact value. The better-auth middleware likely returns its own error format that does not conform to the documented `ErrorEnvelope` shape, creating inconsistent error responses between authentication failures and business logic failures.
+
+**Mitigation**: Add `unauthenticated` and `workspace_not_found` to the `ErrorEnvelope.error.code` enum in `contracts/openapi.yaml`. Ensure the `requireAuth` 401 path and `requireWorkspace` 503 path both return `{ "error": { "code": "...", "message": "..." } }` conforming to the same envelope shape as business errors.
+
 ### Audit Event Payload Size (LOW)
 
 The `payload` column is unbounded TEXT. A max-length description (2000 chars) plus full entity state snapshot could produce very large payloads. No explicit size limit is defined.
 
 **Mitigation**: Document a soft limit: serialize only the defined entity fields. Do not include computed or join fields. Add a note in `AuditEvent.record()` that `payload` should be `JSON.stringify` of the minimal entity snapshot.
+
+### HTMX Session Expiry — 302 Redirect Swaps Login Into Content (HIGH)
+
+`requireAuth` issues a 302 redirect to `/auth/sign-in?redirectTo=...` when a session is missing or expired. For standard browser navigation this is correct. For HTMX XHR requests (`HX-Request: true` header present), the browser follows the 302 redirect transparently and HTMX swaps the login page HTML into whatever `hx-target` the partial was addressing — rendering the login form inside the inbox list, action row, or dashboard widget. The user sees broken layout and has no way to recover without a full page reload.
+
+**Mitigation**: The `requireWorkspace` middleware (and if necessary `requireAuth`) must detect HTMX requests via the `HX-Request` header. For HTMX requests, respond with `401 Unauthorized` and an `HX-Redirect: /auth/sign-in?redirectTo=...` header instead of a 302 redirect. HTMX intercepts `HX-Redirect` and performs a full-page navigation. Example pattern:
+
+```typescript
+if (c.req.header('HX-Request') === 'true') {
+  return new Response(null, {
+    status: 401,
+    headers: { 'HX-Redirect': `/auth/sign-in?redirectTo=${encodeURIComponent(url.pathname)}` },
+  });
+}
+return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
+```
+
+Apply to all 401 and 503 early-exit paths in both `requireAuth` and `requireWorkspace`.
+
+### HTMX Partial Responses Missing Cache-Control (HIGH)
+
+HTMX partial endpoints (`POST /app/_/inbox`, `GET /app/_/inbox/list`, `POST /app/_/inbox/:id/clarify`, `POST /app/_/actions/:id/activate`, `POST /app/_/actions/:id/complete`) return user-specific HTML fragments containing inbox items, action rows, and counts belonging to the authenticated user. Without `Cache-Control: no-store`, Cloudflare's edge cache or any intermediate proxy could cache one user's response and serve it to a different user who requests the same URL from the same IP or cache node.
+
+The existing `AuthPageHandlers` pattern calls `applySecurityHeaders()` AND explicitly sets `Cache-Control: no-store, no-cache` via `makeFreshAuthHeaders()`. The new handlers must follow the same pattern.
+
+**Mitigation**: All new HTML response builders in `AppPageHandlers` and `AppPartialHandlers` must set `Cache-Control: no-store` on every response that contains user-specific data. Helper function pattern:
+
+```typescript
+function makeUserHtmlHeaders(): Headers {
+  const headers = new Headers();
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  headers.set('Cache-Control', 'no-store');
+  applySecurityHeaders(headers);
+  return headers;
+}
+```
+
+The existing `applySecurityHeaders()` in `src/presentation/utils/securityHeaders.ts` must be called on all new HTML responses (page and partial). It is already imported and used in `AuthPageHandlers` — new handler files must import and apply it consistently.
 
 ---
 
@@ -365,6 +417,42 @@ If (somehow) two signup requests race for the same user (e.g., retry on network 
 
 **Mitigation**: Document this as a known design decision. If the HTMX inbox page is intended to show only `inbox` status items (not `clarified`), the `ListInboxItemsUseCase` or the handler should filter to `status='inbox'` by default for the page context. The raw API endpoint may intentionally return all items. Clarify and document the intended behavior in the handler.
 
+### Whitespace-Only Title Inputs (MEDIUM)
+
+The domain validates `title.length >= 1` and `title.length <= 255`, but a title of `"   "` (255 spaces) passes both checks. Such a title is semantically empty and would render as blank text in the UI.
+
+**Mitigation**: Add `.trim()` validation in domain factory methods: `InboxItem.create()` and `Action.create()` must call `title.trim()` before length-checking and store the trimmed value. Return `DomainError('title_required')` if the trimmed length is 0. Apply the same trim-before-validate logic to `description`.
+
+### Description Field Max Length Not Validated in Domain (MEDIUM)
+
+The OpenAPI contract defines `description` as `maxLength: 2000` for both InboxItem and Action. However, the plan specifies domain validation only for `title` (1–255 chars, trim). If `InboxItem.create()` and `Action.create()` do not validate `description.length <= 2000`, a client can send a 100 000-character description that passes domain validation, succeeds in D1 (TEXT is unbounded), and is serialized in full in both the DTO response and the audit event payload — violating the contract and inflating response/audit sizes.
+
+**Mitigation**: `InboxItem.create()` and `Action.create()` must validate that `description`, when provided and non-empty after trim, does not exceed 2000 characters. Return `DomainError('description_too_long')` on violation. This aligns domain enforcement with the OpenAPI schema.
+
+### Missing FK Constraint on `clarified_into_id` (HIGH)
+
+The `inbox_item` DDL defines `clarified_into_id TEXT` without `REFERENCES action(id)`. If an action row is deleted (possible in a future slice), the inbox item retains a dangling `clarified_into_id` that points to nothing. D1 will not detect this inconsistency and the DTO will serialize a UUID pointing to a non-existent action.
+
+**Mitigation**: Add `REFERENCES action(id)` to the `clarified_into_id` column in `0006_inbox_item.sql`. Since actions are not deleted in this slice, the FK has no immediate effect, but it establishes the integrity constraint for future slices. The Drizzle schema should also declare `.references(() => actionTable.id)` on `clarifiedIntoId`.
+
+### TOCTOU Race on Activate and Complete (MEDIUM)
+
+The plan addresses the TOCTOU race for `ClarifyInboxItemToAction` with optimistic locking (`WHERE id = ? AND status = 'inbox'`). The same race exists for `ActivateAction` (`ready → active`) and `CompleteAction` (`active → done`). Two concurrent activate requests both read `status='ready'`, both pass domain validation, and both update to `active` — producing two `action.activated` audit events for one transition.
+
+**Mitigation**: Apply the same optimistic-lock pattern: the `D1ActionRepository.save()` method (or the use case's update statement) should use `UPDATE action SET status = ?, updated_at = ? WHERE id = ? AND workspace_id = ? AND status = ?` with the expected prior status. After the update, check `meta.changes === 1`. If `changes === 0`, the action was already transitioned — return 422 `invalid_status_transition`.
+
+### `clarifiedIntoType`/`clarifiedIntoId` Nullability Invariant (LOW)
+
+The domain enforces that `clarifiedIntoType` and `clarifiedIntoId` are always set together (both non-null when `status='clarified'`, both null when `status='inbox'`). However, `reconstitute(row)` hydrates from D1 without validating this invariant. A corrupted row with `status='clarified'` but `clarified_into_id=NULL` would produce an inconsistent DTO without any error.
+
+**Mitigation**: `reconstitute()` should assert the invariant: if `status === 'clarified'` then both `clarifiedIntoType` and `clarifiedIntoId` must be non-null. Throw an `Error('Corrupted inbox_item row')` on violation. This makes data corruption detectable at hydration time rather than silently propagating to API consumers.
+
+### Archived Areas in Clarify Form Select (HIGH)
+
+`GET /api/v1/areas` returns areas of all statuses (both `active` and `archived`). The HTMX clarify inline form's area select is populated from this endpoint. An archived area will appear as a selectable option. When submitted, the clarification fails with 422 `area_not_active`. Users are presented a selection that appears valid but is rejected — a confusing UX with no visual indication in the dropdown.
+
+**Mitigation**: The HTMX clarify form's area `<select>` must be populated from a filtered source that returns only `active` areas. Two options: (a) add a `?status=active` query parameter to `GET /api/v1/areas` (requires API change), or (b) have the `AppPartialHandlers` clarify form endpoint fetch areas using `AreaRepository.listActiveByWorkspaceId()` and pass only active areas to the template. Option (b) avoids an API change and is preferred for this slice. Document the decision in `AppPartialHandlers`.
+
 ---
 
 ## Performance Considerations
@@ -386,6 +474,12 @@ If (somehow) two signup requests race for the same user (e.g., retry on network 
 No rate limiting is defined for any of the new API endpoints (`POST /api/v1/inbox`, `POST /api/v1/inbox/:id/clarify`, `POST /api/v1/actions/*`, HTMX partials). A user or bot could flood the inbox with thousands of items per second, exhausting D1 write capacity.
 
 **Mitigation**: For this slice, rely on the existing session-based authentication as a first line of defense (unauthenticated requests are rejected). Document that per-user rate limiting is a follow-up task for the next slice. If D1 write capacity is a concern in production, add a simple per-user counter in KV (e.g., `ratelimit:inbox:{userId}`) with a 60-second window.
+
+### `requireWorkspace` Double D1 Round Trip (LOW)
+
+The `requireWorkspace` middleware makes two serial D1 queries on every authenticated request: `getByUserId()` (workspace lookup) and `getHumanActorByWorkspaceId()` (actor lookup). At the current scale this adds ~4ms per request. For the dashboard page, which then makes further queries for inbox count and action count, this compounds.
+
+**Mitigation**: For this slice, the overhead is acceptable given the single-user workspace model. Document this as a future optimization: cache the `(workspaceId, actorId)` tuple in KV keyed by session token, with a short TTL (e.g., 5 minutes). This would reduce middleware overhead from 2 D1 round trips to 1 KV read on cache hit.
 
 ---
 
@@ -415,6 +509,12 @@ When validation fails during clarification (400/422 responses), the inline error
 
 **Mitigation**: Error fragments must include `role="alert"` on the error container so screen readers announce them immediately. Field-level errors should use `aria-describedby` to link error text to the offending input. In `partials/clarifyForm.ts`, include proper ARIA error patterns.
 
+### Dashboard Quick-Capture Focus After Submit (MEDIUM)
+
+The plan addresses focus management for the clarify form (focus moves to first field on expansion), but not for the dashboard quick-capture form. After a successful capture submission, the form input should reset and focus should return to the title field so users can immediately capture a second item without clicking again.
+
+**Mitigation**: In `pages/dashboard.ts`, the quick-capture form must use `hx-on::after-settle` on the form element to reset the input and restore focus: `hx-on::after-settle="this.querySelector('[name=title]').value=''; this.querySelector('[name=title]').focus()"`. Alternatively, the HTMX swap target for the count badge can trigger `htmx:afterSettle` event handled by Alpine.js to refocus the input.
+
 ---
 
 ## Audit Trail Design Decisions
@@ -424,3 +524,9 @@ When validation fails during clarification (400/422 responses), the inline error
 The `audit_event` table has `REFERENCES workspace(id) ON DELETE CASCADE`. If a workspace is deleted (e.g., via user account deletion), all audit events are permanently deleted. If audit events are intended as compliance/forensic records, they should survive workspace deletion.
 
 **Mitigation**: For this slice (no account deletion), this is not an immediate risk. However, document the design decision explicitly: audit events are operational records for this system, not compliance-grade forensic logs. If compliance-grade immutability is required in a future slice, the cascade should be removed and a soft-delete pattern used instead.
+
+### PII Retention in Audit Event Payloads (LOW)
+
+The `payload` column stores a full JSON snapshot of the entity at event time, including `title` and `description` fields. Users may capture PII in these fields (names, phone numbers, email addresses, medical information). Audit events are immutable and append-only — even if a user later edits or deletes an entity, the audit trail permanently retains the prior snapshot with PII intact.
+
+**Mitigation**: For this slice, document this as a known design decision: audit payloads contain entity snapshots as-of the mutation. PII handling and retention policy (e.g., right-to-erasure under GDPR) is deferred to a future slice. If right-to-erasure support is required, audit payloads should store only entity IDs and changed field names — not field values — with the full snapshot stored in a separate time-limited store.
