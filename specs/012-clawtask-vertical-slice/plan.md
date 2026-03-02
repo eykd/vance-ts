@@ -568,7 +568,7 @@ The existing CSRF protection (double-submit cookie, `__Host-csrf`) is only valid
 
 `GET /api/v1/actions?status=<value>` accepts an arbitrary string. The domain `Action` entity has 6 statuses (`ready`, `active`, `done`, `waiting`, `scheduled`, `archived`), but the OpenAPI spec documents only 3 valid filter values (`ready`, `active`, `done`). An undocumented value like `status=waiting` would silently call `listByWorkspaceIdAndStatus` with an unvalidated value, potentially returning unexpected results or exposing future-state data.
 
-**Mitigation**: The `ActionApiHandlers` handler must validate the `status` query parameter against the documented enum `['ready', 'active', 'done']` before passing to the use case. Return 400 `{ "error": { "code": "validation_error", "message": "Invalid status filter" } }` for unknown values.
+**Mitigation**: The `ActionApiHandlers` handler must validate the `status` query parameter against the documented enum `['ready', 'active', 'done']` before passing to the use case. Validation is **case-sensitive exact match** — `Ready`, `READY`, or `rEaDy` must all return 400. Do not normalise to lowercase before checking. Return 400 `{ "error": { "code": "validation_error", "message": "Invalid status filter" } }` for unknown or mismatched-case values. An absent `status` parameter is valid (returns all actions); an empty string `?status=` is treated as an invalid value (returns 400), not as absent.
 
 ### UUID Format Validation on Path Parameters (LOW)
 
@@ -628,6 +628,16 @@ The `16384` limit (16 KB) covers the maximum valid payload: 255-char title + 200
 The `payload` column is unbounded TEXT. A max-length description (2000 chars) plus full entity state snapshot could produce very large payloads. No explicit size limit is defined.
 
 **Mitigation**: Document a soft limit: serialize only the defined entity fields. Do not include computed or join fields. Add a note in `AuditEvent.record()` that `payload` should be `JSON.stringify` of the minimal entity snapshot.
+
+### OpenAPI ErrorEnvelope Missing Error Codes (LOW)
+
+The "Error Code Enum Inconsistency" finding covers adding `unauthenticated` and `workspace_not_found` to the `ErrorEnvelope.error.code` enum. Three additional codes defined in the plan's implementation patterns are also absent from the enum at `contracts/openapi.yaml` lines 26–33:
+
+- `payload_too_large` (returned as 413 from JSON mutation endpoints per Request Body Size Limit mitigation)
+- `provisioning_failed` (returned as 503 from `requireWorkspace` when workspace setup failed per Provisioning Hook Failure mitigation)
+- `internal_error` (returned as 500 from the global `app.onError()` handler per No Global Error Handler mitigation)
+
+**Mitigation**: Add all five missing codes (`unauthenticated`, `workspace_not_found`, `payload_too_large`, `provisioning_failed`, `internal_error`) to the `ErrorEnvelope.error.code` enum in `contracts/openapi.yaml`. Clients using generated SDK types from the spec will otherwise receive unknown enum values for these responses.
 
 ### HTMX Session Expiry — 302 Redirect Swaps Login Into Content (HIGH)
 
@@ -820,6 +830,22 @@ if ((result.meta.changes ?? 0) === 0) {
 
 The same pattern applies to `CompleteAction` with `status = 'done'` and `AND status = 'active'`. The `save()` method remains for the initial `INSERT` (via `ON CONFLICT DO UPDATE`) of a new action row; all state transitions bypass it and use conditional UPDATEs. This scope is limited to `ActivateAction` and `CompleteAction` — no other state transitions exist in this slice.
 
+### HTMX Mutation Partial Success Response Contract Undefined (HIGH)
+
+The plan defines HTMX error response shapes in detail (inline form with errors, `role="alert"` container), but leaves the **success response format** unspecified for all three mutation partials. Without a concrete contract, implementers make inconsistent choices that may violate the US02 spec scenarios.
+
+**Affected endpoints and required response contracts**:
+
+1. **`POST /app/_/inbox/:id/clarify` success** → The inbox item row must disappear. Return `200 OK` with an empty body. The `hx-target` on the clarify trigger element must point to the `<li>` or `<div>` wrapper for the entire inbox row (not the inner form `<div>` used as the form swap target). The HTMX attribute on the row wrapper must be `hx-swap="outerHTML"` — an empty response replaces the outer element with nothing, removing the row from the DOM. Additionally, emit `HX-Trigger: {"inboxItemClarified": null}` so the dashboard inbox-count badge can listen for this event and refresh itself (the badge's HTMX `hx-trigger="inboxItemClarified from:body"` re-fetches its partial count).
+
+2. **`POST /app/_/actions/:id/activate` success** → The action row must update in-place showing the "Complete" button. Return `200 OK` with the full updated `actionRow` partial HTML for the now-`active` action. Use `hx-swap="outerHTML"` on the action row's outer wrapper so the entire row is replaced.
+
+3. **`POST /app/_/actions/:id/complete` success** → The action row must update in-place showing the "Done" badge with no action button. Return `200 OK` with the full updated `actionRow` partial HTML for the now-`done` action. Use `hx-swap="outerHTML"` on the action row's outer wrapper.
+
+**Alpine.js constraint**: The Alpine.js `x-on:htmx:after-settle.window` event listener must be on a **parent element not replaced by the swap**. For clarify (empty response / row removal), no focus management is needed post-swap. For activate/complete, the row wrapper itself is replaced — the Alpine.js wrapper (if any) must be the row's parent container (`<ul>` or table body), not the row itself.
+
+**Template structure discipline**: The two different swap targets (inner `<div>` for form expansion via `innerHTML`; outer row wrapper for row replacement via `outerHTML`) must use different `id` attributes so HTMX `hx-target` selectors are unambiguous. Confirm IDs are unique per-row (e.g., `id="inbox-row-${item.id}"`).
+
 ### `clarifiedIntoType`/`clarifiedIntoId` Nullability Invariant (LOW)
 
 The domain enforces that `clarifiedIntoType` and `clarifiedIntoId` are always set together (both non-null when `status='clarified'`, both null when `status='inbox'`). However, `reconstitute(row)` hydrates from D1 without validating this invariant. A corrupted row with `status='clarified'` but `clarified_into_id=NULL` would produce an inconsistent DTO without any error.
@@ -923,6 +949,23 @@ const statusBadge = (status: ActionStatus): string => {
 
 Color conveys status at a glance; the text label ensures color-blind users receive the same information. Buttons remain action-labeled: `<button>Activate</button>`, `<button>Complete</button>` — never just an icon or color indicator.
 
+### Quick-Capture Form Missing Accessible Label (MEDIUM)
+
+The plan covers `aria-describedby`, form error IDs, `role="alert"`, and `aria-live` regions extensively for the clarify form and count badges. However, it doesn't explicitly require an accessible `<label>` element for the dashboard quick-capture title input. Placeholder text is not a programmatically determinable label — it disappears on focus and is not reliably read by all screen readers (WCAG 2.1 SC 1.3.1 "Info and Relationships", SC 1.3.5 "Identify Input Purpose").
+
+**Mitigation**: The title input in `pages/dashboard.ts` must have an explicit `<label>` associated via `for` attribute. Use a visually hidden label (DaisyUI/Tailwind `sr-only`) to preserve the visual card design while satisfying the accessibility requirement:
+
+```typescript
+html`
+  <label for="capture-title" class="sr-only">Capture a thought or task</label>
+  <input id="capture-title" name="title" type="text"
+         placeholder="What do you need to do?"
+         class="input input-bordered w-full" required />
+`
+```
+
+Apply the same principle to any other new input elements across the UI that rely on placeholder text as their only label (e.g., area name or context name inputs in future slices).
+
 ### Form Error Accessibility (MEDIUM)
 
 When validation fails during clarification (400/422 responses), the inline error HTML fragment returned by HTMX partial endpoints must be accessible to screen readers.
@@ -952,6 +995,14 @@ const CTX_ERROR_ID   = 'clarify-ctx-error';
 4. When multiple errors exist on one field (e.g., required + too long), collapse them into a single `<p>` element — `aria-describedby` points to one ID only. Priority order: required > format > length.
 
 This pattern is consistent with the existing auth pages and requires no new utility functions.
+
+### Activate/Complete Buttons Missing In-Flight Disabled State (MEDIUM)
+
+The plan's TOCTOU optimistic lock handles duplicate server-side requests, but doesn't address the UX consequence: a user with a slow connection who double-clicks "Activate" sees a confusing 422 `invalid_status_transition` error swapped into the action row while the first request is already succeeding. This is disorienting — the user performed a valid action and got an error response.
+
+**Mitigation**: Add `hx-disabled-elt="this"` to the Activate and Complete `<button>` elements in `partials/actionRow.ts`. This is a native HTMX feature (no custom JS required) that disables the triggering element for the duration of the request. The button is re-enabled if the request fails (preserving recovery ability) or is replaced if the request succeeds (the outerHTML swap replaces the entire row). Apply `hx-disabled-elt="this"` to the Quick-Capture submit button as well.
+
+**Note**: This does NOT relax the TOCTOU lock requirement — both defences are needed. `hx-disabled-elt` protects the single browser tab; the server lock protects against concurrent requests from multiple tabs, API clients, and race conditions the browser cannot prevent.
 
 ### Dashboard Quick-Capture Focus After Submit (MEDIUM)
 
