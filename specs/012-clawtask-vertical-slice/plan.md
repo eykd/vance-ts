@@ -536,6 +536,16 @@ No prior solutions documented in `.specify/solutions/` — this is the first fea
 - **AppEnv.Variables extension confirmed necessary**: `src/presentation/types.ts` currently defines only `user`, `session`, `csrfToken`. Adding `workspaceId: string` and `actorId: string` is mandatory (TypeScript will error otherwise).
 - **requireWorkspace middleware does not yet exist**: Confirmed via directory listing. `src/presentation/middleware/` contains only `requireAuth.ts` and `apiAuthRateLimit.ts`.
 
+**Fifth pass (codebase research — live implementation, 2026-03-02):**
+- **FK `ON DELETE` for `clarified_into_id` resolved**: `ON DELETE RESTRICT` chosen (not `SET NULL`, not `CASCADE`). Drizzle syntax confirmed from `authSchema.ts`: `.references(() => actionTable.id, { onDelete: 'restrict' })`. SQL inline: `TEXT REFERENCES \`action\`(\`id\`) ON DELETE RESTRICT`.
+- **TOCTOU optimistic lock placement resolved**: Must be in **use case UPDATE statements**, NOT in `save()`. Confirmed `save()` uses `ON CONFLICT(id) DO UPDATE SET` upsert (from `d1-patterns.md`) — this pattern cannot enforce conditional prior status. `ActivateAction` and `CompleteAction` use cases issue their own `UPDATE ... WHERE id = ? AND workspace_id = ? AND status = ?` directly, bypassing `save()` for state transitions.
+- **Body size guard pattern confirmed from existing code**: `AuthPageHandlers.ts` already implements `MAX_BODY_BYTES = 4096` via `request.text()` + length check. New JSON handlers follow identical pattern with `MAX_API_BODY_BYTES = 16_384`, reading body as text once then parsing with `JSON.parse()`. Applies only to JSON mutation endpoints — HTMX form endpoints are already guarded by the form handler pattern.
+- **Unbounded list warning mechanism confirmed**: `console.warn()` in Cloudflare Workers goes to tail logs. Warning emitted in the **use case** (not repository) after counting results. `LIST_SAFETY_CAP = 500` shared constant.
+- **List ordering: specific query sites named**: `D1InboxItemRepository.listByWorkspaceId()` and `D1ActionRepository.listByWorkspaceIdAndStatus()` — these are the two exact methods requiring `ORDER BY created_at DESC`.
+- **Status badge DaisyUI classes resolved**: `badge-warning` (ready), `badge-info` (active), `badge-success` (done). TypeScript `Record<ActionStatus, ...>` map pattern specified to prevent exhaustiveness gap.
+- **Form error ID pattern confirmed from existing templates**: `register.ts` uses constant-named IDs (`EMAIL_ERROR_ID`, `PASSWORD_ERROR_ID`). New clarify form uses same pattern: `TITLE_ERROR_ID = 'clarify-title-error'` etc. `aria-describedby` points to the constant ID. Multiple errors on one field collapse to a single `<p>` (priority: required > format > length).
+- **`hx-swap` mode constraint for Alpine.js focus**: The Alpine.js `x-data` wrapper must not be the HTMX swap target. Using `hx-swap="outerHTML"` on the wrapper removes the Alpine.js element before the `htmx:afterSettle` event fires. Mandated: clarify form's `hx-target` points to a child `<div>` using `hx-swap="innerHTML"` (default) — Alpine.js parent remains intact.
+
 ---
 
 ## Security Considerations
@@ -595,7 +605,23 @@ For the clarify form expansion, add `x-on:htmx:after-settle.window` on the swap 
 
 `POST /api/v1/inbox` and `POST /api/v1/inbox/:id/clarify` call `req.json()` which reads the full request body into Worker memory before parsing. A malicious client can send a 10MB+ request body, forcing the Worker to buffer it entirely before the Content-Type or domain validation runs. Cloudflare Workers have a 128MB memory limit per isolate; repeated large-body attacks can force isolate recycling and increase cold-start frequency across other tenants.
 
-**Mitigation**: Before calling `req.json()`, check `Content-Length` header if present. Reject requests with `Content-Length > 16384` (16KB — generous upper bound for the largest valid payload: 255-char title + 2000-char description + JSON envelope overhead). Return 413 `{ "error": { "code": "payload_too_large", "message": "Request body exceeds maximum size" } }`. Note: `Content-Length` can be omitted (chunked encoding), so also add a Hono middleware body size guard that reads up to 16KB and rejects if the body stream continues past that point.
+**Mitigation**: Apply to all JSON mutation endpoints (`POST /api/v1/inbox`, `POST /api/v1/inbox/:id/clarify`) — not to GET endpoints or HTMX HTML partials (which use form-encoded bodies already guarded by the 4 KB `MAX_BODY_BYTES` pattern in `AuthPageHandlers.ts`). Hono has no built-in body size middleware; implement the same manual pattern already established in `AuthPageHandlers.parseValidatedAuthForm()`:
+
+```typescript
+// In each JSON mutation handler, before req.json():
+const contentLength = Number(c.req.header('Content-Length') ?? '0');
+if (contentLength > 16_384) {
+  return c.json({ error: { code: 'payload_too_large', message: 'Request body exceeds maximum size' } }, 413);
+}
+// Chunked encoding guard (Content-Length may be absent):
+const rawBody = await c.req.text();
+if (rawBody.length > 16_384) {
+  return c.json({ error: { code: 'payload_too_large', message: 'Request body exceeds maximum size' } }, 413);
+}
+const body = JSON.parse(rawBody) as unknown;
+```
+
+The `16384` limit (16 KB) covers the maximum valid payload: 255-char title + 2000-char description + JSON key/value overhead + CSRF token, with headroom. This pattern reads the body exactly once as text, checks size, then parses JSON — avoiding the double-read issue of checking `Content-Length` and then calling `req.json()`. Define a shared constant `MAX_API_BODY_BYTES = 16_384` in `src/presentation/handlers/AppApiHandlers.ts`.
 
 ### Audit Event Payload Size (LOW)
 
@@ -741,7 +767,12 @@ This ensures all paths return a consistent error envelope, and no internal detai
 
 `ListInboxItemsUseCase` and `ListActionsUseCase` execute SQL `SELECT` queries with no `ORDER BY` clause. D1 (SQLite) returns rows in insertion order under normal conditions but does not guarantee this — rows can appear in different orders after B-tree rebalancing following DELETE operations (which can occur in future slices). Users will see their inbox items and actions in inconsistent order between page loads, making the HTMX UI confusing and making acceptance tests that assert list contents by position unreliable.
 
-**Mitigation**: All list queries in `D1InboxItemRepository` and `D1ActionRepository` must include an explicit `ORDER BY created_at DESC` (newest first). Document the sort order in the OpenAPI spec for each list endpoint. The acceptance tests and API consumers should rely on this guaranteed ordering.
+**Mitigation**: The following specific queries in these two repositories must add `ORDER BY created_at DESC`:
+- `D1InboxItemRepository.listByWorkspaceId()` — the `SELECT * FROM inbox_item WHERE workspace_id = ?` query
+- `D1ActionRepository.listByWorkspaceIdAndStatus()` — the `SELECT * FROM action WHERE workspace_id = ? AND status = ?` query
+- `D1ActionRepository.listByWorkspaceId()` (if it exists as a general lister) — same pattern
+
+Document `sort: "created_at DESC"` in the OpenAPI spec description for `GET /api/v1/inbox` and `GET /api/v1/actions`. Acceptance tests must assert that the first item in the response is the most recently created item — this makes ordering observable and regression-protected.
 
 ### Inbox List Returns Clarified Items (LOW)
 
@@ -765,13 +796,29 @@ The OpenAPI contract defines `description` as `maxLength: 2000` for both InboxIt
 
 The `inbox_item` DDL defines `clarified_into_id TEXT` without `REFERENCES action(id)`. If an action row is deleted (possible in a future slice), the inbox item retains a dangling `clarified_into_id` that points to nothing. D1 will not detect this inconsistency and the DTO will serialize a UUID pointing to a non-existent action.
 
-**Mitigation**: Add `REFERENCES action(id)` to the `clarified_into_id` column in `0006_inbox_item.sql`. Since actions are not deleted in this slice, the FK has no immediate effect, but it establishes the integrity constraint for future slices. The Drizzle schema should also declare `.references(() => actionTable.id)` on `clarifiedIntoId`.
+**Mitigation**: Add `REFERENCES action(id) ON DELETE RESTRICT` to the `clarified_into_id` column in `0006_inbox_item.sql`. `ON DELETE RESTRICT` prevents action deletion while an inbox item still references it — the correct invariant, since a clarified inbox item's provenance should not silently disappear. `ON DELETE CASCADE` would destroy the inbox item record (too destructive); `ON DELETE SET NULL` would silently create a dangling reference in the DTO. The Drizzle schema must declare `.references(() => actionTable.id, { onDelete: 'restrict' })` on `clarifiedIntoId`, matching the existing `authSchema.ts` `.references(() => user.id, { onDelete: 'cascade' })` syntax. Concrete SQL column definition:
+```sql
+`clarified_into_id` TEXT REFERENCES `action`(`id`) ON DELETE RESTRICT
+```
 
 ### TOCTOU Race on Activate and Complete (MEDIUM)
 
 The plan addresses the TOCTOU race for `ClarifyInboxItemToAction` with optimistic locking (`WHERE id = ? AND status = 'inbox'`). The same race exists for `ActivateAction` (`ready → active`) and `CompleteAction` (`active → done`). Two concurrent activate requests both read `status='ready'`, both pass domain validation, and both update to `active` — producing two `action.activated` audit events for one transition.
 
-**Mitigation**: Apply the same optimistic-lock pattern: the `D1ActionRepository.save()` method (or the use case's update statement) should use `UPDATE action SET status = ?, updated_at = ? WHERE id = ? AND workspace_id = ? AND status = ?` with the expected prior status. After the update, check `meta.changes === 1`. If `changes === 0`, the action was already transitioned — return 422 `invalid_status_transition`.
+**Mitigation**: Apply the same optimistic-lock pattern — but **NOT in `save()`**. The `save()` method uses an `ON CONFLICT(id) DO UPDATE SET` upsert pattern (per `d1-patterns.md`) which unconditionally overwrites the row and cannot enforce a conditional prior status. Instead, `ActivateAction` and `CompleteAction` use cases must issue their own targeted UPDATE statement directly, separate from any `save()` call:
+
+```typescript
+// In ActivateActionUseCase.execute():
+const stmt = db.prepare(
+  `UPDATE action SET status = 'active', updated_at = ? WHERE id = ? AND workspace_id = ? AND status = 'ready'`
+).bind(now, actionId, workspaceId);
+const result = await stmt.run();
+if ((result.meta.changes ?? 0) === 0) {
+  return { ok: false, kind: 'invalid_status_transition' };
+}
+```
+
+The same pattern applies to `CompleteAction` with `status = 'done'` and `AND status = 'active'`. The `save()` method remains for the initial `INSERT` (via `ON CONFLICT DO UPDATE`) of a new action row; all state transitions bypass it and use conditional UPDATEs. This scope is limited to `ActivateAction` and `CompleteAction` — no other state transitions exist in this slice.
 
 ### `clarifiedIntoType`/`clarifiedIntoId` Nullability Invariant (LOW)
 
@@ -793,7 +840,17 @@ The domain enforces that `clarifiedIntoType` and `clarifiedIntoId` are always se
 
 `GET /api/v1/inbox` and `GET /api/v1/actions` return all items with no limit. For this slice, data is small (~10 rows) and this is acceptable. However, the absence of a maximum is a latent issue.
 
-**Mitigation**: Document a soft limit of 500 items in both `ListInboxItemsUseCase` and `ListActionsUseCase` as a safety cap (`LIMIT 500` on the SQL query). This is not pagination — it prevents runaway responses if data grows. Log a warning if the result count equals the cap.
+**Mitigation**: Add `LIMIT 500` to both queries in `D1InboxItemRepository.listByWorkspaceId()` and `D1ActionRepository.listByWorkspaceIdAndStatus()`. After retrieving results, emit a `console.warn()` in the **use case** (not the repository) if the result count hits the cap:
+
+```typescript
+// In ListInboxItemsUseCase.execute():
+const items = await this.inboxRepo.listByWorkspaceId(workspaceId);
+if (items.length === 500) {
+  console.warn('[ListInboxItemsUseCase] Result count hit 500-item safety cap', { workspaceId });
+}
+```
+
+`console.warn()` in Workers runtime goes to the Cloudflare Workers tail log / real-time logs — no external logging service is needed. The 500 cap is not a UX pagination limit but a memory-safety guard; at the current 10-row scale it will never trigger. The cap value should be defined as a module constant `LIST_SAFETY_CAP = 500` shared between `ListInboxItemsUseCase` and `ListActionsUseCase`.
 
 ### Provisioning Insert Efficiency (LOW)
 
@@ -832,19 +889,69 @@ When the clarify inline form expands (spec scenario 3: click "Clarify" → form 
 1. Add `autofocus` attribute to the first focusable `<input>` in the `clarifyForm` partial template.
 2. Wrap the HTMX swap target `<div>` (the action row container) with Alpine.js: `x-data x-on:htmx:after-settle.window="$el.querySelector('input,select,textarea')?.focus()"`.
 
-Both must be present. The Alpine.js handler fires via the `htmx:afterSettle` DOM event on `window` regardless of which swap target triggered it, providing a reliable fallback when `autofocus` is not processed (e.g., `outerHTML` swap mode replaces the element itself, invalidating autofocus in some browsers). **Do NOT use `hx-on::after-settle`** — it is blocked by the existing `script-src 'self'` CSP (see CSP section above).
+Both must be present. The Alpine.js handler fires via the `htmx:afterSettle` DOM event on `window` regardless of which swap target triggered it, providing a reliable fallback when `autofocus` is not processed.
+
+**Critical constraint on `hx-swap` mode**: The Alpine.js wrapper element (`x-data x-on:htmx:after-settle.window="..."`) must NOT be the element replaced by the HTMX swap. If `hx-swap="outerHTML"` targets the wrapper itself, Alpine.js removes the element from the DOM (along with its event listener) before the event fires. The clarify form `hx-target` must point to an **inner container** element (a child `<div>`) so the Alpine.js parent remains in the DOM across swaps. Use `hx-swap="innerHTML"` (the HTMX default) on the target child element — this leaves the Alpine.js `x-data` wrapper untouched. Never use `hx-swap="outerHTML"` on the element decorated with `x-on:htmx:after-settle.window`.
+
+**Do NOT use `hx-on::after-settle`** — it is blocked by the existing `script-src 'self'` CSP (see CSP section above).
 
 ### Color + Text Status Labels (MEDIUM)
 
 Action rows should communicate status through text labels, not color alone. Using only color (e.g., yellow for active, green for done) excludes color-blind users.
 
-**Mitigation**: In `partials/actionRow.ts`, each row must display a text status badge (e.g., `<span class="badge">Ready</span>`) alongside any color indicator. Status badges should use both color and text. Buttons should be labeled by action, not status (e.g., "Activate" not just a colored dot).
+**Mitigation**: In `partials/actionRow.ts`, each row must display a DaisyUI `badge` with both a semantic color modifier and a text label. Use these specific DaisyUI 5 classes aligned to status semantics:
+
+| Status | Badge class | Label text |
+|--------|-------------|------------|
+| `ready` | `badge badge-warning` | `Ready` |
+| `active` | `badge badge-info` | `Active` |
+| `done` | `badge badge-success` | `Done` |
+
+Concrete pattern:
+```typescript
+const statusBadge = (status: ActionStatus): string => {
+  const map: Record<ActionStatus, { cls: string; label: string }> = {
+    ready:     { cls: 'badge badge-warning', label: 'Ready' },
+    active:    { cls: 'badge badge-info',    label: 'Active' },
+    done:      { cls: 'badge badge-success', label: 'Done' },
+    // waiting/scheduled/archived not shown in this slice's list views
+  };
+  const { cls, label } = map[status] ?? { cls: 'badge', label: status };
+  return `<span class="${cls}">${escapeHtml(label)}</span>`;
+};
+```
+
+Color conveys status at a glance; the text label ensures color-blind users receive the same information. Buttons remain action-labeled: `<button>Activate</button>`, `<button>Complete</button>` — never just an icon or color indicator.
 
 ### Form Error Accessibility (MEDIUM)
 
 When validation fails during clarification (400/422 responses), the inline error HTML fragment returned by HTMX partial endpoints must be accessible to screen readers.
 
-**Mitigation**: Error fragments must include `role="alert"` on the error container so screen readers announce them immediately. Field-level errors should use `aria-describedby` to link error text to the offending input. In `partials/clarifyForm.ts`, include proper ARIA error patterns.
+**Mitigation**: Follow the established pattern from `src/presentation/templates/pages/register.ts` (which uses constant IDs and `aria-describedby`). In `partials/clarifyForm.ts`:
+
+1. Define deterministic error element IDs as module constants (not random, not runtime-generated):
+```typescript
+const TITLE_ERROR_ID = 'clarify-title-error';
+const AREA_ERROR_ID  = 'clarify-area-error';
+const CTX_ERROR_ID   = 'clarify-ctx-error';
+```
+
+2. Render field-level errors with `id` matching the constant, and link via `aria-describedby` on the input:
+```typescript
+// Input:
+`<input id="clarify-title" name="title" aria-describedby="${TITLE_ERROR_ID}" ... />`
+// Error (only when present):
+`<p id="${TITLE_ERROR_ID}" class="text-error text-sm mt-1">${escapeHtml(fieldError)}</p>`
+```
+
+3. Wrap the form's general error in a `role="alert"` container (announced immediately by screen readers):
+```typescript
+`<div role="alert" class="alert alert-error mb-4">${escapeHtml(generalError)}</div>`
+```
+
+4. When multiple errors exist on one field (e.g., required + too long), collapse them into a single `<p>` element — `aria-describedby` points to one ID only. Priority order: required > format > length.
+
+This pattern is consistent with the existing auth pages and requires no new utility functions.
 
 ### Dashboard Quick-Capture Focus After Submit (MEDIUM)
 
