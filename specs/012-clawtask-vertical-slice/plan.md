@@ -306,6 +306,23 @@ The OpenAPI `ErrorEnvelope` schema defines an `error.code` enum that does not in
 
 **Mitigation**: Add `unauthenticated` and `workspace_not_found` to the `ErrorEnvelope.error.code` enum in `contracts/openapi.yaml`. Ensure the `requireAuth` 401 path and `requireWorkspace` 503 path both return `{ "error": { "code": "...", "message": "..." } }` conforming to the same envelope shape as business errors.
 
+### CSP Blocks `hx-on` Inline Event Handlers (HIGH)
+
+The existing Content Security Policy (confirmed in `src/presentation/utils/securityHeaders.ts`) sets `script-src 'self'` without `'unsafe-eval'`. HTMX's `hx-on::after-settle` attribute directive internally uses `new Function(...)` to construct an event handler from the attribute string — this is equivalent to `eval()` and is blocked by a strict `script-src` without `'unsafe-eval'`. The accessibility mitigations in this plan (§ Accessibility Requirements) specify `hx-on::after-settle="this.querySelector(...)?.focus()"` patterns for focus management and form reset. These will **silently fail** in production — focus will not move after HTMX swaps, breaking keyboard navigation for screen reader and keyboard-only users.
+
+**Mitigation**: Replace all `hx-on::after-settle` patterns with Alpine.js event listeners, which execute in the Alpine.js runtime context (loaded via `script-src 'self'`) and are not blocked by CSP. Pattern:
+```html
+<!-- INSTEAD OF: hx-on::after-settle="this.querySelector('input')?.focus()" -->
+<div x-data x-on:htmx:after-settle.window="$el.querySelector('input')?.focus()">...</div>
+```
+For the clarify form expansion, add `x-on:htmx:after-settle.window` on the swap target element. For the dashboard quick-capture form reset, use `x-on:htmx:after-settle.window` on the form element. Do **not** add `'unsafe-eval'` to `script-src` — the CSP restriction is correct and should be preserved.
+
+### Request Body Size Limit Before JSON Parsing (LOW)
+
+`POST /api/v1/inbox` and `POST /api/v1/inbox/:id/clarify` call `req.json()` which reads the full request body into Worker memory before parsing. A malicious client can send a 10MB+ request body, forcing the Worker to buffer it entirely before the Content-Type or domain validation runs. Cloudflare Workers have a 128MB memory limit per isolate; repeated large-body attacks can force isolate recycling and increase cold-start frequency across other tenants.
+
+**Mitigation**: Before calling `req.json()`, check `Content-Length` header if present. Reject requests with `Content-Length > 16384` (16KB — generous upper bound for the largest valid payload: 255-char title + 2000-char description + JSON envelope overhead). Return 413 `{ "error": { "code": "payload_too_large", "message": "Request body exceeds maximum size" } }`. Note: `Content-Length` can be omitted (chunked encoding), so also add a Hono middleware body size guard that reads up to 16KB and rejects if the body stream continues past that point.
+
 ### Audit Event Payload Size (LOW)
 
 The `payload` column is unbounded TEXT. A max-length description (2000 chars) plus full entity state snapshot could produce very large payloads. No explicit size limit is defined.
@@ -410,6 +427,26 @@ D1 `db.batch()` returns a `D1Result[]` array, one entry per statement. If a stat
 If (somehow) two signup requests race for the same user (e.g., retry on network timeout), both could attempt to create a workspace for the same `userId`. The `UNIQUE` constraint on `workspace.user_id` will reject the second insert — but if this unhandled exception propagates, the user could receive a 500.
 
 **Mitigation**: `ProvisionWorkspaceUseCase` should handle `UNIQUE constraint failed` on workspace insertion gracefully — detect it as "workspace already exists" and return success (idempotent behavior).
+
+### No Global Error Handler for Unhandled Exceptions (MEDIUM)
+
+`worker.ts` has no `app.onError()` registration. If an unhandled exception escapes a handler's try/catch (e.g., a D1 runtime error from a malformed query, a Drizzle schema mismatch, or an unexpected null dereference in `serviceFactory`), Hono's default error handling returns either a plain-text `Internal Server Error` or the raw exception message in the response body. This leaks stack traces, SQL query fragments, or Drizzle error details to the client, and breaks the `{ "error": { "code": "...", "message": "..." } }` error envelope contract (FR-014).
+
+**Mitigation**: Register a global `app.onError()` in `worker.ts` before route registration:
+```typescript
+app.onError((err, c) => {
+  // Log internally for diagnostics
+  console.error('Unhandled error', err);
+  return c.json({ error: { code: 'internal_error', message: 'An unexpected error occurred' } }, 500);
+});
+```
+This ensures all paths return a consistent error envelope, and no internal details are exposed. The handler must be registered before route definitions so it catches errors from all registered handlers.
+
+### Non-Deterministic List Ordering (MEDIUM)
+
+`ListInboxItemsUseCase` and `ListActionsUseCase` execute SQL `SELECT` queries with no `ORDER BY` clause. D1 (SQLite) returns rows in insertion order under normal conditions but does not guarantee this — rows can appear in different orders after B-tree rebalancing following DELETE operations (which can occur in future slices). Users will see their inbox items and actions in inconsistent order between page loads, making the HTMX UI confusing and making acceptance tests that assert list contents by position unreliable.
+
+**Mitigation**: All list queries in `D1InboxItemRepository` and `D1ActionRepository` must include an explicit `ORDER BY created_at DESC` (newest first). Document the sort order in the OpenAPI spec for each list endpoint. The acceptance tests and API consumers should rely on this guaranteed ordering.
 
 ### Inbox List Returns Clarified Items (LOW)
 
