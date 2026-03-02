@@ -262,14 +262,224 @@ No constitution violations. All design choices are the minimum required by the s
 
 ---
 
+## Concrete Implementation Patterns
+
+> Resolved during second deepen-plan pass (2026-03-02). These sections convert vague implementation guidance into copy-ready code patterns.
+
+### A. AppEnv Variables Extension
+
+`src/presentation/types.ts` must extend `AppEnv.Variables` with the two new per-request values set by `requireWorkspace`:
+
+```typescript
+export interface AppEnv {
+  Bindings: Env;
+  Variables: {
+    /** The authenticated user, populated by requireAuth middleware. */
+    user: AuthUserDto;
+    /** The active session, populated by requireAuth middleware. */
+    session: AuthSessionDto;
+    /** Session-bound CSRF token derived via HMAC-SHA256, set by requireAuth. */
+    csrfToken: string;
+    /** Workspace ID for the authenticated user, set by requireWorkspace middleware. */
+    workspaceId: string;
+    /** Actor ID (human) for the authenticated user, set by requireWorkspace middleware. */
+    actorId: string;
+  };
+}
+```
+
+Without this change, TypeScript will error on `c.set('workspaceId', ...)` and `c.var.workspaceId` throughout handlers and middleware.
+
+### B. requireWorkspace Factory Pattern
+
+`requireWorkspace` must follow the existing `createRequireAuth` factory pattern — not a plain exported `async function`. This keeps dependencies injected (testable) and matches the `ServiceFactory` getter style:
+
+```typescript
+// src/presentation/middleware/requireWorkspace.ts
+export function createRequireWorkspace(
+  workspaceRepo: WorkspaceRepository,
+  actorRepo: ActorRepository,
+): (c: Context<AppEnv>, next: Next) => Promise<Response | void> {
+  return async function requireWorkspace(c, next): Promise<Response | void> {
+    const user = c.var.user;
+    const workspace = await workspaceRepo.getByUserId(user.id);
+    if (!workspace) {
+      if (c.req.header('HX-Request') === 'true') {
+        return new Response(null, {
+          status: 503,
+          headers: { 'HX-Redirect': '/auth/sign-in' },
+        });
+      }
+      return c.json(
+        { error: { code: 'workspace_not_found', message: 'Workspace setup is not complete.' } },
+        503,
+      );
+    }
+    const actor = await actorRepo.getHumanActorByWorkspaceId(workspace.id);
+    if (!actor) {
+      // See edge case: Empty Actor ID in requireWorkspace
+      return c.json(
+        { error: { code: 'workspace_not_found', message: 'Workspace actor not found.' } },
+        503,
+      );
+    }
+    c.set('workspaceId', workspace.id);
+    c.set('actorId', actor.id);
+    await next();
+  };
+}
+```
+
+`ServiceFactory` exposes this as a lazy getter:
+```typescript
+get requireWorkspaceMiddleware(): ReturnType<typeof createRequireWorkspace> {
+  this._requireWorkspaceMiddleware ??= createRequireWorkspace(
+    this._workspaceRepositoryInstance,
+    this._actorRepositoryInstance,
+  );
+  return this._requireWorkspaceMiddleware;
+}
+```
+
+### C. Drizzle db Instance Sharing in ServiceFactory
+
+All D1 repositories need a `DrizzleD1Database` instance. `ServiceFactory` creates exactly one shared instance — not one per repository — since `drizzle()` is cheap to construct but the underlying `D1Database` binding is already shared:
+
+```typescript
+import { drizzle } from 'drizzle-orm/d1';
+import type { DrizzleD1Database } from 'drizzle-orm/d1';
+import { wrapD1ForDrizzle } from '../infrastructure/d1DateProxy.js';
+
+class ServiceFactory {
+  // Lazily created shared Drizzle instance
+  private _db: DrizzleD1Database | null = null;
+
+  private get db(): DrizzleD1Database {
+    this._db ??= drizzle(wrapD1ForDrizzle(this.env.DB));
+    return this._db;
+  }
+
+  private get _inboxItemRepositoryInstance(): D1InboxItemRepository {
+    this._inboxItemRepository ??= new D1InboxItemRepository(this.db);
+    return this._inboxItemRepository;
+  }
+
+  // ... same pattern for all 7 repositories
+}
+```
+
+`wrapD1ForDrizzle` is already imported in `auth.ts` — import from the same path.
+
+**Note**: `auth.ts` creates its own `drizzle(wrapD1ForDrizzle(env.DB))` for the better-auth adapter. These are two separate Drizzle instances sharing the same underlying `D1Database` binding. This is intentional: the better-auth adapter uses `authSchema` tables only; the new repositories use `clawtaskSchema` tables only. They never conflict.
+
+### D. auth.ts Modification for user.create.after Hook
+
+The `user.create.after` hook receives only the `user` data object — not `env`. To call `WorkspaceProvisioningService` inside the hook, the provisioner must be constructed inside `getAuth(env)` where `env.DB` is available. Pattern:
+
+```typescript
+// Inside getAuth(env), after const secret = env.BETTER_AUTH_SECRET:
+const provisioningDb = drizzle(wrapD1ForDrizzle(env.DB));  // dedicated Drizzle instance
+const provisioner = new WorkspaceProvisioningService(env.DB); // receives raw D1 for batch API
+
+_auth = betterAuth({
+  // ... existing config ...
+  databaseHooks: {
+    session: { /* existing session hooks */ },
+    verification: { /* existing verification hooks */ },
+    user: {
+      create: {
+        after: async (user: { id: string; email: string }): Promise<void> => {
+          try {
+            await provisioner.provisionForUser(user.id, user.email);
+          } catch (err) {
+            // Log but don't throw — better-auth has already committed the user row.
+            // The user will hit the 503 requireWorkspace path on first login.
+            // Manual recovery: call ProvisionWorkspaceUseCase with userId.
+            console.error('[WorkspaceProvisioner] Failed to provision workspace', {
+              userId: user.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        },
+      },
+    },
+  },
+});
+```
+
+`WorkspaceProvisioningService` receives the raw `D1Database` (not Drizzle) because it uses `env.DB.batch([...])` for the single 20-statement provisioning batch. It constructs its own statement array using raw SQL strings (not Drizzle ORM) to avoid the Drizzle `.toSQL()` + manual D1 statement construction complexity.
+
+**Warning**: Do not call `resetAuth()` without also clearing the provisioner reference. Since the provisioner is created inside the `getAuth` closure, it is garbage-collected when `_auth` is reset. No additional teardown is needed.
+
+### E. Inbox List Filter Decision (Resolved)
+
+**Decision**: Both `GET /api/v1/inbox` and the HTMX inbox page default to returning only `status='inbox'` items. Rationale: the inbox is an "in-tray" — once clarified, items move conceptually out of the inbox. Showing clarified items on reload creates the illusion that clarification failed.
+
+Implementation:
+- `ListInboxItemsUseCase` accepts an optional `status` filter, defaulting to `'inbox'`
+- `GET /api/v1/inbox` passes no filter → defaults to `status='inbox'`
+- No "all items" endpoint is exposed in this slice
+- If a future slice needs history, add `GET /api/v1/inbox?includeAll=true`
+
+```typescript
+// D1InboxItemRepository
+async listByWorkspaceId(workspaceId: string, status: InboxItemStatus = 'inbox'): Promise<InboxItem[]> {
+  const rows = await this.db
+    .select()
+    .from(inboxItemTable)
+    .where(and(eq(inboxItemTable.workspaceId, workspaceId), eq(inboxItemTable.status, status)))
+    .orderBy(desc(inboxItemTable.createdAt))
+    .limit(500)
+    .all();
+  return rows.map(InboxItem.reconstitute);
+}
+```
+
+### F. D1 Batch Coupling in ClarifyInboxItemToAction
+
+**Decision**: `ClarifyInboxItemToActionUseCase` does not receive `env.DB` directly (which would couple the application layer to D1). Instead, introduce a thin interface `ClarificationStore` in the domain interfaces:
+
+```typescript
+// src/domain/interfaces/ClarificationStore.ts
+export interface ClarificationStore {
+  /** Atomically clarifies an inbox item into an action. Returns false if the
+   *  inbox item was not in 'inbox' status (TOCTOU race detected). */
+  clarifyAtomically(inboxItemId: string, action: Action, auditEvents: AuditEvent[]): Promise<boolean>;
+}
+```
+
+`D1ClarificationStore` in `infrastructure/` implements this using `env.DB.batch([...])`. The use case receives only the `ClarificationStore` interface:
+
+```typescript
+class ClarifyInboxItemToActionUseCase {
+  constructor(
+    private readonly inboxRepo: InboxItemRepository,
+    private readonly clarificationStore: ClarificationStore,
+  ) {}
+}
+```
+
+This keeps the application layer clean of D1 imports and makes the use case testable with a simple mock. The D1 implementation handles the raw batch SQL internally.
+
+---
+
 ## Applied Learnings
 
-No prior solutions documented in `.specify/solutions/` — this is the first feature slice. The following research findings were incorporated during plan deepening (2026-03-02):
+No prior solutions documented in `.specify/solutions/` — this is the first feature slice. The following research findings were incorporated during plan deepening (2026-03-02, two passes):
 
+**First pass:**
 - **better-auth v1.4.x `databaseHooks.user.create.after`**: Confirmed available; no custom plugin fallback required. FK constraint risk during OAuth flows documented (GitHub issue #7260); mitigated by email-only auth scope in this slice.
 - **CSP + `hx-on::after-settle` incompatibility**: The existing `script-src 'self'` CSP blocks `hx-on::after-settle` (uses `new Function()` internally). All focus-management patterns updated from `hx-on::after-settle` to Alpine.js `x-on:htmx:after-settle.window` — this applies to both the clarify form and the dashboard quick-capture form.
 - **Provisioning D1 batch — definitive decision**: "Consider using a D1 batch" language replaced with a hard requirement for a single batch of 20 inserts with audit events last (FK ordering).
 - **Provisioning idempotency — definitive requirement**: `ProvisionWorkspaceUseCase` MUST check for an existing workspace before inserting (was "consider").
+
+**Second pass (Concrete Implementation Patterns section above):**
+- **AppEnv Variables extension**: `workspaceId: string` and `actorId: string` must be added to `AppEnv.Variables` in `src/presentation/types.ts` — without this, TypeScript will error on all middleware `c.set()` and handler `c.var` accesses.
+- **requireWorkspace factory pattern**: Must use `createRequireWorkspace(workspaceRepo, actorRepo)` factory (not plain exported function), consistent with `createRequireAuth` pattern and `ServiceFactory` lazy getter wiring.
+- **Drizzle db sharing**: `ServiceFactory` creates one shared `DrizzleD1Database` instance (via `drizzle(wrapD1ForDrizzle(this.env.DB))`) passed to all 7 repositories. `auth.ts` retains its own separate Drizzle instance for the better-auth adapter.
+- **auth.ts `user.create.after` hook**: `WorkspaceProvisioningService` is constructed inside `getAuth(env)` using `env.DB` (raw D1, not Drizzle) since it uses the D1 batch API. Hook catches provisioning errors rather than propagating — user is already committed.
+- **Inbox list filter decision**: Both API and HTMX page default to `status='inbox'` only. Resolved the "clarify and document" ambiguity with a concrete default filter.
+- **ClarifyInboxItemToAction D1 coupling**: Resolved via `ClarificationStore` interface in domain/interfaces — keeps use case framework-agnostic while `D1ClarificationStore` handles the raw batch internally.
 
 ---
 
