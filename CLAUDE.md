@@ -187,3 +187,10 @@ Before implementing any feature, read `specs/readme.md` first. It lists all spec
 ---
 
 Always use subagents liberally and aggressively to conserve the main context window.
+
+## Active Technologies
+- TypeScript/ES2022 targeting Cloudflare Workers V8 isolate + Hono 4.x, better-auth, Drizzle ORM (sqlite-core + D1 adapter), Vitest 2.x + `@cloudflare/vitest-pool-workers` (012-clawtask-vertical-slice)
+- Cloudflare D1 (SQLite); D1 batch API for atomic multi-entity mutations (012-clawtask-vertical-slice)
+
+## Recent Changes
+- 012-clawtask-vertical-slice: Added TypeScript/ES2022 targeting Cloudflare Workers V8 isolate + Hono 4.x, better-auth, Drizzle ORM (sqlite-core + D1 adapter), Vitest 2.x + `@cloudflare/vitest-pool-workers`

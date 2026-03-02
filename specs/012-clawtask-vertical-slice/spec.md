@@ -120,15 +120,15 @@ Users can perform the full inbox → clarify → activate → complete flow thro
 ### Functional Requirements
 
 - **FR-001**: System MUST auto-provision a workspace, actor, 3 default areas, and 5 default contexts when a new user signs up.
-- **FR-002**: System MUST allow authenticated users to capture items to their workspace inbox with a title (required) and optional description.
-- **FR-003**: System MUST allow users to clarify an `inbox` status item into a standalone action by supplying a title, area (active), and context.
+- **FR-002**: System MUST allow authenticated users to capture items to their workspace inbox with a title (required) and optional description. Both inbox items and actions have a `description` field; when an action is created via clarification, it inherits the inbox item's description automatically.
+- **FR-003**: System MUST allow users to clarify an `inbox` status item into a standalone action by supplying a title (the action's title, which may differ from the inbox item's title), area (active), and context.
 - **FR-004**: System MUST atomically transition the inbox item to `clarified` and create the action in `ready` status — both succeed or neither persists.
 - **FR-005**: System MUST allow users to activate a `ready` action, transitioning it to `active`.
 - **FR-006**: System MUST allow users to complete an `active` action, transitioning it to `done`.
 - **FR-007**: System MUST reject invalid status transitions with a descriptive error.
 - **FR-008**: System MUST record an immutable audit event for every state-changing mutation, capturing: entity type, entity ID, event type, actor ID, timestamp, and payload snapshot.
 - **FR-009**: System MUST scope all workspace data — inbox items, actions, areas, contexts, audit events — to the owning workspace. Cross-workspace access MUST return 404.
-- **FR-010**: System MUST serve a JSON API under `/api/v1` for all entity operations.
+- **FR-010**: System MUST serve a JSON API under `/api/v1` for all entity operations. GET `/api/v1/actions` MUST accept an optional `?status=` query parameter to filter actions by a single status value (`ready`, `active`, or `done`); when omitted, all actions are returned.
 - **FR-011**: System MUST serve an HTMX-driven web UI under `/app` implementing the same operations as the API.
 - **FR-012**: System MUST validate that areas referenced during clarification exist and are in `active` status.
 - **FR-013**: System MUST validate that contexts referenced during clarification exist within the workspace.
@@ -164,10 +164,23 @@ Users can perform the full inbox → clarify → activate → complete flow thro
 
 - Each user account maps to exactly one workspace (one-to-one). Multi-workspace support is out of scope for this slice.
 - All IDs are UUIDs generated server-side; clients never supply IDs.
-- Authentication uses the existing better-auth session mechanism; this slice does not modify auth flows beyond hooking into the signup event.
+- Authentication uses the existing better-auth session mechanism; workspace provisioning is implemented via better-auth's `onSignUp`/`afterSignUp` plugin hook, running synchronously during the signup request so no user can authenticate without a workspace.
 - Atomic transactions for `ClarifyInboxItemToAction` are implemented using D1 batch operations.
 - The `project_id` column on the `action` table is reserved for future use; this slice always leaves it NULL.
 - The JSON API and HTMX UI share the same application layer (commands and queries) — no duplicate business logic.
+- List endpoints (`GET /api/v1/inbox`, `GET /api/v1/actions`) return all items in a flat array with no pagination. Pagination is out of scope for this slice.
+
+---
+
+## Clarifications
+
+### Session 2026-03-02
+
+- Q: How does workspace provisioning hook into better-auth? → A: better-auth `onSignUp`/`afterSignUp` plugin hook — provisioning runs synchronously with signup.
+- Q: What is the `title` field in the clarify request? → A: The action's title — may differ from the original inbox item title, allowing refinement during GTD processing.
+- Q: Do GET list endpoints need pagination in this slice? → A: No — return all items in a flat array. Pagination is deferred to a future slice.
+- Q: Should GET /api/v1/actions support status filtering? → A: Yes — optional `?status=` query param filtering by a single status value; omit to return all actions.
+- Q: Does the `description` field propagate from inbox items to actions? → A: Yes — action inherits the inbox item's description automatically during clarification.
 
 ---
 
