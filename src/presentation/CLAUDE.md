@@ -23,6 +23,7 @@ Parse requests, validate input, call use cases, format responses. Handle authent
 
 - `/glossary` - Domain terminology and Ubiquitous Language reference
 - `/worker-request-handler` - Handler patterns, routing
+- `/error-handling-patterns` - Error mapping to safe HTTP responses, error disclosure prevention
 - `/htmx-pattern-library` - HTMX interactions
 - `/htmx-alpine-templates` - Template structure
 - `/security-review` - Input validation, XSS prevention

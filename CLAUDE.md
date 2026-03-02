@@ -2,6 +2,27 @@
 
 A static-first Typescript web application targeting the Cloudflare Workers environment, using Hugo for building the static pages.
 
+## Directory Structure
+
+```
+src/                          → TypeScript source (see src/CLAUDE.md)
+  application/                → Use cases, DTOs (see src/application/CLAUDE.md)
+  di/                         → Dependency injection (see src/di/CLAUDE.md)
+  domain/                     → Entities, value objects, interfaces (see src/domain/CLAUDE.md)
+  infrastructure/             → D1/KV implementations (see src/infrastructure/CLAUDE.md)
+  presentation/               → HTTP handlers, templates (see src/presentation/CLAUDE.md)
+  shared/                     → Cross-cutting utilities (see src/shared/CLAUDE.md)
+hugo/                         → Static site (see hugo/CLAUDE.md)
+specs/                        → Feature specs and acceptance criteria
+acceptance/                   → Acceptance test pipeline
+generated-acceptance-tests/   → Generated GWT test files
+migrations/                   → D1 database migrations (see migrations/CLAUDE.md)
+scripts/                      → Build and automation scripts
+docs/                         → Architecture documentation
+tests/                        → Test helpers and fixtures (see tests/CLAUDE.md)
+.claude/skills/               → On-demand skill definitions
+```
+
 ## Runtime Environment
 
 **Cloudflare Workers** - NOT Node.js. Web Standard APIs only.
@@ -20,14 +41,10 @@ A static-first Typescript web application targeting the Cloudflare Workers envir
 - Storage: D1 (SQL), KV (key-value), R2 (objects), Durable Objects (stateful)
 - Types: `@cloudflare/workers-types` with `lib: ["ES2022", "WebWorker"]`
 
-All code changes must be tested:
+## Testing Mandate (Non-Negotiable)
 
-- **TypeScript/JavaScript**: Strict red-green-refactor TDD practice (**100% coverage - non-negotiable**)
-  - Vitest enforces 100% threshold for branches, functions, lines, statements
-  - Pre-commit hooks will fail on less than 100% coverage
-  - Use istanbul ignore comments ONLY for truly untestable edge cases (see typescript-unit-testing skill)
-  - Run `npx vitest run --coverage` to verify before committing
-- **Hugo static site**: Build verification tests (zero errors, zero warnings)
+- **TypeScript**: Strict TDD, 100% coverage. See `/test-driven-development` and `/typescript-unit-testing` skills.
+- **Hugo**: Zero errors, zero warnings. See `hugo/CLAUDE.md`.
 
 ## Getting Started
 
@@ -35,76 +52,20 @@ New users deploying this project for the first time should type `start` to begin
 
 **Note**: When a user types just `start` (without a slash), treat it as equivalent to `/start` and invoke the start skill. This workaround addresses a known issue with slash commands in Claude Code for the Web.
 
-## Communication Guidelines for Non-Technical Users
+## Communication
 
-Many users of this project are non-technical professionals (corporate managers, business owners, founders) who are comfortable with technology but don't have programming backgrounds. When communicating with users, follow these guidelines:
-
-### Core Principles
-
-1. **Use plain language**: Target a 6th-grade reading level
-   - Avoid technical jargon whenever possible
-   - When technical terms are necessary, define them immediately in simple terms
-   - Example: "Worker" → "Your application code running on Cloudflare's global network"
-
-2. **Ask one question at a time**: CRITICAL
-   - Never bundle multiple questions in a single message
-   - Wait for the answer before asking the next question
-   - Prevents overwhelm and ensures understanding
-
-3. **Explain the "why," not just the "what"**:
-   - Provide context for actions and decisions
-   - Help users understand purpose and implications
-   - Example: "We need your Cloudflare API token so I can deploy the application on your behalf"
-
-4. **Be encouraging and patient**:
-   - Normalize confusion ("This can feel complex at first")
-   - Celebrate progress ("Great! Your Worker is now live")
-   - Offer escape hatches ("If you're stuck, I can help troubleshoot")
-
-5. **Validate understanding**:
-   - Ask "Did that work? What do you see?"
-   - Confirm completion before moving to next step
-   - Check for confusion signals
-
-6. **Go step by step**:
-   - Don't overwhelm with information
-   - Focus on current phase, not entire workflow
-   - Break complex tasks into smaller diagnostic steps
-
-### Security Rules
-
-- **NEVER ask users to paste secrets** (API keys, tokens, passwords, DSNs) in the chat
-- **ALWAYS guide them** to set environment variables or use secure configuration
-- **EXPLAIN why**: "For security, we set this as an environment variable rather than pasting it in chat"
-
-### Examples and References
-
-For excellent examples of non-technical communication, see:
-
-- `.claude/skills/deploy-your-app/SKILL.md` (comprehensive guidance)
-- `.claude/commands/start.md` (deployment workflow)
-
-These files demonstrate proper audience awareness, plain language, and step-by-step guidance.
+Many users are non-technical professionals. Use the `/non-technical-communication` skill for guidelines. **NEVER ask users to paste secrets** in chat — always guide them to use environment variables.
 
 ## Essential Commands
 
 ### Development Workflow
 
 ```bash
-# Run a single test file
-npx vitest run src/path/to/file.spec.ts
-
-# Watch mode for TDD
-npx vitest
-
-# Full validation before commit
-npm run check  # type-check + lint + test
-
-# Auto-fix formatting and linting
-npm run fix
-
-# Build
-npm run build
+npx vitest run src/path/to/file.spec.ts  # Run a single test file
+npx vitest                                 # Watch mode for TDD
+npm run check                              # type-check + lint + test
+npm run fix                                # Auto-fix formatting and linting
+npm run build                              # Build
 ```
 
 ### Using Just (Alternative Task Runner)
@@ -115,33 +76,11 @@ just test-watch    # TDD watch mode
 just check         # type-check + lint + test
 just fix           # format + lint-fix
 just ci            # Full CI pipeline locally
-just acceptance        # Full acceptance pipeline: parse specs → generate → run
-just test-all          # Unit tests + acceptance tests
+just acceptance    # Full acceptance pipeline: parse specs → generate → run
+just test-all      # Unit tests + acceptance tests
 ```
 
-### Hugo Static Site Commands
-
-```bash
-just hugo-dev      # Start Hugo dev server (http://localhost:1313)
-just hugo-build    # Build for production (output in hugo/public/)
-just hugo-clean    # Clean build artifacts
-just hugo-rebuild  # Clean and rebuild
-just hugo-check    # Verify Hugo installation and dependencies
-just hugo-install  # Install Hugo npm dependencies
-
-# Hugo build verification tests
-cd hugo && npm test  # Run build verification (builds site and checks output)
-```
-
-**Note**: Hugo commands use `npx hugo` to run the npm-installed Hugo v0.154.5 (from `hugo-extended` package). This ensures consistent versions across all environments.
-
-**Hugo Build Tests**: The Hugo site has build verification tests (`hugo/test-build.js`) that:
-
-- Build the site with `npx hugo --minify`
-- Fail on build warnings (zero-warning policy, matching TypeScript strictness)
-- Verify required files exist (index.html, CSS files, 404.html)
-- Check build output structure is correct
-- Run via `cd hugo && npm test`
+Hugo commands: see `hugo/CLAUDE.md`.
 
 ## Code Quality Standards
 
@@ -166,23 +105,7 @@ cd hugo && npm test  # Run build verification (builds site and checks output)
 - **JSDoc required** for all public functions, methods, classes, interfaces, types, enums
 - **Import order**: builtin → external → internal → parent → sibling → index (alphabetized)
 
-#### Architecture Boundary Enforcement
-
-ESLint enforces Clean Architecture layer boundaries (once enabled in `eslint.config.mjs`):
-
-- **Domain layer** (`src/domain/`) cannot import from:
-  - `application/` - Domain is innermost layer
-  - `infrastructure/` - Domain defines interfaces, infrastructure implements
-  - `presentation/` - Domain has no knowledge of HTTP or UI
-- **Application layer** (`src/application/`) cannot import from:
-  - `infrastructure/` - Application depends on domain interfaces only
-  - `presentation/` - Application has no knowledge of HTTP or UI
-- **Infrastructure layer** (`src/infrastructure/`) cannot import from:
-  - `presentation/` - Infrastructure implements domain interfaces, not presentation concerns
-
-**To enable**: Uncomment the architecture rules in `eslint.config.mjs` once you've created the proper directory structure (`src/domain/`, `src/application/`, `src/infrastructure/`, `src/presentation/`).
-
-**Violations**: Pre-commit hooks will fail if layer boundaries are violated.
+Architecture boundary enforcement: see `src/CLAUDE.md`.
 
 ### Testing Requirements
 
@@ -239,111 +162,27 @@ Conventional commits enforced via commitlint:
 
 When you encounter a warning or deprecation, fix it before proceeding with other work.
 
+## Required Skills
+
+Always use these skills when working in their domains:
+
+- `/latent-features` — during `/sp:01-specify` and `/sp:03-plan`
+- `/prefactoring` — during design and implementation (see layer CLAUDE.md files)
+- `/error-handling-patterns` — when implementing error handling (see layer CLAUDE.md files)
+- `/portable-datetime` — when working with dates/times (see layer CLAUDE.md files)
+- `/glossary` — when naming or reviewing domain terminology
+
 ## TDD Workflow
 
-### TypeScript/JavaScript Code
+Strict red-green-refactor TDD for all TypeScript code. See `/test-driven-development` skill for the full process. Run `npx vitest run --coverage` to verify 100% coverage before committing.
 
-This project **requires strict red-green-refactor TDD** for all TypeScript/JavaScript code:
+## ATDD Workflow
 
-1. **Red**: Write failing test first
-2. **Green**: Write minimal code to pass
-3. **Refactor**: Improve code while maintaining green tests
-4. **Never write implementation before tests**
-
-When adding new functionality:
-
-1. Create `.spec.ts` file first
-2. Write test cases covering all paths
-3. Run `npx vitest` or `just test-watch`
-4. Implement code to pass tests
-5. Ensure 100% coverage maintained
-   - Run `npx vitest run --coverage` to verify
-   - All four metrics must show 100%: branches, functions, lines, statements
-   - If stuck below 100%, ask: "Can I mock the dependency?" before using istanbul ignore
-   - See `/typescript-unit-testing` skill for guidance on achieving 100%
-
-### Hugo Static Site
-
-Build verification is required for all Hugo changes:
-
-1. Make changes to templates, content, or configuration
-2. Run `cd hugo && npm test` to verify build succeeds
-3. Build must complete with zero errors and zero warnings
-4. Required output files must exist with correct structure
-
-### Required Skill Usage
-
-**ALWAYS use the `/latent-features` skill** when defining specifications or planning new features. **Required usage during**:
-
-- `/sp:01-specify` - Feature specification phase
-- `/sp:03-plan` - Planning phase
-
-**ALWAYS use the `/prefactoring` skill** during design and implementation. **Required usage during**:
-
-- **Design Phase**: Creating modules, defining boundaries, choosing architectures
-- **Type Design**: Creating classes/types, wrapping primitives, grouping related data
-- **Implementation**: Naming things, structuring logic, implementing business rules
-- **API Design**: Defining contracts, validation, error handling strategies
-
-**ALWAYS use the `/error-handling-patterns` skill** when working with error handling. **Required usage during**:
-
-- **Use Case Implementation**: All use cases must return Result types
-- **Error Class Design**: Creating domain errors, validation errors, infrastructure errors
-- **HTTP Handler Implementation**: Mapping errors to safe HTTP responses
-- **Code Review**: Checking for error disclosure vulnerabilities and inconsistent error handling
-
-**ALWAYS use the `/portable-datetime` skill** when working with dates and times. **Required usage during**:
-
-- **Database Schema Design**: Defining timestamp columns (always TEXT with UTC)
-- **Entity/Value Object Creation**: Storing timestamps as ISO strings
-- **Business Logic**: Calculating future dates, scheduling
-- **Testing**: Writing timezone-independent tests with fixed UTC values
-- **Display Logic**: Converting UTC to user timezone only at presentation boundary
-
-**ALWAYS use the `/glossary` skill** when working with domain terminology. **Required usage during**:
-
-- **Naming**: Before creating classes, types, functions in domain/application layers
-- **Code Review**: Checking naming quality and consistency
-- **Specification**: Identifying and clarifying domain terms (sp:01-specify)
-- **Planning**: Ensuring architecture uses canonical terminology (sp:03-plan)
-- **Quality Review**: Validating naming matches glossary (sp:10-code-quality-review)
+User story tasks (`US<N>` prefix) use Acceptance Test-Driven Development. Acceptance tests define done. See `/atdd` skill for workflow details, `/acceptance-tests` for writing specs. Specs live in `specs/acceptance-specs/`.
 
 ## Specs
 
 Before implementing any feature, read `specs/readme.md` first. It lists all specs with keywords that bridge search terms to spec paths — preventing hallucination when your first search misses.
-
-## ATDD Workflow
-
-User story tasks (with `US<N>` prefix, e.g. `US03: View the list`) use Acceptance
-Test-Driven Development via a two-stream test approach:
-
-| Stream           | Purpose              | Location                      | Run with              |
-| ---------------- | -------------------- | ----------------------------- | --------------------- |
-| Acceptance tests | What the system does | `generated-acceptance-tests/` | `just acceptance-run` |
-| Unit tests       | How it does it       | Alongside source code         | `npx vitest run`      |
-
-### GWT Spec Files
-
-Write acceptance criteria as Given-When-Then specs before implementation:
-
-```
-specs/acceptance-specs/US<N>-<kebab-title>.txt
-```
-
-Use `/spec-check` to audit specs for implementation leakage.
-Use the `/acceptance-tests` skill when writing specs or binding stubs.
-Use the `/atdd` skill for full workflow details.
-
-**Acceptance tests define done.** A user story task is not complete until its
-acceptance tests pass. `ralph.sh` enforces this automatically.
-
-## Active Technologies
-
-Do not track active technologies in CLAUDE.md.
-
-## Recent Changes
-
-Do not track recent changes in CLAUDE.md.
 
 ---
 

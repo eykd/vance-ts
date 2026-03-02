@@ -22,6 +22,7 @@ Adapt external systems to domain contracts. Translate between domain objects and
 
 - `/glossary` - Domain terminology and Ubiquitous Language reference
 - `/d1-repository-implementation` - D1 database patterns
+- `/portable-datetime` - UTC storage for timestamps, timezone handling
 - `/kv-session-management` - KV storage patterns
 - `/vitest-integration-testing` - Test with real bindings
 - `/cloudflare-migrations` - Database schema changes

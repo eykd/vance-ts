@@ -22,6 +22,8 @@ Coordinate domain entities, call repository interfaces, handle transactions. Acc
 
 - `/glossary` - Domain terminology and Ubiquitous Language reference
 - `/cloudflare-use-case-creator` - Use case structure and DTOs
+- `/prefactoring` - Design, naming, type structure, interface contracts
+- `/error-handling-patterns` - Result types, error mapping, safe HTTP responses
 - `/typescript-unit-testing` - Mock dependencies for isolation
 - `/clean-architecture-validator` - Verify no infrastructure imports
 
