@@ -364,7 +364,35 @@ class ServiceFactory {
     return this._inboxItemRepository;
   }
 
-  // ... same pattern for all 7 repositories
+  private get _actionRepositoryInstance(): D1ActionRepository {
+    this._actionRepository ??= new D1ActionRepository(this.db);
+    return this._actionRepository;
+  }
+
+  private get _areaRepositoryInstance(): D1AreaRepository {
+    this._areaRepository ??= new D1AreaRepository(this.db);
+    return this._areaRepository;
+  }
+
+  private get _contextRepositoryInstance(): D1ContextRepository {
+    this._contextRepository ??= new D1ContextRepository(this.db);
+    return this._contextRepository;
+  }
+
+  private get _workspaceRepositoryInstance(): D1WorkspaceRepository {
+    this._workspaceRepository ??= new D1WorkspaceRepository(this.db);
+    return this._workspaceRepository;
+  }
+
+  private get _actorRepositoryInstance(): D1ActorRepository {
+    this._actorRepository ??= new D1ActorRepository(this.db);
+    return this._actorRepository;
+  }
+
+  private get _auditEventRepositoryInstance(): D1AuditEventRepository {
+    this._auditEventRepository ??= new D1AuditEventRepository(this.db);
+    return this._auditEventRepository;
+  }
 }
 ```
 
@@ -499,6 +527,15 @@ No prior solutions documented in `.specify/solutions/` — this is the first fea
 - **Area filtering option resolved**: Option (b) — `AppPartialHandlers` calls `listActiveByWorkspaceId()` — upgraded from "preferred" to "chosen". JSDoc documentation requirement added.
 - **Quick-capture error-path behavior documented**: `x-on:htmx:after-settle.window` fires on all responses (success and error); resetting the title field on error is explicitly correct behavior for the quick-capture form.
 
+**Fourth pass (codebase research — live implementation, 2026-03-02):**
+- **ServiceFactory repository getters made explicit**: `// ... same pattern for all 7 repositories` placeholder replaced with concrete private getter implementations for all 7 repositories (`D1ActionRepository`, `D1AreaRepository`, `D1ContextRepository`, `D1WorkspaceRepository`, `D1ActorRepository`, `D1AuditEventRepository`).
+- **CSRF template escaping clarified**: Templates use the `html` tagged template literal which auto-escapes all interpolated values. The CSRF hidden input uses `${csrfToken}` (auto-escaped) NOT `${escapeHtml(csrfToken)}` (double-escape). Earlier plan drafts had this wrong.
+- **D1 batch result type made concrete**: `D1Database.batch()` returns `Promise<D1Result<unknown>[]>`. Each `D1Result.meta.changes: number` indicates rows affected. Concrete TypeScript snippet added to D1 Batch Result Validation edge case showing array indexing (`results[0]?.meta.changes ?? 0`).
+- **D1 UNIQUE constraint detection pattern added**: SQLite/D1 throws `Error` with `message.includes('UNIQUE constraint failed')`. Concrete `try/catch` pattern added to Concurrent Provisioning mitigation — including rationale that the `catch` is a secondary guard behind the idempotency pre-check.
+- **`/app/_/` underscore convention confirmed**: Verified against `src/worker.ts` — `app.use('/app/_/*', withSecurityHeaders)` and `app.all('/app/_/*', appPartialNotFound)` are established patterns. HTMX partial routes belong under `/app/_/`.
+- **AppEnv.Variables extension confirmed necessary**: `src/presentation/types.ts` currently defines only `user`, `session`, `csrfToken`. Adding `workspaceId: string` and `actorId: string` is mandatory (TypeScript will error otherwise).
+- **requireWorkspace middleware does not yet exist**: Confirmed via directory listing. `src/presentation/middleware/` contains only `requireAuth.ts` and `apiAuthRateLimit.ts`.
+
 ---
 
 ## Security Considerations
@@ -515,7 +552,7 @@ All templates are pure TypeScript string concatenation. User-supplied fields (`t
 
 The existing CSRF protection (double-submit cookie, `__Host-csrf`) is only validated in `AuthPageHandlers.ts`. The new HTMX mutation endpoints (`POST /app/_/inbox`, `POST /app/_/inbox/:id/clarify`, `POST /app/_/actions/:id/activate`, `POST /app/_/actions/:id/complete`) are susceptible to cross-site request forgery if CSRF validation is not applied.
 
-**Mitigation**: All HTMX mutation handlers must validate the `_csrf` form parameter against the `__Host-csrf` cookie using the existing `timingSafeStringEqual` utility (already in `src/presentation/utils/`). HTMX forms in templates must include `<input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}">`. The `csrfToken` is already set in Hono context by `requireAuth` — pass it through from page handlers to template functions.
+**Mitigation**: All HTMX mutation handlers must validate the `_csrf` form parameter against the `__Host-csrf` cookie using the existing `timingSafeStringEqual` utility (already in `src/presentation/utils/`). HTMX forms in templates must include `<input type="hidden" name="_csrf" value="${csrfToken}">` — since templates use the `html` tagged template literal, `csrfToken` is automatically escaped; do NOT call `escapeHtml(csrfToken)` manually (that would double-escape and double-escape the value). The `csrfToken` is already set in Hono context by `requireAuth` — pass it through from page handlers to template functions.
 
 ### Status Query Parameter Injection (HIGH)
 
@@ -649,6 +686,13 @@ D1 `db.batch()` returns a `D1Result[]` array, one entry per statement. If a stat
 
 **Mitigation**: After executing the clarification batch, check `results[0].meta.changes` (the `UPDATE inbox_item` result). If `changes === 0`, the operation did not affect the expected row — return 422. Do not assume a non-throwing batch means business logic succeeded.
 
+**Concrete TypeScript typing**: `D1Database.batch()` returns `Promise<D1Result<unknown>[]>`. Each `D1Result` has `meta: { changes: number; duration: number; last_row_id: number; rows_read: number; rows_written: number; }`. For the clarification batch, the `UPDATE inbox_item` is always statement index `0`; `Action` INSERT is index `1`; audit event INSERTs are indices 2+. Check with:
+```typescript
+const results = await this.db.batch([updateInboxItem, insertAction, ...insertAuditEvents]);
+const inboxChanges = results[0]?.meta.changes ?? 0;
+if (inboxChanges === 0) return false; // TOCTOU: inbox item already clarified
+```
+
 ### Provisioning Hook Failure Leaves Orphaned User (HIGH)
 
 `better-auth`'s `databaseHooks.user.create.after` hook fires after the user row is committed. If the hook throws (e.g., D1 transient error), better-auth may return success to the caller while the user has no workspace. Subsequent requests from this user will hit the `requireWorkspace` 503 path with no recovery mechanism visible to the user.
@@ -664,6 +708,20 @@ D1 `db.batch()` returns a `D1Result[]` array, one entry per statement. If a stat
 If (somehow) two signup requests race for the same user (e.g., retry on network timeout), both could attempt to create a workspace for the same `userId`. The `UNIQUE` constraint on `workspace.user_id` will reject the second insert — but if this unhandled exception propagates, the user could receive a 500.
 
 **Mitigation**: `ProvisionWorkspaceUseCase` should handle `UNIQUE constraint failed` on workspace insertion gracefully — detect it as "workspace already exists" and return success (idempotent behavior).
+
+**Concrete detection pattern**: D1 throws a standard `Error` whose `.message` includes `"UNIQUE constraint failed"` (SQLite error text). Detect it as:
+```typescript
+try {
+  await this.db.batch([insertWorkspace, insertActor, ...insertAreas, ...insertContexts, ...insertAuditEvents]);
+} catch (err: unknown) {
+  if (err instanceof Error && err.message.includes('UNIQUE constraint failed')) {
+    // Concurrent provisioning race — workspace already exists, treat as success
+    return;
+  }
+  throw err;
+}
+```
+This guard is secondary to the idempotency pre-check (`getByUserId()` before batching). The `catch` covers the narrow window between the pre-check and the batch execution.
 
 ### No Global Error Handler for Unhandled Exceptions (MEDIUM)
 
