@@ -448,7 +448,17 @@ export interface ClarificationStore {
 }
 ```
 
-`D1ClarificationStore` in `infrastructure/` implements this using `env.DB.batch([...])`. The use case receives only the `ClarificationStore` interface:
+`D1ClarificationStore` in `src/infrastructure/repositories/D1ClarificationStore.ts` implements this using the raw `D1Database` binding (not the shared Drizzle instance), because `env.DB.batch([...])` is called directly on the D1 binding — Drizzle does not wrap the batch API. Constructor signature:
+
+```typescript
+// src/infrastructure/repositories/D1ClarificationStore.ts
+export class D1ClarificationStore implements ClarificationStore {
+  constructor(private readonly db: D1Database) {}
+  // ...
+}
+```
+
+Wired in `ServiceFactory` alongside the other repositories (passed `this.env.DB`, not the shared drizzle instance). The use case receives only the `ClarificationStore` interface:
 
 ```typescript
 class ClarifyInboxItemToActionUseCase {
@@ -465,7 +475,7 @@ This keeps the application layer clean of D1 imports and makes the use case test
 
 ## Applied Learnings
 
-No prior solutions documented in `.specify/solutions/` — this is the first feature slice. The following research findings were incorporated during plan deepening (2026-03-02, two passes):
+No prior solutions documented in `.specify/solutions/` — this is the first feature slice. The following research findings were incorporated during plan deepening (2026-03-02, three passes):
 
 **First pass:**
 - **better-auth v1.4.x `databaseHooks.user.create.after`**: Confirmed available; no custom plugin fallback required. FK constraint risk during OAuth flows documented (GitHub issue #7260); mitigated by email-only auth scope in this slice.
@@ -480,6 +490,14 @@ No prior solutions documented in `.specify/solutions/` — this is the first fea
 - **auth.ts `user.create.after` hook**: `WorkspaceProvisioningService` is constructed inside `getAuth(env)` using `env.DB` (raw D1, not Drizzle) since it uses the D1 batch API. Hook catches provisioning errors rather than propagating — user is already committed.
 - **Inbox list filter decision**: Both API and HTMX page default to `status='inbox'` only. Resolved the "clarify and document" ambiguity with a concrete default filter.
 - **ClarifyInboxItemToAction D1 coupling**: Resolved via `ClarificationStore` interface in domain/interfaces — keeps use case framework-agnostic while `D1ClarificationStore` handles the raw batch internally.
+
+**Third pass (codebase research against live implementation, 2026-03-02):**
+- **requireAuth HTMX gap confirmed**: Verified against `src/presentation/middleware/requireAuth.ts` — existing implementation has zero HTMX detection. It calls `c.redirect()` unconditionally on all session-expiry paths. Both `requireAuth` AND `requireWorkspace` must be updated; "if necessary" language removed. New test required in `requireAuth.spec.ts` asserting `HX-Redirect` on `HX-Request: true` requests.
+- **requireAuth three-client-type dispatch**: Error Code Enum section updated with the explicit three-path dispatch required in `requireAuth`: HTMX clients → `HX-Redirect`, API JSON clients (`Accept: application/json`) → JSON 401 envelope, browser navigation → 302 redirect.
+- **D1ClarificationStore constructor pattern**: File path and constructor signature now concrete: `src/infrastructure/repositories/D1ClarificationStore.ts` with `constructor(private readonly db: D1Database)`. Uses raw `D1Database` (not the shared Drizzle instance) because `env.DB.batch([...])` operates on the D1 binding directly.
+- **Focus management pattern made prescriptive**: Belt-and-suspenders now required — both `autofocus` on the first input AND Alpine.js `x-on:htmx:after-settle.window` on the swap target. The conditional "if autofocus alone is insufficient" language replaced with a mandatory dual-pattern with rationale.
+- **Area filtering option resolved**: Option (b) — `AppPartialHandlers` calls `listActiveByWorkspaceId()` — upgraded from "preferred" to "chosen". JSDoc documentation requirement added.
+- **Quick-capture error-path behavior documented**: `x-on:htmx:after-settle.window` fires on all responses (success and error); resetting the title field on error is explicitly correct behavior for the quick-capture form.
 
 ---
 
@@ -519,9 +537,11 @@ Path parameters like `:id` in `/api/v1/inbox/:id/clarify` are used directly in D
 
 ### Error Code Enum Inconsistency (MEDIUM)
 
-The OpenAPI `ErrorEnvelope` schema defines an `error.code` enum that does not include `unauthenticated`, but the `Unauthenticated` response object references that exact value. The better-auth middleware likely returns its own error format that does not conform to the documented `ErrorEnvelope` shape, creating inconsistent error responses between authentication failures and business logic failures.
+The OpenAPI `ErrorEnvelope` schema defines an `error.code` enum that does not include `unauthenticated`, but the `Unauthenticated` response object references that exact value. The existing `requireAuth` middleware returns either a 302 redirect (`c.redirect()`) or a `503 Service Unavailable` plain-text response — neither conforms to the `ErrorEnvelope` JSON shape expected by API clients.
 
-**Mitigation**: Add `unauthenticated` and `workspace_not_found` to the `ErrorEnvelope.error.code` enum in `contracts/openapi.yaml`. Ensure the `requireAuth` 401 path and `requireWorkspace` 503 path both return `{ "error": { "code": "...", "message": "..." } }` conforming to the same envelope shape as business errors.
+**Mitigation**: Two coordinated changes required:
+1. Add `unauthenticated` and `workspace_not_found` to the `ErrorEnvelope.error.code` enum in `contracts/openapi.yaml`.
+2. API routes under `/api/v1/*` are accessed by programmatic clients that expect JSON. For these routes, `requireAuth` must detect `Accept: application/json` (or absence of `HX-Request`) and return `{ "error": { "code": "unauthenticated", "message": "Authentication required." } }` with status 401, not a redirect. The existing HTMX path returns `HX-Redirect` (no body). The browser-navigation path returns a 302 redirect. All three paths are now explicit: HTMX → `HX-Redirect`, API (`Accept: application/json`) → JSON 401, browser → 302 redirect.
 
 ### CSP Blocks `hx-on` Inline Event Handlers (HIGH)
 
@@ -550,7 +570,7 @@ The `payload` column is unbounded TEXT. A max-length description (2000 chars) pl
 
 `requireAuth` issues a 302 redirect to `/auth/sign-in?redirectTo=...` when a session is missing or expired. For standard browser navigation this is correct. For HTMX XHR requests (`HX-Request: true` header present), the browser follows the 302 redirect transparently and HTMX swaps the login page HTML into whatever `hx-target` the partial was addressing — rendering the login form inside the inbox list, action row, or dashboard widget. The user sees broken layout and has no way to recover without a full page reload.
 
-**Mitigation**: The `requireWorkspace` middleware (and if necessary `requireAuth`) must detect HTMX requests via the `HX-Request` header. For HTMX requests, respond with `401 Unauthorized` and an `HX-Redirect: /auth/sign-in?redirectTo=...` header instead of a 302 redirect. HTMX intercepts `HX-Redirect` and performs a full-page navigation. Example pattern:
+**Mitigation**: The existing `requireAuth` implementation (confirmed: `src/presentation/middleware/requireAuth.ts`) unconditionally calls `c.redirect()` — there is no HTMX detection in the current code. Both `requireAuth` AND `requireWorkspace` must be updated to detect HTMX requests via the `HX-Request` header and respond with `HX-Redirect` instead of a 302. Pattern:
 
 ```typescript
 if (c.req.header('HX-Request') === 'true') {
@@ -562,7 +582,7 @@ if (c.req.header('HX-Request') === 'true') {
 return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
 ```
 
-Apply to all 401 and 503 early-exit paths in both `requireAuth` and `requireWorkspace`.
+Apply to all 401 and 503 early-exit paths in both `requireAuth` and `requireWorkspace`. The `requireAuth` update must include a matching `requireAuth.spec.ts` test that sends `HX-Request: true` and asserts `HX-Redirect` in the response headers (not a 302).
 
 ### HTMX Partial Responses Missing Cache-Control (HIGH)
 
@@ -705,7 +725,7 @@ The domain enforces that `clarifiedIntoType` and `clarifiedIntoId` are always se
 
 `GET /api/v1/areas` returns areas of all statuses (both `active` and `archived`). The HTMX clarify inline form's area select is populated from this endpoint. An archived area will appear as a selectable option. When submitted, the clarification fails with 422 `area_not_active`. Users are presented a selection that appears valid but is rejected — a confusing UX with no visual indication in the dropdown.
 
-**Mitigation**: The HTMX clarify form's area `<select>` must be populated from a filtered source that returns only `active` areas. Two options: (a) add a `?status=active` query parameter to `GET /api/v1/areas` (requires API change), or (b) have the `AppPartialHandlers` clarify form endpoint fetch areas using `AreaRepository.listActiveByWorkspaceId()` and pass only active areas to the template. Option (b) avoids an API change and is preferred for this slice. Document the decision in `AppPartialHandlers`.
+**Mitigation**: The HTMX clarify form's area `<select>` must be populated from a filtered source that returns only `active` areas. **Chosen approach: Option (b)** — the `AppPartialHandlers` clarify form endpoint calls `AreaRepository.listActiveByWorkspaceId()` and passes only active areas to the template. This avoids changing the public `GET /api/v1/areas` contract, keeps API design clean, and is consistent with the partial handler's role of assembling view-specific data. Add a JSDoc comment in `AppPartialHandlers` noting that the clarify form uses a filtered area list (active only) distinct from the general areas API.
 
 ---
 
@@ -749,7 +769,12 @@ When the dashboard quick-capture form submits and the inbox count updates (`hx-s
 
 When the clarify inline form expands (spec scenario 3: click "Clarify" → form appears), keyboard focus remains on the "Clarify" button that triggered the swap. For keyboard users, focus must move to the first field of the newly expanded form, otherwise they must tab through all preceding elements to reach the form.
 
-**Mitigation**: Add `autofocus` attribute to the first focusable element in the `clarifyForm` partial template — browsers move focus to the `[autofocus]` element after DOM insertion without requiring JavaScript. If `autofocus` alone is insufficient (e.g., in certain HTMX swap modes), use Alpine.js: add `x-data x-on:htmx:after-settle.window="$el.querySelector('input,select,textarea')?.focus()"` on the swap target container element. **Do NOT use `hx-on::after-settle`** — it is blocked by the existing `script-src 'self'` CSP (see CSP section above).
+**Mitigation**: Use both mechanisms belt-and-suspenders — `autofocus` alone is unreliable across HTMX swap modes and is insufficient when the target element is outside the viewport. Required pattern:
+
+1. Add `autofocus` attribute to the first focusable `<input>` in the `clarifyForm` partial template.
+2. Wrap the HTMX swap target `<div>` (the action row container) with Alpine.js: `x-data x-on:htmx:after-settle.window="$el.querySelector('input,select,textarea')?.focus()"`.
+
+Both must be present. The Alpine.js handler fires via the `htmx:afterSettle` DOM event on `window` regardless of which swap target triggered it, providing a reliable fallback when `autofocus` is not processed (e.g., `outerHTML` swap mode replaces the element itself, invalidating autofocus in some browsers). **Do NOT use `hx-on::after-settle`** — it is blocked by the existing `script-src 'self'` CSP (see CSP section above).
 
 ### Color + Text Status Labels (MEDIUM)
 
@@ -765,14 +790,16 @@ When validation fails during clarification (400/422 responses), the inline error
 
 ### Dashboard Quick-Capture Focus After Submit (MEDIUM)
 
-The plan addresses focus management for the clarify form (focus moves to first field on expansion), but not for the dashboard quick-capture form. After a successful capture submission, the form input should reset and focus should return to the title field so users can immediately capture a second item without clicking again.
+The plan addresses focus management for the clarify form (focus moves to first field on expansion), but not for the dashboard quick-capture form. After a capture submission, the form input should reset and focus should return to the title field so users can immediately capture a second item without clicking again.
 
-**Mitigation**: Use Alpine.js on the quick-capture form to reset the input and restore focus after successful submission. **Do NOT use `hx-on::after-settle`** — blocked by the existing `script-src 'self'` CSP (see CSP section above). Alpine.js handlers execute within the Alpine.js runtime context and are not eval-blocked. Pattern for the form element in `pages/dashboard.ts`:
+**Mitigation**: Use Alpine.js on the quick-capture form. **Do NOT use `hx-on::after-settle`** — blocked by the existing `script-src 'self'` CSP (see CSP section above). Pattern for the form element in `pages/dashboard.ts`:
 ```html
 <form x-data
       x-on:htmx:after-settle.window="$el.querySelector('[name=title]').value=''; $el.querySelector('[name=title]').focus()"
       hx-post="/app/_/inbox" ...>
 ```
+
+**Note on error path**: `x-on:htmx:after-settle.window` fires on ALL responses, including 4xx validation errors. For the quick-capture form this is the correct behavior — on a validation error the title field resets and receives focus, allowing the user to try again immediately without a click. The error message is rendered in the HTMX swap target (separate element), so clearing the title input on error is intentional.
 
 ---
 
