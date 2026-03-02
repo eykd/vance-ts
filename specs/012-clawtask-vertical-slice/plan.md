@@ -230,7 +230,9 @@ specs/acceptance-specs/   ← NEW directory
 
 ### 1. Workspace Provisioning Hook
 
-better-auth's `databaseHooks.user.create.after` (or custom plugin if the `after` variant is unavailable) fires synchronously during signup. This guarantees every authenticated user has a workspace. See `research.md` Decision 1 for fallback details.
+better-auth's `databaseHooks.user.create.after` fires after the user row is committed to D1 during signup. Confirmed available in better-auth v1.4.x — no custom plugin fallback required. This guarantees every authenticated user has a workspace. See `research.md` Decision 1.
+
+**Note on social login (GitHub issue #7260)**: In some better-auth versions, `databaseHooks.user.create.after` executes within an uncommitted DB transaction during OAuth/social login, causing FK violations when the provisioner inserts workspace rows referencing the new user ID. This slice uses email-based signup only (no social providers configured), making this low risk for now. If social login is added in a future slice, switch to `hooks.after` middleware (runs post-commit) filtered by `ctx.path`.
 
 ### 2. Atomic Clarification
 
@@ -262,7 +264,12 @@ No constitution violations. All design choices are the minimum required by the s
 
 ## Applied Learnings
 
-No prior solutions documented yet in `.specify/solutions/`. This is the first feature slice.
+No prior solutions documented in `.specify/solutions/` — this is the first feature slice. The following research findings were incorporated during plan deepening (2026-03-02):
+
+- **better-auth v1.4.x `databaseHooks.user.create.after`**: Confirmed available; no custom plugin fallback required. FK constraint risk during OAuth flows documented (GitHub issue #7260); mitigated by email-only auth scope in this slice.
+- **CSP + `hx-on::after-settle` incompatibility**: The existing `script-src 'self'` CSP blocks `hx-on::after-settle` (uses `new Function()` internally). All focus-management patterns updated from `hx-on::after-settle` to Alpine.js `x-on:htmx:after-settle.window` — this applies to both the clarify form and the dashboard quick-capture form.
+- **Provisioning D1 batch — definitive decision**: "Consider using a D1 batch" language replaced with a hard requirement for a single batch of 20 inserts with audit events last (FK ordering).
+- **Provisioning idempotency — definitive requirement**: `ProvisionWorkspaceUseCase` MUST check for an existing workspace before inserting (was "consider").
 
 ---
 
@@ -404,7 +411,7 @@ c.set('actorId', actor.id);
 4. `INSERT context` × 5 (depends on workspace)
 5. `INSERT audit_event` × 10 (depends on actor for `actor_id`) — ALL audit events last
 
-Consider using a D1 batch for the entire provisioning set for atomicity, with audit events as the final statements in the batch.
+**Use a single D1 batch for all provisioning inserts** (workspace + actor + 3 areas + 5 contexts + 10 audit events = 20 statements). Audit event statements must appear last in the batch array to ensure the actor row is committed before audit events reference it. This is the definitive implementation approach — see also the Provisioning Insert Efficiency note in Performance Considerations.
 
 ### D1 Batch Result Validation (HIGH)
 
@@ -420,7 +427,7 @@ D1 `db.batch()` returns a `D1Result[]` array, one entry per statement. If a stat
 - Wrap the entire provisioning operation in a try/catch in the hook. Log the error with the `userId`.
 - Return a clear 503 with `{ "error": { "code": "provisioning_failed", "message": "Workspace setup is not complete. Please retry or contact support." } }` from `requireWorkspace` when workspace is missing.
 - Document the manual recovery path: an admin can re-trigger provisioning for a user by calling `ProvisionWorkspaceUseCase` with their `userId`.
-- Consider an idempotency guard: `ProvisionWorkspaceUseCase` should check if a workspace already exists before creating one, to make re-runs safe.
+- **Required idempotency guard**: `ProvisionWorkspaceUseCase` MUST check whether a workspace already exists for the `userId` before executing any inserts. If a workspace is found, return it immediately (no-op). This makes re-runs safe and prevents `UNIQUE constraint failed` errors from concurrent provisioning attempts or hook retries.
 
 ### Concurrent Provisioning (MEDIUM)
 
@@ -532,7 +539,7 @@ When the dashboard quick-capture form submits and the inbox count updates (`hx-s
 
 When the clarify inline form expands (spec scenario 3: click "Clarify" → form appears), keyboard focus remains on the "Clarify" button that triggered the swap. For keyboard users, focus must move to the first field of the newly expanded form, otherwise they must tab through all preceding elements to reach the form.
 
-**Mitigation**: In the `clarifyForm` partial template, include `hx-on::after-settle="this.querySelector('input,select,textarea')?.focus()"` on the swap target, or add a small `autofocus` attribute to the first focusable element in the form partial (browser autofocus moves focus after insertion).
+**Mitigation**: Add `autofocus` attribute to the first focusable element in the `clarifyForm` partial template — browsers move focus to the `[autofocus]` element after DOM insertion without requiring JavaScript. If `autofocus` alone is insufficient (e.g., in certain HTMX swap modes), use Alpine.js: add `x-data x-on:htmx:after-settle.window="$el.querySelector('input,select,textarea')?.focus()"` on the swap target container element. **Do NOT use `hx-on::after-settle`** — it is blocked by the existing `script-src 'self'` CSP (see CSP section above).
 
 ### Color + Text Status Labels (MEDIUM)
 
@@ -550,7 +557,12 @@ When validation fails during clarification (400/422 responses), the inline error
 
 The plan addresses focus management for the clarify form (focus moves to first field on expansion), but not for the dashboard quick-capture form. After a successful capture submission, the form input should reset and focus should return to the title field so users can immediately capture a second item without clicking again.
 
-**Mitigation**: In `pages/dashboard.ts`, the quick-capture form must use `hx-on::after-settle` on the form element to reset the input and restore focus: `hx-on::after-settle="this.querySelector('[name=title]').value=''; this.querySelector('[name=title]').focus()"`. Alternatively, the HTMX swap target for the count badge can trigger `htmx:afterSettle` event handled by Alpine.js to refocus the input.
+**Mitigation**: Use Alpine.js on the quick-capture form to reset the input and restore focus after successful submission. **Do NOT use `hx-on::after-settle`** — blocked by the existing `script-src 'self'` CSP (see CSP section above). Alpine.js handlers execute within the Alpine.js runtime context and are not eval-blocked. Pattern for the form element in `pages/dashboard.ts`:
+```html
+<form x-data
+      x-on:htmx:after-settle.window="$el.querySelector('[name=title]').value=''; $el.querySelector('[name=title]').focus()"
+      hx-post="/app/_/inbox" ...>
+```
 
 ---
 
