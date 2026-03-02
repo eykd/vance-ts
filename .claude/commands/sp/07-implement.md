@@ -218,3 +218,7 @@ If beads commands fail:
 2. **No ready tasks but open tasks exist**: Check dependencies with `bd dep tree`
 3. **Task update fails**: Log error, continue with next task, report at end
 4. **Epic not found**: Run `/sp:05-tasks` to create beads tasks
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.

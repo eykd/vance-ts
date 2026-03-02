@@ -136,3 +136,7 @@ If no relevant solutions are found, omit the `## Applied Learnings` section.
 
 - Use absolute paths
 - ERROR on gate failures or unresolved clarifications
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.

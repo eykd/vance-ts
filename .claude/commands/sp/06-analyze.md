@@ -410,3 +410,7 @@ At end of report, output a concise Next Actions block:
 ## Context
 
 $ARGUMENTS
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.

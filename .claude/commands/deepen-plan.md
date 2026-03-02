@@ -83,3 +83,7 @@ Output:
 
 Run `/sp:04-red-team` to adversarially review the strengthened plan.
 ```
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.

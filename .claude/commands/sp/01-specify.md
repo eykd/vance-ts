@@ -489,3 +489,7 @@ If beads commands fail during execution:
 
 The specification workflow should complete even if beads integration encounters errors. Beads is an enhancement for task tracking, not a blocker for spec creation.
 ````
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.

@@ -259,3 +259,7 @@ If beads commands fail during task creation:
 4. **bd command not found**: Suggest `npm install --save-dev @beads/bd`
 
 If beads commands fail completely, report failures and suggest troubleshooting steps.
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.

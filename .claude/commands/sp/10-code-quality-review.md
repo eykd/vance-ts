@@ -113,3 +113,7 @@ Severity → priority mapping:
 - Number of new tasks created
 - List created task IDs + titles
 - If remediation tasks were created, include: "Consider running `/compound` to document what you learned fixing these issues."
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.

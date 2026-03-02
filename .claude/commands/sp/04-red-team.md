@@ -438,3 +438,7 @@ npx bd close <red-team-task-id> --reason "Skipped: Red team review deferred"
 ```
 
 Note: Skipping red team means the plan will not be enhanced with adversarial considerations. Implementation tasks will be generated from the original plan, which may miss security, edge case, performance, or accessibility concerns.
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.
