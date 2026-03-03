@@ -1,1 +1,2 @@
 {"author":"eykd","created_at":"2026-03-03T19:06:03Z","id":1,"issue_id":"workspace-svs","text":"Starting TDD implementation: WorkspaceProvisioningService not yet created. Writing spec first to enforce FK ordering: workspace(1) → actor(1) → areas(3) → contexts(5) → audit_events(10) last."}
+{"author":"eykd","created_at":"2026-03-03T19:57:24Z","id":2,"issue_id":"workspace-30q","text":"Creating GWT spec files US07-US10 in specs/acceptance-specs/ (continuing from US06 to avoid conflicts). Fixing plan.md to reference correct file names with .txt extension."}
