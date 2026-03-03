@@ -33,8 +33,6 @@ export type ProvisionWorkspaceRequest = {
  *
  * Creates the full workspace skeleton (workspace, actor, seeded areas and
  * contexts) and records audit events for every created entity.
- *
- * Stub implementation — full logic is added in workspace-bms.1.3.8.
  */
 export class ProvisionWorkspaceUseCase {
   private readonly _workspaceRepo: WorkspaceRepository;
@@ -57,7 +55,7 @@ export class ProvisionWorkspaceUseCase {
     actorRepo: ActorRepository,
     areaRepo: AreaRepository,
     contextRepo: ContextRepository,
-    auditRepo: AuditEventRepository
+    auditRepo: AuditEventRepository,
   ) {
     this._workspaceRepo = workspaceRepo;
     this._actorRepo = actorRepo;
@@ -69,15 +67,99 @@ export class ProvisionWorkspaceUseCase {
   /**
    * Provisions a workspace for the given user.
    *
-   * @param _request - The provisioning request containing the user ID.
+   * Creates: 1 workspace, 1 human actor, 3 areas (Work, Personal, Admin),
+   * 5 contexts (computer, calls, home, errands, office), and audit events
+   * for every created entity.
+   *
+   * @param request - The provisioning request containing the user ID.
    * @returns Resolved promise on success.
    */
-  execute(_request: ProvisionWorkspaceRequest): Promise<void> {
-    void this._workspaceRepo;
-    void this._actorRepo;
-    void this._areaRepo;
-    void this._contextRepo;
-    void this._auditRepo;
-    return Promise.reject(new Error('ProvisionWorkspaceUseCase.execute: not yet implemented'));
+  async execute(request: ProvisionWorkspaceRequest): Promise<void> {
+    const now = new Date().toISOString();
+
+    const workspace = {
+      id: crypto.randomUUID(),
+      userId: request.userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this._workspaceRepo.save(workspace);
+
+    const actor = {
+      id: crypto.randomUUID(),
+      workspaceId: workspace.id,
+      userId: request.userId,
+      type: 'human' as const,
+      createdAt: now,
+    };
+    await this._actorRepo.save(actor);
+
+    const areaNames = ['Work', 'Personal', 'Admin'];
+    const areas = areaNames.map((name) => ({
+      id: crypto.randomUUID(),
+      workspaceId: workspace.id,
+      name,
+      status: 'active' as const,
+      createdAt: now,
+      updatedAt: now,
+    }));
+    for (const area of areas) {
+      await this._areaRepo.save(area);
+    }
+
+    const contextNames = ['computer', 'calls', 'home', 'errands', 'office'];
+    const contexts = contextNames.map((name) => ({
+      id: crypto.randomUUID(),
+      workspaceId: workspace.id,
+      name,
+      createdAt: now,
+    }));
+    for (const context of contexts) {
+      await this._contextRepo.save(context);
+    }
+
+    const auditEvents = [
+      {
+        id: crypto.randomUUID(),
+        workspaceId: workspace.id,
+        entityType: 'workspace',
+        entityId: workspace.id,
+        eventType: 'workspace.provisioned',
+        actorId: actor.id,
+        payload: JSON.stringify(workspace),
+        createdAt: now,
+      },
+      {
+        id: crypto.randomUUID(),
+        workspaceId: workspace.id,
+        entityType: 'actor',
+        entityId: actor.id,
+        eventType: 'actor.created',
+        actorId: actor.id,
+        payload: JSON.stringify(actor),
+        createdAt: now,
+      },
+      ...areas.map((area) => ({
+        id: crypto.randomUUID(),
+        workspaceId: workspace.id,
+        entityType: 'area',
+        entityId: area.id,
+        eventType: 'area.created',
+        actorId: actor.id,
+        payload: JSON.stringify(area),
+        createdAt: now,
+      })),
+      ...contexts.map((context) => ({
+        id: crypto.randomUUID(),
+        workspaceId: workspace.id,
+        entityType: 'context',
+        entityId: context.id,
+        eventType: 'context.created',
+        actorId: actor.id,
+        payload: JSON.stringify(context),
+        createdAt: now,
+      })),
+    ];
+    await this._auditRepo.saveBatch(auditEvents);
   }
 }
