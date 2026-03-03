@@ -147,7 +147,7 @@ Conventional commits enforced via commitlint:
 - **ALWAYS include `--description`** when creating beads tasks with `npx bd create`
 - Descriptions should explain the task's purpose, not just repeat the title
 - When creating beads tasks ad hoc (during planning, reviews, or mid-implementation discovery),
-  check `bd list --status=in_progress --type=epic` for the active epic. If one exists, always pass
+  check `npx bd list --status=in_progress --type=epic` for the active epic. If one exists, always pass
   `--parent <implement-task-id>` (the `[sp:07-implement]` child of the epic, not the epic root
   itself). Orphaned tasks are invisible to `ralph` automation.
 
