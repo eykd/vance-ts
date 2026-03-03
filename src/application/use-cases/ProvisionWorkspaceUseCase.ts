@@ -70,8 +70,14 @@ export class ProvisionWorkspaceUseCase {
    * Provisions a workspace for the given user.
    *
    * @param _request - The provisioning request containing the user ID.
+   * @returns Resolved promise on success.
    */
-  async execute(_request: ProvisionWorkspaceRequest): Promise<void> {
-    throw new Error('ProvisionWorkspaceUseCase.execute: not yet implemented');
+  execute(_request: ProvisionWorkspaceRequest): Promise<void> {
+    void this._workspaceRepo;
+    void this._actorRepo;
+    void this._areaRepo;
+    void this._contextRepo;
+    void this._auditRepo;
+    return Promise.reject(new Error('ProvisionWorkspaceUseCase.execute: not yet implemented'));
   }
 }

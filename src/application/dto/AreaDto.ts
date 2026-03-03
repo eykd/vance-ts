@@ -1,7 +1,7 @@
 /**
  * AreaDto — data transfer object for area responses.
  *
- * Used by {@link ListAreasUseCase} to return area data across the application
+ * Used by ListAreasUseCase to return area data across the application
  * boundary without exposing the domain entity directly.
  *
  * @module

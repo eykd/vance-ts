@@ -83,6 +83,25 @@ app.on(['GET', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
   return new Response(authResponse.body, authResponse);
 });
 
+/**
+ * Middleware: require session authentication and workspace resolution for all
+ * `/api/v1/*` routes. Returns JSON 401/503 on failure; populates
+ * `c.var.workspaceId` on success.
+ */
+app.use('/api/v1/*', async (c, next): Promise<Response | void> => {
+  return getServiceFactory(c.env).requireApiAuthMiddleware(c as Context<AppEnv>, next);
+});
+
+/** Lists all areas in the authenticated user's workspace. */
+app.get('/api/v1/areas', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).areaApiHandlers.handleListAreas(c as Context<AppEnv>);
+});
+
+/** Lists all contexts in the authenticated user's workspace. */
+app.get('/api/v1/contexts', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).contextApiHandlers.handleListContexts(c as Context<AppEnv>);
+});
+
 /** Catch-all for unimplemented API routes. */
 app.all('/api/*', apiNotFound);
 

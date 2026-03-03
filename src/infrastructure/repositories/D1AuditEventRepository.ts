@@ -25,23 +25,26 @@ export class D1AuditEventRepository implements AuditEventRepository {
    */
   constructor(db: D1Database) {
     this._db = db;
+    void this._db;
   }
 
   /**
    * Appends a single audit event to the log.
    *
    * @param _event - The audit event to persist.
+   * @returns Resolved promise on success.
    */
-  async save(_event: AuditEvent): Promise<void> {
-    throw new Error('D1AuditEventRepository.save: not yet implemented');
+  save(_event: AuditEvent): Promise<void> {
+    return Promise.reject(new Error('D1AuditEventRepository.save: not yet implemented'));
   }
 
   /**
    * Appends multiple audit events to the log in a single batch operation.
    *
    * @param _events - The audit events to persist.
+   * @returns Resolved promise on success.
    */
-  async saveBatch(_events: AuditEvent[]): Promise<void> {
-    throw new Error('D1AuditEventRepository.saveBatch: not yet implemented');
+  saveBatch(_events: AuditEvent[]): Promise<void> {
+    return Promise.reject(new Error('D1AuditEventRepository.saveBatch: not yet implemented'));
   }
 }

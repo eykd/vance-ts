@@ -8,8 +8,8 @@
  * @module
  */
 
-import type { ContextDto } from '../dto/ContextDto';
 import type { ContextRepository } from '../../domain/interfaces/ContextRepository';
+import type { ContextDto } from '../dto/ContextDto';
 
 /**
  * Request DTO for {@link ListContextsUseCase}.
@@ -39,10 +39,15 @@ export class ListContextsUseCase {
   /**
    * Returns all contexts for the given workspace.
    *
-   * @param _request - The request containing the workspace ID.
+   * @param request - The request containing the workspace ID.
    * @returns Array of context DTOs.
    */
-  async execute(_request: ListContextsRequest): Promise<ContextDto[]> {
-    throw new Error('ListContextsUseCase.execute: not yet implemented');
+  async execute(request: ListContextsRequest): Promise<ContextDto[]> {
+    const contexts = await this._contextRepo.listByWorkspaceId(request.workspaceId);
+    return contexts.map((context) => ({
+      id: context.id,
+      name: context.name,
+      createdAt: context.createdAt,
+    }));
   }
 }

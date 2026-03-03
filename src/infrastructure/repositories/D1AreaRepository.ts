@@ -25,15 +25,17 @@ export class D1AreaRepository implements AreaRepository {
    */
   constructor(db: D1Database) {
     this._db = db;
+    void this._db;
   }
 
   /**
    * Persists an area (insert or update).
    *
    * @param _area - The area entity to persist.
+   * @returns Resolved promise on success.
    */
-  async save(_area: Area): Promise<void> {
-    throw new Error('D1AreaRepository.save: not yet implemented');
+  save(_area: Area): Promise<void> {
+    return Promise.reject(new Error('D1AreaRepository.save: not yet implemented'));
   }
 
   /**
@@ -43,8 +45,8 @@ export class D1AreaRepository implements AreaRepository {
    * @param _workspaceId - The workspace UUID for tenant isolation.
    * @returns The matching area, or `null`.
    */
-  async getById(_id: string, _workspaceId: string): Promise<Area | null> {
-    throw new Error('D1AreaRepository.getById: not yet implemented');
+  getById(_id: string, _workspaceId: string): Promise<Area | null> {
+    return Promise.reject(new Error('D1AreaRepository.getById: not yet implemented'));
   }
 
   /**
@@ -54,8 +56,8 @@ export class D1AreaRepository implements AreaRepository {
    * @param _workspaceId - The workspace UUID for tenant isolation.
    * @returns The matching active area, or `null`.
    */
-  async getActiveById(_id: string, _workspaceId: string): Promise<Area | null> {
-    throw new Error('D1AreaRepository.getActiveById: not yet implemented');
+  getActiveById(_id: string, _workspaceId: string): Promise<Area | null> {
+    return Promise.reject(new Error('D1AreaRepository.getActiveById: not yet implemented'));
   }
 
   /**
@@ -64,7 +66,9 @@ export class D1AreaRepository implements AreaRepository {
    * @param _workspaceId - The workspace UUID to query.
    * @returns All areas in the workspace.
    */
-  async listByWorkspaceId(_workspaceId: string): Promise<Area[]> {
-    throw new Error('D1AreaRepository.listByWorkspaceId: not yet implemented');
+  listByWorkspaceId(_workspaceId: string): Promise<Area[]> {
+    return Promise.reject(
+      new Error('D1AreaRepository.listByWorkspaceId: not yet implemented')
+    );
   }
 }

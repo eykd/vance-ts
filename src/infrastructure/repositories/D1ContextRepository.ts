@@ -25,15 +25,17 @@ export class D1ContextRepository implements ContextRepository {
    */
   constructor(db: D1Database) {
     this._db = db;
+    void this._db;
   }
 
   /**
    * Persists a context (insert or update).
    *
    * @param _context - The context entity to persist.
+   * @returns Resolved promise on success.
    */
-  async save(_context: Context): Promise<void> {
-    throw new Error('D1ContextRepository.save: not yet implemented');
+  save(_context: Context): Promise<void> {
+    return Promise.reject(new Error('D1ContextRepository.save: not yet implemented'));
   }
 
   /**
@@ -43,8 +45,8 @@ export class D1ContextRepository implements ContextRepository {
    * @param _workspaceId - The workspace UUID for tenant isolation.
    * @returns The matching context, or `null`.
    */
-  async getById(_id: string, _workspaceId: string): Promise<Context | null> {
-    throw new Error('D1ContextRepository.getById: not yet implemented');
+  getById(_id: string, _workspaceId: string): Promise<Context | null> {
+    return Promise.reject(new Error('D1ContextRepository.getById: not yet implemented'));
   }
 
   /**
@@ -53,7 +55,9 @@ export class D1ContextRepository implements ContextRepository {
    * @param _workspaceId - The workspace UUID to query.
    * @returns All contexts in the workspace.
    */
-  async listByWorkspaceId(_workspaceId: string): Promise<Context[]> {
-    throw new Error('D1ContextRepository.listByWorkspaceId: not yet implemented');
+  listByWorkspaceId(_workspaceId: string): Promise<Context[]> {
+    return Promise.reject(
+      new Error('D1ContextRepository.listByWorkspaceId: not yet implemented')
+    );
   }
 }

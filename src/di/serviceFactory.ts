@@ -34,8 +34,11 @@ import { D1AreaRepository } from '../infrastructure/repositories/D1AreaRepositor
 import { D1AuditEventRepository } from '../infrastructure/repositories/D1AuditEventRepository';
 import { D1ContextRepository } from '../infrastructure/repositories/D1ContextRepository';
 import { D1WorkspaceRepository } from '../infrastructure/repositories/D1WorkspaceRepository';
+import { createAreaApiHandlers } from '../presentation/handlers/AreaApiHandlers';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
+import { createContextApiHandlers } from '../presentation/handlers/ContextApiHandlers';
 import { createApiAuthRateLimit } from '../presentation/middleware/apiAuthRateLimit';
+import { createRequireApiAuth } from '../presentation/middleware/requireApiAuth';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
 import type { Env } from '../shared/env';
 
@@ -106,6 +109,15 @@ export class ServiceFactory {
 
   /** Cached ListContextsUseCase. */
   private _listContextsUseCase: ListContextsUseCase | null = null;
+
+  /** Cached requireApiAuth middleware. */
+  private _requireApiAuthMiddleware: ReturnType<typeof createRequireApiAuth> | null = null;
+
+  /** Cached area API handlers. */
+  private _areaApiHandlers: ReturnType<typeof createAreaApiHandlers> | null = null;
+
+  /** Cached context API handlers. */
+  private _contextApiHandlers: ReturnType<typeof createContextApiHandlers> | null = null;
 
   /**
    * Creates a new ServiceFactory and initialises the better-auth instance.
@@ -335,6 +347,44 @@ export class ServiceFactory {
   get listContextsUseCase(): ListContextsUseCase {
     this._listContextsUseCase ??= new ListContextsUseCase(this.contextRepository);
     return this._listContextsUseCase;
+  }
+
+  /**
+   * Hono middleware that guards `/api/v1/*` routes behind session authentication
+   * and workspace resolution.
+   *
+   * Returns JSON 401 for unauthenticated requests, JSON 503 on infrastructure
+   * errors, and populates `c.var.user`, `c.var.session`, and `c.var.workspaceId`
+   * on success.
+   *
+   * @returns A Hono middleware function created by {@link createRequireApiAuth}.
+   */
+  get requireApiAuthMiddleware(): ReturnType<typeof createRequireApiAuth> {
+    this._requireApiAuthMiddleware ??= createRequireApiAuth(
+      this._authServiceInstance,
+      this.workspaceRepository
+    );
+    return this._requireApiAuthMiddleware;
+  }
+
+  /**
+   * JSON API handlers for the Areas resource.
+   *
+   * @returns The lazily-initialised area API handlers object.
+   */
+  get areaApiHandlers(): ReturnType<typeof createAreaApiHandlers> {
+    this._areaApiHandlers ??= createAreaApiHandlers(this.listAreasUseCase);
+    return this._areaApiHandlers;
+  }
+
+  /**
+   * JSON API handlers for the Contexts resource.
+   *
+   * @returns The lazily-initialised context API handlers object.
+   */
+  get contextApiHandlers(): ReturnType<typeof createContextApiHandlers> {
+    this._contextApiHandlers ??= createContextApiHandlers(this.listContextsUseCase);
+    return this._contextApiHandlers;
   }
 
   /**

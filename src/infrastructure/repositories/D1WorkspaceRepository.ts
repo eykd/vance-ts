@@ -25,15 +25,17 @@ export class D1WorkspaceRepository implements WorkspaceRepository {
    */
   constructor(db: D1Database) {
     this._db = db;
+    void this._db;
   }
 
   /**
    * Persists a workspace (insert or update).
    *
    * @param _workspace - The workspace entity to persist.
+   * @returns Resolved promise on success.
    */
-  async save(_workspace: Workspace): Promise<void> {
-    throw new Error('D1WorkspaceRepository.save: not yet implemented');
+  save(_workspace: Workspace): Promise<void> {
+    return Promise.reject(new Error('D1WorkspaceRepository.save: not yet implemented'));
   }
 
   /**
@@ -42,8 +44,8 @@ export class D1WorkspaceRepository implements WorkspaceRepository {
    * @param _userId - The user ID to look up.
    * @returns The matching workspace, or `null`.
    */
-  async getByUserId(_userId: string): Promise<Workspace | null> {
-    throw new Error('D1WorkspaceRepository.getByUserId: not yet implemented');
+  getByUserId(_userId: string): Promise<Workspace | null> {
+    return Promise.reject(new Error('D1WorkspaceRepository.getByUserId: not yet implemented'));
   }
 
   /**
@@ -52,7 +54,7 @@ export class D1WorkspaceRepository implements WorkspaceRepository {
    * @param _id - The workspace UUID to look up.
    * @returns The matching workspace, or `null`.
    */
-  async getById(_id: string): Promise<Workspace | null> {
-    throw new Error('D1WorkspaceRepository.getById: not yet implemented');
+  getById(_id: string): Promise<Workspace | null> {
+    return Promise.reject(new Error('D1WorkspaceRepository.getById: not yet implemented'));
   }
 }

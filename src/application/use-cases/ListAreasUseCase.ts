@@ -8,8 +8,8 @@
  * @module
  */
 
-import type { AreaDto } from '../dto/AreaDto';
 import type { AreaRepository } from '../../domain/interfaces/AreaRepository';
+import type { AreaDto } from '../dto/AreaDto';
 
 /**
  * Request DTO for {@link ListAreasUseCase}.
@@ -39,10 +39,17 @@ export class ListAreasUseCase {
   /**
    * Returns all areas for the given workspace.
    *
-   * @param _request - The request containing the workspace ID.
+   * @param request - The request containing the workspace ID.
    * @returns Array of area DTOs.
    */
-  async execute(_request: ListAreasRequest): Promise<AreaDto[]> {
-    throw new Error('ListAreasUseCase.execute: not yet implemented');
+  async execute(request: ListAreasRequest): Promise<AreaDto[]> {
+    const areas = await this._areaRepo.listByWorkspaceId(request.workspaceId);
+    return areas.map((area) => ({
+      id: area.id,
+      name: area.name,
+      status: area.status,
+      createdAt: area.createdAt,
+      updatedAt: area.updatedAt,
+    }));
   }
 }

@@ -25,15 +25,17 @@ export class D1ActorRepository implements ActorRepository {
    */
   constructor(db: D1Database) {
     this._db = db;
+    void this._db;
   }
 
   /**
    * Persists an actor (insert or update).
    *
    * @param _actor - The actor entity to persist.
+   * @returns Resolved promise on success.
    */
-  async save(_actor: Actor): Promise<void> {
-    throw new Error('D1ActorRepository.save: not yet implemented');
+  save(_actor: Actor): Promise<void> {
+    return Promise.reject(new Error('D1ActorRepository.save: not yet implemented'));
   }
 
   /**
@@ -43,8 +45,8 @@ export class D1ActorRepository implements ActorRepository {
    * @param _workspaceId - The workspace UUID for tenant isolation.
    * @returns The matching actor, or `null`.
    */
-  async getById(_id: string, _workspaceId: string): Promise<Actor | null> {
-    throw new Error('D1ActorRepository.getById: not yet implemented');
+  getById(_id: string, _workspaceId: string): Promise<Actor | null> {
+    return Promise.reject(new Error('D1ActorRepository.getById: not yet implemented'));
   }
 
   /**
@@ -53,7 +55,9 @@ export class D1ActorRepository implements ActorRepository {
    * @param _workspaceId - The workspace UUID to query.
    * @returns The human actor, or `null`.
    */
-  async getHumanActorByWorkspaceId(_workspaceId: string): Promise<Actor | null> {
-    throw new Error('D1ActorRepository.getHumanActorByWorkspaceId: not yet implemented');
+  getHumanActorByWorkspaceId(_workspaceId: string): Promise<Actor | null> {
+    return Promise.reject(
+      new Error('D1ActorRepository.getHumanActorByWorkspaceId: not yet implemented')
+    );
   }
 }

@@ -1,7 +1,7 @@
 /**
  * ContextDto — data transfer object for context responses.
  *
- * Used by {@link ListContextsUseCase} to return context data across the
+ * Used by ListContextsUseCase to return context data across the
  * application boundary without exposing the domain entity directly.
  *
  * @module
