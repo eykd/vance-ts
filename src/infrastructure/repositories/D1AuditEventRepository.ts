@@ -10,24 +10,11 @@
 import type { AuditEvent } from '../../domain/entities/AuditEvent';
 import type { AuditEventRepository } from '../../domain/interfaces/AuditEventRepository';
 
-/** Raw D1 row shape for the `audit_event` table. */
-interface AuditEventRow {
-  id: string;
-  workspace_id: string;
-  entity_type: string;
-  entity_id: string;
-  event_type: string;
-  actor_id: string;
-  payload: string;
-  created_at: string;
-}
-
 /**
  * D1-backed implementation of the {@link AuditEventRepository} port.
  *
  * Append-only: `save` and `saveBatch` only insert rows. Duplicate IDs will
- * throw a UNIQUE constraint error. snake_case D1 columns are mapped to
- * camelCase domain fields in `_reconstitute`.
+ * throw a UNIQUE constraint error.
  */
 export class D1AuditEventRepository implements AuditEventRepository {
   private readonly _db: D1Database;
@@ -92,19 +79,5 @@ export class D1AuditEventRepository implements AuditEventRepository {
         ),
     );
     await this._db.batch(statements);
-  }
-
-  /** Maps a D1 row to an {@link AuditEvent} domain entity. */
-  private _reconstitute(row: AuditEventRow): AuditEvent {
-    return {
-      id: row.id,
-      workspaceId: row.workspace_id,
-      entityType: row.entity_type,
-      entityId: row.entity_id,
-      eventType: row.event_type,
-      actorId: row.actor_id,
-      payload: row.payload,
-      createdAt: row.created_at,
-    };
   }
 }
