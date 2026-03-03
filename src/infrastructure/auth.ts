@@ -229,7 +229,7 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
       //
       // better-auth v1.4.x automatically mounts GET /api/auth/callback/google
       // (and the corresponding redirect endpoint) once a provider is configured here.
-    }) as Auth<BetterAuthOptions>;
+    }) as unknown as Auth<BetterAuthOptions>;
     _authEnvIdentity = { secret, db: env.DB };
   }
 
