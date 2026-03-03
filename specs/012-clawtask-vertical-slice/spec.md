@@ -3,19 +3,13 @@
 **Feature Branch**: `012-clawtask-vertical-slice`
 **Created**: 2026-03-02
 **Status**: Draft
-**Beads Epic**: `tb-0mt`
+**Beads Epic**: `workspace-bms`
 
 **Beads Phase Tasks**:
 
-- clarify: `tb-0mt.1`
-- plan: `tb-0mt.2`
-- red-team: `tb-0mt.3`
-- tasks: `tb-0mt.4`
-- analyze: `tb-0mt.5`
-- implement: `tb-0mt.6`
-- security-review: `tb-0mt.7`
-- architecture-review: `tb-0mt.8`
-- code-quality-review: `tb-0mt.9`
+- tasks: `workspace-bms.2`
+- analyze: `workspace-bms.3`
+- implement: `workspace-bms.1`
 
 ---
 
