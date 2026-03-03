@@ -228,11 +228,13 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
       //
       // better-auth v1.4.x automatically mounts GET /api/auth/callback/google
       // (and the corresponding redirect endpoint) once a provider is configured here.
-    });
+    }) as unknown as ReturnType<typeof betterAuth>;
     _authEnvIdentity = { secret, db: env.DB };
   }
 
-  return _auth;
+  // _auth is guaranteed non-null here: the block above always assigns it when _auth === null.
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  return _auth!;
 }
 
 /**
