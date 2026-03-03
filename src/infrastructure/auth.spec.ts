@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   betterAuth: vi.fn(),
   drizzleAdapter: vi.fn(() => ({ _type: 'drizzle-adapter' })),
   drizzle: vi.fn(() => ({ _type: 'drizzle-db' })),
+  mockOnUserCreated: vi.fn(),
 }));
 
 /**
@@ -34,6 +35,12 @@ vi.mock('better-auth/adapters/drizzle', () => ({
 
 vi.mock('drizzle-orm/d1', () => ({
   drizzle: mocks.drizzle,
+}));
+
+vi.mock('./WorkspaceProvisioningService.js', () => ({
+  WorkspaceProvisioningService: vi.fn().mockImplementation(() => ({
+    onUserCreated: mocks.mockOnUserCreated,
+  })),
 }));
 
 /**
@@ -446,6 +453,91 @@ describe('getAuth', () => {
       const firstCallArg = mocks.drizzle.mock.calls[0]?.[0] as D1Database;
       const secondCallArg = mocks.drizzle.mock.calls[1]?.[0] as D1Database;
       expect(secondCallArg).not.toBe(firstCallArg);
+    });
+  });
+
+  describe('workspace provisioning (databaseHooks.user.create.after)', () => {
+    it('configures databaseHooks with a user.create.after hook', () => {
+      const env = makeEnv();
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const hooks = config['databaseHooks'] as Record<string, unknown>;
+      const user = hooks['user'] as Record<string, unknown>;
+      const userCreate = user['create'] as Record<string, unknown>;
+      expect(typeof userCreate['after']).toBe('function');
+    });
+
+    it('user.create.after hook calls provisioner.onUserCreated with the user id', async () => {
+      mocks.mockOnUserCreated.mockResolvedValue(undefined);
+      const env = makeEnv();
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const hooks = config['databaseHooks'] as Record<string, unknown>;
+      const user = hooks['user'] as Record<string, unknown>;
+      const userCreate = user['create'] as Record<string, unknown>;
+      const afterHook = userCreate['after'] as (
+        user: Record<string, unknown>
+      ) => Promise<void>;
+
+      await afterHook({ id: 'user-xyz-789', email: 'test@example.com' });
+
+      expect(mocks.mockOnUserCreated).toHaveBeenCalledOnce();
+      expect(mocks.mockOnUserCreated).toHaveBeenCalledWith('user-xyz-789');
+    });
+
+    it('user.create.after hook catches provisioning errors without rethrowing', async () => {
+      mocks.mockOnUserCreated.mockRejectedValue(new Error('Provisioning failed'));
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation((): void => undefined);
+      const env = makeEnv();
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const hooks = config['databaseHooks'] as Record<string, unknown>;
+      const user = hooks['user'] as Record<string, unknown>;
+      const userCreate = user['create'] as Record<string, unknown>;
+      const afterHook = userCreate['after'] as (
+        user: Record<string, unknown>
+      ) => Promise<void>;
+
+      await expect(
+        afterHook({ id: 'user-xyz-789', email: 'test@example.com' })
+      ).resolves.toBeUndefined();
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('user.create.after hook logs an error with userId and message when provisioning fails', async () => {
+      mocks.mockOnUserCreated.mockRejectedValue(new Error('D1 batch failed'));
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation((): void => undefined);
+      const env = makeEnv();
+
+      getAuth(env);
+
+      const config = capturedBetterAuthConfig();
+      const hooks = config['databaseHooks'] as Record<string, unknown>;
+      const user = hooks['user'] as Record<string, unknown>;
+      const userCreate = user['create'] as Record<string, unknown>;
+      const afterHook = userCreate['after'] as (
+        user: Record<string, unknown>
+      ) => Promise<void>;
+
+      await afterHook({ id: 'user-xyz-789', email: 'test@example.com' });
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[WorkspaceProvisioner] Failed to provision workspace',
+        expect.objectContaining({ userId: 'user-xyz-789', error: 'D1 batch failed' })
+      );
+
+      consoleErrorSpy.mockRestore();
     });
   });
 });
