@@ -97,7 +97,10 @@ You **MUST** consider the user input before proceeding (if not empty).
    npx bd create "US<N>: <user-story-title>" -p <priority> --parent $IMPLEMENT_TASK_ID \
      --description "**Spec**: specs/$BRANCH/spec.md §US-<N>
    **Goal**: <user-story-goal-from-spec>
-   **Acceptance**: <acceptance-criteria-summary>" --json
+   **Acceptance**: <acceptance-criteria-summary>
+
+   ## Implementation Constraints
+   _(Review findings for unwritten code in this story are merged here by sp:06/08/09/10. Read this section before writing any code.)_" --json
    ```
 
    - `<N>`: User story number (1, 2, 3...)
