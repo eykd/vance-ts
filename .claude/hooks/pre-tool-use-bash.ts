@@ -71,6 +71,24 @@ Only use these flags when explicitly requested by the user.
       .replace(/"(?:[^"\\]|\\.)*"/gu, '""') // double-quoted strings
       .replace(/'[^']*'/gu, "''"); // single-quoted strings
 
+    // Check for bare bd (must use npx bd instead)
+    const bareBdPattern = /(?:^|&&|\|\||[;(|])\s*bd(?:\s|$)/mu;
+
+    if (bareBdPattern.test(commandUnquoted)) {
+      const errorMsg = `BLOCKED: bare \`bd\` is not permitted. Use \`npx bd\` instead.
+
+Running a globally installed bd may use a different version than the project specifies.
+
+Replace:
+  bd <subcommand>
+
+With:
+  npx bd <subcommand>
+`;
+      process.stderr.write(errorMsg);
+      process.exit(2);
+    }
+
     // Check for bd init --force (or -f)
     const bdInitPattern = /\bbd\s+init\b.*(-f\b|--force\b)/u;
 
