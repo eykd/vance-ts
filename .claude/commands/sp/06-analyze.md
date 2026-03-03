@@ -411,6 +411,10 @@ At end of report, output a concise Next Actions block:
 
 $ARGUMENTS
 
+## Commit Changes
+
+Run the `/commit` skill to stage and commit all changes made during this phase. Do not push.
+
 ---
 
 Use subagents liberally and aggressively to conserve the main context window.

@@ -219,6 +219,10 @@ If beads commands fail:
 3. **Task update fails**: Log error, continue with next task, report at end
 4. **Epic not found**: Run `/sp:05-tasks` to create beads tasks
 
+## Commit Changes
+
+Run the `/commit` skill to stage and commit all changes made during this phase. Do not push.
+
 ---
 
 Use subagents liberally and aggressively to conserve the main context window.
