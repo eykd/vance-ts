@@ -1,7 +1,7 @@
 # Hugo core configuration - build settings, modules, taxonomies, and outputs.
 # Site-specific settings are in config/_default/params.yaml.
 
-baseURL: "https://clawtask.com/"
+baseURL: "https://meetclawtask.com/"
 
 languageCode: "en-us"
 
