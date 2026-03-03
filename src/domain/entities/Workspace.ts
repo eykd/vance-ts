@@ -24,3 +24,48 @@ export interface Workspace {
   /** ISO-8601 UTC timestamp of last workspace update. */
   readonly updatedAt: string;
 }
+
+/** Raw D1 row shape for the `workspace` table. */
+export interface WorkspaceRow {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
+export namespace Workspace {
+  /**
+   * Creates a new Workspace for the given user, generating a unique ID and current timestamps.
+   *
+   * @param userId - FK → `user.id`. The owning user account.
+   * @returns A new immutable Workspace with `createdAt` and `updatedAt` set to now.
+   */
+  export function create(userId: string): Workspace {
+    const now = new Date().toISOString();
+    return {
+      id: crypto.randomUUID(),
+      userId,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  /**
+   * Hydrates a Workspace from a raw D1 database row.
+   *
+   * Bypasses validation — the data is assumed valid as it was written by this
+   * application.
+   *
+   * @param row - Raw D1 row from the `workspace` table.
+   * @returns The hydrated Workspace domain entity.
+   */
+  export function reconstitute(row: WorkspaceRow): Workspace {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+}
