@@ -10,10 +10,20 @@
 import type { Actor } from '../../domain/entities/Actor';
 import type { ActorRepository } from '../../domain/interfaces/ActorRepository';
 
+/** Raw D1 row shape for the `actor` table. */
+interface ActorRow {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  type: 'human' | 'agent';
+  created_at: string;
+}
+
 /**
  * D1-backed implementation of the {@link ActorRepository} port.
  *
- * Stub implementation — full D1 query logic is added in workspace-bms.1.3.7.
+ * Uses prepared statements and upsert semantics. snake_case D1 columns are
+ * mapped to camelCase domain fields in `_reconstitute`.
  */
 export class D1ActorRepository implements ActorRepository {
   private readonly _db: D1Database;
@@ -25,39 +35,67 @@ export class D1ActorRepository implements ActorRepository {
    */
   constructor(db: D1Database) {
     this._db = db;
-    void this._db;
   }
 
   /**
    * Persists an actor (insert or update).
    *
-   * @param _actor - The actor entity to persist.
+   * @param actor - The actor entity to persist.
    * @returns Resolved promise on success.
    */
-  save(_actor: Actor): Promise<void> {
-    return Promise.reject(new Error('D1ActorRepository.save: not yet implemented'));
+  async save(actor: Actor): Promise<void> {
+    await this._db
+      .prepare(
+        `INSERT INTO actor (id, workspace_id, user_id, type, created_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           type = excluded.type`,
+      )
+      .bind(actor.id, actor.workspaceId, actor.userId, actor.type, actor.createdAt)
+      .run();
   }
 
   /**
    * Returns the actor with the given ID within a workspace, or `null` if not found.
    *
-   * @param _id - The actor UUID to look up.
-   * @param _workspaceId - The workspace UUID for tenant isolation.
+   * @param id - The actor UUID to look up.
+   * @param workspaceId - The workspace UUID for tenant isolation.
    * @returns The matching actor, or `null`.
    */
-  getById(_id: string, _workspaceId: string): Promise<Actor | null> {
-    return Promise.reject(new Error('D1ActorRepository.getById: not yet implemented'));
+  async getById(id: string, workspaceId: string): Promise<Actor | null> {
+    const row = await this._db
+      .prepare(
+        'SELECT id, workspace_id, user_id, type, created_at FROM actor WHERE id = ? AND workspace_id = ?',
+      )
+      .bind(id, workspaceId)
+      .first<ActorRow>();
+    return row !== null ? this._reconstitute(row) : null;
   }
 
   /**
    * Returns the human actor for a workspace, or `null` if not found.
    *
-   * @param _workspaceId - The workspace UUID to query.
-   * @returns The human actor, or `null`.
+   * @param workspaceId - The workspace UUID to query.
+   * @returns The human actor, or `null` if provisioning has not completed.
    */
-  getHumanActorByWorkspaceId(_workspaceId: string): Promise<Actor | null> {
-    return Promise.reject(
-      new Error('D1ActorRepository.getHumanActorByWorkspaceId: not yet implemented')
-    );
+  async getHumanActorByWorkspaceId(workspaceId: string): Promise<Actor | null> {
+    const row = await this._db
+      .prepare(
+        "SELECT id, workspace_id, user_id, type, created_at FROM actor WHERE workspace_id = ? AND type = 'human' LIMIT 1",
+      )
+      .bind(workspaceId)
+      .first<ActorRow>();
+    return row !== null ? this._reconstitute(row) : null;
+  }
+
+  /** Maps a D1 row to an {@link Actor} domain entity. */
+  private _reconstitute(row: ActorRow): Actor {
+    return {
+      id: row.id,
+      workspaceId: row.workspace_id,
+      userId: row.user_id,
+      type: row.type,
+      createdAt: row.created_at,
+    };
   }
 }

@@ -2,7 +2,7 @@
  * D1WorkspaceRepository — Cloudflare D1 implementation of WorkspaceRepository.
  *
  * Persists and retrieves {@link Workspace} entities from the `workspace` D1 table.
- * All queries include `workspace_id` or `user_id` filters for tenant isolation.
+ * All queries include `user_id` or `id` filters for tenant isolation.
  *
  * @module
  */
@@ -10,10 +10,19 @@
 import type { Workspace } from '../../domain/entities/Workspace';
 import type { WorkspaceRepository } from '../../domain/interfaces/WorkspaceRepository';
 
+/** Raw D1 row shape for the `workspace` table. */
+interface WorkspaceRow {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 /**
  * D1-backed implementation of the {@link WorkspaceRepository} port.
  *
- * Stub implementation — full D1 query logic is added in workspace-bms.1.3.7.
+ * Uses prepared statements and upsert semantics. snake_case D1 columns are
+ * mapped to camelCase domain fields in `_reconstitute`.
  */
 export class D1WorkspaceRepository implements WorkspaceRepository {
   private readonly _db: D1Database;
@@ -25,36 +34,65 @@ export class D1WorkspaceRepository implements WorkspaceRepository {
    */
   constructor(db: D1Database) {
     this._db = db;
-    void this._db;
   }
 
   /**
    * Persists a workspace (insert or update).
    *
-   * @param _workspace - The workspace entity to persist.
+   * @param workspace - The workspace entity to persist.
    * @returns Resolved promise on success.
    */
-  save(_workspace: Workspace): Promise<void> {
-    return Promise.reject(new Error('D1WorkspaceRepository.save: not yet implemented'));
+  async save(workspace: Workspace): Promise<void> {
+    await this._db
+      .prepare(
+        `INSERT INTO workspace (id, user_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           updated_at = excluded.updated_at`,
+      )
+      .bind(workspace.id, workspace.userId, workspace.createdAt, workspace.updatedAt)
+      .run();
   }
 
   /**
    * Returns the workspace owned by the given user, or `null` if none exists.
    *
-   * @param _userId - The user ID to look up.
+   * @param userId - The user ID to look up.
    * @returns The matching workspace, or `null`.
    */
-  getByUserId(_userId: string): Promise<Workspace | null> {
-    return Promise.reject(new Error('D1WorkspaceRepository.getByUserId: not yet implemented'));
+  async getByUserId(userId: string): Promise<Workspace | null> {
+    const row = await this._db
+      .prepare(
+        'SELECT id, user_id, created_at, updated_at FROM workspace WHERE user_id = ?',
+      )
+      .bind(userId)
+      .first<WorkspaceRow>();
+    return row !== null ? this._reconstitute(row) : null;
   }
 
   /**
    * Returns the workspace with the given ID, or `null` if not found.
    *
-   * @param _id - The workspace UUID to look up.
+   * @param id - The workspace UUID to look up.
    * @returns The matching workspace, or `null`.
    */
-  getById(_id: string): Promise<Workspace | null> {
-    return Promise.reject(new Error('D1WorkspaceRepository.getById: not yet implemented'));
+  async getById(id: string): Promise<Workspace | null> {
+    const row = await this._db
+      .prepare(
+        'SELECT id, user_id, created_at, updated_at FROM workspace WHERE id = ?',
+      )
+      .bind(id)
+      .first<WorkspaceRow>();
+    return row !== null ? this._reconstitute(row) : null;
+  }
+
+  /** Maps a D1 row to a {@link Workspace} domain entity. */
+  private _reconstitute(row: WorkspaceRow): Workspace {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }
 }
