@@ -68,9 +68,12 @@ components:
 
     Action:
       type: object
-      required: [id, title, description, status, areaId, contextId, createdAt, updatedAt]
+      required: [id, createdByActorId, title, description, status, areaId, contextId, createdAt, updatedAt]
       properties:
         id:
+          type: string
+          format: uuid
+        createdByActorId:
           type: string
           format: uuid
         title:

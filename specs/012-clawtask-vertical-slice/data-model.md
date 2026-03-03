@@ -408,6 +408,7 @@ export type InboxItemDto = {
 // ActionDto.ts
 export type ActionDto = {
   id: string;
+  createdByActorId: string;
   title: string;
   description: string | null;
   status: 'ready' | 'active' | 'done' | 'waiting' | 'scheduled' | 'archived';
