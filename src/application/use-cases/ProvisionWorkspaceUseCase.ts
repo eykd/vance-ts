@@ -1,0 +1,77 @@
+/**
+ * ProvisionWorkspaceUseCase — creates a workspace with seeded areas, contexts, and an actor.
+ *
+ * Triggered by better-auth's `databaseHooks.user.create.after` hook on signup.
+ * Atomically creates:
+ * - 1 Workspace (tenant boundary)
+ * - 1 Actor (human, linked to the user)
+ * - 3 Areas (Work, Personal, Admin)
+ * - 5 Contexts (computer, calls, home, errands, office)
+ * - Audit events for each created entity
+ *
+ * Uses D1 batch API for atomic multi-entity inserts.
+ *
+ * @module
+ */
+
+import type { ActorRepository } from '../../domain/interfaces/ActorRepository';
+import type { AreaRepository } from '../../domain/interfaces/AreaRepository';
+import type { AuditEventRepository } from '../../domain/interfaces/AuditEventRepository';
+import type { ContextRepository } from '../../domain/interfaces/ContextRepository';
+import type { WorkspaceRepository } from '../../domain/interfaces/WorkspaceRepository';
+
+/**
+ * Request DTO for {@link ProvisionWorkspaceUseCase}.
+ */
+export type ProvisionWorkspaceRequest = {
+  /** The user ID (from better-auth) to provision a workspace for. */
+  userId: string;
+};
+
+/**
+ * Orchestrates workspace provisioning for a newly registered user.
+ *
+ * Creates the full workspace skeleton (workspace, actor, seeded areas and
+ * contexts) and records audit events for every created entity.
+ *
+ * Stub implementation — full logic is added in workspace-bms.1.3.8.
+ */
+export class ProvisionWorkspaceUseCase {
+  private readonly _workspaceRepo: WorkspaceRepository;
+  private readonly _actorRepo: ActorRepository;
+  private readonly _areaRepo: AreaRepository;
+  private readonly _contextRepo: ContextRepository;
+  private readonly _auditRepo: AuditEventRepository;
+
+  /**
+   * Creates a new ProvisionWorkspaceUseCase.
+   *
+   * @param workspaceRepo - Repository for persisting workspace entities.
+   * @param actorRepo - Repository for persisting actor entities.
+   * @param areaRepo - Repository for persisting area entities.
+   * @param contextRepo - Repository for persisting context entities.
+   * @param auditRepo - Repository for appending audit events.
+   */
+  constructor(
+    workspaceRepo: WorkspaceRepository,
+    actorRepo: ActorRepository,
+    areaRepo: AreaRepository,
+    contextRepo: ContextRepository,
+    auditRepo: AuditEventRepository
+  ) {
+    this._workspaceRepo = workspaceRepo;
+    this._actorRepo = actorRepo;
+    this._areaRepo = areaRepo;
+    this._contextRepo = contextRepo;
+    this._auditRepo = auditRepo;
+  }
+
+  /**
+   * Provisions a workspace for the given user.
+   *
+   * @param _request - The provisioning request containing the user ID.
+   */
+  async execute(_request: ProvisionWorkspaceRequest): Promise<void> {
+    throw new Error('ProvisionWorkspaceUseCase.execute: not yet implemented');
+  }
+}

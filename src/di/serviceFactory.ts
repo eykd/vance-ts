@@ -15,12 +15,25 @@
 import type { AuthService } from '../application/ports/AuthService';
 import type { RateLimiter } from '../application/ports/RateLimiter';
 import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../application/ports/RateLimiter';
+import { ListAreasUseCase } from '../application/use-cases/ListAreasUseCase';
+import { ListContextsUseCase } from '../application/use-cases/ListContextsUseCase';
+import { ProvisionWorkspaceUseCase } from '../application/use-cases/ProvisionWorkspaceUseCase';
 import { SignInUseCase } from '../application/use-cases/SignInUseCase';
 import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
+import type { ActorRepository } from '../domain/interfaces/ActorRepository';
+import type { AreaRepository } from '../domain/interfaces/AreaRepository';
+import type { AuditEventRepository } from '../domain/interfaces/AuditEventRepository';
+import type { ContextRepository } from '../domain/interfaces/ContextRepository';
+import type { WorkspaceRepository } from '../domain/interfaces/WorkspaceRepository';
 import { getAuth, resetAuth } from '../infrastructure/auth';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
 import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
+import { D1ActorRepository } from '../infrastructure/repositories/D1ActorRepository';
+import { D1AreaRepository } from '../infrastructure/repositories/D1AreaRepository';
+import { D1AuditEventRepository } from '../infrastructure/repositories/D1AuditEventRepository';
+import { D1ContextRepository } from '../infrastructure/repositories/D1ContextRepository';
+import { D1WorkspaceRepository } from '../infrastructure/repositories/D1WorkspaceRepository';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createApiAuthRateLimit } from '../presentation/middleware/apiAuthRateLimit';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
@@ -69,6 +82,30 @@ export class ServiceFactory {
 
   /** Cached API rate limit middleware for POST /api/auth/sign-up/*. */
   private _signUpApiRateLimitMiddleware: ReturnType<typeof createApiAuthRateLimit> | null = null;
+
+  /** Cached WorkspaceRepository adapter. */
+  private _workspaceRepository: WorkspaceRepository | null = null;
+
+  /** Cached ActorRepository adapter. */
+  private _actorRepository: ActorRepository | null = null;
+
+  /** Cached AreaRepository adapter. */
+  private _areaRepository: AreaRepository | null = null;
+
+  /** Cached ContextRepository adapter. */
+  private _contextRepository: ContextRepository | null = null;
+
+  /** Cached AuditEventRepository adapter. */
+  private _auditEventRepository: AuditEventRepository | null = null;
+
+  /** Cached ProvisionWorkspaceUseCase. */
+  private _provisionWorkspaceUseCase: ProvisionWorkspaceUseCase | null = null;
+
+  /** Cached ListAreasUseCase. */
+  private _listAreasUseCase: ListAreasUseCase | null = null;
+
+  /** Cached ListContextsUseCase. */
+  private _listContextsUseCase: ListContextsUseCase | null = null;
 
   /**
    * Creates a new ServiceFactory and initialises the better-auth instance.
@@ -209,6 +246,95 @@ export class ServiceFactory {
       REGISTER_WINDOW_SECONDS
     );
     return this._signUpApiRateLimitMiddleware;
+  }
+
+  /**
+   * The D1-backed WorkspaceRepository implementation.
+   *
+   * @returns The lazily-initialised WorkspaceRepository instance.
+   */
+  get workspaceRepository(): WorkspaceRepository {
+    this._workspaceRepository ??= new D1WorkspaceRepository(this.env.DB);
+    return this._workspaceRepository;
+  }
+
+  /**
+   * The D1-backed ActorRepository implementation.
+   *
+   * @returns The lazily-initialised ActorRepository instance.
+   */
+  get actorRepository(): ActorRepository {
+    this._actorRepository ??= new D1ActorRepository(this.env.DB);
+    return this._actorRepository;
+  }
+
+  /**
+   * The D1-backed AreaRepository implementation.
+   *
+   * @returns The lazily-initialised AreaRepository instance.
+   */
+  get areaRepository(): AreaRepository {
+    this._areaRepository ??= new D1AreaRepository(this.env.DB);
+    return this._areaRepository;
+  }
+
+  /**
+   * The D1-backed ContextRepository implementation.
+   *
+   * @returns The lazily-initialised ContextRepository instance.
+   */
+  get contextRepository(): ContextRepository {
+    this._contextRepository ??= new D1ContextRepository(this.env.DB);
+    return this._contextRepository;
+  }
+
+  /**
+   * The D1-backed AuditEventRepository implementation.
+   *
+   * @returns The lazily-initialised AuditEventRepository instance.
+   */
+  get auditEventRepository(): AuditEventRepository {
+    this._auditEventRepository ??= new D1AuditEventRepository(this.env.DB);
+    return this._auditEventRepository;
+  }
+
+  /**
+   * The workspace provisioning use case orchestrator.
+   *
+   * Creates workspace, actor, seeded areas/contexts, and audit events for a
+   * newly registered user. Wired to better-auth's `databaseHooks.user.create.after`.
+   *
+   * @returns The lazily-initialised ProvisionWorkspaceUseCase instance.
+   */
+  get provisionWorkspaceUseCase(): ProvisionWorkspaceUseCase {
+    this._provisionWorkspaceUseCase ??= new ProvisionWorkspaceUseCase(
+      this.workspaceRepository,
+      this.actorRepository,
+      this.areaRepository,
+      this.contextRepository,
+      this.auditEventRepository
+    );
+    return this._provisionWorkspaceUseCase;
+  }
+
+  /**
+   * The list-areas use case orchestrator.
+   *
+   * @returns The lazily-initialised ListAreasUseCase instance.
+   */
+  get listAreasUseCase(): ListAreasUseCase {
+    this._listAreasUseCase ??= new ListAreasUseCase(this.areaRepository);
+    return this._listAreasUseCase;
+  }
+
+  /**
+   * The list-contexts use case orchestrator.
+   *
+   * @returns The lazily-initialised ListContextsUseCase instance.
+   */
+  get listContextsUseCase(): ListContextsUseCase {
+    this._listContextsUseCase ??= new ListContextsUseCase(this.contextRepository);
+    return this._listContextsUseCase;
   }
 
   /**
