@@ -531,9 +531,11 @@ find_epic_id() {
     }
 
     # Find epic where title contains the feature name
+    # Normalize hyphens to spaces so branch names like "012-my-feature" match
+    # epic titles like "My Feature" (spaces vs hyphens differ by convention)
     local epic_id
     epic_id=$(echo "$epics_json" | jq -r --arg name "$feature_name" \
-        '.[] | select(.title | ascii_downcase | contains($name | ascii_downcase)) | .id' | head -n1)
+        '.[] | select(.title | ascii_downcase | contains($name | ascii_downcase | gsub("-"; " "))) | .id' | head -n1)
 
     if [[ -z "$epic_id" ]]; then
         echo "Error: No epic found matching feature '$feature_name'" >&2
