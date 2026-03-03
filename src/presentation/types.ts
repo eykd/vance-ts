@@ -24,9 +24,14 @@ export interface AppEnv {
     csrfToken: string;
 
     /**
-     * The authenticated user's workspace ID, populated by requireApiAuth middleware
-     * for routes under `/api/v1/*`.
+     * The authenticated user's workspace ID, populated by requireWorkspace middleware.
      */
     workspaceId: string;
+
+    /**
+     * The human actor ID for the authenticated user's workspace, populated by
+     * requireWorkspace middleware.
+     */
+    actorId: string;
   };
 }
