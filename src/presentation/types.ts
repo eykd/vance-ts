@@ -22,5 +22,9 @@ export interface AppEnv {
 
     /** Session-bound CSRF token derived via HMAC-SHA256, set by requireAuth. */
     csrfToken: string;
+    /** Workspace ID for the authenticated user, set by requireWorkspace middleware. */
+    workspaceId: string;
+    /** Actor ID (human) for the authenticated user, set by requireWorkspace middleware. */
+    actorId: string;
   };
 }
