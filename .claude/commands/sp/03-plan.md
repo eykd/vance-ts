@@ -136,3 +136,11 @@ If no relevant solutions are found, omit the `## Applied Learnings` section.
 
 - Use absolute paths
 - ERROR on gate failures or unresolved clarifications
+
+## Commit Changes
+
+Run the `/commit` skill to stage and commit all changes made during this phase. Do not push.
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.

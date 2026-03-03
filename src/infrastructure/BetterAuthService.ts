@@ -58,6 +58,9 @@ function generateDummyHash(): string {
  * ```
  */
 export class BetterAuthService implements AuthService {
+  /** Backing field for the lazily-initialised dummy hash. */
+  private static _dummyHash: string | undefined;
+
   /**
    * Per-startup Argon2id dummy hash for timing oracle defence (FR-007).
    *
@@ -67,10 +70,19 @@ export class BetterAuthService implements AuthService {
    * found, wrong password" (full Argon2id computation), preventing
    * timing-based email enumeration attacks.
    *
-   * Generated once at module load with a fresh random salt — changes per
+   * Lazily initialised on first access (inside a request handler) rather than
+   * at module load time, because Cloudflare Workers forbid `crypto.getRandomValues()`
+   * in the global scope (error 10021).
+   *
+   * Generated once per Worker instance with a fresh random salt — changes per
    * deployment so the value is never observable in source code or binaries.
+   *
+   * @returns A valid-format Argon2id hash string with a fresh random salt.
    */
-  static readonly DUMMY_HASH = generateDummyHash();
+  static get DUMMY_HASH(): string {
+    BetterAuthService._dummyHash ??= generateDummyHash();
+    return BetterAuthService._dummyHash;
+  }
 
   /** The better-auth instance obtained from `getAuth(env)`. */
   private readonly auth: AuthInstance;

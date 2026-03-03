@@ -113,3 +113,11 @@ Severity → priority mapping:
 - Number of new tasks created
 - List created task IDs + titles
 - If remediation tasks were created, include: "Consider running `/compound` to document what you learned fixing these issues."
+
+## Commit Changes
+
+Run the `/commit` skill to stage and commit all changes made during this phase. Do not push.
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.

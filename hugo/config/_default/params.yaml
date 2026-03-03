@@ -1,11 +1,9 @@
 # Site parameters - branding, SEO defaults, social links, and theme settings.
 # Referenced in templates via .Site.Params (e.g., .Site.Params.description)
 
-# STARTUPFIXME: Set your site title
-title: "My Hugo Site"
+title: "ClawTask"
 
-# STARTUPFIXME: Set your site description for SEO
-description: "A modern static website built with Hugo, TailwindCSS, and DaisyUI"
+description: "ClawTask is the operating system that turns you and your AI into a disciplined OKR execution team."
 
 # STARTUPFIXME: Add your default social share image (1200x630px recommended)
 # Place the image in hugo/assets/images/og-image.png
@@ -20,30 +18,22 @@ imageHeight: 630
 logo: "logo.svg"
 
 social:
-  # STARTUPFIXME: Set your Twitter/X handle (without @)
-  twitter: ""
-  # STARTUPFIXME: Set your GitHub username or organization
-  github: ""
-  # STARTUPFIXME: Set your LinkedIn profile URL
-  linkedin: ""
+  twitter: "eykd"
+  github: "eykd"
+  linkedin: "https://www.linkedin.com/in/david-eyk/"
 
-# STARTUPFIXME: Set your location or tagline
 location:
-  - "Built with Hugo + TailwindCSS + DaisyUI"
+  - "Made in the Pacific Northwest"
 
-# STARTUPFIXME: Set your copyright notice
-copyright: "© 2026 My Hugo Site. All Rights Reserved."
+copyright: "© 2026 Worlds Enough Studios. All rights reserved."
 
-# STARTUPFIXME: Set your Google Analytics ID (or leave empty to disable)
-googleAnalytics: ""
+googleAnalytics: "G-N6W3PQZFFD"
 
 # DaisyUI theme (default: lemonade)
 # See https://daisyui.com/docs/themes/ for available themes
 theme: "lemonade"
 
 # Author information for Schema.org (used in article metadata)
-# STARTUPFIXME: Set the default author name
 author:
-  name: ""
-  # STARTUPFIXME: Set the author's Twitter handle (without @) for twitter:creator
-  twitter: ""
+  name: "Staff"
+  twitter: "eykd"

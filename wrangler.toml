@@ -1,8 +1,12 @@
-# STARTUPFIXME: Change this to your project name (3-30 chars, lowercase, hyphens only)
-name = "turtlebased-ts"
+name = "clawtask"
 main = "src/worker.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
+
+routes = [
+  { pattern = "meetclawtask.com", custom_domain = true },
+  { pattern = "www.meetclawtask.com", custom_domain = true },
+]
 
 [assets]
 directory = "./hugo/public"
@@ -10,10 +14,8 @@ binding = "ASSETS"
 
 [[d1_databases]]
 binding = "DB"
-# STARTUPFIXME: Change this to match your project name above
-database_name = "turtlebased-ts"
-# STARTUPFIXME: Replace with the output of: wrangler d1 create <your-project-name>
-database_id = "00000000-0000-0000-0000-000000000000"
+database_name = "clawtask"
+database_id = "af4840f9-c958-4c16-ae79-f71e662e9643"
 migrations_dir = "migrations"
 
 [[durable_objects.bindings]]
