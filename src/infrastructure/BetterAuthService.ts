@@ -76,11 +76,11 @@ export class BetterAuthService implements AuthService {
    *
    * Generated once per Worker instance with a fresh random salt — changes per
    * deployment so the value is never observable in source code or binaries.
+   *
+   * @returns A valid-format Argon2id hash string with a fresh random salt.
    */
   static get DUMMY_HASH(): string {
-    if (BetterAuthService._dummyHash === undefined) {
-      BetterAuthService._dummyHash = generateDummyHash();
-    }
+    BetterAuthService._dummyHash ??= generateDummyHash();
     return BetterAuthService._dummyHash;
   }
 

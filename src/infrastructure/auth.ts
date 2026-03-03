@@ -233,8 +233,7 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
   }
 
   // _auth is guaranteed non-null here: the block above always assigns it when _auth === null.
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-  return _auth!;
+  return _auth;
 }
 
 /**
