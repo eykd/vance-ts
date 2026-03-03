@@ -215,11 +215,11 @@ migrations/
 ├── 0007_action.sql       ← NEW
 └── 0008_audit_event.sql  ← NEW
 
-specs/acceptance-specs/   ← NEW directory
-├── US01-workspace-provisioning.spec
-├── US03-inbox-capture.spec
-├── US04-clarify-inbox-item.spec
-└── US05-activate-complete-action.spec
+specs/acceptance-specs/   ← existing directory (files added)
+├── US07-workspace-provisioning.txt  ← NEW (US01 in feature spec)
+├── US08-inbox-capture.txt           ← NEW (US03 in feature spec)
+├── US09-clarify-inbox-item.txt      ← NEW (US04 in feature spec)
+└── US10-activate-complete-action.txt ← NEW (US05 in feature spec)
 ```
 
 **Structure Decision**: Single project with the existing Clean Architecture layout. No new packages, modules, or build targets. All code lives in `src/`. Migrations use the existing zero-padded sequence.

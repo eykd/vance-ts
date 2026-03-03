@@ -1,0 +1,25 @@
+;=============================================
+; New user signup automatically provisions workspace with seed data.
+;=============================================
+GIVEN a new user signs up with a valid email and password.
+WHEN registration completes successfully.
+THEN a workspace is created for the user.
+THEN a human actor is created linked to the user account.
+THEN three default areas are created: Work, Personal, and Admin.
+THEN five default contexts are created: computer, calls, home, errands, and office.
+
+;=============================================
+; Provisioned workspace exposes seeded areas via the API.
+;=============================================
+GIVEN a user has a provisioned workspace with seed data.
+WHEN the user requests GET /api/v1/areas.
+THEN the response has status 200.
+THEN the response body contains exactly three areas.
+
+;=============================================
+; Provisioned workspace exposes seeded contexts via the API.
+;=============================================
+GIVEN a user has a provisioned workspace with seed data.
+WHEN the user requests GET /api/v1/contexts.
+THEN the response has status 200.
+THEN the response body contains exactly five contexts.
