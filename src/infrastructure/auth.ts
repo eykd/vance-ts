@@ -43,6 +43,7 @@
  */
 
 import { betterAuth } from 'better-auth';
+import type { Auth, BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 
@@ -80,7 +81,7 @@ function isLocalhost(url: string): boolean {
 }
 
 /** Module-level singleton, lives for the lifetime of the Workers isolate. */
-let _auth: ReturnType<typeof betterAuth> | null = null;
+let _auth: Auth<BetterAuthOptions> | null = null;
 
 /** Env identity snapshot captured alongside `_auth`; null when no instance exists. */
 let _authEnvIdentity: AuthEnvIdentity | null = null;
@@ -97,7 +98,7 @@ let _authEnvIdentity: AuthEnvIdentity | null = null;
  * @returns The configured better-auth instance.
  * @throws {Error} When `BETTER_AUTH_SECRET` is shorter than 32 characters.
  */
-export function getAuth(env: Env): ReturnType<typeof betterAuth> {
+export function getAuth(env: Env): Auth<BetterAuthOptions> {
   if (env.BETTER_AUTH_SECRET === undefined || env.BETTER_AUTH_SECRET.length < 32) {
     throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
   }
@@ -228,7 +229,7 @@ export function getAuth(env: Env): ReturnType<typeof betterAuth> {
       //
       // better-auth v1.4.x automatically mounts GET /api/auth/callback/google
       // (and the corresponding redirect endpoint) once a provider is configured here.
-    });
+    }) as unknown as Auth<BetterAuthOptions>;
     _authEnvIdentity = { secret, db: env.DB };
   }
 

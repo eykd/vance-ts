@@ -83,8 +83,8 @@
   },
   "dependencies": {
     "@noble/hashes": "^2.0.1",
-    "better-auth": "^1.4.19",
-    "drizzle-orm": "^0.44.7",
-    "hono": "^4.12.2"
+    "better-auth": "^1.5.2",
+    "drizzle-orm": "^0.45.1",
+    "hono": "^4.12.4"
   }
 }
