@@ -887,6 +887,22 @@ generate_focused_prompt() {
         comments_text=""
     fi
 
+    # Fetch parent US story constraints if this is a sub-task
+    local parent_constraints=""
+    local parent_id="${task_id%.*}"
+    if [[ "$parent_id" != "$task_id" ]]; then
+        local parent_desc
+        parent_desc=$(npx bd show "$parent_id" --json 2>/dev/null | \
+            jq -r '(if type == "array" then .[0] else . end) | .description // ""')
+        # Extract the ## Implementation Constraints section
+        parent_constraints=$(echo "$parent_desc" | awk \
+            '/^## Implementation Constraints/{found=1; next} found && /^## /{exit} found{print}')
+        # Discard if it's only the auto-generated placeholder line
+        if echo "$parent_constraints" | grep -qE '^\s*_\(Review findings'; then
+            parent_constraints=""
+        fi
+    fi
+
     # Start with base prompt
     cat <<EOF
 /sp:next
@@ -925,6 +941,16 @@ EOF
 
 Previous Comments:
 $comments_text
+EOF
+    fi
+
+    # Add parent US story constraints if this task is a sub-task
+    if [[ -n "$parent_constraints" ]]; then
+        cat <<EOF
+
+## Parent US Story — Implementation Constraints
+These constraints must be applied when implementing this task. Do NOT implement the code first and fix it later — apply them from the start:
+$parent_constraints
 EOF
     fi
 
