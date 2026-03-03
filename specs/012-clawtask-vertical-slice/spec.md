@@ -27,7 +27,7 @@ A user can instantly capture a thought, task, or commitment to their inbox witho
 
 1. **Given** I am authenticated, **When** I POST `/api/v1/inbox` with `{ "title": "Buy groceries" }`, **Then** I receive 201 with the created inbox item (id, title, status=`inbox`, timestamps) and an audit event is recorded.
 2. **Given** I am authenticated, **When** I POST `/api/v1/inbox` with an empty title, **Then** I receive 400 with a descriptive error.
-3. **Given** I am authenticated, **When** I GET `/api/v1/inbox`, **Then** I receive a list of my workspace's inbox items.
+3. **Given** I am authenticated, **When** I GET `/api/v1/inbox`, **Then** I receive a list of my workspace's inbox items with status `inbox` (clarified items are excluded).
 
 ---
 
