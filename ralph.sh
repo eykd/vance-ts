@@ -31,8 +31,9 @@ readonly STEP_RED="RED"
 readonly STEP_GREEN="GREEN"
 readonly STEP_REFACTOR="REFACTOR"
 readonly STEP_REVIEW="REVIEW"
-readonly TDD_STEP_RETRIES=3
-readonly TDD_STEP_RETRY_DELAY=10  # seconds between step retries
+readonly TDD_STEP_RETRIES=7
+readonly TDD_STEP_RETRY_BASE_DELAY=1   # base seconds for Claude invocation backoff
+readonly TDD_STEP_RETRY_MAX_DELAY=60   # cap for Claude invocation backoff
 readonly TDD_MAX_CYCLES=5         # max R-G-R-Review cycles per task
 readonly ATDD_MAX_INNER_CYCLES=15
 readonly ACCEPTANCE_OUTPUT_FILE=".ralph-acceptance.json"
@@ -1393,6 +1394,10 @@ execute_tdd_step() {
         if ! invoke_claude_with_retry "$prompt"; then
             log WARN "Claude invocation failed for step $step attempt $retry_count"
             retry_context="Previous attempt failed due to Claude invocation error."
+            local backoff=$(( TDD_STEP_RETRY_BASE_DELAY * (2 ** (retry_count - 1)) ))
+            (( backoff > TDD_STEP_RETRY_MAX_DELAY )) && backoff=$TDD_STEP_RETRY_MAX_DELAY
+            log DEBUG "Backing off ${backoff}s before retry"
+            sleep "$backoff"
             continue
         fi
 
@@ -1407,9 +1412,8 @@ execute_tdd_step() {
             log INFO "TDD step $step completed successfully"
             return 0
         else
-            log WARN "Baseline tests failing after $step step (attempt $retry_count/$TDD_STEP_RETRIES), retrying in ${TDD_STEP_RETRY_DELAY}s..."
+            log WARN "Baseline tests failing after $step step (attempt $retry_count/$TDD_STEP_RETRIES), retrying..."
             retry_context="After the $step step, baseline tests are still failing. Fix the issues."
-            sleep "$TDD_STEP_RETRY_DELAY"
         fi
     done
 
