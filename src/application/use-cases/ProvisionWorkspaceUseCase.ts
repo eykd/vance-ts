@@ -15,6 +15,7 @@
  * @module
  */
 
+import type { AuditEvent } from '../../domain/entities/AuditEvent.js';
 import type { WorkspaceBatchPort } from '../../domain/interfaces/WorkspaceBatchPort.js';
 
 /**
@@ -90,47 +91,27 @@ export class ProvisionWorkspaceUseCase {
       createdAt: now,
     }));
 
+    const makeAuditEvent = (
+      entityType: string,
+      entityId: string,
+      eventType: string,
+      payload: unknown,
+    ): AuditEvent => ({
+      id: crypto.randomUUID(),
+      workspaceId: workspace.id,
+      entityType,
+      entityId,
+      eventType,
+      actorId: actor.id,
+      payload: JSON.stringify(payload),
+      createdAt: now,
+    });
+
     const auditEvents = [
-      {
-        id: crypto.randomUUID(),
-        workspaceId: workspace.id,
-        entityType: 'workspace',
-        entityId: workspace.id,
-        eventType: 'workspace.provisioned',
-        actorId: actor.id,
-        payload: JSON.stringify(workspace),
-        createdAt: now,
-      },
-      {
-        id: crypto.randomUUID(),
-        workspaceId: workspace.id,
-        entityType: 'actor',
-        entityId: actor.id,
-        eventType: 'actor.created',
-        actorId: actor.id,
-        payload: JSON.stringify(actor),
-        createdAt: now,
-      },
-      ...areas.map((area) => ({
-        id: crypto.randomUUID(),
-        workspaceId: workspace.id,
-        entityType: 'area',
-        entityId: area.id,
-        eventType: 'area.created',
-        actorId: actor.id,
-        payload: JSON.stringify(area),
-        createdAt: now,
-      })),
-      ...contexts.map((context) => ({
-        id: crypto.randomUUID(),
-        workspaceId: workspace.id,
-        entityType: 'context',
-        entityId: context.id,
-        eventType: 'context.created',
-        actorId: actor.id,
-        payload: JSON.stringify(context),
-        createdAt: now,
-      })),
+      makeAuditEvent('workspace', workspace.id, 'workspace.provisioned', workspace),
+      makeAuditEvent('actor', actor.id, 'actor.created', actor),
+      ...areas.map((area) => makeAuditEvent('area', area.id, 'area.created', area)),
+      ...contexts.map((ctx) => makeAuditEvent('context', ctx.id, 'context.created', ctx)),
     ];
 
     await this._batchPort.provisionBatch(workspace, actor, areas, contexts, auditEvents);

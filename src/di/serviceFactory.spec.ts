@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   SignOutUseCase: vi.fn(),
   AuthPageHandlers: vi.fn(),
   createRequireAuth: vi.fn(),
+  createRequireWorkspace: vi.fn(),
   createApiAuthRateLimit: vi.fn(),
   authInstanceHandler: vi.fn(),
   D1WorkspaceRepository: vi.fn(),
@@ -59,6 +60,10 @@ vi.mock('../presentation/handlers/AuthPageHandlers', () => ({
 
 vi.mock('../presentation/middleware/requireAuth', () => ({
   createRequireAuth: mocks.createRequireAuth,
+}));
+
+vi.mock('../presentation/middleware/requireWorkspace', () => ({
+  createRequireWorkspace: mocks.createRequireWorkspace,
 }));
 
 vi.mock('../presentation/middleware/apiAuthRateLimit', () => ({
@@ -639,6 +644,41 @@ describe('ServiceFactory', () => {
       const second = factory.listContextsUseCase;
       expect(first).toBe(second);
       expect(mocks.ListContextsUseCase).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('requireWorkspaceMiddleware', () => {
+    it('returns the result of createRequireWorkspace pre-injected with workspaceRepository and actorRepository', () => {
+      const mockMiddleware = vi.fn();
+      mocks.createRequireWorkspace.mockReturnValue(mockMiddleware);
+
+      const mockWorkspaceRepo = { save: vi.fn(), getByUserId: vi.fn(), getById: vi.fn() };
+      mocks.D1WorkspaceRepository.mockReturnValue(mockWorkspaceRepo);
+
+      const mockActorRepo = { save: vi.fn(), getById: vi.fn(), getHumanActorByWorkspaceId: vi.fn() };
+      mocks.D1ActorRepository.mockReturnValue(mockActorRepo);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      // Constraint workspace-35c: ServiceFactory must expose requireWorkspaceMiddleware so that
+      // worker.ts can protect /api/v1/* routes from missing actorId (silent data corruption).
+      const middleware = factory.requireWorkspaceMiddleware;
+      expect(middleware).toBe(mockMiddleware);
+      expect(mocks.createRequireWorkspace).toHaveBeenCalledWith(mockWorkspaceRepo, mockActorRepo);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockMiddleware = vi.fn();
+      mocks.createRequireWorkspace.mockReturnValue(mockMiddleware);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.requireWorkspaceMiddleware;
+      const second = factory.requireWorkspaceMiddleware;
+      expect(first).toBe(second);
+      expect(mocks.createRequireWorkspace).toHaveBeenCalledTimes(1);
     });
   });
 });

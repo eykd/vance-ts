@@ -42,6 +42,7 @@ import { createContextApiHandlers } from '../presentation/handlers/ContextApiHan
 import { createApiAuthRateLimit } from '../presentation/middleware/apiAuthRateLimit';
 import { createRequireApiAuth } from '../presentation/middleware/requireApiAuth';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
+import { createRequireWorkspace } from '../presentation/middleware/requireWorkspace';
 import type { Env } from '../shared/env';
 
 /**
@@ -120,6 +121,9 @@ export class ServiceFactory {
 
   /** Cached context API handlers. */
   private _contextApiHandlers: ReturnType<typeof createContextApiHandlers> | null = null;
+
+  /** Cached requireWorkspace middleware. */
+  private _requireWorkspaceMiddleware: ReturnType<typeof createRequireWorkspace> | null = null;
 
   /**
    * Creates a new ServiceFactory and initialises the better-auth instance.
@@ -392,6 +396,24 @@ export class ServiceFactory {
   get contextApiHandlers(): ReturnType<typeof createContextApiHandlers> {
     this._contextApiHandlers ??= createContextApiHandlers(this.listContextsUseCase);
     return this._contextApiHandlers;
+  }
+
+  /**
+   * Hono middleware that guards `/api/v1/*` and `/app/*` routes behind workspace resolution.
+   *
+   * Returns JSON 503 when the workspace or human actor is missing (provisioning failure).
+   * Sets `c.var.workspaceId` and `c.var.actorId` on success.
+   *
+   * Must be registered after `requireAuth` or `requireApiAuth`.
+   *
+   * @returns A Hono middleware function created by {@link createRequireWorkspace}.
+   */
+  get requireWorkspaceMiddleware(): ReturnType<typeof createRequireWorkspace> {
+    this._requireWorkspaceMiddleware ??= createRequireWorkspace(
+      this.workspaceRepository,
+      this.actorRepository,
+    );
+    return this._requireWorkspaceMiddleware;
   }
 
   /**

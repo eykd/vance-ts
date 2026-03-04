@@ -34,6 +34,60 @@ function makeUseCaseMock(impl?: () => Promise<void>): {
   return { execute, useCase: { execute } as unknown as ProvisionWorkspaceUseCase };
 }
 
+/** Shared provisioning fixtures for provisionBatch tests. */
+function makeProvisioningFixtures(): {
+  workspace: Workspace;
+  actor: Actor;
+  areas: Area[];
+  contexts: Context[];
+  auditEvents: AuditEvent[];
+} {
+  const workspace: Workspace = {
+    id: 'ws-1',
+    userId: 'user-1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+  const actor: Actor = {
+    id: 'actor-1',
+    workspaceId: 'ws-1',
+    userId: 'user-1',
+    type: 'human',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  };
+  const areas: Area[] = [
+    {
+      id: 'area-1',
+      workspaceId: 'ws-1',
+      name: 'Work',
+      status: 'active',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    },
+  ];
+  const contexts: Context[] = [
+    {
+      id: 'ctx-1',
+      workspaceId: 'ws-1',
+      name: 'computer',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    },
+  ];
+  const auditEvents: AuditEvent[] = [
+    {
+      id: 'evt-1',
+      workspaceId: 'ws-1',
+      entityType: 'workspace',
+      entityId: 'ws-1',
+      eventType: 'workspace.provisioned',
+      actorId: 'actor-1',
+      payload: '{}',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    },
+  ];
+  return { workspace, actor, areas, contexts, auditEvents };
+}
+
 describe('WorkspaceProvisioningService', () => {
   describe('onUserCreated', () => {
     it('calls provisionWorkspaceUseCase.execute with the given userId', async () => {
@@ -66,50 +120,7 @@ describe('WorkspaceProvisioningService', () => {
     it('is a D1-batch transport that accepts all provisioning entities and persists them atomically', async () => {
       const { useCase } = makeUseCaseMock();
       const service = new WorkspaceProvisioningService(useCase);
-
-      const workspace: Workspace = {
-        id: 'ws-1',
-        userId: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      };
-      const actor: Actor = {
-        id: 'actor-1',
-        workspaceId: 'ws-1',
-        userId: 'user-1',
-        type: 'human',
-        createdAt: '2026-01-01T00:00:00.000Z',
-      };
-      const areas: Area[] = [
-        {
-          id: 'area-1',
-          workspaceId: 'ws-1',
-          name: 'Work',
-          status: 'active',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z',
-        },
-      ];
-      const contexts: Context[] = [
-        {
-          id: 'ctx-1',
-          workspaceId: 'ws-1',
-          name: 'computer',
-          createdAt: '2026-01-01T00:00:00.000Z',
-        },
-      ];
-      const auditEvents: AuditEvent[] = [
-        {
-          id: 'evt-1',
-          workspaceId: 'ws-1',
-          entityType: 'workspace',
-          entityId: 'ws-1',
-          eventType: 'workspace.provisioned',
-          actorId: 'actor-1',
-          payload: '{}',
-          createdAt: '2026-01-01T00:00:00.000Z',
-        },
-      ];
+      const { workspace, actor, areas, contexts, auditEvents } = makeProvisioningFixtures();
 
       // provisionBatch is the D1-batch transport called by ProvisionWorkspaceUseCase.
       // The use case drives orchestration; this service is a thin persistence adapter.
@@ -137,38 +148,7 @@ describe('WorkspaceProvisioningService', () => {
     it('passes audit event statements as the last entries in the D1 batch (FK ordering)', async () => {
       const { useCase } = makeUseCaseMock();
       const service = new WorkspaceProvisioningService(useCase);
-
-      const workspace: Workspace = {
-        id: 'ws-1',
-        userId: 'user-1',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-      };
-      const actor: Actor = {
-        id: 'actor-1',
-        workspaceId: 'ws-1',
-        userId: 'user-1',
-        type: 'human',
-        createdAt: '2026-01-01T00:00:00.000Z',
-      };
-      const areas: Area[] = [
-        {
-          id: 'area-1',
-          workspaceId: 'ws-1',
-          name: 'Work',
-          status: 'active',
-          createdAt: '2026-01-01T00:00:00.000Z',
-          updatedAt: '2026-01-01T00:00:00.000Z',
-        },
-      ];
-      const contexts: Context[] = [
-        {
-          id: 'ctx-1',
-          workspaceId: 'ws-1',
-          name: 'computer',
-          createdAt: '2026-01-01T00:00:00.000Z',
-        },
-      ];
+      const { workspace, actor, areas, contexts } = makeProvisioningFixtures();
       const auditEvents: AuditEvent[] = [
         {
           id: 'evt-1',
