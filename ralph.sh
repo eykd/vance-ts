@@ -1407,7 +1407,18 @@ execute_tdd_step() {
             return 0
         fi
 
-        # After RED/GREEN/REFACTOR/REVIEW, verify tests pass
+        # After RED, confirm at least one test is failing (that's the goal)
+        if [[ "$step" == "$STEP_RED" ]]; then
+            if ! check_baseline_tests; then
+                log INFO "RED step complete — new failing test confirmed"
+                return 0
+            fi
+            log WARN "RED step produced no failing test (attempt $retry_count/$TDD_STEP_RETRIES), retrying..."
+            retry_context="After the RED step, all tests passed. Write a test that fails for the right reason."
+            continue
+        fi
+
+        # After GREEN/REFACTOR/REVIEW, verify all tests pass
         if check_baseline_tests; then
             log INFO "TDD step $step completed successfully"
             return 0
