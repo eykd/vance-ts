@@ -10,7 +10,14 @@
  * @module
  */
 
+import type { D1Database } from '@cloudflare/workers-types';
+
 import type { ProvisionWorkspaceUseCase } from '../application/use-cases/ProvisionWorkspaceUseCase';
+import type { Actor } from '../domain/entities/Actor.js';
+import type { Area } from '../domain/entities/Area.js';
+import type { AuditEvent } from '../domain/entities/AuditEvent.js';
+import type { Context } from '../domain/entities/Context.js';
+import type { Workspace } from '../domain/entities/Workspace.js';
 
 /**
  * Infrastructure adapter that bridges better-auth's post-signup user hook
@@ -49,5 +56,79 @@ export class WorkspaceProvisioningService {
    */
   async onUserCreated(userId: string): Promise<void> {
     await this._useCase.execute({ userId });
+  }
+
+  /**
+   * Atomically persists the full workspace provisioning payload via a single D1 batch.
+   *
+   * Statements are ordered to satisfy foreign-key constraints:
+   * 1. workspace (no FKs)
+   * 2. actor (FK → workspace)
+   * 3. areas (FK → workspace)
+   * 4. contexts (FK → workspace)
+   * 5. audit_events (FK → workspace, actor)
+   *
+   * All values are bound via parameterized statements — no string interpolation.
+   *
+   * @param db - The raw D1 database binding.
+   * @param workspace - The workspace entity to insert.
+   * @param actor - The human actor entity to insert.
+   * @param areas - The seeded area entities to insert.
+   * @param contexts - The seeded context entities to insert.
+   * @param auditEvents - The audit event entities to insert (inserted last, FK-safe).
+   * @returns Resolved promise when the batch succeeds.
+   */
+  async provisionBatch(
+    db: D1Database,
+    workspace: Workspace,
+    actor: Actor,
+    areas: Area[],
+    contexts: Context[],
+    auditEvents: AuditEvent[],
+  ): Promise<void> {
+    const statements = [
+      db
+        .prepare('INSERT INTO workspace (id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .bind(workspace.id, workspace.userId, workspace.createdAt, workspace.updatedAt),
+
+      db
+        .prepare(
+          'INSERT INTO actor (id, workspace_id, user_id, type, created_at) VALUES (?, ?, ?, ?, ?)',
+        )
+        .bind(actor.id, actor.workspaceId, actor.userId, actor.type, actor.createdAt),
+
+      ...areas.map((area) =>
+        db
+          .prepare(
+            'INSERT INTO area (id, workspace_id, name, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+          )
+          .bind(area.id, area.workspaceId, area.name, area.status, area.createdAt, area.updatedAt),
+      ),
+
+      ...contexts.map((ctx) =>
+        db
+          .prepare('INSERT INTO context (id, workspace_id, name, created_at) VALUES (?, ?, ?, ?)')
+          .bind(ctx.id, ctx.workspaceId, ctx.name, ctx.createdAt),
+      ),
+
+      ...auditEvents.map((evt) =>
+        db
+          .prepare(
+            'INSERT INTO audit_event (id, workspace_id, entity_type, entity_id, event_type, actor_id, payload, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          )
+          .bind(
+            evt.id,
+            evt.workspaceId,
+            evt.entityType,
+            evt.entityId,
+            evt.eventType,
+            evt.actorId,
+            evt.payload,
+            evt.createdAt,
+          ),
+      ),
+    ];
+
+    await db.batch(statements);
   }
 }

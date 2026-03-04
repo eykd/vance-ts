@@ -25,9 +25,11 @@ import type { ActorRepository } from '../domain/interfaces/ActorRepository';
 import type { AreaRepository } from '../domain/interfaces/AreaRepository';
 import type { AuditEventRepository } from '../domain/interfaces/AuditEventRepository';
 import type { ContextRepository } from '../domain/interfaces/ContextRepository';
+import type { WorkspaceBatchPort } from '../domain/interfaces/WorkspaceBatchPort';
 import type { WorkspaceRepository } from '../domain/interfaces/WorkspaceRepository';
 import { getAuth, resetAuth } from '../infrastructure/auth';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
+import { WorkspaceProvisioningService } from '../infrastructure/WorkspaceProvisioningService';
 import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
 import { D1ActorRepository } from '../infrastructure/repositories/D1ActorRepository';
 import { D1AreaRepository } from '../infrastructure/repositories/D1AreaRepository';
@@ -316,16 +318,21 @@ export class ServiceFactory {
    * Creates workspace, actor, seeded areas/contexts, and audit events for a
    * newly registered user. Wired to better-auth's `databaseHooks.user.create.after`.
    *
+   * Uses a lazy reference to resolve the circular dependency between
+   * {@link ProvisionWorkspaceUseCase} and {@link WorkspaceProvisioningService}.
+   *
    * @returns The lazily-initialised ProvisionWorkspaceUseCase instance.
    */
   get provisionWorkspaceUseCase(): ProvisionWorkspaceUseCase {
-    this._provisionWorkspaceUseCase ??= new ProvisionWorkspaceUseCase(
-      this.workspaceRepository,
-      this.actorRepository,
-      this.areaRepository,
-      this.contextRepository,
-      this.auditEventRepository
-    );
+    if (this._provisionWorkspaceUseCase === null) {
+      let batchService!: WorkspaceProvisioningService;
+      const batchPort: WorkspaceBatchPort = {
+        provisionBatch: (workspace, actor, areas, contexts, auditEvents): Promise<void> =>
+          batchService.provisionBatch(this.env.DB, workspace, actor, areas, contexts, auditEvents),
+      };
+      this._provisionWorkspaceUseCase = new ProvisionWorkspaceUseCase(batchPort);
+      batchService = new WorkspaceProvisioningService(this._provisionWorkspaceUseCase);
+    }
     return this._provisionWorkspaceUseCase;
   }
 

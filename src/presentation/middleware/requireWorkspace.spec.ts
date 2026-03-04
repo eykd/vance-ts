@@ -129,6 +129,18 @@ describe('createRequireWorkspace', () => {
     expect(body.error.code).toBe('workspace_not_found');
   });
 
+  it('returns 503 JSON when actor exists but has empty id', async () => {
+    workspaceRepo.getByUserId.mockResolvedValue(TEST_WORKSPACE);
+    actorRepo.getHumanActorByWorkspaceId.mockResolvedValue({ ...TEST_ACTOR, id: '' });
+
+    const app = makeTestApp();
+    const res = await app.fetch(new Request('https://example.com/protected'));
+
+    expect(res.status).toBe(503);
+    const body = await res.json() as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('workspace_not_found');
+  });
+
   it('sets workspaceId and actorId on context and calls next when both found', async () => {
     workspaceRepo.getByUserId.mockResolvedValue(TEST_WORKSPACE);
     actorRepo.getHumanActorByWorkspaceId.mockResolvedValue(TEST_ACTOR);

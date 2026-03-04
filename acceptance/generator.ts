@@ -10,6 +10,27 @@ import type { Feature } from './types.js';
  */
 export const UnboundSentinel = 'throw new Error("acceptance test not yet bound")';
 
+/** The standard cloudflare:test import emitted for new files. */
+const DEFAULT_CLOUDFLARE_IMPORT = 'import { SELF } from "cloudflare:test";';
+
+/**
+ * Extracts custom import lines from an existing generated test file.
+ *
+ * "Custom" means: any import line that is not the standard vitest import.
+ * This includes the cloudflare:test import when it has been extended (e.g.
+ * to add `env`), and any helper imports added during binding.
+ *
+ * @param source - The full text of the existing generated test file.
+ * @returns Array of custom import lines to preserve on regeneration.
+ */
+export function extractCustomImports(source: string): string[] {
+  const STANDARD_VITEST = 'import { describe, it, expect } from "vitest";';
+  const DEFAULT_CF = DEFAULT_CLOUDFLARE_IMPORT;
+  return source
+    .split('\n')
+    .filter((line) => line.startsWith('import ') && line !== STANDARD_VITEST && line !== DEFAULT_CF);
+}
+
 /**
  * Scans the source text of a generated test file and extracts all it() blocks
  * that have been bound to real implementations (i.e. do NOT contain the
@@ -133,9 +154,16 @@ export function generateTests(feature: Feature, existingSource: string): string 
   lines.push(`// Source: ${feature.sourceFile.replace(/[\r\n]/g, '')}`);
   lines.push('');
 
-  // Imports
-  lines.push('import { SELF } from "cloudflare:test";');
+  // Imports — use extended cloudflare:test if present in existing source, else standard
+  const customImports = extractCustomImports(existingSource);
+  const cloudflareImport =
+    customImports.find((l) => l.includes('"cloudflare:test"')) ?? DEFAULT_CLOUDFLARE_IMPORT;
+  const extraImports = customImports.filter((l) => !l.includes('"cloudflare:test"'));
+  lines.push(cloudflareImport);
   lines.push('import { describe, it, expect } from "vitest";');
+  for (const imp of extraImports) {
+    lines.push(imp);
+  }
   lines.push('');
 
   // Describe block opening

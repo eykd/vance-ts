@@ -9,16 +9,13 @@
  * - 5 Contexts (computer, calls, home, errands, office)
  * - Audit events for each created entity
  *
- * Uses D1 batch API for atomic multi-entity inserts.
+ * Delegates all persistence to {@link WorkspaceBatchPort} for a single atomic
+ * D1 batch call ordered for FK safety.
  *
  * @module
  */
 
-import type { ActorRepository } from '../../domain/interfaces/ActorRepository';
-import type { AreaRepository } from '../../domain/interfaces/AreaRepository';
-import type { AuditEventRepository } from '../../domain/interfaces/AuditEventRepository';
-import type { ContextRepository } from '../../domain/interfaces/ContextRepository';
-import type { WorkspaceRepository } from '../../domain/interfaces/WorkspaceRepository';
+import type { WorkspaceBatchPort } from '../../domain/interfaces/WorkspaceBatchPort.js';
 
 /**
  * Request DTO for {@link ProvisionWorkspaceUseCase}.
@@ -31,45 +28,28 @@ export type ProvisionWorkspaceRequest = {
 /**
  * Orchestrates workspace provisioning for a newly registered user.
  *
- * Creates the full workspace skeleton (workspace, actor, seeded areas and
- * contexts) and records audit events for every created entity.
+ * Builds the full workspace skeleton (workspace, actor, seeded areas and
+ * contexts, audit events) in memory and delegates all persistence to a
+ * single atomic batch via {@link WorkspaceBatchPort}.
  */
 export class ProvisionWorkspaceUseCase {
-  private readonly _workspaceRepo: WorkspaceRepository;
-  private readonly _actorRepo: ActorRepository;
-  private readonly _areaRepo: AreaRepository;
-  private readonly _contextRepo: ContextRepository;
-  private readonly _auditRepo: AuditEventRepository;
+  private readonly _batchPort: WorkspaceBatchPort;
 
   /**
    * Creates a new ProvisionWorkspaceUseCase.
    *
-   * @param workspaceRepo - Repository for persisting workspace entities.
-   * @param actorRepo - Repository for persisting actor entities.
-   * @param areaRepo - Repository for persisting area entities.
-   * @param contextRepo - Repository for persisting context entities.
-   * @param auditRepo - Repository for appending audit events.
+   * @param batchPort - The output port for atomically persisting the full provisioning payload.
    */
-  constructor(
-    workspaceRepo: WorkspaceRepository,
-    actorRepo: ActorRepository,
-    areaRepo: AreaRepository,
-    contextRepo: ContextRepository,
-    auditRepo: AuditEventRepository,
-  ) {
-    this._workspaceRepo = workspaceRepo;
-    this._actorRepo = actorRepo;
-    this._areaRepo = areaRepo;
-    this._contextRepo = contextRepo;
-    this._auditRepo = auditRepo;
+  constructor(batchPort: WorkspaceBatchPort) {
+    this._batchPort = batchPort;
   }
 
   /**
    * Provisions a workspace for the given user.
    *
-   * Creates: 1 workspace, 1 human actor, 3 areas (Work, Personal, Admin),
+   * Builds: 1 workspace, 1 human actor, 3 areas (Work, Personal, Admin),
    * 5 contexts (computer, calls, home, errands, office), and audit events
-   * for every created entity.
+   * for every entity. Persists all entities atomically via the batch port.
    *
    * @param request - The provisioning request containing the user ID.
    * @returns Resolved promise on success.
@@ -83,7 +63,6 @@ export class ProvisionWorkspaceUseCase {
       createdAt: now,
       updatedAt: now,
     };
-    await this._workspaceRepo.save(workspace);
 
     const actor = {
       id: crypto.randomUUID(),
@@ -92,7 +71,6 @@ export class ProvisionWorkspaceUseCase {
       type: 'human' as const,
       createdAt: now,
     };
-    await this._actorRepo.save(actor);
 
     const areaNames = ['Work', 'Personal', 'Admin'];
     const areas = areaNames.map((name) => ({
@@ -103,9 +81,6 @@ export class ProvisionWorkspaceUseCase {
       createdAt: now,
       updatedAt: now,
     }));
-    for (const area of areas) {
-      await this._areaRepo.save(area);
-    }
 
     const contextNames = ['computer', 'calls', 'home', 'errands', 'office'];
     const contexts = contextNames.map((name) => ({
@@ -114,9 +89,6 @@ export class ProvisionWorkspaceUseCase {
       name,
       createdAt: now,
     }));
-    for (const context of contexts) {
-      await this._contextRepo.save(context);
-    }
 
     const auditEvents = [
       {
@@ -160,6 +132,7 @@ export class ProvisionWorkspaceUseCase {
         createdAt: now,
       })),
     ];
-    await this._auditRepo.saveBatch(auditEvents);
+
+    await this._batchPort.provisionBatch(workspace, actor, areas, contexts, auditEvents);
   }
 }

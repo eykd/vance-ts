@@ -58,7 +58,7 @@ export function createRequireWorkspace(
     }
 
     const actor = await actorRepo.getHumanActorByWorkspaceId(workspace.id);
-    if (!actor) {
+    if (!actor || !actor.id) {
       return c.json(
         { error: { code: 'workspace_not_found', message: 'Workspace actor not found.' } },
         503,

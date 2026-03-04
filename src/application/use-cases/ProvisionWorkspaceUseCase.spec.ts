@@ -1,288 +1,225 @@
+/**
+ * Tests for {@link ProvisionWorkspaceUseCase}.
+ *
+ * Verifies that the use case builds all workspace provisioning entities correctly
+ * and delegates persistence to a single atomic batch call via {@link WorkspaceBatchPort}.
+ *
+ * @module
+ */
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ActorRepository } from '../../domain/interfaces/ActorRepository.js';
-import type { AreaRepository } from '../../domain/interfaces/AreaRepository.js';
-import type { AuditEventRepository } from '../../domain/interfaces/AuditEventRepository.js';
-import type { ContextRepository } from '../../domain/interfaces/ContextRepository.js';
-import type { WorkspaceRepository } from '../../domain/interfaces/WorkspaceRepository.js';
+import type { WorkspaceBatchPort } from '../../domain/interfaces/WorkspaceBatchPort.js';
 
 import { ProvisionWorkspaceUseCase } from './ProvisionWorkspaceUseCase.js';
 
 /**
- * Creates a minimal WorkspaceRepository mock.
+ * Creates a minimal {@link WorkspaceBatchPort} mock.
  *
- * @returns An object with vi.fn() stubs for each WorkspaceRepository method.
+ * @returns An object with a vi.fn() stub for `provisionBatch`.
  */
-function makeWorkspaceRepoMock(): {
-  save: ReturnType<typeof vi.fn>;
-  getByUserId: ReturnType<typeof vi.fn>;
-  getById: ReturnType<typeof vi.fn>;
-} {
+function makeBatchPortMock(): { provisionBatch: ReturnType<typeof vi.fn> } {
   return {
-    save: vi.fn().mockResolvedValue(undefined),
-    getByUserId: vi.fn(),
-    getById: vi.fn(),
-  };
-}
-
-/**
- * Creates a minimal ActorRepository mock.
- *
- * @returns An object with vi.fn() stubs for each ActorRepository method.
- */
-function makeActorRepoMock(): {
-  save: ReturnType<typeof vi.fn>;
-  getById: ReturnType<typeof vi.fn>;
-  getHumanActorByWorkspaceId: ReturnType<typeof vi.fn>;
-} {
-  return {
-    save: vi.fn().mockResolvedValue(undefined),
-    getById: vi.fn(),
-    getHumanActorByWorkspaceId: vi.fn(),
-  };
-}
-
-/**
- * Creates a minimal AreaRepository mock.
- *
- * @returns An object with vi.fn() stubs for each AreaRepository method.
- */
-function makeAreaRepoMock(): {
-  save: ReturnType<typeof vi.fn>;
-  getById: ReturnType<typeof vi.fn>;
-  getActiveById: ReturnType<typeof vi.fn>;
-  listByWorkspaceId: ReturnType<typeof vi.fn>;
-} {
-  return {
-    save: vi.fn().mockResolvedValue(undefined),
-    getById: vi.fn(),
-    getActiveById: vi.fn(),
-    listByWorkspaceId: vi.fn(),
-  };
-}
-
-/**
- * Creates a minimal ContextRepository mock.
- *
- * @returns An object with vi.fn() stubs for each ContextRepository method.
- */
-function makeContextRepoMock(): {
-  save: ReturnType<typeof vi.fn>;
-  getById: ReturnType<typeof vi.fn>;
-  listByWorkspaceId: ReturnType<typeof vi.fn>;
-} {
-  return {
-    save: vi.fn().mockResolvedValue(undefined),
-    getById: vi.fn(),
-    listByWorkspaceId: vi.fn(),
-  };
-}
-
-/**
- * Creates a minimal AuditEventRepository mock.
- *
- * @returns An object with vi.fn() stubs for each AuditEventRepository method.
- */
-function makeAuditRepoMock(): {
-  save: ReturnType<typeof vi.fn>;
-  saveBatch: ReturnType<typeof vi.fn>;
-} {
-  return {
-    save: vi.fn().mockResolvedValue(undefined),
-    saveBatch: vi.fn().mockResolvedValue(undefined),
+    provisionBatch: vi.fn().mockResolvedValue(undefined),
   };
 }
 
 describe('ProvisionWorkspaceUseCase', () => {
-  let workspaceRepoMock: ReturnType<typeof makeWorkspaceRepoMock>;
-  let actorRepoMock: ReturnType<typeof makeActorRepoMock>;
-  let areaRepoMock: ReturnType<typeof makeAreaRepoMock>;
-  let contextRepoMock: ReturnType<typeof makeContextRepoMock>;
-  let auditRepoMock: ReturnType<typeof makeAuditRepoMock>;
+  let batchPortMock: ReturnType<typeof makeBatchPortMock>;
   let useCase: ProvisionWorkspaceUseCase;
 
   beforeEach(() => {
-    workspaceRepoMock = makeWorkspaceRepoMock();
-    actorRepoMock = makeActorRepoMock();
-    areaRepoMock = makeAreaRepoMock();
-    contextRepoMock = makeContextRepoMock();
-    auditRepoMock = makeAuditRepoMock();
-    useCase = new ProvisionWorkspaceUseCase(
-      workspaceRepoMock as unknown as WorkspaceRepository,
-      actorRepoMock as unknown as ActorRepository,
-      areaRepoMock as unknown as AreaRepository,
-      contextRepoMock as unknown as ContextRepository,
-      auditRepoMock as unknown as AuditEventRepository,
-    );
+    batchPortMock = makeBatchPortMock();
+    useCase = new ProvisionWorkspaceUseCase(batchPortMock as unknown as WorkspaceBatchPort);
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it('saves a workspace with the given userId', async () => {
+  it('calls provisionBatch with a workspace having the given userId', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    expect(workspaceRepoMock.save).toHaveBeenCalledOnce();
-    const savedWorkspace = workspaceRepoMock.save.mock.calls[0][0];
-    expect(savedWorkspace).toMatchObject({ userId: 'user-1' });
-    expect(savedWorkspace.id).toBeTypeOf('string');
-    expect(savedWorkspace.createdAt).toBeTypeOf('string');
-    expect(savedWorkspace.updatedAt).toBeTypeOf('string');
+    expect(batchPortMock.provisionBatch).toHaveBeenCalledOnce();
+    const workspace = batchPortMock.provisionBatch.mock.calls[0][0] as {
+      id: string;
+      userId: string;
+      createdAt: string;
+      updatedAt: string;
+    };
+    expect(workspace).toMatchObject({ userId: 'user-1' });
+    expect(workspace.id).toBeTypeOf('string');
+    expect(workspace.createdAt).toBeTypeOf('string');
+    expect(workspace.updatedAt).toBeTypeOf('string');
   });
 
-  it('saves a human actor linked to the workspace and user', async () => {
+  it('calls provisionBatch with a human actor linked to the workspace and user', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    expect(actorRepoMock.save).toHaveBeenCalledOnce();
-    const savedActor = actorRepoMock.save.mock.calls[0][0];
-    const savedWorkspace = workspaceRepoMock.save.mock.calls[0][0];
-    expect(savedActor).toMatchObject({
+    expect(batchPortMock.provisionBatch).toHaveBeenCalledOnce();
+    const [workspace, actor] = batchPortMock.provisionBatch.mock.calls[0] as [
+      { id: string },
+      { id: string; userId: string; workspaceId: string; type: string; createdAt: string },
+    ];
+    expect(actor).toMatchObject({
       userId: 'user-1',
-      workspaceId: savedWorkspace.id,
+      workspaceId: workspace.id,
       type: 'human',
     });
-    expect(savedActor.id).toBeTypeOf('string');
-    expect(savedActor.createdAt).toBeTypeOf('string');
+    expect(actor.id).toBeTypeOf('string');
+    expect(actor.createdAt).toBeTypeOf('string');
   });
 
-  it('saves 3 areas: Work, Personal, Admin', async () => {
+  it('calls provisionBatch with 3 areas: Work, Personal, Admin', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    expect(areaRepoMock.save).toHaveBeenCalledTimes(3);
-    const savedAreaNames = areaRepoMock.save.mock.calls.map(
-      (call: [{ name: string }]) => call[0].name,
-    );
-    expect(savedAreaNames).toContain('Work');
-    expect(savedAreaNames).toContain('Personal');
-    expect(savedAreaNames).toContain('Admin');
+    const areas = batchPortMock.provisionBatch.mock.calls[0][2] as Array<{ name: string }>;
+    expect(areas).toHaveLength(3);
+    const areaNames = areas.map((a) => a.name);
+    expect(areaNames).toContain('Work');
+    expect(areaNames).toContain('Personal');
+    expect(areaNames).toContain('Admin');
   });
 
-  it('saves areas with active status linked to the workspace', async () => {
+  it('calls provisionBatch with areas having active status linked to the workspace', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    const savedWorkspace = workspaceRepoMock.save.mock.calls[0][0];
-    for (const call of areaRepoMock.save.mock.calls) {
-      const area = call[0];
-      expect(area).toMatchObject({ status: 'active', workspaceId: savedWorkspace.id });
+    const [workspace, , areas] = batchPortMock.provisionBatch.mock.calls[0] as [
+      { id: string },
+      unknown,
+      Array<{ id: string; workspaceId: string; status: string; createdAt: string; updatedAt: string }>,
+    ];
+    for (const area of areas) {
+      expect(area).toMatchObject({ status: 'active', workspaceId: workspace.id });
       expect(area.id).toBeTypeOf('string');
       expect(area.createdAt).toBeTypeOf('string');
       expect(area.updatedAt).toBeTypeOf('string');
     }
   });
 
-  it('saves 5 contexts: computer, calls, home, errands, office', async () => {
+  it('calls provisionBatch with 5 contexts: computer, calls, home, errands, office', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    expect(contextRepoMock.save).toHaveBeenCalledTimes(5);
-    const savedContextNames = contextRepoMock.save.mock.calls.map(
-      (call: [{ name: string }]) => call[0].name,
-    );
-    expect(savedContextNames).toContain('computer');
-    expect(savedContextNames).toContain('calls');
-    expect(savedContextNames).toContain('home');
-    expect(savedContextNames).toContain('errands');
-    expect(savedContextNames).toContain('office');
+    const contexts = batchPortMock.provisionBatch.mock.calls[0][3] as Array<{ name: string }>;
+    expect(contexts).toHaveLength(5);
+    const contextNames = contexts.map((c) => c.name);
+    expect(contextNames).toContain('computer');
+    expect(contextNames).toContain('calls');
+    expect(contextNames).toContain('home');
+    expect(contextNames).toContain('errands');
+    expect(contextNames).toContain('office');
   });
 
-  it('saves contexts linked to the workspace', async () => {
+  it('calls provisionBatch with contexts linked to the workspace', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    const savedWorkspace = workspaceRepoMock.save.mock.calls[0][0];
-    for (const call of contextRepoMock.save.mock.calls) {
-      const context = call[0];
-      expect(context).toMatchObject({ workspaceId: savedWorkspace.id });
+    const [workspace, , , contexts] = batchPortMock.provisionBatch.mock.calls[0] as [
+      { id: string },
+      unknown,
+      unknown,
+      Array<{ id: string; workspaceId: string; createdAt: string }>,
+    ];
+    for (const context of contexts) {
+      expect(context).toMatchObject({ workspaceId: workspace.id });
       expect(context.id).toBeTypeOf('string');
       expect(context.createdAt).toBeTypeOf('string');
     }
   });
 
-  it('calls saveBatch with audit events for every created entity', async () => {
+  it('calls provisionBatch with 10 audit events (1 workspace + 1 actor + 3 areas + 5 contexts)', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    expect(auditRepoMock.saveBatch).toHaveBeenCalledOnce();
-    const events = auditRepoMock.saveBatch.mock.calls[0][0];
-    // 1 workspace + 1 actor + 3 areas + 5 contexts = 10 events
-    expect(events).toHaveLength(10);
+    expect(batchPortMock.provisionBatch).toHaveBeenCalledOnce();
+    const auditEvents = batchPortMock.provisionBatch.mock.calls[0][4] as unknown[];
+    expect(auditEvents).toHaveLength(10);
   });
 
   it('includes a workspace.provisioned audit event', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    const events = auditRepoMock.saveBatch.mock.calls[0][0];
-    const workspaceEvent = events.find(
-      (e: { eventType: string }) => e.eventType === 'workspace.provisioned',
-    );
+    const auditEvents = batchPortMock.provisionBatch.mock.calls[0][4] as Array<{
+      eventType: string;
+      entityType: string;
+    }>;
+    const workspaceEvent = auditEvents.find((e) => e.eventType === 'workspace.provisioned');
     expect(workspaceEvent).toBeDefined();
-    expect(workspaceEvent.entityType).toBe('workspace');
+    expect(workspaceEvent?.entityType).toBe('workspace');
   });
 
   it('includes an actor.created audit event', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    const events = auditRepoMock.saveBatch.mock.calls[0][0];
-    const actorEvent = events.find(
-      (e: { eventType: string }) => e.eventType === 'actor.created',
-    );
+    const auditEvents = batchPortMock.provisionBatch.mock.calls[0][4] as Array<{
+      eventType: string;
+      entityType: string;
+    }>;
+    const actorEvent = auditEvents.find((e) => e.eventType === 'actor.created');
     expect(actorEvent).toBeDefined();
-    expect(actorEvent.entityType).toBe('actor');
+    expect(actorEvent?.entityType).toBe('actor');
   });
 
   it('includes area.created audit events for each area', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    const events = auditRepoMock.saveBatch.mock.calls[0][0];
-    const areaEvents = events.filter(
-      (e: { eventType: string }) => e.eventType === 'area.created',
-    );
+    const auditEvents = batchPortMock.provisionBatch.mock.calls[0][4] as Array<{
+      eventType: string;
+    }>;
+    const areaEvents = auditEvents.filter((e) => e.eventType === 'area.created');
     expect(areaEvents).toHaveLength(3);
   });
 
   it('includes context.created audit events for each context', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    const events = auditRepoMock.saveBatch.mock.calls[0][0];
-    const contextEvents = events.filter(
-      (e: { eventType: string }) => e.eventType === 'context.created',
-    );
+    const auditEvents = batchPortMock.provisionBatch.mock.calls[0][4] as Array<{
+      eventType: string;
+    }>;
+    const contextEvents = auditEvents.filter((e) => e.eventType === 'context.created');
     expect(contextEvents).toHaveLength(5);
   });
 
   it('scopes all audit events to the provisioned workspace', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    const savedWorkspace = workspaceRepoMock.save.mock.calls[0][0];
-    const events = auditRepoMock.saveBatch.mock.calls[0][0];
-    for (const event of events) {
-      expect(event.workspaceId).toBe(savedWorkspace.id);
+    const [workspace, , , , auditEvents] = batchPortMock.provisionBatch.mock.calls[0] as [
+      { id: string },
+      unknown,
+      unknown,
+      unknown,
+      Array<{ workspaceId: string }>,
+    ];
+    for (const event of auditEvents) {
+      expect(event.workspaceId).toBe(workspace.id);
     }
   });
 
   it('uses the actor id as actorId on all audit events', async () => {
     await useCase.execute({ userId: 'user-1' });
 
-    const savedActor = actorRepoMock.save.mock.calls[0][0];
-    const events = auditRepoMock.saveBatch.mock.calls[0][0];
-    for (const event of events) {
-      expect(event.actorId).toBe(savedActor.id);
+    const [, actor, , , auditEvents] = batchPortMock.provisionBatch.mock.calls[0] as [
+      unknown,
+      { id: string },
+      unknown,
+      unknown,
+      Array<{ actorId: string }>,
+    ];
+    for (const event of auditEvents) {
+      expect(event.actorId).toBe(actor.id);
     }
   });
 
-  it('propagates workspace repository errors', async () => {
-    workspaceRepoMock.save.mockRejectedValue(new Error('D1 failure'));
+  it('propagates batch port errors', async () => {
+    batchPortMock.provisionBatch.mockRejectedValue(new Error('D1 batch failure'));
 
-    await expect(useCase.execute({ userId: 'user-1' })).rejects.toThrow('D1 failure');
+    await expect(useCase.execute({ userId: 'user-1' })).rejects.toThrow('D1 batch failure');
   });
 
-  it('propagates actor repository errors', async () => {
-    actorRepoMock.save.mockRejectedValue(new Error('actor D1 failure'));
+  it('delegates all entity persistence to a single atomic batch call, not individual repository saves', async () => {
+    // Constraint [workspace-v4b]: All entities are persisted via a single provisionBatch()
+    // call on the WorkspaceBatchPort, not through individual repository saves. This ensures
+    // atomicity — a failure cannot leave a partial workspace with no actor or areas.
+    await useCase.execute({ userId: 'user-1' });
 
-    await expect(useCase.execute({ userId: 'user-1' })).rejects.toThrow('actor D1 failure');
-  });
-
-  it('propagates audit repository errors', async () => {
-    auditRepoMock.saveBatch.mockRejectedValue(new Error('audit D1 failure'));
-
-    await expect(useCase.execute({ userId: 'user-1' })).rejects.toThrow('audit D1 failure');
+    expect(batchPortMock.provisionBatch).toHaveBeenCalledOnce();
   });
 });

@@ -48,16 +48,12 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 
 import { ProvisionWorkspaceUseCase } from '../application/use-cases/ProvisionWorkspaceUseCase';
+import type { WorkspaceBatchPort } from '../domain/interfaces/WorkspaceBatchPort.js';
 import { hashPassword, verifyPassword } from '../domain/services/passwordHasher';
 import type { Env } from '../shared/env';
 
 import * as authSchema from './authSchema.js';
 import { wrapD1ForDrizzle } from './d1DateProxy.js';
-import { D1ActorRepository } from './repositories/D1ActorRepository.js';
-import { D1AreaRepository } from './repositories/D1AreaRepository.js';
-import { D1AuditEventRepository } from './repositories/D1AuditEventRepository.js';
-import { D1ContextRepository } from './repositories/D1ContextRepository.js';
-import { D1WorkspaceRepository } from './repositories/D1WorkspaceRepository.js';
 import { hashToken } from './tokenHasher';
 import { WorkspaceProvisioningService } from './WorkspaceProvisioningService.js';
 
@@ -126,17 +122,18 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
     const secret: string = env.BETTER_AUTH_SECRET;
 
     // Construct the workspace provisioner inside the getAuth closure so it has
-    // access to env.DB (raw D1) for wiring all repository dependencies.
+    // access to env.DB (raw D1) for the D1 batch transport.
     // The provisioner is garbage-collected when _auth is reset (no teardown needed).
-    const provisioner = new WorkspaceProvisioningService(
-      new ProvisionWorkspaceUseCase(
-        new D1WorkspaceRepository(env.DB),
-        new D1ActorRepository(env.DB),
-        new D1AreaRepository(env.DB),
-        new D1ContextRepository(env.DB),
-        new D1AuditEventRepository(env.DB)
-      )
-    );
+    //
+    // Circular dependency resolved via lazy reference: batchPort captures provisioner
+    // by variable reference; provisioner is assigned before any provisionBatch call.
+    let provisioner!: WorkspaceProvisioningService;
+    const batchPort: WorkspaceBatchPort = {
+      provisionBatch: (workspace, actor, areas, contexts, auditEvents): Promise<void> =>
+        provisioner.provisionBatch(env.DB, workspace, actor, areas, contexts, auditEvents),
+    };
+    const provisionUseCase = new ProvisionWorkspaceUseCase(batchPort);
+    provisioner = new WorkspaceProvisioningService(provisionUseCase);
 
     _auth = betterAuth({
       database: drizzleAdapter(drizzle(wrapD1ForDrizzle(env.DB)), {
