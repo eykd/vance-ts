@@ -26,6 +26,12 @@ const mocks = vi.hoisted(() => {
   const signUpApiRateLimitMiddlewareFn = vi.fn(
     async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
   );
+  /** Default: passes through by calling next() (authenticated). */
+  const requireApiAuthMiddlewareFn = vi.fn(
+    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+  );
+  /** Default: returns 200 OK. */
+  const handleListAreas = vi.fn(async (): Promise<Response> => new Response(null, { status: 200 }));
 
   const mockFactory = {
     authHandler: authHandlerFn,
@@ -39,6 +45,8 @@ const mocks = vi.hoisted(() => {
     requireAuthMiddleware: requireAuthMiddlewareFn,
     signInApiRateLimitMiddleware: signInApiRateLimitMiddlewareFn,
     signUpApiRateLimitMiddleware: signUpApiRateLimitMiddlewareFn,
+    requireApiAuthMiddleware: requireApiAuthMiddlewareFn,
+    areaApiHandlers: { handleListAreas },
   };
 
   return {
@@ -51,6 +59,8 @@ const mocks = vi.hoisted(() => {
     requireAuthMiddlewareFn,
     signInApiRateLimitMiddlewareFn,
     signUpApiRateLimitMiddlewareFn,
+    requireApiAuthMiddlewareFn,
+    handleListAreas,
     mockFactory,
   };
 });
@@ -497,6 +507,19 @@ describe('Worker', () => {
       await app.fetch(req, env);
 
       expect(mocks.signUpApiRateLimitMiddlewareFn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /api/v1/areas', () => {
+    it('delegates to areaApiHandlers.handleListAreas when authenticated', async () => {
+      // This test is RED: the mock factory is missing requireApiAuthMiddleware and
+      // areaApiHandlers, so the worker will throw a TypeError → Hono returns 500.
+      // GREEN step: add requireApiAuthMiddleware (pass-through) and areaApiHandlers
+      // to the mock factory, then assert handleListAreas is called.
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/areas');
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
     });
   });
 

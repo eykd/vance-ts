@@ -18,6 +18,12 @@
 import type { AuditEvent } from '../../domain/entities/AuditEvent.js';
 import type { WorkspaceBatchPort } from '../../domain/interfaces/WorkspaceBatchPort.js';
 
+/** Default areas seeded for every new workspace. */
+const SEED_AREA_NAMES = ['Work', 'Personal', 'Admin'] as const;
+
+/** Default contexts seeded for every new workspace. */
+const SEED_CONTEXT_NAMES = ['computer', 'calls', 'home', 'errands', 'office'] as const;
+
 /**
  * Request DTO for {@link ProvisionWorkspaceUseCase}.
  */
@@ -73,8 +79,7 @@ export class ProvisionWorkspaceUseCase {
       createdAt: now,
     };
 
-    const areaNames = ['Work', 'Personal', 'Admin'];
-    const areas = areaNames.map((name) => ({
+    const areas = SEED_AREA_NAMES.map((name) => ({
       id: crypto.randomUUID(),
       workspaceId: workspace.id,
       name,
@@ -83,8 +88,7 @@ export class ProvisionWorkspaceUseCase {
       updatedAt: now,
     }));
 
-    const contextNames = ['computer', 'calls', 'home', 'errands', 'office'];
-    const contexts = contextNames.map((name) => ({
+    const contexts = SEED_CONTEXT_NAMES.map((name) => ({
       id: crypto.randomUUID(),
       workspaceId: workspace.id,
       name,
