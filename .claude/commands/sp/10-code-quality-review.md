@@ -101,15 +101,18 @@ git show HEAD:<file-path> 2>/dev/null && echo "exists" || echo "not-yet-written"
   - Append the finding to that US story's description as an `## Implementation Constraints` entry:
     ```bash
     npx bd update <us-story-id> --description "<current-description>
+    ```
 
 ---
+
 ## Implementation Constraints (from [sp:10-code-quality-review])
 
 **[SEVERITY] <short title>**
 Problem: <what is wrong>
 Fix: <concrete steps to implement it correctly from the start>"
-    ```
-  - Do **NOT** create a standalone task for this finding. Stop here for this finding.
+```
+
+- Do **NOT** create a standalone task for this finding. Stop here for this finding.
 
 - **File DOES exist on HEAD** → This is an **independent fix** on pre-existing code. Continue to Steps B and C.
 

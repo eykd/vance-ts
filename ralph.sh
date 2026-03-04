@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # Script version
-readonly VERSION="1.0.0"
+readonly VERSION="2.0.0"
 
 # Default configuration
 readonly DEFAULT_MAX_ITERATIONS=50
@@ -20,7 +20,7 @@ readonly MAX_RETRIES=10
 readonly MAX_RETRY_DELAY=300  # 5 minutes cap
 
 # Claude CLI timeout
-readonly CLAUDE_TIMEOUT=1800  # 30 minutes max per invocation
+readonly CLAUDE_TIMEOUT=3600  # 60 minutes max per invocation
 
 # Heartbeat interval during Claude invocations
 readonly HEARTBEAT_INTERVAL=30  # seconds between progress updates
@@ -31,7 +31,10 @@ readonly STEP_RED="RED"
 readonly STEP_GREEN="GREEN"
 readonly STEP_REFACTOR="REFACTOR"
 readonly STEP_REVIEW="REVIEW"
-readonly TDD_STEP_RETRIES=3
+readonly TDD_STEP_RETRIES=7
+readonly TDD_STEP_RETRY_BASE_DELAY=1   # base seconds for Claude invocation backoff
+readonly TDD_STEP_RETRY_MAX_DELAY=60   # cap for Claude invocation backoff
+readonly TDD_MAX_CYCLES=5         # max R-G-R-Review cycles per task
 readonly ATDD_MAX_INNER_CYCLES=15
 readonly ACCEPTANCE_OUTPUT_FILE=".ralph-acceptance.json"
 
@@ -531,11 +534,10 @@ find_epic_id() {
     }
 
     # Find epic where title contains the feature name
-    # Normalize hyphens to spaces so branch names like "012-my-feature" match
-    # epic titles like "My Feature" (spaces vs hyphens differ by convention)
+    # Normalize hyphens to spaces so "linemark-mvp" matches "Linemark MVP"
     local epic_id
     epic_id=$(echo "$epics_json" | jq -r --arg name "$feature_name" \
-        '.[] | select(.title | ascii_downcase | contains($name | ascii_downcase | gsub("-"; " "))) | .id' | head -n1)
+        '.[] | select(.title | ascii_downcase | gsub("-"; " ") | contains($name | ascii_downcase | gsub("-"; " "))) | .id' | head -n1)
 
     if [[ -z "$epic_id" ]]; then
         echo "Error: No epic found matching feature '$feature_name'" >&2
@@ -650,6 +652,52 @@ task_has_active_children() {
         jq '[.[] | select(.issue_type != "event")] | length' 2>/dev/null || echo "0")
 
     [[ "$((open_count + in_progress_count))" -gt 0 ]]
+}
+
+# Check if a task has children (is a parent container)
+task_has_children() {
+    local task_id="$1"
+    local child_count
+    child_count=$(npx bd list --parent "$task_id" --limit 1 --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    [[ "$child_count" -gt 0 ]]
+}
+
+# Check if all direct children of a task are closed
+all_children_closed() {
+    local task_id="$1"
+    local open_count
+    open_count=$(npx bd list --parent "$task_id" --status open --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    [[ "$open_count" -eq 0 ]]
+}
+
+# Auto-close parent container tasks when all their children are completed.
+# Walks up from the given task ID, closing ancestors bottom-up.
+auto_close_completed_parents() {
+    local task_id="$1"
+    local epic_id="$2"
+    local current_id="$task_id"
+
+    while true; do
+        # Remove last ID segment to get parent
+        local parent_id="${current_id%.*}"
+
+        # Stop if we can't go higher or reached the epic
+        [[ "$parent_id" == "$current_id" ]] && break
+        [[ "$parent_id" == "$epic_id" ]] && break
+
+        # Check if parent has children and all are closed
+        if task_has_children "$parent_id" && all_children_closed "$parent_id"; then
+            log INFO "Auto-closing completed parent task: $parent_id"
+            npx bd close "$parent_id" 2>/dev/null || {
+                log WARN "Failed to auto-close parent task: $parent_id"
+                break
+            }
+        else
+            break  # If this parent can't close, no ancestor can either
+        fi
+
+        current_id="$parent_id"
+    done
 }
 
 # Check if there are in-progress tasks
@@ -1346,6 +1394,10 @@ execute_tdd_step() {
         if ! invoke_claude_with_retry "$prompt"; then
             log WARN "Claude invocation failed for step $step attempt $retry_count"
             retry_context="Previous attempt failed due to Claude invocation error."
+            local backoff=$(( TDD_STEP_RETRY_BASE_DELAY * (2 ** (retry_count - 1)) ))
+            (( backoff > TDD_STEP_RETRY_MAX_DELAY )) && backoff=$TDD_STEP_RETRY_MAX_DELAY
+            log DEBUG "Backing off ${backoff}s before retry"
+            sleep "$backoff"
             continue
         fi
 
@@ -1355,12 +1407,23 @@ execute_tdd_step() {
             return 0
         fi
 
-        # After RED/GREEN/REFACTOR/REVIEW, verify tests pass
+        # After RED, confirm at least one test is failing (that's the goal)
+        if [[ "$step" == "$STEP_RED" ]]; then
+            if ! check_baseline_tests; then
+                log INFO "RED step complete — new failing test confirmed"
+                return 0
+            fi
+            log WARN "RED step produced no failing test (attempt $retry_count/$TDD_STEP_RETRIES), retrying..."
+            retry_context="After the RED step, all tests passed. Write a test that fails for the right reason."
+            continue
+        fi
+
+        # After GREEN/REFACTOR/REVIEW, verify all tests pass
         if check_baseline_tests; then
             log INFO "TDD step $step completed successfully"
             return 0
         else
-            log WARN "Baseline tests failing after $step step (attempt $retry_count)"
+            log WARN "Baseline tests failing after $step step (attempt $retry_count/$TDD_STEP_RETRIES), retrying..."
             retry_context="After the $step step, baseline tests are still failing. Fix the issues."
         fi
     done
@@ -1375,23 +1438,55 @@ execute_tdd_step() {
 execute_unit_tdd_cycle() {
     local task_json="$1"
     local epic_id="$2"
-    local task_id
+    local task_id task_title
     task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
-    local max_cycles=5
+    task_title=$(echo "$task_json" | jq -r '.title // "task"')
 
     log INFO "Executing unit TDD cycle for task $task_id (no spec found)"
 
-    for (( cycle=1; cycle <= max_cycles; cycle++ )); do
-        log INFO "Unit TDD cycle $cycle/$max_cycles"
+    for (( cycle=1; cycle <= TDD_MAX_CYCLES; cycle++ )); do
+        log INFO "Unit TDD cycle $cycle/$TDD_MAX_CYCLES"
 
-        # RED → GREEN → REFACTOR → REVIEW
-        for step in "$STEP_RED" "$STEP_GREEN" "$STEP_REFACTOR" "$STEP_REVIEW"; do
-            if ! execute_tdd_step "$step" "$task_json" "$cycle" "" ""; then
-                log ERROR "TDD step $step failed in unit cycle $cycle"
-                npx bd comment "$task_id" "BLOCKED: TDD step $step failed after retries in unit cycle $cycle" 2>/dev/null || true
-                return 1
-            fi
-        done
+        # RED step
+        if ! execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" ""; then
+            log ERROR "TDD step $STEP_RED failed in unit cycle $cycle"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_RED failed after retries in unit cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
+
+        # GREEN step with fallback commit check
+        local head_before
+        head_before=$(git rev-parse HEAD 2>/dev/null)
+        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" ""; then
+            log ERROR "TDD step $STEP_GREEN failed in unit cycle $cycle"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed after retries in unit cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
+        local head_after
+        head_after=$(git rev-parse HEAD 2>/dev/null)
+        if [[ "$head_before" == "$head_after" ]]; then
+            log WARN "GREEN step did not commit - creating fallback commit"
+            git add -A 2>/dev/null || true
+            git commit -m "feat: implement $task_title (GREEN step - fallback commit)
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
+                log WARN "Fallback commit failed (possibly no changes)"
+            }
+        fi
+
+        # REFACTOR step
+        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" ""; then
+            log ERROR "TDD step $STEP_REFACTOR failed in unit cycle $cycle"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed after retries in unit cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
+
+        # REVIEW step
+        if ! execute_tdd_step "$STEP_REVIEW" "$task_json" "$cycle" "" ""; then
+            log ERROR "TDD step $STEP_REVIEW failed in unit cycle $cycle"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REVIEW failed after retries in unit cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
 
         # Check if task appears complete after REVIEW
         # Use generate_focused_prompt path as the decision maker — invoke /sp:next to close if done
@@ -1429,7 +1524,7 @@ PROMPT
     done
 
     log WARN "Unit TDD cycle limit reached for task $task_id"
-    npx bd comment "$task_id" "BLOCKED: Unit TDD cycle limit ($max_cycles) reached without task completion" 2>/dev/null || true
+    npx bd comment "$task_id" "BLOCKED: Unit TDD cycle limit ($TDD_MAX_CYCLES) reached without task completion" 2>/dev/null || true
     return 1
 }
 
@@ -1490,14 +1585,39 @@ PROMPT
     for (( cycle=1; cycle <= ATDD_MAX_INNER_CYCLES; cycle++ )); do
         log INFO "ATDD inner cycle $cycle/$ATDD_MAX_INNER_CYCLES"
 
-        # RED → GREEN → REFACTOR
-        for step in "$STEP_RED" "$STEP_GREEN" "$STEP_REFACTOR"; do
-            if ! execute_tdd_step "$step" "$task_json" "$cycle" "" "$spec_file"; then
-                log ERROR "TDD step $step failed in ATDD cycle $cycle for task $task_id"
-                npx bd comment "$task_id" "BLOCKED: TDD step $step failed in ATDD cycle $cycle" 2>/dev/null || true
-                return 1
-            fi
-        done
+        # RED step
+        if ! execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "$spec_file"; then
+            log ERROR "TDD step $STEP_RED failed in ATDD cycle $cycle for task $task_id"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_RED failed in ATDD cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
+
+        # GREEN step with fallback commit check
+        local head_before
+        head_before=$(git rev-parse HEAD 2>/dev/null)
+        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "$spec_file"; then
+            log ERROR "TDD step $STEP_GREEN failed in ATDD cycle $cycle for task $task_id"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed in ATDD cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
+        local head_after
+        head_after=$(git rev-parse HEAD 2>/dev/null)
+        if [[ "$head_before" == "$head_after" ]]; then
+            log WARN "GREEN step did not commit - creating fallback commit"
+            git add -A 2>/dev/null || true
+            git commit -m "feat: implement $(echo "$task_json" | jq -r '.title // "task"') (GREEN step - fallback commit)
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
+                log WARN "Fallback commit failed (possibly no changes)"
+            }
+        fi
+
+        # REFACTOR step
+        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "$spec_file"; then
+            log ERROR "TDD step $STEP_REFACTOR failed in ATDD cycle $cycle for task $task_id"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed in ATDD cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
 
         # Check if acceptance tests now pass
         if run_acceptance_check "$spec_file"; then
@@ -1555,10 +1675,23 @@ invoke_claude() {
     local temp_output
     temp_output=$(mktemp)
 
-    # Start claude in background so we can capture its PID
-    # This allows us to kill it explicitly on SIGINT
-    timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" > >(tee "$temp_output") 2>&1 &
+    # Write prompt to a temp file to avoid shell quoting issues with script -c
+    local prompt_file
+    prompt_file=$(mktemp)
+    printf '%s' "$prompt" > "$prompt_file"
+
+    # Use script(1) to provide a PTY — claude -p hangs when stdout is not a
+    # terminal because its tool-execution framework requires a TTY.  Wrapping
+    # with `script -qc` gives claude a pseudo-terminal while still capturing
+    # output to a file.  We strip ANSI escape sequences afterwards.
+    #
+    # timeout -k 10: send SIGKILL 10s after SIGTERM if process ignores it.
+    timeout -k 10 "$CLAUDE_TIMEOUT" \
+        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format text" "$temp_output" &
     CLAUDE_PID=$!
+
+    # Clean up prompt file when no longer needed (after claude reads it)
+    ( sleep 5; rm -f "$prompt_file" ) &
 
     # Launch heartbeat: prints elapsed-time every HEARTBEAT_INTERVAL seconds
     local invocation_start heartbeat_pid
@@ -1605,12 +1738,16 @@ invoke_claude() {
 
     CLAUDE_PID=""
 
-    # Wait for the tee subprocess from process substitution to finish
-    # flushing all output to temp_output before we read it.
-    wait 2>/dev/null || true
-
-    # Log the output
-    claude_output=$(cat "$temp_output")
+    # Log the output (strip ANSI/terminal escapes and script(1) header/footer)
+    claude_output=$(sed -e 's/\x1b\[[0-9;?]*[a-zA-Z]//g' \
+                        -e 's/\x1b\][^\x1b]*\x07//g' \
+                        -e 's/\x1b\][0-9;]*[^\a]*//g' \
+                        -e 's/\x1b(B//g' \
+                        -e 's/\r//g' \
+                        -e '/^Script started on/d' \
+                        -e '/^Script done on/d' \
+                        -e '/^\[COMMAND/d' \
+                        "$temp_output")
     log_block "Claude Output" "$claude_output"
     rm -f "$temp_output"
 
@@ -1793,9 +1930,10 @@ $task_description"
 
             if execute_atdd_cycle "$next_task" "$epic_id"; then
                 log INFO "ATDD cycle completed for task $task_id"
+                auto_close_completed_parents "$task_id" "$epic_id"
             else
-                log ERROR "ATDD cycle failed for task $task_id"
-                return "$EXIT_FAILURE"
+                log WARN "Task $task_id marked BLOCKED — continuing to next task"
+                # Continue loop instead of returning EXIT_FAILURE
             fi
         else
             # Generate focused prompt
@@ -1814,6 +1952,7 @@ $task_description"
             # Invoke Claude CLI with retry logic
             if invoke_claude_with_retry "$focused_prompt"; then
                 log INFO "Task processing completed successfully"
+                auto_close_completed_parents "$task_id" "$epic_id"
             else
                 log ERROR "Task processing failed after $MAX_RETRIES retries"
                 return "$EXIT_FAILURE"
@@ -1887,16 +2026,17 @@ handle_sigint() {
     echo ""
     log INFO "Received SIGINT, cleaning up..."
 
-    # If Claude is running, kill it explicitly to prevent hanging
+    # Kill the entire process group rooted at CLAUDE_PID (script -> claude -> node)
     if [[ -n "$CLAUDE_PID" ]] && kill -0 "$CLAUDE_PID" 2>/dev/null; then
         log INFO "Terminating Claude subprocess (PID: $CLAUDE_PID)"
-        kill -TERM "$CLAUDE_PID" 2>/dev/null || true
+        # Kill the process group (negative PID) to catch script + all children
+        kill -TERM -- -"$CLAUDE_PID" 2>/dev/null || kill -TERM "$CLAUDE_PID" 2>/dev/null || true
         # Give it a moment to terminate gracefully
         sleep 1
         # Force kill if still running
         if kill -0 "$CLAUDE_PID" 2>/dev/null; then
             log WARN "Force killing Claude subprocess"
-            kill -KILL "$CLAUDE_PID" 2>/dev/null || true
+            kill -KILL -- -"$CLAUDE_PID" 2>/dev/null || kill -KILL "$CLAUDE_PID" 2>/dev/null || true
         fi
     fi
 
