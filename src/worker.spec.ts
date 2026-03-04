@@ -32,6 +32,10 @@ const mocks = vi.hoisted(() => {
   );
   /** Default: returns 200 OK. */
   const handleListAreas = vi.fn(async (): Promise<Response> => new Response(null, { status: 200 }));
+  /** Default: returns 200 OK. */
+  const handleListContexts = vi.fn(
+    async (): Promise<Response> => new Response(null, { status: 200 })
+  );
 
   const mockFactory = {
     authHandler: authHandlerFn,
@@ -47,6 +51,7 @@ const mocks = vi.hoisted(() => {
     signUpApiRateLimitMiddleware: signUpApiRateLimitMiddlewareFn,
     requireApiAuthMiddleware: requireApiAuthMiddlewareFn,
     areaApiHandlers: { handleListAreas },
+    contextApiHandlers: { handleListContexts },
   };
 
   return {
@@ -61,6 +66,7 @@ const mocks = vi.hoisted(() => {
     signUpApiRateLimitMiddlewareFn,
     requireApiAuthMiddlewareFn,
     handleListAreas,
+    handleListContexts,
     mockFactory,
   };
 });
@@ -518,6 +524,15 @@ describe('Worker', () => {
       // to the mock factory, then assert handleListAreas is called.
       const env = mockEnv();
       const req = new Request('https://example.com/api/v1/areas');
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('GET /api/v1/contexts', () => {
+    it('delegates to contextApiHandlers.handleListContexts when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/contexts');
       const res = await app.fetch(req, env);
       expect(res.status).toBe(200);
     });
