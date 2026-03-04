@@ -1377,6 +1377,7 @@ execute_tdd_step() {
     local spec_file="$5"
     local retry_count=0
     local retry_context=""
+    local red_no_fail_count=0
 
     log INFO "Executing TDD step: $step (cycle $cycle)"
 
@@ -1413,6 +1414,11 @@ execute_tdd_step() {
                 log INFO "RED step complete — new failing test confirmed"
                 return 0
             fi
+            red_no_fail_count=$((red_no_fail_count + 1))
+            if (( red_no_fail_count >= 2 )); then
+                log WARN "RED circuit-breaker: all tests passed on $red_no_fail_count consecutive attempts — feature may already be implemented"
+                return 2
+            fi
             log WARN "RED step produced no failing test (attempt $retry_count/$TDD_STEP_RETRIES), retrying..."
             retry_context="After the RED step, all tests passed. Write a test that fails for the right reason."
             continue
@@ -1447,8 +1453,15 @@ execute_unit_tdd_cycle() {
     for (( cycle=1; cycle <= TDD_MAX_CYCLES; cycle++ )); do
         log INFO "Unit TDD cycle $cycle/$TDD_MAX_CYCLES"
 
-        # RED step
-        if ! execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" ""; then
+        # RED step with circuit-breaker handling
+        local red_exit=0
+        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "" || red_exit=$?
+        if (( red_exit == 2 )); then
+            log WARN "RED circuit-breaker: all unit tests pass and no spec to check — closing task as complete"
+            npx bd comment "$task_id" "Circuit-breaker: all unit tests pass and no failing test could be written after 2 consecutive attempts. Feature appears complete." 2>/dev/null || true
+            npx bd close "$task_id" 2>/dev/null || true
+            return 0
+        elif (( red_exit != 0 )); then
             log ERROR "TDD step $STEP_RED failed in unit cycle $cycle"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_RED failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
@@ -1585,8 +1598,33 @@ PROMPT
     for (( cycle=1; cycle <= ATDD_MAX_INNER_CYCLES; cycle++ )); do
         log INFO "ATDD inner cycle $cycle/$ATDD_MAX_INNER_CYCLES"
 
-        # RED step
-        if ! execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "$spec_file"; then
+        # RED step with circuit-breaker handling
+        local red_exit=0
+        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "$spec_file" || red_exit=$?
+        if (( red_exit == 2 )); then
+            log WARN "RED circuit-breaker triggered in ATDD cycle $cycle — checking acceptance tests"
+            if run_acceptance_check "$spec_file"; then
+                log INFO "Feature complete — acceptance tests pass. Closing task $task_id"
+                npx bd close "$task_id" 2>/dev/null || true
+                local commit_prompt
+                commit_prompt=$(cat <<PROMPT
+/commit
+
+Commit message: feat: complete $(echo "$task_json" | jq -r '.title // "task"')
+
+The feature was already implemented. RED circuit-breaker detected all unit tests passing. Acceptance tests confirm feature complete.
+- npx bd close $task_id (if not already closed)
+- Run /commit
+PROMPT
+)
+                invoke_claude_with_retry "$commit_prompt" || true
+                return 0
+            else
+                log ERROR "RED circuit-breaker: unit tests pass but acceptance tests still fail — task needs human review"
+                npx bd comment "$task_id" "BLOCKED: RED circuit-breaker triggered in cycle $cycle. All unit tests pass but no failing test could be written, AND acceptance tests still fail. Feature may be partially implemented. Needs human review." 2>/dev/null || true
+                return 1
+            fi
+        elif (( red_exit != 0 )); then
             log ERROR "TDD step $STEP_RED failed in ATDD cycle $cycle for task $task_id"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_RED failed in ATDD cycle $cycle" 2>/dev/null || true
             return 1
