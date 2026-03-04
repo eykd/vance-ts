@@ -30,6 +30,10 @@ const mocks = vi.hoisted(() => {
   const requireApiAuthMiddlewareFn = vi.fn(
     async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
   );
+  /** Default: passes through by calling next() (workspace provisioned). */
+  const requireWorkspaceMiddlewareFn = vi.fn(
+    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+  );
   /** Default: returns 200 OK. */
   const handleListAreas = vi.fn(async (): Promise<Response> => new Response(null, { status: 200 }));
   /** Default: returns 200 OK. */
@@ -50,6 +54,7 @@ const mocks = vi.hoisted(() => {
     signInApiRateLimitMiddleware: signInApiRateLimitMiddlewareFn,
     signUpApiRateLimitMiddleware: signUpApiRateLimitMiddlewareFn,
     requireApiAuthMiddleware: requireApiAuthMiddlewareFn,
+    requireWorkspaceMiddleware: requireWorkspaceMiddlewareFn,
     areaApiHandlers: { handleListAreas },
     contextApiHandlers: { handleListContexts },
   };
@@ -65,6 +70,7 @@ const mocks = vi.hoisted(() => {
     signInApiRateLimitMiddlewareFn,
     signUpApiRateLimitMiddlewareFn,
     requireApiAuthMiddlewareFn,
+    requireWorkspaceMiddlewareFn,
     handleListAreas,
     handleListContexts,
     mockFactory,
@@ -535,6 +541,27 @@ describe('Worker', () => {
       const req = new Request('https://example.com/api/v1/contexts');
       const res = await app.fetch(req, env);
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe('/api/v1/* requireWorkspaceMiddleware', () => {
+    it('returns 503 when requireWorkspaceMiddleware short-circuits a /api/v1/* request (workspace not provisioned)', async () => {
+      // Constraint workspace-35c: requireWorkspaceMiddleware must guard all /api/v1/* routes
+      // so that requests with a missing actor return 503, not fall through to handlers.
+      mocks.requireWorkspaceMiddlewareFn.mockImplementationOnce(
+        async (): Promise<Response> =>
+          new Response(
+            JSON.stringify({ error: { code: 'workspace_not_found', message: 'Workspace not provisioned.' } }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } },
+          ),
+      );
+
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/areas');
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(503);
+      expect(mocks.handleListAreas).not.toHaveBeenCalled();
     });
   });
 

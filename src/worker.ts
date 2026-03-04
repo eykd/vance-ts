@@ -92,6 +92,10 @@ app.use('/api/v1/*', async (c, next): Promise<Response | void> => {
   return getServiceFactory(c.env).requireApiAuthMiddleware(c as Context<AppEnv>, next);
 });
 
+app.use('/api/v1/*', async (c, next): Promise<Response | void> => {
+  return getServiceFactory(c.env).requireWorkspaceMiddleware(c as Context<AppEnv>, next);
+});
+
 /** Lists all areas in the authenticated user's workspace. */
 app.get('/api/v1/areas', async (c): Promise<Response> => {
   return getServiceFactory(c.env).areaApiHandlers.handleListAreas(c as Context<AppEnv>);

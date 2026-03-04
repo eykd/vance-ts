@@ -12,23 +12,21 @@ import type { WorkspaceRepository } from '../../domain/interfaces/WorkspaceRepos
 
 import { createRequireWorkspace } from './requireWorkspace.js';
 
-/** Minimal workspace fixture. */
+/** Minimal workspace fixture matching the Workspace interface exactly. */
 const TEST_WORKSPACE = {
   id: 'ws-1',
   userId: 'user-1',
-  name: 'Test Workspace',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 } as const;
 
-/** Minimal actor fixture. */
+/** Minimal actor fixture matching the Actor interface exactly. */
 const TEST_ACTOR = {
   id: 'actor-1',
   workspaceId: 'ws-1',
+  userId: 'user-1',
   type: 'human' as const,
-  name: 'Test Actor',
   createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
 } as const;
 
 /**

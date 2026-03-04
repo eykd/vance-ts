@@ -90,7 +90,73 @@ function makeMockDb(): { db: D1Database; preparedSql: string[]; mockBatch: Retur
   return { db, preparedSql, mockBatch };
 }
 
+/** ISO timestamp used in all fixtures. */
+const NOW = '2026-01-01T00:00:00.000Z';
+
+/** Builds the full production-scale provisioning payload: 3 areas, 5 contexts, 10 audit events. */
+function makeFullProvisioningPayload(): {
+  workspace: Workspace;
+  actor: Actor;
+  areas: Area[];
+  contexts: Context[];
+  auditEvents: AuditEvent[];
+} {
+  const workspace: Workspace = { id: 'ws-1', userId: 'user-1', createdAt: NOW, updatedAt: NOW };
+  const actor: Actor = { id: 'actor-1', workspaceId: 'ws-1', userId: 'user-1', type: 'human', createdAt: NOW };
+  const areas: Area[] = ['Work', 'Personal', 'Admin'].map((name, i) => ({
+    id: `area-${i}`,
+    workspaceId: 'ws-1',
+    name,
+    status: 'active' as const,
+    createdAt: NOW,
+    updatedAt: NOW,
+  }));
+  const contexts: Context[] = ['computer', 'calls', 'home', 'errands', 'office'].map((name, i) => ({
+    id: `ctx-${i}`,
+    workspaceId: 'ws-1',
+    name,
+    createdAt: NOW,
+  }));
+  const auditEvents: AuditEvent[] = [
+    { id: 'evt-ws', workspaceId: 'ws-1', entityType: 'workspace', entityId: 'ws-1', eventType: 'workspace.provisioned', actorId: 'actor-1', payload: '{}', createdAt: NOW },
+    { id: 'evt-actor', workspaceId: 'ws-1', entityType: 'actor', entityId: 'actor-1', eventType: 'actor.created', actorId: 'actor-1', payload: '{}', createdAt: NOW },
+    ...areas.map((area, i) => ({
+      id: `evt-area-${i}`,
+      workspaceId: 'ws-1',
+      entityType: 'area',
+      entityId: area.id,
+      eventType: 'area.created',
+      actorId: 'actor-1',
+      payload: '{}',
+      createdAt: NOW,
+    })),
+    ...contexts.map((ctx, i) => ({
+      id: `evt-ctx-${i}`,
+      workspaceId: 'ws-1',
+      entityType: 'context',
+      entityId: ctx.id,
+      eventType: 'context.created',
+      actorId: 'actor-1',
+      payload: '{}',
+      createdAt: NOW,
+    })),
+  ];
+  return { workspace, actor, areas, contexts, auditEvents };
+}
+
 describe('WorkspaceD1BatchAdapter', () => {
+  it('batches exactly 20 statements for the full seeding payload (1+1+3+5+10)', async () => {
+    const { db, mockBatch } = makeMockDb();
+    const adapter = new WorkspaceD1BatchAdapter(db);
+    const { workspace, actor, areas, contexts, auditEvents } = makeFullProvisioningPayload();
+
+    await adapter.provisionBatch(workspace, actor, areas, contexts, auditEvents);
+
+    const statements = mockBatch.mock.calls[0][0] as unknown[];
+    // 1 workspace + 1 actor + 3 areas + 5 contexts + 10 audit events = 20
+    expect(statements).toHaveLength(20);
+  });
+
   it('persists all provisioning entities via a single atomic D1 batch call', async () => {
     const { db, mockBatch } = makeMockDb();
     const adapter = new WorkspaceD1BatchAdapter(db);
