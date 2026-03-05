@@ -1055,7 +1055,7 @@ The task is ONLY complete when:
 If ANY of these are false, the task is INCOMPLETE - keep working until all pass.
 
 Ralph will create a series of commits across iterations.
-User will push all commits manually when the feature is ready.
+Ralph pushes to the remote after each commit for durability.
 EOF
 }
 
@@ -1486,6 +1486,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
                 log WARN "Fallback commit failed (possibly no changes)"
             }
         fi
+        git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
 
         # REFACTOR step
         if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" ""; then
@@ -1649,6 +1650,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
                 log WARN "Fallback commit failed (possibly no changes)"
             }
         fi
+        git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
 
         # REFACTOR step
         if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "$spec_file"; then
