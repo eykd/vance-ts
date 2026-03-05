@@ -54,6 +54,8 @@ CURRENT_ITERATION=0
 START_TIME=0
 CLAUDE_PID=""
 HEARTBEAT_PID=""
+LAST_CLAUDE_OUTPUT=""
+LAST_STEP_OUTPUT=""
 
 ##############################################################################
 # Logging infrastructure
@@ -1250,6 +1252,7 @@ generate_tdd_step_prompt() {
     local cycle="$3"
     local remaining_items="$4"
     local retry_context="$5"
+    local prev_step_output="${6:-}"
 
     local task_title task_id task_description
     task_title=$(echo "$task_json" | jq -r '.title // "unknown"')
@@ -1294,6 +1297,9 @@ You are in ralph's ATDD automation loop.
 Task: $task_title ($task_id)
 ATDD Inner Cycle: $cycle
 
+${prev_step_output:+### Previous Step Output
+$prev_step_output
+}
 ### Instructions
 
 Write MINIMAL code to make the failing test pass.
@@ -1320,6 +1326,9 @@ You are in ralph's ATDD automation loop.
 Task: $task_title ($task_id)
 ATDD Inner Cycle: $cycle
 
+${prev_step_output:+### Previous Step Output
+$prev_step_output
+}
 ### Instructions
 
 Improve the code without changing behavior.
@@ -1346,6 +1355,9 @@ You are in ralph's ATDD automation loop.
 Task: $task_title ($task_id)
 ATDD Inner Cycle: $cycle
 
+${prev_step_output:+### Previous Step Output
+$prev_step_output
+}
 ### Instructions
 
 Review the work done so far in this inner cycle.
@@ -1367,7 +1379,7 @@ PROMPT
 }
 
 # Execute one TDD step with retries
-# Usage: execute_tdd_step step task_json cycle remaining_items spec_file
+# Usage: execute_tdd_step step task_json cycle remaining_items spec_file [prev_step_output]
 # Returns: 0 on success, 1 on failure
 execute_tdd_step() {
     local step="$1"
@@ -1375,6 +1387,7 @@ execute_tdd_step() {
     local cycle="$3"
     local remaining_items="$4"
     local spec_file="$5"
+    local prev_step_output="${6:-}"
     local retry_count=0
     local retry_context=""
     local red_no_fail_count=0
@@ -1389,7 +1402,7 @@ execute_tdd_step() {
         if [[ "$step" == "$STEP_BIND" ]]; then
             prompt=$(generate_bind_prompt "$task_json" "$cycle" "$spec_file" "$retry_context")
         else
-            prompt=$(generate_tdd_step_prompt "$step" "$task_json" "$cycle" "$remaining_items" "$retry_context")
+            prompt=$(generate_tdd_step_prompt "$step" "$task_json" "$cycle" "$remaining_items" "$retry_context" "$prev_step_output")
         fi
 
         if ! invoke_claude_with_retry "$prompt"; then
@@ -1405,6 +1418,7 @@ execute_tdd_step() {
         # After BIND, skip test verification (tests are expected to fail)
         if [[ "$step" == "$STEP_BIND" ]]; then
             log INFO "BIND step complete — tests expected to fail at this point"
+            LAST_STEP_OUTPUT="$LAST_CLAUDE_OUTPUT"
             return 0
         fi
 
@@ -1412,6 +1426,7 @@ execute_tdd_step() {
         if [[ "$step" == "$STEP_RED" ]]; then
             if ! check_baseline_tests; then
                 log INFO "RED step complete — new failing test confirmed"
+                LAST_STEP_OUTPUT="$LAST_CLAUDE_OUTPUT"
                 return 0
             fi
             red_no_fail_count=$((red_no_fail_count + 1))
@@ -1427,6 +1442,7 @@ execute_tdd_step() {
         # After GREEN/REFACTOR/REVIEW, verify all tests pass
         if check_baseline_tests; then
             log INFO "TDD step $step completed successfully"
+            LAST_STEP_OUTPUT="$LAST_CLAUDE_OUTPUT"
             return 0
         else
             log WARN "Baseline tests failing after $step step (attempt $retry_count/$TDD_STEP_RETRIES), retrying..."
@@ -1453,9 +1469,10 @@ execute_unit_tdd_cycle() {
     for (( cycle=1; cycle <= TDD_MAX_CYCLES; cycle++ )); do
         log INFO "Unit TDD cycle $cycle/$TDD_MAX_CYCLES"
 
-        # RED step with circuit-breaker handling
+        # RED step with circuit-breaker handling (no previous output — RED starts fresh)
         local red_exit=0
-        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "" || red_exit=$?
+        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "" "" || red_exit=$?
+        local prev_output="${LAST_STEP_OUTPUT:0:2000}"
         if (( red_exit == 2 )); then
             log WARN "RED circuit-breaker: all unit tests pass and no spec to check — closing task as complete"
             npx bd comment "$task_id" "Circuit-breaker: all unit tests pass and no failing test could be written after 2 consecutive attempts. Feature appears complete." 2>/dev/null || true
@@ -1467,14 +1484,15 @@ execute_unit_tdd_cycle() {
             return 1
         fi
 
-        # GREEN step with fallback commit check
+        # GREEN step with fallback commit check (receives RED output)
         local head_before
         head_before=$(git rev-parse HEAD 2>/dev/null)
-        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" ""; then
+        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_GREEN failed in unit cycle $cycle"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
+        prev_output="${LAST_STEP_OUTPUT:0:2000}"
         local head_after
         head_after=$(git rev-parse HEAD 2>/dev/null)
         if [[ "$head_before" == "$head_after" ]]; then
@@ -1488,15 +1506,16 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
         fi
         git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
 
-        # REFACTOR step
-        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" ""; then
+        # REFACTOR step (receives GREEN output)
+        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_REFACTOR failed in unit cycle $cycle"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
+        prev_output="${LAST_STEP_OUTPUT:0:2000}"
 
-        # REVIEW step
-        if ! execute_tdd_step "$STEP_REVIEW" "$task_json" "$cycle" "" ""; then
+        # REVIEW step (receives REFACTOR output)
+        if ! execute_tdd_step "$STEP_REVIEW" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_REVIEW failed in unit cycle $cycle"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REVIEW failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
@@ -1588,8 +1607,8 @@ PROMPT
         return 0
     fi
 
-    # Step 3: BIND step — write acceptance test implementations
-    if ! execute_tdd_step "$STEP_BIND" "$task_json" 1 "" "$spec_file"; then
+    # Step 3: BIND step — write acceptance test implementations (no previous output)
+    if ! execute_tdd_step "$STEP_BIND" "$task_json" 1 "" "$spec_file" ""; then
         log ERROR "BIND step failed for task $task_id"
         npx bd comment "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
         return 1
@@ -1599,9 +1618,10 @@ PROMPT
     for (( cycle=1; cycle <= ATDD_MAX_INNER_CYCLES; cycle++ )); do
         log INFO "ATDD inner cycle $cycle/$ATDD_MAX_INNER_CYCLES"
 
-        # RED step with circuit-breaker handling
+        # RED step with circuit-breaker handling (no previous output — RED starts fresh)
         local red_exit=0
-        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "$spec_file" || red_exit=$?
+        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "$spec_file" "" || red_exit=$?
+        local prev_output="${LAST_STEP_OUTPUT:0:2000}"
         if (( red_exit == 2 )); then
             log WARN "RED circuit-breaker triggered in ATDD cycle $cycle — checking acceptance tests"
             if run_acceptance_check "$spec_file"; then
@@ -1631,14 +1651,15 @@ PROMPT
             return 1
         fi
 
-        # GREEN step with fallback commit check
+        # GREEN step with fallback commit check (receives RED output)
         local head_before
         head_before=$(git rev-parse HEAD 2>/dev/null)
-        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "$spec_file"; then
+        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "$spec_file" "$prev_output"; then
             log ERROR "TDD step $STEP_GREEN failed in ATDD cycle $cycle for task $task_id"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed in ATDD cycle $cycle" 2>/dev/null || true
             return 1
         fi
+        prev_output="${LAST_STEP_OUTPUT:0:2000}"
         local head_after
         head_after=$(git rev-parse HEAD 2>/dev/null)
         if [[ "$head_before" == "$head_after" ]]; then
@@ -1652,8 +1673,8 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
         fi
         git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
 
-        # REFACTOR step
-        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "$spec_file"; then
+        # REFACTOR step (receives GREEN output)
+        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "$spec_file" "$prev_output"; then
             log ERROR "TDD step $STEP_REFACTOR failed in ATDD cycle $cycle for task $task_id"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed in ATDD cycle $cycle" 2>/dev/null || true
             return 1
@@ -1789,6 +1810,7 @@ invoke_claude() {
                         -e '/^\[COMMAND/d' \
                         "$temp_output")
     log_block "Claude Output" "$claude_output"
+    LAST_CLAUDE_OUTPUT="$claude_output"
     rm -f "$temp_output"
 
     return "$exit_code"
