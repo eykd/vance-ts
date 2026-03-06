@@ -8,8 +8,8 @@
  * @module
  */
 
-import type { AreaRepository } from '../../domain/interfaces/AreaRepository';
-import type { AreaDto } from '../dto/AreaDto';
+import type { AreaRepository } from '../../domain/interfaces/AreaRepository.js';
+import type { AreaDto } from '../dto/AreaDto.js';
 
 /**
  * Request DTO for {@link ListAreasUseCase}.

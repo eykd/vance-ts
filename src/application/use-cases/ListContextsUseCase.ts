@@ -8,8 +8,8 @@
  * @module
  */
 
-import type { ContextRepository } from '../../domain/interfaces/ContextRepository';
-import type { ContextDto } from '../dto/ContextDto';
+import type { ContextRepository } from '../../domain/interfaces/ContextRepository.js';
+import type { ContextDto } from '../dto/ContextDto.js';
 
 /**
  * Request DTO for {@link ListContextsUseCase}.
