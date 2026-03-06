@@ -123,6 +123,37 @@ describe('createInboxItemApiHandlers', () => {
       expect(body.error.code).toBe('validation_error');
     });
 
+    it('returns 400 when body is malformed JSON', async () => {
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{not valid json',
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('invalid_json');
+      expect(body.error.message).toBe('Request body must be valid JSON');
+    });
+
+    it('does not leak stack traces in malformed JSON error response', async () => {
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{not valid json',
+        })
+      );
+
+      const text = await res.text();
+      expect(text).not.toContain('stack');
+      expect(text).not.toContain('at ');
+    });
+
     it('returns 201 with the created inbox item DTO', async () => {
       captureUseCaseMock.execute.mockResolvedValue(INBOX_ITEM_DTO);
 

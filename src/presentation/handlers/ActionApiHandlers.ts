@@ -40,7 +40,15 @@ export function createActionApiHandlers(
       const inboxItemId = c.req.param('id');
       const workspaceId = c.get('workspaceId');
       const actorId = c.get('actorId');
-      const body = await c.req.json<Record<string, unknown>>();
+      let body: Record<string, unknown>;
+      try {
+        body = await c.req.json<Record<string, unknown>>();
+      } catch {
+        return c.json(
+          { error: { code: 'invalid_json', message: 'Request body must be valid JSON' } },
+          400
+        );
+      }
       if (
         typeof body['title'] !== 'string' ||
         typeof body['areaId'] !== 'string' ||

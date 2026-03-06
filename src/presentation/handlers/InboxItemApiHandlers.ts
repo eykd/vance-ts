@@ -33,7 +33,15 @@ export function createInboxItemApiHandlers(
      * @returns JSON response with created inbox item.
      */
     async handleCaptureInboxItem(c: Context<AppEnv>): Promise<Response> {
-      const body = await c.req.json<Record<string, unknown>>();
+      let body: Record<string, unknown>;
+      try {
+        body = await c.req.json<Record<string, unknown>>();
+      } catch {
+        return c.json(
+          { error: { code: 'invalid_json', message: 'Request body must be valid JSON' } },
+          400
+        );
+      }
       if (typeof body['title'] !== 'string') {
         return c.json(
           {

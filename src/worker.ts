@@ -28,6 +28,23 @@ const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<
   applySecurityHeaders(c.res.headers);
 };
 
+/**
+ * Global error handler that catches unhandled exceptions.
+ *
+ * Returns a generic 500 JSON response for API routes without leaking
+ * stack traces or internal details.
+ *
+ * @param _err - The caught error (intentionally unused to prevent leakage).
+ * @param c - The Hono context.
+ * @returns A safe 500 JSON response.
+ */
+app.onError((_err, c): Response => {
+  return c.json(
+    { error: { code: 'internal_error', message: 'An unexpected error occurred' } },
+    500
+  );
+});
+
 app.use('/api/*', withSecurityHeaders);
 app.use('/app/_/*', withSecurityHeaders);
 app.use('/auth/*', withSecurityHeaders);

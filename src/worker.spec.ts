@@ -650,6 +650,36 @@ describe('Worker', () => {
     });
   });
 
+  describe('global onError handler', () => {
+    it('returns 500 with safe error envelope when a handler throws', async () => {
+      const env = mockEnv();
+      mocks.handleCaptureInboxItem.mockRejectedValue(new Error('kaboom'));
+
+      const req = new Request('https://example.com/api/v1/inbox', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(500);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('internal_error');
+      expect(body.error.message).toBe('An unexpected error occurred');
+    });
+
+    it('does not leak stack traces or internal details', async () => {
+      const env = mockEnv();
+      mocks.handleCaptureInboxItem.mockRejectedValue(
+        new Error('secret internal detail at /src/foo.ts:42')
+      );
+
+      const req = new Request('https://example.com/api/v1/inbox', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      const text = await res.text();
+      expect(text).not.toContain('secret');
+      expect(text).not.toContain('kaboom');
+      expect(text).not.toContain('/src/');
+    });
+  });
+
   describe('/app/* requireAuth middleware', () => {
     it('redirects unauthenticated requests to /auth/sign-in', async () => {
       const env = mockEnv();
