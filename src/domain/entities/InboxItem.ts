@@ -7,6 +7,8 @@
  * @module
  */
 
+import { DomainError } from '../errors/DomainError.js';
+
 /**
  * InboxItem entity representing an unclarified capture within a workspace.
  *
@@ -50,13 +52,13 @@ export namespace InboxItem {
     description: string | null = null
   ): InboxItem {
     if (title.trim().length === 0) {
-      throw new Error('InboxItem title must not be empty');
+      throw new DomainError('title_required');
     }
     if (title.length > 500) {
-      throw new Error('InboxItem title must not exceed 500 characters');
+      throw new DomainError('title_too_long');
     }
     if (description !== null && description.length > 2000) {
-      throw new Error('InboxItem description must not exceed 2000 characters');
+      throw new DomainError('description_too_long');
     }
     const now = new Date().toISOString();
     return {
@@ -83,7 +85,7 @@ export namespace InboxItem {
       fields.status === 'clarified' &&
       (fields.clarifiedIntoType === null || fields.clarifiedIntoId === null)
     ) {
-      throw new Error('Clarified InboxItem must have clarifiedIntoType and clarifiedIntoId');
+      throw new DomainError('clarified_missing_target');
     }
     return { ...fields };
   }
@@ -102,7 +104,10 @@ export namespace InboxItem {
     clarifiedIntoId: string
   ): InboxItem {
     if (item.status === 'clarified') {
-      throw new Error('InboxItem is already clarified');
+      throw new DomainError('already_clarified');
+    }
+    if (clarifiedIntoType.trim().length === 0) {
+      throw new DomainError('clarified_type_required');
     }
     return {
       ...item,

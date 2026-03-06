@@ -59,8 +59,12 @@ describe('InboxItem.clarify', () => {
     const item = InboxItem.create('ws-1', 'Buy milk');
     const clarified = InboxItem.clarify(item, 'task', 'task-1');
 
-    expect(() => InboxItem.clarify(clarified, 'task', 'task-2')).toThrowError(
-      'InboxItem is already clarified'
-    );
+    expect(() => InboxItem.clarify(clarified, 'task', 'task-2')).toThrowError('already_clarified');
+  });
+
+  it('rejects clarifying with an empty clarifiedIntoType', () => {
+    const item = InboxItem.create('ws-1', 'Buy milk');
+
+    expect(() => InboxItem.clarify(item, '', 'task-1')).toThrowError('clarified_type_required');
   });
 });
