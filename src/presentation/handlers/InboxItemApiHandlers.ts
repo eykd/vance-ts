@@ -8,6 +8,7 @@ import type { Context } from 'hono';
 
 import type { CaptureInboxItemUseCase } from '../../application/use-cases/CaptureInboxItemUseCase.js';
 import type { ListInboxItemsUseCase } from '../../application/use-cases/ListInboxItemsUseCase.js';
+import { DomainError } from '../../domain/errors/DomainError.js';
 import type { AppEnv } from '../types.js';
 
 /**
@@ -35,12 +36,19 @@ export function createInboxItemApiHandlers(
       const body = await c.req.json<{ title: string }>();
       const workspaceId = c.get('workspaceId');
       const actorId = c.get('actorId');
-      const result = await captureUseCase.execute({
-        workspaceId,
-        title: body.title,
-        actorId,
-      });
-      return c.json(result, 201);
+      try {
+        const result = await captureUseCase.execute({
+          workspaceId,
+          title: body.title,
+          actorId,
+        });
+        return c.json(result, 201);
+      } catch (err: unknown) {
+        if (err instanceof DomainError) {
+          return c.json({ error: err.message }, 400);
+        }
+        throw err;
+      }
     },
 
     /**

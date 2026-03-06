@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InboxItemDto } from '../../application/dto/InboxItemDto.js';
 import type { CaptureInboxItemUseCase } from '../../application/use-cases/CaptureInboxItemUseCase.js';
 import type { ListInboxItemsUseCase } from '../../application/use-cases/ListInboxItemsUseCase.js';
+import { DomainError } from '../../domain/errors/DomainError.js';
 
 import { createInboxItemApiHandlers } from './InboxItemApiHandlers.js';
 
@@ -72,6 +73,23 @@ describe('createInboxItemApiHandlers', () => {
   }
 
   describe('handleCaptureInboxItem', () => {
+    it('returns 400 when title is empty', async () => {
+      captureUseCaseMock.execute.mockRejectedValue(new DomainError('title_required'));
+
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: '' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body).toHaveProperty('error');
+    });
+
     it('returns 201 with the created inbox item DTO', async () => {
       captureUseCaseMock.execute.mockResolvedValue(INBOX_ITEM_DTO);
 
