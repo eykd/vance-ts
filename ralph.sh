@@ -862,8 +862,11 @@ find_leaf_task() {
         local task_id
         task_id=$(echo "$in_progress_json" | jq -r '.[0].id')
         if task_has_active_children "$task_id"; then
-            find_leaf_task "$task_id"
-            return
+            # Try to find a leaf among children; fall back to returning this task
+            if ! find_leaf_task "$task_id"; then
+                echo "$in_progress_json" | jq '.[0]'
+            fi
+            return 0
         else
             echo "$in_progress_json" | jq '.[0]'
             return 0
@@ -880,8 +883,11 @@ find_leaf_task() {
         local task_id
         task_id=$(echo "$ready_json" | jq -r '.[0].id')
         if task_has_active_children "$task_id"; then
-            find_leaf_task "$task_id"
-            return
+            # Try to find a leaf among children; fall back to returning this task
+            if ! find_leaf_task "$task_id"; then
+                echo "$ready_json" | jq '.[0]'
+            fi
+            return 0
         else
             echo "$ready_json" | jq '.[0]'
             return 0
