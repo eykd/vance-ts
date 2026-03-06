@@ -4,7 +4,7 @@ CREATE TABLE audit_event (
   entity_type TEXT NOT NULL,
   entity_id TEXT NOT NULL,
   event_type TEXT NOT NULL,
-  actor_id TEXT NOT NULL REFERENCES actor(id),
+  actor_id TEXT NOT NULL REFERENCES actor(id) ON DELETE CASCADE,
   payload TEXT NOT NULL,
   created_at TEXT NOT NULL
 );

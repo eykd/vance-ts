@@ -1,7 +1,7 @@
 CREATE TABLE action (
   id TEXT PRIMARY KEY,
   workspace_id TEXT NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
-  created_by_actor_id TEXT NOT NULL REFERENCES actor(id),
+  created_by_actor_id TEXT NOT NULL REFERENCES actor(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,
   status TEXT NOT NULL DEFAULT 'ready'
