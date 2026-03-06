@@ -44,6 +44,17 @@ readonly EXIT_FAILURE=1
 readonly EXIT_LIMIT_REACHED=2
 readonly EXIT_SIGINT=130
 
+# Colors (disabled if stderr is not a terminal)
+if [[ -t 2 ]]; then
+    readonly CLR_RESET=$'\033[0m'
+    readonly CLR_INFO=$'\033[0;36m'     # cyan
+    readonly CLR_WARN=$'\033[0;33m'     # yellow
+    readonly CLR_ERROR=$'\033[0;31m'    # red
+    readonly CLR_BOLD=$'\033[1m'        # bold
+else
+    readonly CLR_RESET="" CLR_INFO="" CLR_WARN="" CLR_ERROR="" CLR_BOLD=""
+fi
+
 # Runtime configuration (set by argument parsing)
 DRY_RUN=false
 MAX_ITERATIONS="$DEFAULT_MAX_ITERATIONS"
@@ -103,13 +114,13 @@ log() {
     # Also write to console for INFO/WARN/ERROR (always to stderr to avoid capture in command substitution)
     case "$level" in
         INFO)
-            echo "[ralph] $short_ts $message" >&2
+            echo "${CLR_INFO}[ralph]${CLR_RESET} $short_ts $message" >&2
             ;;
         WARN)
-            echo "[ralph] $short_ts WARNING: $message" >&2
+            echo "${CLR_WARN}[ralph] $short_ts WARNING: $message${CLR_RESET}" >&2
             ;;
         ERROR)
-            echo "[ralph] $short_ts ERROR: $message" >&2
+            echo "${CLR_ERROR}[ralph] $short_ts ERROR: $message${CLR_RESET}" >&2
             ;;
     esac
 }
@@ -2341,12 +2352,12 @@ show_summary() {
 
     # Display to console
     echo ""
-    echo "[ralph] ========================================="
-    echo "[ralph] Summary: $exit_reason"
-    echo "[ralph] Iterations: $CURRENT_ITERATION"
-    echo "[ralph] Elapsed time: $elapsed_formatted"
-    echo "[ralph] Log file: $LOG_FILE"
-    echo "[ralph] ========================================="
+    echo "${CLR_BOLD}[ralph] =========================================${CLR_RESET}"
+    echo "${CLR_BOLD}[ralph] Summary:${CLR_RESET} $exit_reason"
+    echo "${CLR_BOLD}[ralph] Iterations:${CLR_RESET} $CURRENT_ITERATION"
+    echo "${CLR_BOLD}[ralph] Elapsed time:${CLR_RESET} $elapsed_formatted"
+    echo "${CLR_BOLD}[ralph] Log file:${CLR_RESET} $LOG_FILE"
+    echo "${CLR_BOLD}[ralph] =========================================${CLR_RESET}"
 }
 
 ##############################################################################
