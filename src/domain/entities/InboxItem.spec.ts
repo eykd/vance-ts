@@ -67,4 +67,10 @@ describe('InboxItem.clarify', () => {
 
     expect(() => InboxItem.clarify(item, '', 'task-1')).toThrowError('clarified_type_required');
   });
+
+  it('rejects clarifying with an empty clarifiedIntoId', () => {
+    const item = InboxItem.create('ws-1', 'Buy milk');
+
+    expect(() => InboxItem.clarify(item, 'task', '')).toThrowError('clarified_id_required');
+  });
 });

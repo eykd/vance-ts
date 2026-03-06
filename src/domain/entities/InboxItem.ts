@@ -9,6 +9,12 @@
 
 import { DomainError } from '../errors/DomainError.js';
 
+/** Maximum allowed length for an inbox item title. */
+const MAX_TITLE_LENGTH = 500;
+
+/** Maximum allowed length for an inbox item description. */
+const MAX_DESCRIPTION_LENGTH = 2000;
+
 /**
  * InboxItem entity representing an unclarified capture within a workspace.
  *
@@ -54,10 +60,10 @@ export namespace InboxItem {
     if (title.trim().length === 0) {
       throw new DomainError('title_required');
     }
-    if (title.length > 500) {
+    if (title.length > MAX_TITLE_LENGTH) {
       throw new DomainError('title_too_long');
     }
-    if (description !== null && description.length > 2000) {
+    if (description !== null && description.length > MAX_DESCRIPTION_LENGTH) {
       throw new DomainError('description_too_long');
     }
     const now = new Date().toISOString();
@@ -108,6 +114,9 @@ export namespace InboxItem {
     }
     if (clarifiedIntoType.trim().length === 0) {
       throw new DomainError('clarified_type_required');
+    }
+    if (clarifiedIntoId.trim().length === 0) {
+      throw new DomainError('clarified_id_required');
     }
     return {
       ...item,
