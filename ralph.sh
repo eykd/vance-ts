@@ -59,6 +59,7 @@ fi
 DRY_RUN=false
 MAX_ITERATIONS="$DEFAULT_MAX_ITERATIONS"
 EXPLICIT_EPIC_ID=""  # Epic ID provided via --epic argument
+EPIC_ID=""  # Set by run_loop(); used by find_leaf_task() safety net
 
 # Runtime state (used for signal handlers and summary)
 CURRENT_ITERATION=0
@@ -722,9 +723,10 @@ task_has_children() {
 # Check if all direct children of a task are closed
 all_children_closed() {
     local task_id="$1"
-    local open_count
-    open_count=$(npx bd list --parent "$task_id" --status open --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
-    [[ "$open_count" -eq 0 ]]
+    local non_closed_count
+    non_closed_count=$(npx bd list --parent "$task_id" --json 2>/dev/null | \
+        jq '[.[] | select(.status != "closed")] | length' 2>/dev/null) || return 1
+    [[ "$non_closed_count" -eq 0 ]]
 }
 
 # Auto-close parent container tasks when all their children are completed.
@@ -755,6 +757,35 @@ auto_close_completed_parents() {
 
         current_id="$parent_id"
     done
+}
+
+# Sweep all open tasks under the epic, closing any parent-container tasks
+# whose children are all closed. Handles cases where auto_close_completed_parents
+# missed stale parents (it only walks one branch of the tree).
+sweep_completed_parents() {
+    local epic_id="$1"
+    local closed_any=false
+    local open_tasks
+
+    open_tasks=$(npx bd list --status open --parent "$epic_id" --json 2>/dev/null | \
+        jq --arg epic "$epic_id" \
+        '[.[] | select(.id != $epic and .issue_type != "event")]') || return 1
+
+    local task_count
+    task_count=$(echo "$open_tasks" | jq 'length')
+    [[ "$task_count" -eq 0 ]] && return 1
+
+    local task_id
+    while read -r task_id; do
+        if task_has_children "$task_id" && all_children_closed "$task_id"; then
+            log INFO "Sweep: auto-closing completed parent: $task_id"
+            if npx bd close "$task_id" 2>/dev/null; then
+                closed_any=true
+            fi
+        fi
+    done < <(echo "$open_tasks" | jq -r '.[].id')
+
+    [[ "$closed_any" == "true" ]]
 }
 
 # Check if there are in-progress tasks
@@ -2162,6 +2193,8 @@ run_loop() {
     local is_resuming=false
     local task_source
 
+    EPIC_ID="$epic_id"  # Set global for find_leaf_task safety net
+
     log INFO "Starting automation loop (max $MAX_ITERATIONS iterations)"
     log_section "AUTOMATION LOOP START"
 
@@ -2186,6 +2219,12 @@ run_loop() {
         if ! next_task=$(find_leaf_task "$epic_id"); then
             log DEBUG "No leaf tasks found. Checking for remaining open tasks..."
             if has_open_tasks "$epic_id"; then
+                log INFO "Attempting to sweep completed parent tasks..."
+                if sweep_completed_parents "$epic_id"; then
+                    log INFO "Sweep closed parent tasks -- retrying iteration"
+                    iteration=$((iteration - 1))
+                    continue
+                fi
                 local open_tasks open_count
                 open_tasks=$(get_open_tasks "$epic_id")
                 open_count=$(echo "$open_tasks" | jq 'length')
