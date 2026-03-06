@@ -54,6 +54,9 @@ CURRENT_ITERATION=0
 START_TIME=0
 CLAUDE_PID=""
 HEARTBEAT_PID=""
+LAST_CLAUDE_OUTPUT=""
+LAST_STEP_OUTPUT=""
+LAST_RALPH_SIGNAL=""  # Parsed JSON from RALPH_SIGNAL line
 
 ##############################################################################
 # Logging infrastructure
@@ -134,6 +137,40 @@ log_block() {
         echo "-------- End $label --------"
         echo ""
     } >> "$LOG_FILE"
+}
+
+##############################################################################
+# RALPH_SIGNAL parsing
+##############################################################################
+
+# Extract RALPH_SIGNAL JSON from Claude's output
+# Sets LAST_RALPH_SIGNAL global. Returns 0 if found, 1 if not.
+parse_ralph_signal() {
+    local output="$1"
+    LAST_RALPH_SIGNAL=""
+    local signal_line
+    signal_line=$(echo "$output" | grep -o 'RALPH_SIGNAL:{[^}]*}' | tail -1) || true
+    if [[ -n "$signal_line" ]]; then
+        local json_part="${signal_line#RALPH_SIGNAL:}"
+        if echo "$json_part" | jq empty 2>/dev/null; then
+            LAST_RALPH_SIGNAL="$json_part"
+            log DEBUG "Parsed RALPH_SIGNAL: $LAST_RALPH_SIGNAL"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Read a field from LAST_RALPH_SIGNAL
+# Usage: get_signal field [default]
+get_signal() {
+    local field="$1" default="${2:-}"
+    if [[ -z "$LAST_RALPH_SIGNAL" ]]; then
+        echo "$default"; return
+    fi
+    local val
+    val=$(echo "$LAST_RALPH_SIGNAL" | jq -r ".$field // empty" 2>/dev/null) || true
+    echo "${val:-$default}"
 }
 
 ##############################################################################
@@ -1055,7 +1092,7 @@ The task is ONLY complete when:
 If ANY of these are false, the task is INCOMPLETE - keep working until all pass.
 
 Ralph will create a series of commits across iterations.
-User will push all commits manually when the feature is ready.
+Ralph pushes to the remote after each commit for durability.
 EOF
 }
 
@@ -1239,6 +1276,13 @@ $acceptance_skill
 
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all stubs were already bound (no unbound stubs found), output:
+RALPH_SIGNAL:{"already_bound":true,"stubs_modified":0}
+If you bound N stubs, output:
+RALPH_SIGNAL:{"already_bound":false,"stubs_modified":N}
+replacing N with the actual number. This line must appear exactly once, as your final line.
 PROMPT
 }
 
@@ -1250,6 +1294,7 @@ generate_tdd_step_prompt() {
     local cycle="$3"
     local remaining_items="$4"
     local retry_context="$5"
+    local prev_step_output="${6:-}"
 
     local task_title task_id task_description
     task_title=$(echo "$task_json" | jq -r '.title // "unknown"')
@@ -1284,6 +1329,13 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If the feature is fully implemented and you cannot write a meaningful failing test, output:
+RALPH_SIGNAL:{"already_implemented":true,"test_written":false}
+If you wrote a new failing test, output:
+RALPH_SIGNAL:{"already_implemented":false,"test_written":true}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
         "$STEP_GREEN")
@@ -1294,6 +1346,9 @@ You are in ralph's ATDD automation loop.
 Task: $task_title ($task_id)
 ATDD Inner Cycle: $cycle
 
+${prev_step_output:+### Previous Step Output
+$prev_step_output
+}
 ### Instructions
 
 Write MINIMAL code to make the failing test pass.
@@ -1310,6 +1365,13 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all tests pass after your changes, output:
+RALPH_SIGNAL:{"tests_passing":true}
+If tests are still failing, output:
+RALPH_SIGNAL:{"tests_passing":false}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
         "$STEP_REFACTOR")
@@ -1320,6 +1382,9 @@ You are in ralph's ATDD automation loop.
 Task: $task_title ($task_id)
 ATDD Inner Cycle: $cycle
 
+${prev_step_output:+### Previous Step Output
+$prev_step_output
+}
 ### Instructions
 
 Improve the code without changing behavior.
@@ -1336,6 +1401,13 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all tests pass after your changes, output:
+RALPH_SIGNAL:{"tests_passing":true}
+If tests are still failing, output:
+RALPH_SIGNAL:{"tests_passing":false}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
         "$STEP_REVIEW")
@@ -1346,6 +1418,9 @@ You are in ralph's ATDD automation loop.
 Task: $task_title ($task_id)
 ATDD Inner Cycle: $cycle
 
+${prev_step_output:+### Previous Step Output
+$prev_step_output
+}
 ### Instructions
 
 Review the work done so far in this inner cycle.
@@ -1361,13 +1436,20 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all tests pass after your changes, output:
+RALPH_SIGNAL:{"tests_passing":true}
+If tests are still failing, output:
+RALPH_SIGNAL:{"tests_passing":false}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
     esac
 }
 
 # Execute one TDD step with retries
-# Usage: execute_tdd_step step task_json cycle remaining_items spec_file
+# Usage: execute_tdd_step step task_json cycle remaining_items spec_file [prev_step_output]
 # Returns: 0 on success, 1 on failure
 execute_tdd_step() {
     local step="$1"
@@ -1375,6 +1457,7 @@ execute_tdd_step() {
     local cycle="$3"
     local remaining_items="$4"
     local spec_file="$5"
+    local prev_step_output="${6:-}"
     local retry_count=0
     local retry_context=""
     local red_no_fail_count=0
@@ -1389,7 +1472,7 @@ execute_tdd_step() {
         if [[ "$step" == "$STEP_BIND" ]]; then
             prompt=$(generate_bind_prompt "$task_json" "$cycle" "$spec_file" "$retry_context")
         else
-            prompt=$(generate_tdd_step_prompt "$step" "$task_json" "$cycle" "$remaining_items" "$retry_context")
+            prompt=$(generate_tdd_step_prompt "$step" "$task_json" "$cycle" "$remaining_items" "$retry_context" "$prev_step_output")
         fi
 
         if ! invoke_claude_with_retry "$prompt"; then
@@ -1404,14 +1487,30 @@ execute_tdd_step() {
 
         # After BIND, skip test verification (tests are expected to fail)
         if [[ "$step" == "$STEP_BIND" ]]; then
+            local already_bound
+            already_bound=$(get_signal "already_bound" "false")
+            if [[ "$already_bound" == "true" ]]; then
+                log INFO "BIND step: Claude signals all stubs already bound"
+            fi
             log INFO "BIND step complete — tests expected to fail at this point"
+            LAST_STEP_OUTPUT="$LAST_CLAUDE_OUTPUT"
             return 0
         fi
 
         # After RED, confirm at least one test is failing (that's the goal)
         if [[ "$step" == "$STEP_RED" ]]; then
+            # Check structured signal FIRST
+            local already_implemented
+            already_implemented=$(get_signal "already_implemented" "false")
+            if [[ "$already_implemented" == "true" ]]; then
+                log WARN "RED step: Claude signals feature already implemented"
+                return 2  # Circuit breaker on FIRST attempt
+            fi
+
+            # Existing test-based verification as fallback
             if ! check_baseline_tests; then
                 log INFO "RED step complete — new failing test confirmed"
+                LAST_STEP_OUTPUT="$LAST_CLAUDE_OUTPUT"
                 return 0
             fi
             red_no_fail_count=$((red_no_fail_count + 1))
@@ -1427,6 +1526,7 @@ execute_tdd_step() {
         # After GREEN/REFACTOR/REVIEW, verify all tests pass
         if check_baseline_tests; then
             log INFO "TDD step $step completed successfully"
+            LAST_STEP_OUTPUT="$LAST_CLAUDE_OUTPUT"
             return 0
         else
             log WARN "Baseline tests failing after $step step (attempt $retry_count/$TDD_STEP_RETRIES), retrying..."
@@ -1453,9 +1553,10 @@ execute_unit_tdd_cycle() {
     for (( cycle=1; cycle <= TDD_MAX_CYCLES; cycle++ )); do
         log INFO "Unit TDD cycle $cycle/$TDD_MAX_CYCLES"
 
-        # RED step with circuit-breaker handling
+        # RED step with circuit-breaker handling (no previous output — RED starts fresh)
         local red_exit=0
-        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "" || red_exit=$?
+        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "" "" || red_exit=$?
+        local prev_output="${LAST_STEP_OUTPUT:0:2000}"
         if (( red_exit == 2 )); then
             log WARN "RED circuit-breaker: all unit tests pass and no spec to check — closing task as complete"
             npx bd comment "$task_id" "Circuit-breaker: all unit tests pass and no failing test could be written after 2 consecutive attempts. Feature appears complete." 2>/dev/null || true
@@ -1467,14 +1568,15 @@ execute_unit_tdd_cycle() {
             return 1
         fi
 
-        # GREEN step with fallback commit check
+        # GREEN step with fallback commit check (receives RED output)
         local head_before
         head_before=$(git rev-parse HEAD 2>/dev/null)
-        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" ""; then
+        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_GREEN failed in unit cycle $cycle"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
+        prev_output="${LAST_STEP_OUTPUT:0:2000}"
         local head_after
         head_after=$(git rev-parse HEAD 2>/dev/null)
         if [[ "$head_before" == "$head_after" ]]; then
@@ -1486,16 +1588,18 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
                 log WARN "Fallback commit failed (possibly no changes)"
             }
         fi
+        git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
 
-        # REFACTOR step
-        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" ""; then
+        # REFACTOR step (receives GREEN output)
+        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_REFACTOR failed in unit cycle $cycle"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
+        prev_output="${LAST_STEP_OUTPUT:0:2000}"
 
-        # REVIEW step
-        if ! execute_tdd_step "$STEP_REVIEW" "$task_json" "$cycle" "" ""; then
+        # REVIEW step (receives REFACTOR output)
+        if ! execute_tdd_step "$STEP_REVIEW" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_REVIEW failed in unit cycle $cycle"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REVIEW failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
@@ -1587,20 +1691,28 @@ PROMPT
         return 0
     fi
 
-    # Step 3: BIND step — write acceptance test implementations
-    if ! execute_tdd_step "$STEP_BIND" "$task_json" 1 "" "$spec_file"; then
-        log ERROR "BIND step failed for task $task_id"
-        npx bd comment "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
-        return 1
+    # Step 3: BIND step — write acceptance test implementations (no previous output)
+    # Pre-flight check: skip BIND if stubs are already bound
+    local stub_file
+    stub_file=$(find generated-acceptance-tests/ -name "$(basename "$spec_file" .txt)*" -type f 2>/dev/null | head -1) || true
+    if [[ -n "$stub_file" ]] && ! grep -q 'acceptance test not yet bound' "$stub_file" 2>/dev/null; then
+        log INFO "Acceptance test stubs already bound — skipping BIND step"
+    else
+        if ! execute_tdd_step "$STEP_BIND" "$task_json" 1 "" "$spec_file" ""; then
+            log ERROR "BIND step failed for task $task_id"
+            npx bd comment "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
+            return 1
+        fi
     fi
 
     # Step 4: Inner TDD loop
     for (( cycle=1; cycle <= ATDD_MAX_INNER_CYCLES; cycle++ )); do
         log INFO "ATDD inner cycle $cycle/$ATDD_MAX_INNER_CYCLES"
 
-        # RED step with circuit-breaker handling
+        # RED step with circuit-breaker handling (no previous output — RED starts fresh)
         local red_exit=0
-        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "$spec_file" || red_exit=$?
+        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "$spec_file" "" || red_exit=$?
+        local prev_output="${LAST_STEP_OUTPUT:0:2000}"
         if (( red_exit == 2 )); then
             log WARN "RED circuit-breaker triggered in ATDD cycle $cycle — checking acceptance tests"
             if run_acceptance_check "$spec_file"; then
@@ -1630,14 +1742,15 @@ PROMPT
             return 1
         fi
 
-        # GREEN step with fallback commit check
+        # GREEN step with fallback commit check (receives RED output)
         local head_before
         head_before=$(git rev-parse HEAD 2>/dev/null)
-        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "$spec_file"; then
+        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "$spec_file" "$prev_output"; then
             log ERROR "TDD step $STEP_GREEN failed in ATDD cycle $cycle for task $task_id"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed in ATDD cycle $cycle" 2>/dev/null || true
             return 1
         fi
+        prev_output="${LAST_STEP_OUTPUT:0:2000}"
         local head_after
         head_after=$(git rev-parse HEAD 2>/dev/null)
         if [[ "$head_before" == "$head_after" ]]; then
@@ -1649,9 +1762,10 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
                 log WARN "Fallback commit failed (possibly no changes)"
             }
         fi
+        git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
 
-        # REFACTOR step
-        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "$spec_file"; then
+        # REFACTOR step (receives GREEN output)
+        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "$spec_file" "$prev_output"; then
             log ERROR "TDD step $STEP_REFACTOR failed in ATDD cycle $cycle for task $task_id"
             npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed in ATDD cycle $cycle" 2>/dev/null || true
             return 1
@@ -1725,7 +1839,7 @@ invoke_claude() {
     #
     # timeout -k 10: send SIGKILL 10s after SIGTERM if process ignores it.
     timeout -k 10 "$CLAUDE_TIMEOUT" \
-        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format text" "$temp_output" &
+        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format json" "$temp_output" &
     CLAUDE_PID=$!
 
     # Clean up prompt file when no longer needed (after claude reads it)
@@ -1787,6 +1901,17 @@ invoke_claude() {
                         -e '/^\[COMMAND/d' \
                         "$temp_output")
     log_block "Claude Output" "$claude_output"
+    LAST_CLAUDE_OUTPUT="$claude_output"
+
+    # Extract .result from JSON envelope if present
+    local result_text
+    if result_text=$(echo "$claude_output" | jq -r '.result // empty' 2>/dev/null) && [[ -n "$result_text" ]]; then
+        LAST_CLAUDE_OUTPUT="$result_text"
+    fi
+
+    # Parse RALPH_SIGNAL if present
+    parse_ralph_signal "$LAST_CLAUDE_OUTPUT" || true
+
     rm -f "$temp_output"
 
     return "$exit_code"
