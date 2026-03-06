@@ -10,6 +10,7 @@
 
 import type { ContextRepository } from '../../domain/interfaces/ContextRepository.js';
 import type { ContextDto } from '../dto/ContextDto.js';
+import { toContextDto } from '../dto/ContextDto.js';
 
 /**
  * Request DTO for {@link ListContextsUseCase}.
@@ -44,10 +45,6 @@ export class ListContextsUseCase {
    */
   async execute(request: ListContextsRequest): Promise<ContextDto[]> {
     const contexts = await this._contextRepo.listByWorkspaceId(request.workspaceId);
-    return contexts.map((context) => ({
-      id: context.id,
-      name: context.name,
-      createdAt: context.createdAt,
-    }));
+    return contexts.map(toContextDto);
   }
 }

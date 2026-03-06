@@ -10,6 +10,7 @@
 
 import type { AreaRepository } from '../../domain/interfaces/AreaRepository.js';
 import type { AreaDto } from '../dto/AreaDto.js';
+import { toAreaDto } from '../dto/AreaDto.js';
 
 /**
  * Request DTO for {@link ListAreasUseCase}.
@@ -44,12 +45,6 @@ export class ListAreasUseCase {
    */
   async execute(request: ListAreasRequest): Promise<AreaDto[]> {
     const areas = await this._areaRepo.listByWorkspaceId(request.workspaceId);
-    return areas.map((area) => ({
-      id: area.id,
-      name: area.name,
-      status: area.status,
-      createdAt: area.createdAt,
-      updatedAt: area.updatedAt,
-    }));
+    return areas.map(toAreaDto);
   }
 }

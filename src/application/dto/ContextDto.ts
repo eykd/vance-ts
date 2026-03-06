@@ -1,20 +1,31 @@
 /**
- * ContextDto — data transfer object for context responses.
- *
- * Used by ListContextsUseCase to return context data across the
- * application boundary without exposing the domain entity directly.
+ * DTO for Context API responses.
  *
  * @module
  */
 
-/**
- * Data transfer object representing a context in API responses.
- */
-export type ContextDto = {
+import type { Context } from '../../domain/entities/Context.js';
+
+/** Context data transfer object excluding internal fields. */
+export interface ContextDto {
   /** Unique identifier (UUID). */
-  id: string;
+  readonly id: string;
   /** Display name for the context. */
-  name: string;
+  readonly name: string;
   /** ISO-8601 UTC timestamp of context creation. */
-  createdAt: string;
-};
+  readonly createdAt: string;
+}
+
+/**
+ * Maps a Context domain entity to a ContextDto.
+ *
+ * @param entity - The domain entity to map.
+ * @returns A DTO without the internal workspaceId field.
+ */
+export function toContextDto(entity: Context): ContextDto {
+  return {
+    id: entity.id,
+    name: entity.name,
+    createdAt: entity.createdAt,
+  };
+}

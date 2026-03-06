@@ -1,24 +1,37 @@
 /**
- * AreaDto — data transfer object for area responses.
- *
- * Used by ListAreasUseCase to return area data across the application
- * boundary without exposing the domain entity directly.
+ * DTO for Area API responses.
  *
  * @module
  */
 
-/**
- * Data transfer object representing an area in API responses.
- */
-export type AreaDto = {
+import type { Area } from '../../domain/entities/Area.js';
+
+/** Area data transfer object excluding internal fields. */
+export interface AreaDto {
   /** Unique identifier (UUID). */
-  id: string;
+  readonly id: string;
   /** Display name for the area. */
-  name: string;
+  readonly name: string;
   /** Lifecycle status of the area. */
-  status: 'active' | 'archived';
+  readonly status: Area['status'];
   /** ISO-8601 UTC timestamp of area creation. */
-  createdAt: string;
+  readonly createdAt: string;
   /** ISO-8601 UTC timestamp of last area update. */
-  updatedAt: string;
-};
+  readonly updatedAt: string;
+}
+
+/**
+ * Maps an Area domain entity to an AreaDto.
+ *
+ * @param entity - The domain entity to map.
+ * @returns A DTO without the internal workspaceId field.
+ */
+export function toAreaDto(entity: Area): AreaDto {
+  return {
+    id: entity.id,
+    name: entity.name,
+    status: entity.status,
+    createdAt: entity.createdAt,
+    updatedAt: entity.updatedAt,
+  };
+}

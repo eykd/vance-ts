@@ -40,3 +40,6 @@
 {"author":"eykd","created_at":"2026-03-06T23:24:35Z","id":40,"issue_id":"CLAW-7ad.17","text":"Starting work on consistent error response shapes"}
 {"author":"eykd","created_at":"2026-03-06T23:29:47Z","id":41,"issue_id":"CLAW-7ad.16","text":"Starting: adding .js extensions to imports in ListAreasUseCase.ts and ListContextsUseCase.ts"}
 {"author":"eykd","created_at":"2026-03-06T23:31:44Z","id":42,"issue_id":"CLAW-7ad.15","text":"Starting work on atomic dual save remediation"}
+{"author":"eykd","created_at":"2026-03-06T23:43:24Z","id":43,"issue_id":"CLAW-7ad.14","text":"Starting: adding workspace_id guards to ON CONFLICT upserts"}
+{"author":"eykd","created_at":"2026-03-06T23:52:54Z","id":44,"issue_id":"CLAW-7ad.10","text":"Starting work: adding global error handler and malformed JSON handling"}
+{"author":"eykd","created_at":"2026-03-06T23:56:53Z","id":45,"issue_id":"CLAW-7ad.22","text":"Starting work on DTO inconsistencies remediation"}
