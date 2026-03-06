@@ -7,8 +7,7 @@
  * @module
  */
 
-import type { InboxItem } from '../../domain/entities/InboxItem';
-import { InboxItem as InboxItemNs } from '../../domain/entities/InboxItem';
+import { InboxItem } from '../../domain/entities/InboxItem';
 import type { InboxItemRepository } from '../../domain/interfaces/InboxItemRepository';
 
 /** Raw D1 row shape for the `inbox_item` table. */
@@ -23,6 +22,10 @@ interface InboxItemRow {
   clarified_into_type: string | null;
   clarified_into_id: string | null;
 }
+
+/** Column list shared across SELECT queries. */
+const COLUMNS =
+  'id, workspace_id, title, description, status, created_at, updated_at, clarified_into_type, clarified_into_id';
 
 /**
  * D1-backed implementation of the {@link InboxItemRepository} port.
@@ -83,9 +86,7 @@ export class D1InboxItemRepository implements InboxItemRepository {
    */
   async getById(id: string, workspaceId: string): Promise<InboxItem | null> {
     const row = await this._db
-      .prepare(
-        'SELECT id, workspace_id, title, description, status, created_at, updated_at, clarified_into_type, clarified_into_id FROM inbox_item WHERE id = ? AND workspace_id = ?'
-      )
+      .prepare(`SELECT ${COLUMNS} FROM inbox_item WHERE id = ? AND workspace_id = ?`)
       .bind(id, workspaceId)
       .first<InboxItemRow>();
     return row !== null ? this._reconstitute(row) : null;
@@ -103,9 +104,7 @@ export class D1InboxItemRepository implements InboxItemRepository {
     status: InboxItem['status'] = 'inbox'
   ): Promise<InboxItem[]> {
     const { results } = await this._db
-      .prepare(
-        'SELECT id, workspace_id, title, description, status, created_at, updated_at, clarified_into_type, clarified_into_id FROM inbox_item WHERE workspace_id = ? AND status = ?'
-      )
+      .prepare(`SELECT ${COLUMNS} FROM inbox_item WHERE workspace_id = ? AND status = ?`)
       .bind(workspaceId, status)
       .all<InboxItemRow>();
     return results.map((row) => this._reconstitute(row));
@@ -133,7 +132,7 @@ export class D1InboxItemRepository implements InboxItemRepository {
    * @returns The hydrated InboxItem entity.
    */
   private _reconstitute(row: InboxItemRow): InboxItem {
-    return InboxItemNs.reconstitute({
+    return InboxItem.reconstitute({
       id: row.id,
       workspaceId: row.workspace_id,
       title: row.title,
