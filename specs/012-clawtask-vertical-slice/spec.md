@@ -3,13 +3,19 @@
 **Feature Branch**: `012-clawtask-vertical-slice`
 **Created**: 2026-03-02
 **Status**: Draft
-**Beads Epic**: `workspace-bms`
+**Beads Epic**: `CLAW-7ad`
 
 **Beads Phase Tasks**:
 
-- tasks: `workspace-bms.2`
-- analyze: `workspace-bms.3`
-- implement: `workspace-bms.1`
+- clarify: `CLAW-7ad.1`
+- plan: `CLAW-7ad.2`
+- red-team: `CLAW-7ad.3`
+- tasks: `CLAW-7ad.4`
+- analyze: `CLAW-7ad.5`
+- implement: `CLAW-7ad.6`
+- security-review: `CLAW-7ad.7`
+- architecture-review: `CLAW-7ad.8`
+- code-quality-review: `CLAW-7ad.9`
 
 ---
 
@@ -182,8 +188,8 @@ Users can perform the full inbox → clarify → activate → complete flow thro
 
 ### Open Questions
 
-*(none — the implementation plan is fully specified)*
+_(none — the implementation plan is fully specified)_
 
 ### Answer Log
 
-*(empty — no interview questions were needed given the detailed input)*
+_(empty — no interview questions were needed given the detailed input)_
