@@ -12,12 +12,12 @@
 
 import type { D1Database } from '@cloudflare/workers-types';
 
-import type { WorkspaceBatchPort } from '../domain/interfaces/WorkspaceBatchPort.js';
 import type { Actor } from '../domain/entities/Actor.js';
 import type { Area } from '../domain/entities/Area.js';
 import type { AuditEvent } from '../domain/entities/AuditEvent.js';
 import type { Context } from '../domain/entities/Context.js';
 import type { Workspace } from '../domain/entities/Workspace.js';
+import type { WorkspaceBatchPort } from '../domain/interfaces/WorkspaceBatchPort.js';
 
 /**
  * Infrastructure adapter that persists the full workspace provisioning payload
@@ -63,7 +63,7 @@ export class WorkspaceD1BatchAdapter implements WorkspaceBatchPort {
     actor: Actor,
     areas: Area[],
     contexts: Context[],
-    auditEvents: AuditEvent[],
+    auditEvents: AuditEvent[]
   ): Promise<void> {
     const statements = [
       this._db
@@ -72,28 +72,28 @@ export class WorkspaceD1BatchAdapter implements WorkspaceBatchPort {
 
       this._db
         .prepare(
-          'INSERT INTO actor (id, workspace_id, user_id, type, created_at) VALUES (?, ?, ?, ?, ?)',
+          'INSERT INTO actor (id, workspace_id, user_id, type, created_at) VALUES (?, ?, ?, ?, ?)'
         )
         .bind(actor.id, actor.workspaceId, actor.userId, actor.type, actor.createdAt),
 
       ...areas.map((area) =>
         this._db
           .prepare(
-            'INSERT INTO area (id, workspace_id, name, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO area (id, workspace_id, name, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
           )
-          .bind(area.id, area.workspaceId, area.name, area.status, area.createdAt, area.updatedAt),
+          .bind(area.id, area.workspaceId, area.name, area.status, area.createdAt, area.updatedAt)
       ),
 
       ...contexts.map((ctx) =>
         this._db
           .prepare('INSERT INTO context (id, workspace_id, name, created_at) VALUES (?, ?, ?, ?)')
-          .bind(ctx.id, ctx.workspaceId, ctx.name, ctx.createdAt),
+          .bind(ctx.id, ctx.workspaceId, ctx.name, ctx.createdAt)
       ),
 
       ...auditEvents.map((evt) =>
         this._db
           .prepare(
-            'INSERT INTO audit_event (id, workspace_id, entity_type, entity_id, event_type, actor_id, payload, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO audit_event (id, workspace_id, entity_type, entity_id, event_type, actor_id, payload, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
           )
           .bind(
             evt.id,
@@ -103,8 +103,8 @@ export class WorkspaceD1BatchAdapter implements WorkspaceBatchPort {
             evt.eventType,
             evt.actorId,
             evt.payload,
-            evt.createdAt,
-          ),
+            evt.createdAt
+          )
       ),
     ];
 
