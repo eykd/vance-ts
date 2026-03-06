@@ -1,0 +1,54 @@
+session_name: claude
+start_directory: ~/
+windows:
+  - window_name: turtlebased
+    window_index: 0
+    start_directory: ~/turtlebased-ts
+    focus: true
+    panes:
+      - cd .
+  - window_name: tbworlds
+    window_index: 1
+    start_directory: ~/worldsenoughstudios.com
+    panes:
+      - cd .
+  - window_name: tbshop
+    window_index: 2
+    start_directory: ~/turtlebased-ts-shop
+    panes:
+      - cd .
+  - window_name: tbgo
+    window_index: 3
+    start_directory: ~/turtlebased-go
+    panes:
+      - cd .
+  - window_name: clawmbda
+    window_index: 4
+    start_directory: ~/clawmbda
+    panes:
+      - cd .
+  - window_name: agentf
+    window_index: 5
+    start_directory: ~/agentf
+    panes:
+      - cd .
+  - window_name: vance
+    window_index: 6
+    start_directory: ~/vance-ts
+    panes:
+      - cd .
+  - window_name: pmk
+    window_index: 7
+    start_directory: ~/prosemark-go
+    panes:
+      - cd .
+  - window_name: clawtask
+    window_index: 8
+    start_directory: ~/clawtask
+    panes:
+      - cd .
+  - window_name: bash
+    window_index: 9
+    start_directory: ~/
+    panes:
+      - cd .
