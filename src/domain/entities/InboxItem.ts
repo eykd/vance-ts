@@ -16,6 +16,31 @@ const MAX_TITLE_LENGTH = 500;
 const MAX_DESCRIPTION_LENGTH = 2000;
 
 /**
+ * Throws a DomainError if the string is empty or whitespace-only.
+ *
+ * @param value - The string to validate.
+ * @param errorCode - The error code to throw.
+ */
+function requireNonBlank(value: string, errorCode: string): void {
+  if (value.trim().length === 0) {
+    throw new DomainError(errorCode);
+  }
+}
+
+/**
+ * Throws a DomainError if the string exceeds the maximum length.
+ *
+ * @param value - The string to validate.
+ * @param max - The maximum allowed length.
+ * @param errorCode - The error code to throw.
+ */
+function requireMaxLength(value: string, max: number, errorCode: string): void {
+  if (value.length > max) {
+    throw new DomainError(errorCode);
+  }
+}
+
+/**
  * InboxItem entity representing an unclarified capture within a workspace.
  *
  * Immutable value object hydrated from persistent storage.
@@ -57,17 +82,12 @@ export namespace InboxItem {
     title: string,
     description: string | null = null
   ): InboxItem {
-    if (workspaceId.trim().length === 0) {
-      throw new DomainError('workspace_id_required');
-    }
-    if (title.trim().length === 0) {
-      throw new DomainError('title_required');
-    }
-    if (title.length > MAX_TITLE_LENGTH) {
-      throw new DomainError('title_too_long');
-    }
-    if (description !== null && description.length > MAX_DESCRIPTION_LENGTH) {
-      throw new DomainError('description_too_long');
+    requireNonBlank(workspaceId, 'workspace_id_required');
+    requireNonBlank(title, 'title_required');
+    requireMaxLength(title, MAX_TITLE_LENGTH, 'title_too_long');
+    if (description !== null) {
+      requireNonBlank(description, 'description_required');
+      requireMaxLength(description, MAX_DESCRIPTION_LENGTH, 'description_too_long');
     }
     const now = new Date().toISOString();
     return {
@@ -96,6 +116,12 @@ export namespace InboxItem {
     ) {
       throw new DomainError('clarified_missing_target');
     }
+    if (
+      fields.status === 'inbox' &&
+      (fields.clarifiedIntoType !== null || fields.clarifiedIntoId !== null)
+    ) {
+      throw new DomainError('inbox_has_clarified_fields');
+    }
     return { ...fields };
   }
 
@@ -115,12 +141,8 @@ export namespace InboxItem {
     if (item.status === 'clarified') {
       throw new DomainError('already_clarified');
     }
-    if (clarifiedIntoType.trim().length === 0) {
-      throw new DomainError('clarified_type_required');
-    }
-    if (clarifiedIntoId.trim().length === 0) {
-      throw new DomainError('clarified_id_required');
-    }
+    requireNonBlank(clarifiedIntoType, 'clarified_type_required');
+    requireNonBlank(clarifiedIntoId, 'clarified_id_required');
     return {
       ...item,
       status: 'clarified',
