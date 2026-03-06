@@ -58,3 +58,11 @@ acceptance-pipeline/ir/
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+
+# Beads runtime state
+.beads/*.pid
+.beads/*.port
+.beads/*.lock
+.beads/*.log
+.beads/*.activity
+.beads/dolt/
