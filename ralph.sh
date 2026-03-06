@@ -59,6 +59,7 @@ fi
 DRY_RUN=false
 MAX_ITERATIONS="$DEFAULT_MAX_ITERATIONS"
 EXPLICIT_EPIC_ID=""  # Epic ID provided via --epic argument
+EPIC_ID=""  # Set by run_loop(); used by find_leaf_task() safety net
 
 # Runtime state (used for signal handlers and summary)
 CURRENT_ITERATION=0
@@ -2191,6 +2192,8 @@ run_loop() {
     local focused_prompt
     local is_resuming=false
     local task_source
+
+    EPIC_ID="$epic_id"  # Set global for find_leaf_task safety net
 
     log INFO "Starting automation loop (max $MAX_ITERATIONS iterations)"
     log_section "AUTOMATION LOOP START"
