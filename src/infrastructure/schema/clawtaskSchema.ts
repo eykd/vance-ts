@@ -33,7 +33,7 @@ export const actorTable = sqliteTable(
     type: text('type', { enum: ['human', 'agent'] }).notNull(),
     createdAt: text('created_at').notNull(),
   },
-  (table) => [index('idx_actor_workspace_id').on(table.workspaceId)],
+  (table) => [index('idx_actor_workspace_id').on(table.workspaceId)]
 );
 
 /**
@@ -45,11 +45,13 @@ export const areaTable = sqliteTable(
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     name: text('name').notNull(),
-    status: text('status', { enum: ['active', 'archived'] }).notNull().default('active'),
+    status: text('status', { enum: ['active', 'archived'] })
+      .notNull()
+      .default('active'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
-  (table) => [index('idx_area_workspace_id').on(table.workspaceId)],
+  (table) => [index('idx_area_workspace_id').on(table.workspaceId)]
 );
 
 /**
@@ -63,7 +65,7 @@ export const contextTable = sqliteTable(
     name: text('name').notNull(),
     createdAt: text('created_at').notNull(),
   },
-  (table) => [index('idx_context_workspace_id').on(table.workspaceId)],
+  (table) => [index('idx_context_workspace_id').on(table.workspaceId)]
 );
 
 /**
@@ -76,13 +78,15 @@ export const inboxItemTable = sqliteTable(
     workspaceId: text('workspace_id').notNull(),
     title: text('title').notNull(),
     description: text('description'),
-    status: text('status', { enum: ['inbox', 'clarified'] }).notNull().default('inbox'),
+    status: text('status', { enum: ['inbox', 'clarified'] })
+      .notNull()
+      .default('inbox'),
     clarifiedIntoType: text('clarified_into_type', { enum: ['action'] }),
     clarifiedIntoId: text('clarified_into_id'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
-  (table) => [index('idx_inbox_item_workspace_id').on(table.workspaceId)],
+  (table) => [index('idx_inbox_item_workspace_id').on(table.workspaceId)]
 );
 
 /**
@@ -110,7 +114,7 @@ export const actionTable = sqliteTable(
   (table) => [
     index('idx_action_workspace_id').on(table.workspaceId),
     index('idx_action_workspace_status').on(table.workspaceId, table.status),
-  ],
+  ]
 );
 
 /**
@@ -131,5 +135,5 @@ export const auditEventTable = sqliteTable(
   (table) => [
     index('idx_audit_event_workspace_id').on(table.workspaceId),
     index('idx_audit_event_entity').on(table.entityType, table.entityId),
-  ],
+  ]
 );

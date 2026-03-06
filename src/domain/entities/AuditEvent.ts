@@ -45,7 +45,7 @@ export interface AuditEventRow {
   created_at: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
+// eslint-disable-next-line @typescript-eslint/no-namespace, no-redeclare
 export namespace AuditEvent {
   /**
    * Records a new audit event, generating a unique ID and current timestamp.
@@ -67,7 +67,7 @@ export namespace AuditEvent {
     entityId: string,
     eventType: string,
     actorId: string,
-    payload: string,
+    payload: string
   ): AuditEvent {
     return {
       id: crypto.randomUUID(),

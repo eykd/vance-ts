@@ -35,7 +35,7 @@ export interface ContextRow {
   created_at: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
+// eslint-disable-next-line @typescript-eslint/no-namespace, no-redeclare
 export namespace Context {
   /**
    * Creates a new Context, generating a unique ID and current timestamp.

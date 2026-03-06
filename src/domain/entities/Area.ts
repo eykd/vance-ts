@@ -42,7 +42,7 @@ export interface AreaRow {
   updated_at: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
+// eslint-disable-next-line @typescript-eslint/no-namespace, no-redeclare
 export namespace Area {
   /**
    * Creates a new active Area, generating a unique ID and current timestamps.

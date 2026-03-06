@@ -52,7 +52,7 @@ export class D1AreaRepository implements AreaRepository {
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name,
            status = excluded.status,
-           updated_at = excluded.updated_at`,
+           updated_at = excluded.updated_at`
       )
       .bind(area.id, area.workspaceId, area.name, area.status, area.createdAt, area.updatedAt)
       .run();
@@ -68,7 +68,7 @@ export class D1AreaRepository implements AreaRepository {
   async getById(id: string, workspaceId: string): Promise<Area | null> {
     const row = await this._db
       .prepare(
-        'SELECT id, workspace_id, name, status, created_at, updated_at FROM area WHERE id = ? AND workspace_id = ?',
+        'SELECT id, workspace_id, name, status, created_at, updated_at FROM area WHERE id = ? AND workspace_id = ?'
       )
       .bind(id, workspaceId)
       .first<AreaRow>();
@@ -85,7 +85,7 @@ export class D1AreaRepository implements AreaRepository {
   async getActiveById(id: string, workspaceId: string): Promise<Area | null> {
     const row = await this._db
       .prepare(
-        "SELECT id, workspace_id, name, status, created_at, updated_at FROM area WHERE id = ? AND workspace_id = ? AND status = 'active'",
+        "SELECT id, workspace_id, name, status, created_at, updated_at FROM area WHERE id = ? AND workspace_id = ? AND status = 'active'"
       )
       .bind(id, workspaceId)
       .first<AreaRow>();
@@ -101,14 +101,19 @@ export class D1AreaRepository implements AreaRepository {
   async listByWorkspaceId(workspaceId: string): Promise<Area[]> {
     const { results } = await this._db
       .prepare(
-        'SELECT id, workspace_id, name, status, created_at, updated_at FROM area WHERE workspace_id = ? ORDER BY created_at ASC',
+        'SELECT id, workspace_id, name, status, created_at, updated_at FROM area WHERE workspace_id = ? ORDER BY created_at ASC'
       )
       .bind(workspaceId)
       .all<AreaRow>();
     return results.map((row) => this._reconstitute(row));
   }
 
-  /** Maps a D1 row to an {@link Area} domain entity. */
+  /**
+   * Maps a D1 row to an Area domain entity.
+   *
+   * @param row - Raw D1 row from the area table.
+   * @returns The hydrated Area entity.
+   */
   private _reconstitute(row: AreaRow): Area {
     return {
       id: row.id,

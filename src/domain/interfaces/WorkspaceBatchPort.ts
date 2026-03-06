@@ -2,7 +2,7 @@
  * WorkspaceBatchPort — output port for atomic workspace provisioning persistence.
  *
  * Defines the contract for persisting the full workspace provisioning payload
- * in a single atomic operation. The application-layer {@link ProvisionWorkspaceUseCase}
+ * in a single atomic operation. The application-layer ProvisionWorkspaceUseCase
  * depends on this port; the infrastructure layer implements it as a D1 batch.
  *
  * @module
@@ -38,6 +38,6 @@ export interface WorkspaceBatchPort {
     actor: Actor,
     areas: Area[],
     contexts: Context[],
-    auditEvents: AuditEvent[],
+    auditEvents: AuditEvent[]
   ): Promise<void>;
 }

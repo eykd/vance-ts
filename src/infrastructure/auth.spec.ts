@@ -479,9 +479,7 @@ describe('getAuth', () => {
       const hooks = config['databaseHooks'] as Record<string, unknown>;
       const user = hooks['user'] as Record<string, unknown>;
       const userCreate = user['create'] as Record<string, unknown>;
-      const afterHook = userCreate['after'] as (
-        user: Record<string, unknown>
-      ) => Promise<void>;
+      const afterHook = userCreate['after'] as (user: Record<string, unknown>) => Promise<void>;
 
       await afterHook({ id: 'user-xyz-789', email: 'test@example.com' });
 
@@ -491,9 +489,7 @@ describe('getAuth', () => {
 
     it('user.create.after hook catches provisioning errors without rethrowing', async () => {
       mocks.mockOnUserCreated.mockRejectedValue(new Error('Provisioning failed'));
-      const consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation((): void => undefined);
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((): void => undefined);
       const env = makeEnv();
 
       getAuth(env);
@@ -502,9 +498,7 @@ describe('getAuth', () => {
       const hooks = config['databaseHooks'] as Record<string, unknown>;
       const user = hooks['user'] as Record<string, unknown>;
       const userCreate = user['create'] as Record<string, unknown>;
-      const afterHook = userCreate['after'] as (
-        user: Record<string, unknown>
-      ) => Promise<void>;
+      const afterHook = userCreate['after'] as (user: Record<string, unknown>) => Promise<void>;
 
       await expect(
         afterHook({ id: 'user-xyz-789', email: 'test@example.com' })
@@ -515,9 +509,7 @@ describe('getAuth', () => {
 
     it('user.create.after hook logs an error with userId and message when provisioning fails', async () => {
       mocks.mockOnUserCreated.mockRejectedValue(new Error('D1 batch failed'));
-      const consoleErrorSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation((): void => undefined);
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((): void => undefined);
       const env = makeEnv();
 
       getAuth(env);
@@ -526,9 +518,7 @@ describe('getAuth', () => {
       const hooks = config['databaseHooks'] as Record<string, unknown>;
       const user = hooks['user'] as Record<string, unknown>;
       const userCreate = user['create'] as Record<string, unknown>;
-      const afterHook = userCreate['after'] as (
-        user: Record<string, unknown>
-      ) => Promise<void>;
+      const afterHook = userCreate['after'] as (user: Record<string, unknown>) => Promise<void>;
 
       await afterHook({ id: 'user-xyz-789', email: 'test@example.com' });
 

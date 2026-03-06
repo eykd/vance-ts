@@ -49,7 +49,7 @@ export class D1ActorRepository implements ActorRepository {
         `INSERT INTO actor (id, workspace_id, user_id, type, created_at)
          VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
-           type = excluded.type`,
+           type = excluded.type`
       )
       .bind(actor.id, actor.workspaceId, actor.userId, actor.type, actor.createdAt)
       .run();
@@ -65,7 +65,7 @@ export class D1ActorRepository implements ActorRepository {
   async getById(id: string, workspaceId: string): Promise<Actor | null> {
     const row = await this._db
       .prepare(
-        'SELECT id, workspace_id, user_id, type, created_at FROM actor WHERE id = ? AND workspace_id = ?',
+        'SELECT id, workspace_id, user_id, type, created_at FROM actor WHERE id = ? AND workspace_id = ?'
       )
       .bind(id, workspaceId)
       .first<ActorRow>();
@@ -81,14 +81,19 @@ export class D1ActorRepository implements ActorRepository {
   async getHumanActorByWorkspaceId(workspaceId: string): Promise<Actor | null> {
     const row = await this._db
       .prepare(
-        "SELECT id, workspace_id, user_id, type, created_at FROM actor WHERE workspace_id = ? AND type = 'human' LIMIT 1",
+        "SELECT id, workspace_id, user_id, type, created_at FROM actor WHERE workspace_id = ? AND type = 'human' LIMIT 1"
       )
       .bind(workspaceId)
       .first<ActorRow>();
     return row !== null ? this._reconstitute(row) : null;
   }
 
-  /** Maps a D1 row to an {@link Actor} domain entity. */
+  /**
+   * Maps a D1 row to an Actor domain entity.
+   *
+   * @param row - Raw D1 row from the actor table.
+   * @returns The hydrated Actor entity.
+   */
   private _reconstitute(row: ActorRow): Actor {
     return {
       id: row.id,

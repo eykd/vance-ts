@@ -38,7 +38,7 @@ export class D1AuditEventRepository implements AuditEventRepository {
     await this._db
       .prepare(
         `INSERT INTO audit_event (id, workspace_id, entity_type, entity_id, event_type, actor_id, payload, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         event.id,
@@ -48,7 +48,7 @@ export class D1AuditEventRepository implements AuditEventRepository {
         event.eventType,
         event.actorId,
         event.payload,
-        event.createdAt,
+        event.createdAt
       )
       .run();
   }
@@ -65,7 +65,7 @@ export class D1AuditEventRepository implements AuditEventRepository {
       this._db
         .prepare(
           `INSERT INTO audit_event (id, workspace_id, entity_type, entity_id, event_type, actor_id, payload, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .bind(
           event.id,
@@ -75,8 +75,8 @@ export class D1AuditEventRepository implements AuditEventRepository {
           event.eventType,
           event.actorId,
           event.payload,
-          event.createdAt,
-        ),
+          event.createdAt
+        )
     );
     await this._db.batch(statements);
   }

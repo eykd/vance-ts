@@ -2,7 +2,7 @@
  * D1WorkspaceRepository integration tests.
  *
  * Runs against a real in-memory D1 database via `@cloudflare/vitest-pool-workers`.
- * Verifies persistence, retrieval, and upsert semantics for {@link Workspace} entities.
+ * Verifies persistence, retrieval, and upsert semantics for Workspace entities.
  *
  * @module
  */
@@ -22,7 +22,7 @@ const TEST_MIGRATIONS = [
   {
     name: '0001_user.sql',
     queries: [
-      "CREATE TABLE `user` (`id` text NOT NULL, `name` text NOT NULL, `email` text NOT NULL UNIQUE, `emailVerified` integer NOT NULL DEFAULT 0, `image` text, `createdAt` text NOT NULL, `updatedAt` text NOT NULL, PRIMARY KEY(`id`))",
+      'CREATE TABLE `user` (`id` text NOT NULL, `name` text NOT NULL, `email` text NOT NULL UNIQUE, `emailVerified` integer NOT NULL DEFAULT 0, `image` text, `createdAt` text NOT NULL, `updatedAt` text NOT NULL, PRIMARY KEY(`id`))',
     ],
   },
   {
@@ -33,10 +33,14 @@ const TEST_MIGRATIONS = [
   },
 ];
 
-/** Inserts a minimal user row to satisfy FK constraints. */
+/**
+ * Inserts a minimal user row to satisfy FK constraints.
+ *
+ * @param id - The user ID to insert.
+ */
 async function insertUser(id: string): Promise<void> {
   await env.DB.prepare(
-    "INSERT INTO `user` (id, name, email, emailVerified, createdAt, updatedAt) VALUES (?, ?, ?, 0, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z')",
+    "INSERT INTO `user` (id, name, email, emailVerified, createdAt, updatedAt) VALUES (?, ?, ?, 0, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z')"
   )
     .bind(id, 'Test User', `${id}@example.com`)
     .run();

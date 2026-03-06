@@ -3,7 +3,7 @@
  *
  * Runs against a real in-memory D1 database via `@cloudflare/vitest-pool-workers`.
  * Verifies append-only persistence and batch insert semantics for
- * {@link AuditEvent} entities.
+ * AuditEvent entities.
  *
  * @module
  */
@@ -23,7 +23,7 @@ const TEST_MIGRATIONS = [
   {
     name: '0001_user.sql',
     queries: [
-      "CREATE TABLE `user` (`id` text NOT NULL, `name` text NOT NULL, `email` text NOT NULL UNIQUE, `emailVerified` integer NOT NULL DEFAULT 0, `image` text, `createdAt` text NOT NULL, `updatedAt` text NOT NULL, PRIMARY KEY(`id`))",
+      'CREATE TABLE `user` (`id` text NOT NULL, `name` text NOT NULL, `email` text NOT NULL UNIQUE, `emailVerified` integer NOT NULL DEFAULT 0, `image` text, `createdAt` text NOT NULL, `updatedAt` text NOT NULL, PRIMARY KEY(`id`))',
     ],
   },
   {
@@ -49,37 +49,57 @@ const TEST_MIGRATIONS = [
   },
 ];
 
-/** Inserts a minimal user row to satisfy FK constraints. */
+/**
+ * Inserts a minimal user row to satisfy FK constraints.
+ *
+ * @param id - The user ID to insert.
+ */
 async function insertUser(id: string): Promise<void> {
   await env.DB.prepare(
-    "INSERT INTO `user` (id, name, email, emailVerified, createdAt, updatedAt) VALUES (?, ?, ?, 0, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z')",
+    "INSERT INTO `user` (id, name, email, emailVerified, createdAt, updatedAt) VALUES (?, ?, ?, 0, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z')"
   )
     .bind(id, 'Test User', `${id}@example.com`)
     .run();
 }
 
-/** Inserts a minimal workspace row to satisfy FK constraints. */
+/**
+ * Inserts a minimal workspace row to satisfy FK constraints.
+ *
+ * @param id - The workspace ID to insert.
+ * @param userId - The owning user ID.
+ */
 async function insertWorkspace(id: string, userId: string): Promise<void> {
   await env.DB.prepare(
-    "INSERT INTO workspace (id, user_id, created_at, updated_at) VALUES (?, ?, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z')",
+    "INSERT INTO workspace (id, user_id, created_at, updated_at) VALUES (?, ?, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z')"
   )
     .bind(id, userId)
     .run();
 }
 
-/** Inserts a minimal actor row to satisfy FK constraints. */
+/**
+ * Inserts a minimal actor row to satisfy FK constraints.
+ *
+ * @param id - The actor ID to insert.
+ * @param workspaceId - The workspace this actor belongs to.
+ * @param userId - The user account linked to this actor.
+ */
 async function insertActor(id: string, workspaceId: string, userId: string): Promise<void> {
   await env.DB.prepare(
-    "INSERT INTO actor (id, workspace_id, user_id, type, created_at) VALUES (?, ?, ?, 'human', '2024-01-01T00:00:00.000Z')",
+    "INSERT INTO actor (id, workspace_id, user_id, type, created_at) VALUES (?, ?, ?, 'human', '2024-01-01T00:00:00.000Z')"
   )
     .bind(id, workspaceId, userId)
     .run();
 }
 
-/** Counts rows in audit_event for a given workspace. */
+/**
+ * Counts rows in audit_event for a given workspace.
+ *
+ * @param workspaceId - The workspace to count events for.
+ * @returns The number of audit events.
+ */
 async function countEvents(workspaceId: string): Promise<number> {
   const result = await env.DB.prepare(
-    'SELECT COUNT(*) as count FROM audit_event WHERE workspace_id = ?',
+    'SELECT COUNT(*) as count FROM audit_event WHERE workspace_id = ?'
   )
     .bind(workspaceId)
     .first<{ count: number }>();
@@ -142,9 +162,7 @@ describe('D1AuditEventRepository', () => {
 
       await repo.save(event);
 
-      const row = await env.DB.prepare(
-        'SELECT * FROM audit_event WHERE id = ?',
-      )
+      const row = await env.DB.prepare('SELECT * FROM audit_event WHERE id = ?')
         .bind('event-1')
         .first<{
           id: string;

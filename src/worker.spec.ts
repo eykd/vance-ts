@@ -35,10 +35,12 @@ const mocks = vi.hoisted(() => {
     async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
   );
   /** Default: returns 200 OK. */
-  const handleListAreas = vi.fn(async (): Promise<Response> => new Response(null, { status: 200 }));
+  const handleListAreas = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
   /** Default: returns 200 OK. */
   const handleListContexts = vi.fn(
-    async (): Promise<Response> => new Response(null, { status: 200 })
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
   );
 
   const mockFactory = {
@@ -549,11 +551,15 @@ describe('Worker', () => {
       // Constraint workspace-35c: requireWorkspaceMiddleware must guard all /api/v1/* routes
       // so that requests with a missing actor return 503, not fall through to handlers.
       mocks.requireWorkspaceMiddlewareFn.mockImplementationOnce(
-        async (): Promise<Response> =>
-          new Response(
-            JSON.stringify({ error: { code: 'workspace_not_found', message: 'Workspace not provisioned.' } }),
-            { status: 503, headers: { 'Content-Type': 'application/json' } },
-          ),
+        (): Promise<Response> =>
+          Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: { code: 'workspace_not_found', message: 'Workspace not provisioned.' },
+              }),
+              { status: 503, headers: { 'Content-Type': 'application/json' } }
+            )
+          )
       );
 
       const env = mockEnv();

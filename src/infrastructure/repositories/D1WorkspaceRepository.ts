@@ -48,7 +48,7 @@ export class D1WorkspaceRepository implements WorkspaceRepository {
         `INSERT INTO workspace (id, user_id, created_at, updated_at)
          VALUES (?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
-           updated_at = excluded.updated_at`,
+           updated_at = excluded.updated_at`
       )
       .bind(workspace.id, workspace.userId, workspace.createdAt, workspace.updatedAt)
       .run();
@@ -62,9 +62,7 @@ export class D1WorkspaceRepository implements WorkspaceRepository {
    */
   async getByUserId(userId: string): Promise<Workspace | null> {
     const row = await this._db
-      .prepare(
-        'SELECT id, user_id, created_at, updated_at FROM workspace WHERE user_id = ?',
-      )
+      .prepare('SELECT id, user_id, created_at, updated_at FROM workspace WHERE user_id = ?')
       .bind(userId)
       .first<WorkspaceRow>();
     return row !== null ? this._reconstitute(row) : null;
@@ -78,15 +76,18 @@ export class D1WorkspaceRepository implements WorkspaceRepository {
    */
   async getById(id: string): Promise<Workspace | null> {
     const row = await this._db
-      .prepare(
-        'SELECT id, user_id, created_at, updated_at FROM workspace WHERE id = ?',
-      )
+      .prepare('SELECT id, user_id, created_at, updated_at FROM workspace WHERE id = ?')
       .bind(id)
       .first<WorkspaceRow>();
     return row !== null ? this._reconstitute(row) : null;
   }
 
-  /** Maps a D1 row to a {@link Workspace} domain entity. */
+  /**
+   * Maps a D1 row to a Workspace domain entity.
+   *
+   * @param row - Raw D1 row from the workspace table.
+   * @returns The hydrated Workspace entity.
+   */
   private _reconstitute(row: WorkspaceRow): Workspace {
     return {
       id: row.id,

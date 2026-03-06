@@ -2,7 +2,7 @@
   "extends": "./tsconfig.json",
   "include": ["src/**/*", ".claude/**/*", "acceptance/**/*", "vitest.config.ts"],
   "compilerOptions": {
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals", "@cloudflare/vitest-pool-workers"]
   },
   "exclude": ["node_modules", "dist"]
 }

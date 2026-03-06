@@ -36,7 +36,7 @@ export interface ActorRow {
   created_at: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
+// eslint-disable-next-line @typescript-eslint/no-namespace, no-redeclare
 export namespace Actor {
   /**
    * Creates a new human Actor within a workspace, generating a unique ID and current timestamp.

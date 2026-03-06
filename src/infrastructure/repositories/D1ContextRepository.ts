@@ -48,7 +48,7 @@ export class D1ContextRepository implements ContextRepository {
         `INSERT INTO context (id, workspace_id, name, created_at)
          VALUES (?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
-           name = excluded.name`,
+           name = excluded.name`
       )
       .bind(context.id, context.workspaceId, context.name, context.createdAt)
       .run();
@@ -64,7 +64,7 @@ export class D1ContextRepository implements ContextRepository {
   async getById(id: string, workspaceId: string): Promise<Context | null> {
     const row = await this._db
       .prepare(
-        'SELECT id, workspace_id, name, created_at FROM context WHERE id = ? AND workspace_id = ?',
+        'SELECT id, workspace_id, name, created_at FROM context WHERE id = ? AND workspace_id = ?'
       )
       .bind(id, workspaceId)
       .first<ContextRow>();
@@ -80,14 +80,19 @@ export class D1ContextRepository implements ContextRepository {
   async listByWorkspaceId(workspaceId: string): Promise<Context[]> {
     const { results } = await this._db
       .prepare(
-        'SELECT id, workspace_id, name, created_at FROM context WHERE workspace_id = ? ORDER BY created_at ASC',
+        'SELECT id, workspace_id, name, created_at FROM context WHERE workspace_id = ? ORDER BY created_at ASC'
       )
       .bind(workspaceId)
       .all<ContextRow>();
     return results.map((row) => this._reconstitute(row));
   }
 
-  /** Maps a D1 row to a {@link Context} domain entity. */
+  /**
+   * Maps a D1 row to a Context domain entity.
+   *
+   * @param row - Raw D1 row from the context table.
+   * @returns The hydrated Context entity.
+   */
   private _reconstitute(row: ContextRow): Context {
     return {
       id: row.id,

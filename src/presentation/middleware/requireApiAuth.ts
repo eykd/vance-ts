@@ -60,10 +60,7 @@ export function createRequireApiAuth(
   authService: AuthService,
   workspaceRepository: WorkspaceRepository
 ): (c: Context<AppEnv>, next: Next) => Promise<Response | void> {
-  return async function requireApiAuth(
-    c: Context<AppEnv>,
-    next: Next
-  ): Promise<Response | void> {
+  return async function requireApiAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
     const cookieHeader = c.req.header('Cookie') ?? '';
     const sessionToken = extractSessionToken(cookieHeader);
 

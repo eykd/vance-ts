@@ -16,7 +16,7 @@ describe('AuditEvent.record', () => {
       'item-1',
       'inbox_item.created',
       'actor-1',
-      '{}',
+      '{}'
     );
 
     expect(event.id).toMatch(UUID_RE);
@@ -30,7 +30,7 @@ describe('AuditEvent.record', () => {
       'action-1',
       'action.created',
       'actor-1',
-      '{"status":"ready"}',
+      '{"status":"ready"}'
     );
     const after = new Date().toISOString();
 
@@ -46,7 +46,7 @@ describe('AuditEvent.record', () => {
       'entity-xyz',
       'workspace.provisioned',
       'actor-xyz',
-      '{"userId":"u-1"}',
+      '{"userId":"u-1"}'
     );
 
     expect(event.workspaceId).toBe('ws-abc');

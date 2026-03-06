@@ -87,7 +87,13 @@ describe('ProvisionWorkspaceUseCase', () => {
     const [workspace, , areas] = batchPortMock.provisionBatch.mock.calls[0] as [
       { id: string },
       unknown,
-      Array<{ id: string; workspaceId: string; status: string; createdAt: string; updatedAt: string }>,
+      Array<{
+        id: string;
+        workspaceId: string;
+        status: string;
+        createdAt: string;
+        updatedAt: string;
+      }>,
     ];
     for (const area of areas) {
       expect(area).toMatchObject({ status: 'active', workspaceId: workspace.id });
