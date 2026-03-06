@@ -56,6 +56,7 @@ CLAUDE_PID=""
 HEARTBEAT_PID=""
 LAST_CLAUDE_OUTPUT=""
 LAST_STEP_OUTPUT=""
+LAST_RALPH_SIGNAL=""  # Parsed JSON from RALPH_SIGNAL line
 
 ##############################################################################
 # Logging infrastructure
@@ -136,6 +137,40 @@ log_block() {
         echo "-------- End $label --------"
         echo ""
     } >> "$LOG_FILE"
+}
+
+##############################################################################
+# RALPH_SIGNAL parsing
+##############################################################################
+
+# Extract RALPH_SIGNAL JSON from Claude's output
+# Sets LAST_RALPH_SIGNAL global. Returns 0 if found, 1 if not.
+parse_ralph_signal() {
+    local output="$1"
+    LAST_RALPH_SIGNAL=""
+    local signal_line
+    signal_line=$(echo "$output" | grep -o 'RALPH_SIGNAL:{[^}]*}' | tail -1) || true
+    if [[ -n "$signal_line" ]]; then
+        local json_part="${signal_line#RALPH_SIGNAL:}"
+        if echo "$json_part" | jq empty 2>/dev/null; then
+            LAST_RALPH_SIGNAL="$json_part"
+            log DEBUG "Parsed RALPH_SIGNAL: $LAST_RALPH_SIGNAL"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Read a field from LAST_RALPH_SIGNAL
+# Usage: get_signal field [default]
+get_signal() {
+    local field="$1" default="${2:-}"
+    if [[ -z "$LAST_RALPH_SIGNAL" ]]; then
+        echo "$default"; return
+    fi
+    local val
+    val=$(echo "$LAST_RALPH_SIGNAL" | jq -r ".$field // empty" 2>/dev/null) || true
+    echo "${val:-$default}"
 }
 
 ##############################################################################
@@ -1241,6 +1276,13 @@ $acceptance_skill
 
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all stubs were already bound (no unbound stubs found), output:
+RALPH_SIGNAL:{"already_bound":true,"stubs_modified":0}
+If you bound N stubs, output:
+RALPH_SIGNAL:{"already_bound":false,"stubs_modified":N}
+replacing N with the actual number. This line must appear exactly once, as your final line.
 PROMPT
 }
 
@@ -1287,6 +1329,13 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If the feature is fully implemented and you cannot write a meaningful failing test, output:
+RALPH_SIGNAL:{"already_implemented":true,"test_written":false}
+If you wrote a new failing test, output:
+RALPH_SIGNAL:{"already_implemented":false,"test_written":true}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
         "$STEP_GREEN")
@@ -1316,6 +1365,13 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all tests pass after your changes, output:
+RALPH_SIGNAL:{"tests_passing":true}
+If tests are still failing, output:
+RALPH_SIGNAL:{"tests_passing":false}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
         "$STEP_REFACTOR")
@@ -1345,6 +1401,13 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all tests pass after your changes, output:
+RALPH_SIGNAL:{"tests_passing":true}
+If tests are still failing, output:
+RALPH_SIGNAL:{"tests_passing":false}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
         "$STEP_REVIEW")
@@ -1373,6 +1436,13 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all tests pass after your changes, output:
+RALPH_SIGNAL:{"tests_passing":true}
+If tests are still failing, output:
+RALPH_SIGNAL:{"tests_passing":false}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
     esac
@@ -1417,6 +1487,11 @@ execute_tdd_step() {
 
         # After BIND, skip test verification (tests are expected to fail)
         if [[ "$step" == "$STEP_BIND" ]]; then
+            local already_bound
+            already_bound=$(get_signal "already_bound" "false")
+            if [[ "$already_bound" == "true" ]]; then
+                log INFO "BIND step: Claude signals all stubs already bound"
+            fi
             log INFO "BIND step complete — tests expected to fail at this point"
             LAST_STEP_OUTPUT="$LAST_CLAUDE_OUTPUT"
             return 0
@@ -1424,6 +1499,15 @@ execute_tdd_step() {
 
         # After RED, confirm at least one test is failing (that's the goal)
         if [[ "$step" == "$STEP_RED" ]]; then
+            # Check structured signal FIRST
+            local already_implemented
+            already_implemented=$(get_signal "already_implemented" "false")
+            if [[ "$already_implemented" == "true" ]]; then
+                log WARN "RED step: Claude signals feature already implemented"
+                return 2  # Circuit breaker on FIRST attempt
+            fi
+
+            # Existing test-based verification as fallback
             if ! check_baseline_tests; then
                 log INFO "RED step complete — new failing test confirmed"
                 LAST_STEP_OUTPUT="$LAST_CLAUDE_OUTPUT"
@@ -1608,10 +1692,17 @@ PROMPT
     fi
 
     # Step 3: BIND step — write acceptance test implementations (no previous output)
-    if ! execute_tdd_step "$STEP_BIND" "$task_json" 1 "" "$spec_file" ""; then
-        log ERROR "BIND step failed for task $task_id"
-        npx bd comment "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
-        return 1
+    # Pre-flight check: skip BIND if stubs are already bound
+    local stub_file
+    stub_file=$(find generated-acceptance-tests/ -name "$(basename "$spec_file" .txt)*" -type f 2>/dev/null | head -1) || true
+    if [[ -n "$stub_file" ]] && ! grep -q 'acceptance test not yet bound' "$stub_file" 2>/dev/null; then
+        log INFO "Acceptance test stubs already bound — skipping BIND step"
+    else
+        if ! execute_tdd_step "$STEP_BIND" "$task_json" 1 "" "$spec_file" ""; then
+            log ERROR "BIND step failed for task $task_id"
+            npx bd comment "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
+            return 1
+        fi
     fi
 
     # Step 4: Inner TDD loop
@@ -1748,7 +1839,7 @@ invoke_claude() {
     #
     # timeout -k 10: send SIGKILL 10s after SIGTERM if process ignores it.
     timeout -k 10 "$CLAUDE_TIMEOUT" \
-        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format text" "$temp_output" &
+        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format json" "$temp_output" &
     CLAUDE_PID=$!
 
     # Clean up prompt file when no longer needed (after claude reads it)
@@ -1811,6 +1902,16 @@ invoke_claude() {
                         "$temp_output")
     log_block "Claude Output" "$claude_output"
     LAST_CLAUDE_OUTPUT="$claude_output"
+
+    # Extract .result from JSON envelope if present
+    local result_text
+    if result_text=$(echo "$claude_output" | jq -r '.result // empty' 2>/dev/null) && [[ -n "$result_text" ]]; then
+        LAST_CLAUDE_OUTPUT="$result_text"
+    fi
+
+    # Parse RALPH_SIGNAL if present
+    parse_ralph_signal "$LAST_CLAUDE_OUTPUT" || true
+
     rm -f "$temp_output"
 
     return "$exit_code"
