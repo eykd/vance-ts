@@ -2095,8 +2095,9 @@ $task_description"
                 log INFO "ATDD cycle completed for task $task_id"
                 auto_close_completed_parents "$task_id" "$epic_id"
             else
-                log WARN "Task $task_id marked BLOCKED — continuing to next task"
-                # Continue loop instead of returning EXIT_FAILURE
+                log WARN "Task $task_id marked BLOCKED — deferring for 1 day to avoid retry loop"
+                npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
+                # Continue loop to pick up the next task
             fi
         else
             # Generate focused prompt
