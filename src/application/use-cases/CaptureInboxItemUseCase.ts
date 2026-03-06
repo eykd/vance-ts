@@ -17,6 +17,8 @@ export type CaptureInboxItemRequest = {
   workspaceId: string;
   /** Raw capture title. */
   title: string;
+  /** Optional longer description. */
+  description?: string;
 };
 
 /**
@@ -41,7 +43,7 @@ export class CaptureInboxItemUseCase {
    * @returns The newly created inbox item DTO.
    */
   async execute(request: CaptureInboxItemRequest): Promise<InboxItemDto> {
-    const item = InboxItem.create(request.workspaceId, request.title);
+    const item = InboxItem.create(request.workspaceId, request.title, request.description ?? null);
     await this._repo.save(item);
     return toInboxItemDto(item);
   }

@@ -48,4 +48,17 @@ describe('CaptureInboxItemUseCase', () => {
     expect(result.description).toBeNull();
     expect(result.id).toEqual(expect.any(String));
   });
+
+  it('passes an optional description through to the saved entity', async () => {
+    const result = await useCase.execute({
+      workspaceId: 'ws-1',
+      title: 'Buy milk',
+      description: 'Whole milk from the corner store',
+    });
+
+    expect(result.description).toBe('Whole milk from the corner store');
+
+    const savedEntity = repoMock.save.mock.calls[0]?.[0] as { description: string | null };
+    expect(savedEntity.description).toBe('Whole milk from the corner store');
+  });
 });
