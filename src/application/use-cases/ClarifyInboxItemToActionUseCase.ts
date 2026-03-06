@@ -9,9 +9,8 @@ import { Action } from '../../domain/entities/Action.js';
 import { AuditEvent } from '../../domain/entities/AuditEvent.js';
 import { InboxItem } from '../../domain/entities/InboxItem.js';
 import { DomainError } from '../../domain/errors/DomainError.js';
-import type { ActionRepository } from '../../domain/interfaces/ActionRepository.js';
 import type { AreaRepository } from '../../domain/interfaces/AreaRepository.js';
-import type { AuditEventRepository } from '../../domain/interfaces/AuditEventRepository.js';
+import type { ClarifyInboxItemBatchPort } from '../../domain/interfaces/ClarifyInboxItemBatchPort.js';
 import type { ContextRepository } from '../../domain/interfaces/ContextRepository.js';
 import type { InboxItemRepository } from '../../domain/interfaces/InboxItemRepository.js';
 import type { ActionDto } from '../dto/ActionDto.js';
@@ -42,32 +41,28 @@ export type ClarifyInboxItemRequest = {
  */
 export class ClarifyInboxItemToActionUseCase {
   private readonly _inboxRepo: InboxItemRepository;
-  private readonly _actionRepo: ActionRepository;
+  private readonly _batchPort: ClarifyInboxItemBatchPort;
   private readonly _areaRepo: AreaRepository;
   private readonly _contextRepo: ContextRepository;
-  private readonly _auditRepo: AuditEventRepository | undefined;
 
   /**
    * Creates a new ClarifyInboxItemToActionUseCase.
    *
-   * @param inboxRepo - Repository for inbox item entities.
-   * @param actionRepo - Repository for action entities.
+   * @param inboxRepo - Repository for inbox item reads.
+   * @param batchPort - Port for atomic persistence of clarification payload.
    * @param areaRepo - Repository for area entities.
    * @param contextRepo - Repository for context entities.
-   * @param auditRepo - Optional repository for recording audit events.
    */
   constructor(
     inboxRepo: InboxItemRepository,
-    actionRepo: ActionRepository,
+    batchPort: ClarifyInboxItemBatchPort,
     areaRepo: AreaRepository,
-    contextRepo: ContextRepository,
-    auditRepo?: AuditEventRepository
+    contextRepo: ContextRepository
   ) {
     this._inboxRepo = inboxRepo;
-    this._actionRepo = actionRepo;
+    this._batchPort = batchPort;
     this._areaRepo = areaRepo;
     this._contextRepo = contextRepo;
-    this._auditRepo = auditRepo;
   }
 
   /**
@@ -103,29 +98,26 @@ export class ClarifyInboxItemToActionUseCase {
     );
 
     const clarifiedItem = InboxItem.clarify(item, 'action', action.id);
+    const auditEvents = this._buildAuditEvents(request, clarifiedItem, action);
 
-    await this._inboxRepo.save(clarifiedItem);
-    await this._actionRepo.save(action);
-    await this._recordAuditEvents(request, clarifiedItem, action);
+    await this._batchPort.clarifyBatch(clarifiedItem, action, auditEvents);
 
     return toActionDto(action);
   }
 
   /**
-   * Records audit events for the clarification (inbox_item.clarified + action.created).
+   * Builds audit events for the clarification (inbox_item.clarified + action.created).
    *
    * @param request - The original clarification request.
    * @param item - The clarified inbox item.
    * @param action - The newly created action.
+   * @returns Array of audit events to persist.
    */
-  private async _recordAuditEvents(
+  private _buildAuditEvents(
     request: ClarifyInboxItemRequest,
     item: InboxItem,
     action: Action
-  ): Promise<void> {
-    if (this._auditRepo === undefined) {
-      return;
-    }
+  ): AuditEvent[] {
     const itemEvent = AuditEvent.record(
       request.workspaceId,
       'inbox_item',
@@ -151,7 +143,6 @@ export class ClarifyInboxItemToActionUseCase {
         contextId: action.contextId,
       })
     );
-    await this._auditRepo.save(itemEvent);
-    await this._auditRepo.save(actionEvent);
+    return [itemEvent, actionEvent];
   }
 }

@@ -35,6 +35,7 @@ import type { InboxItemRepository } from '../domain/interfaces/InboxItemReposito
 import type { WorkspaceRepository } from '../domain/interfaces/WorkspaceRepository';
 import { getAuth, resetAuth } from '../infrastructure/auth';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
+import { ClarifyInboxItemD1BatchAdapter } from '../infrastructure/ClarifyInboxItemD1BatchAdapter';
 import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
 import { D1ActionRepository } from '../infrastructure/repositories/D1ActionRepository';
 import { D1ActorRepository } from '../infrastructure/repositories/D1ActorRepository';
@@ -487,10 +488,9 @@ export class ServiceFactory {
   get clarifyInboxItemToActionUseCase(): ClarifyInboxItemToActionUseCase {
     this._clarifyInboxItemToActionUseCase ??= new ClarifyInboxItemToActionUseCase(
       this.inboxItemRepository,
-      this.actionRepository,
+      new ClarifyInboxItemD1BatchAdapter(this.env.DB),
       this.areaRepository,
-      this.contextRepository,
-      this.auditEventRepository
+      this.contextRepository
     );
     return this._clarifyInboxItemToActionUseCase;
   }
