@@ -105,3 +105,16 @@
 {"actor":"eykd","comment":null,"created_at":"2026-03-06T23:05:47Z","event_type":"created","id":105,"issue_id":"CLAW-7ad.11","new_value":"","old_value":""}
 {"actor":"eykd","comment":null,"created_at":"2026-03-06T23:05:56Z","event_type":"closed","id":106,"issue_id":"CLAW-7ad.7","new_value":"Closed","old_value":""}
 {"actor":"eykd","comment":null,"created_at":"2026-03-06T23:07:24Z","event_type":"status_changed","id":107,"issue_id":"CLAW-7ad.8","new_value":"{\"status\":\"in_progress\"}","old_value":"{\"id\":\"CLAW-7ad.8\",\"title\":\"[sp:09-architecture-review] Architecture review\",\"description\":\"Review all changes for architecture compliance\",\"status\":\"open\",\"priority\":0,\"issue_type\":\"task\",\"owner\":\"david@worldsenoughstudios.com\",\"created_at\":\"2026-03-05T21:07:44Z\",\"created_by\":\"eykd\",\"updated_at\":\"2026-03-05T21:07:44Z\"}"}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:11:56Z","event_type":"created","id":108,"issue_id":"CLAW-7ad.12","new_value":"","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:12:03Z","event_type":"created","id":109,"issue_id":"CLAW-7ad.13","new_value":"","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:12:16Z","event_type":"closed","id":110,"issue_id":"CLAW-7ad.8","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:17:03Z","event_type":"created","id":111,"issue_id":"CLAW-7ad.14","new_value":"","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:17:13Z","event_type":"created","id":112,"issue_id":"CLAW-7ad.15","new_value":"","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:17:22Z","event_type":"created","id":113,"issue_id":"CLAW-7ad.16","new_value":"","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:17:34Z","event_type":"created","id":114,"issue_id":"CLAW-7ad.17","new_value":"","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:17:45Z","event_type":"created","id":115,"issue_id":"CLAW-7ad.18","new_value":"","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:17:58Z","event_type":"created","id":116,"issue_id":"CLAW-7ad.19","new_value":"","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:18:08Z","event_type":"created","id":117,"issue_id":"CLAW-7ad.20","new_value":"","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:18:24Z","event_type":"created","id":118,"issue_id":"CLAW-7ad.21","new_value":"","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:18:34Z","event_type":"created","id":119,"issue_id":"CLAW-7ad.22","new_value":"","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-06T23:18:50Z","event_type":"closed","id":120,"issue_id":"CLAW-7ad.9","new_value":"Closed","old_value":""}
