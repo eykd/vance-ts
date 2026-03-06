@@ -4,6 +4,7 @@
  * @module
  */
 
+import type { InboxItem } from '../../domain/entities/InboxItem.js';
 import type { InboxItemRepository } from '../../domain/interfaces/InboxItemRepository.js';
 import type { InboxItemDto } from '../dto/InboxItemDto.js';
 import { toInboxItemDto } from '../dto/InboxItemDto.js';
@@ -17,6 +18,8 @@ const LIST_SAFETY_CAP = 500;
 export type ListInboxItemsRequest = {
   /** The workspace UUID to list inbox items for. */
   workspaceId: string;
+  /** Optional status filter; defaults to 'inbox'. */
+  status?: InboxItem['status'];
 };
 
 /**
@@ -41,7 +44,8 @@ export class ListInboxItemsUseCase {
    * @returns Array of inbox item DTOs.
    */
   async execute(request: ListInboxItemsRequest): Promise<InboxItemDto[]> {
-    const items = await this._repo.listByWorkspaceId(request.workspaceId, 'inbox');
+    const status = request.status ?? 'inbox';
+    const items = await this._repo.listByWorkspaceId(request.workspaceId, status);
     if (items.length >= LIST_SAFETY_CAP) {
       console.warn('[ListInboxItemsUseCase] Result count hit 500-item safety cap', {
         workspaceId: request.workspaceId,

@@ -45,6 +45,14 @@ describe('ListInboxItemsUseCase', () => {
     expect(repoMock.listByWorkspaceId).toHaveBeenCalledWith('ws-1', 'inbox');
   });
 
+  it('passes an explicit status filter to the repository when provided', async () => {
+    repoMock.listByWorkspaceId.mockResolvedValue([]);
+
+    await useCase.execute({ workspaceId: 'ws-1', status: 'clarified' });
+
+    expect(repoMock.listByWorkspaceId).toHaveBeenCalledWith('ws-1', 'clarified');
+  });
+
   it('emits console.warn when result count hits the safety cap', async () => {
     const items = Array.from({ length: 500 }, (_, i) => ({
       id: `item-${String(i)}`,
