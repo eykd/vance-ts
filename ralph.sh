@@ -1839,7 +1839,7 @@ invoke_claude() {
     #
     # timeout -k 10: send SIGKILL 10s after SIGTERM if process ignores it.
     timeout -k 10 "$CLAUDE_TIMEOUT" \
-        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format json" "$temp_output" &
+        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format json" "$temp_output" > /dev/null &
     CLAUDE_PID=$!
 
     # Clean up prompt file when no longer needed (after claude reads it)
@@ -1911,6 +1911,12 @@ invoke_claude() {
     result_text=$(echo "$claude_output" | jq -r '.result // empty' 2>/dev/null) || true
     if [[ -n "$result_text" ]]; then
         LAST_CLAUDE_OUTPUT="$result_text"
+        # Display formatted output to console
+        echo "" >&2
+        echo "[ralph] -------- Claude Response --------" >&2
+        echo "$result_text" >&2
+        echo "[ralph] -------- End Response --------" >&2
+        echo "" >&2
     fi
 
     # Parse RALPH_SIGNAL if present
