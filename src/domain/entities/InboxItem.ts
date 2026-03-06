@@ -87,4 +87,29 @@ export namespace InboxItem {
     }
     return { ...fields };
   }
+
+  /**
+   * Transitions an inbox item from 'inbox' to 'clarified' status.
+   *
+   * @param item - The inbox item to clarify.
+   * @param clarifiedIntoType - The type of entity this item was clarified into.
+   * @param clarifiedIntoId - The ID of the entity this item was clarified into.
+   * @returns A new InboxItem with status 'clarified'.
+   */
+  export function clarify(
+    item: InboxItem,
+    clarifiedIntoType: string,
+    clarifiedIntoId: string
+  ): InboxItem {
+    if (item.status === 'clarified') {
+      throw new Error('InboxItem is already clarified');
+    }
+    return {
+      ...item,
+      status: 'clarified',
+      clarifiedIntoType,
+      clarifiedIntoId,
+      updatedAt: new Date().toISOString(),
+    };
+  }
 }

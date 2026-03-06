@@ -2041,8 +2041,12 @@ invoke_claude() {
     LAST_CLAUDE_OUTPUT="$claude_output"
 
     # Extract .result from JSON envelope if present
+    # Note: jq may return non-zero exit (code 5) when trailing garbage exists
+    # in the output (e.g. partial ANSI escapes like "[<u"), but still produces
+    # correct output. So we capture first, then check if non-empty.
     local result_text
-    if result_text=$(echo "$claude_output" | jq -r '.result // empty' 2>/dev/null) && [[ -n "$result_text" ]]; then
+    result_text=$(echo "$claude_output" | jq -r '.result // empty' 2>/dev/null) || true
+    if [[ -n "$result_text" ]]; then
         LAST_CLAUDE_OUTPUT="$result_text"
     fi
 
