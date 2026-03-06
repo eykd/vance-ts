@@ -1,0 +1,51 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { InboxItemRepository } from '../../domain/interfaces/InboxItemRepository.js';
+
+import { CaptureInboxItemUseCase } from './CaptureInboxItemUseCase.js';
+
+/**
+ * Creates a minimal InboxItemRepository mock.
+ *
+ * @returns An object with vi.fn() stubs for each InboxItemRepository method.
+ */
+function makeInboxItemRepoMock(): {
+  save: ReturnType<typeof vi.fn>;
+  getById: ReturnType<typeof vi.fn>;
+  listByWorkspaceId: ReturnType<typeof vi.fn>;
+  countByWorkspaceId: ReturnType<typeof vi.fn>;
+} {
+  return {
+    save: vi.fn().mockResolvedValue(undefined),
+    getById: vi.fn(),
+    listByWorkspaceId: vi.fn(),
+    countByWorkspaceId: vi.fn(),
+  };
+}
+
+describe('CaptureInboxItemUseCase', () => {
+  let repoMock: ReturnType<typeof makeInboxItemRepoMock>;
+  let useCase: CaptureInboxItemUseCase;
+
+  beforeEach(() => {
+    repoMock = makeInboxItemRepoMock();
+    useCase = new CaptureInboxItemUseCase(repoMock as unknown as InboxItemRepository);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('saves a new inbox item and returns its DTO', async () => {
+    const result = await useCase.execute({
+      workspaceId: 'ws-1',
+      title: 'Buy milk',
+    });
+
+    expect(repoMock.save).toHaveBeenCalledOnce();
+    expect(result.title).toBe('Buy milk');
+    expect(result.status).toBe('inbox');
+    expect(result.description).toBeNull();
+    expect(result.id).toEqual(expect.any(String));
+  });
+});
