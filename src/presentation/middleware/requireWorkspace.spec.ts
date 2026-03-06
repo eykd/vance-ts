@@ -34,7 +34,11 @@ const TEST_ACTOR = {
  *
  * @returns Mock with vi.fn() stubs.
  */
-function makeWorkspaceRepoMock(): { getByUserId: ReturnType<typeof vi.fn>; getById: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn> } {
+function makeWorkspaceRepoMock(): {
+  getByUserId: ReturnType<typeof vi.fn>;
+  getById: ReturnType<typeof vi.fn>;
+  save: ReturnType<typeof vi.fn>;
+} {
   return {
     getByUserId: vi.fn(),
     getById: vi.fn(),
@@ -47,7 +51,11 @@ function makeWorkspaceRepoMock(): { getByUserId: ReturnType<typeof vi.fn>; getBy
  *
  * @returns Mock with vi.fn() stubs.
  */
-function makeActorRepoMock(): { getHumanActorByWorkspaceId: ReturnType<typeof vi.fn>; getById: ReturnType<typeof vi.fn>; save: ReturnType<typeof vi.fn> } {
+function makeActorRepoMock(): {
+  getHumanActorByWorkspaceId: ReturnType<typeof vi.fn>;
+  getById: ReturnType<typeof vi.fn>;
+  save: ReturnType<typeof vi.fn>;
+} {
   return {
     getHumanActorByWorkspaceId: vi.fn(),
     getById: vi.fn(),
@@ -83,7 +91,7 @@ describe('createRequireWorkspace', () => {
     });
     const middleware = createRequireWorkspace(
       workspaceRepo as unknown as WorkspaceRepository,
-      actorRepo as unknown as ActorRepository,
+      actorRepo as unknown as ActorRepository
     );
     app.use('*', middleware);
     app.get('/protected', (c) => c.json({ ok: true }));
@@ -97,7 +105,7 @@ describe('createRequireWorkspace', () => {
     const res = await app.fetch(new Request('https://example.com/protected'));
 
     expect(res.status).toBe(503);
-    const body = await res.json() as { error: { code: string; message: string } };
+    const body = await res.json<{ error: { code: string } }>();
     expect(body.error.code).toBe('workspace_not_found');
   });
 
@@ -108,7 +116,7 @@ describe('createRequireWorkspace', () => {
     const res = await app.fetch(
       new Request('https://example.com/protected', {
         headers: { 'HX-Request': 'true' },
-      }),
+      })
     );
 
     expect(res.status).toBe(503);
@@ -123,7 +131,25 @@ describe('createRequireWorkspace', () => {
     const res = await app.fetch(new Request('https://example.com/protected'));
 
     expect(res.status).toBe(503);
-    const body = await res.json() as { error: { code: string; message: string } };
+    const body = await res.json<{ error: { code: string } }>();
+    expect(body.error.code).toBe('workspace_not_found');
+  });
+
+  it('returns 503 JSON when actor exists but has null id (workspace-35c: !actorId guard must not throw)', async () => {
+    // Constraint workspace-35c: the null guard must use !actorId, not actor.id.length === 0.
+    // At runtime, D1 can return a row where id is null even if the TypeScript type says string.
+    // actor.id.length === 0 throws TypeError for null; !actorId safely returns false.
+    workspaceRepo.getByUserId.mockResolvedValue(TEST_WORKSPACE);
+    actorRepo.getHumanActorByWorkspaceId.mockResolvedValue({
+      ...TEST_ACTOR,
+      id: null as unknown as string,
+    });
+
+    const app = makeTestApp();
+    const res = await app.fetch(new Request('https://example.com/protected'));
+
+    expect(res.status).toBe(503);
+    const body = await res.json<{ error: { code: string } }>();
     expect(body.error.code).toBe('workspace_not_found');
   });
 
@@ -135,7 +161,7 @@ describe('createRequireWorkspace', () => {
     const res = await app.fetch(new Request('https://example.com/protected'));
 
     expect(res.status).toBe(503);
-    const body = await res.json() as { error: { code: string; message: string } };
+    const body = await res.json<{ error: { code: string } }>();
     expect(body.error.code).toBe('workspace_not_found');
   });
 
@@ -153,7 +179,7 @@ describe('createRequireWorkspace', () => {
     });
     const middleware = createRequireWorkspace(
       workspaceRepo as unknown as WorkspaceRepository,
-      actorRepo as unknown as ActorRepository,
+      actorRepo as unknown as ActorRepository
     );
     app.use('*', middleware);
     app.get('/protected', (c) => {
@@ -177,7 +203,7 @@ describe('createRequireWorkspace', () => {
     const res = await app.fetch(new Request('https://example.com/protected'));
 
     expect(res.status).toBe(200);
-    const body = await res.json() as { ok: boolean };
+    const body = await res.json();
     expect(body.ok).toBe(true);
   });
 

@@ -15,7 +15,11 @@
  * @module
  */
 
+import type { Actor } from '../../domain/entities/Actor.js';
+import type { Area } from '../../domain/entities/Area.js';
 import type { AuditEvent } from '../../domain/entities/AuditEvent.js';
+import type { Context } from '../../domain/entities/Context.js';
+import type { Workspace } from '../../domain/entities/Workspace.js';
 import type { WorkspaceBatchPort } from '../../domain/interfaces/WorkspaceBatchPort.js';
 
 /** Default areas seeded for every new workspace. */
@@ -64,31 +68,31 @@ export class ProvisionWorkspaceUseCase {
   async execute(request: ProvisionWorkspaceRequest): Promise<void> {
     const now = new Date().toISOString();
 
-    const workspace = {
+    const workspace: Workspace = {
       id: crypto.randomUUID(),
       userId: request.userId,
       createdAt: now,
       updatedAt: now,
     };
 
-    const actor = {
+    const actor: Actor = {
       id: crypto.randomUUID(),
       workspaceId: workspace.id,
       userId: request.userId,
-      type: 'human' as const,
+      type: 'human',
       createdAt: now,
     };
 
-    const areas = SEED_AREA_NAMES.map((name) => ({
+    const areas: Area[] = SEED_AREA_NAMES.map((name) => ({
       id: crypto.randomUUID(),
       workspaceId: workspace.id,
       name,
-      status: 'active' as const,
+      status: 'active',
       createdAt: now,
       updatedAt: now,
     }));
 
-    const contexts = SEED_CONTEXT_NAMES.map((name) => ({
+    const contexts: Context[] = SEED_CONTEXT_NAMES.map((name) => ({
       id: crypto.randomUUID(),
       workspaceId: workspace.id,
       name,
@@ -99,7 +103,7 @@ export class ProvisionWorkspaceUseCase {
       entityType: string,
       entityId: string,
       eventType: string,
-      payload: unknown,
+      payload: unknown
     ): AuditEvent => ({
       id: crypto.randomUUID(),
       workspaceId: workspace.id,

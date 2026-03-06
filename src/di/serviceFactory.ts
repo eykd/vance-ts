@@ -28,13 +28,13 @@ import type { ContextRepository } from '../domain/interfaces/ContextRepository';
 import type { WorkspaceRepository } from '../domain/interfaces/WorkspaceRepository';
 import { getAuth, resetAuth } from '../infrastructure/auth';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
-import { WorkspaceD1BatchAdapter } from '../infrastructure/WorkspaceD1BatchAdapter';
 import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
 import { D1ActorRepository } from '../infrastructure/repositories/D1ActorRepository';
 import { D1AreaRepository } from '../infrastructure/repositories/D1AreaRepository';
 import { D1AuditEventRepository } from '../infrastructure/repositories/D1AuditEventRepository';
 import { D1ContextRepository } from '../infrastructure/repositories/D1ContextRepository';
 import { D1WorkspaceRepository } from '../infrastructure/repositories/D1WorkspaceRepository';
+import { WorkspaceD1BatchAdapter } from '../infrastructure/WorkspaceD1BatchAdapter';
 import { createAreaApiHandlers } from '../presentation/handlers/AreaApiHandlers';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createContextApiHandlers } from '../presentation/handlers/ContextApiHandlers';
@@ -103,14 +103,14 @@ export class ServiceFactory {
   /** Cached AuditEventRepository adapter. */
   private _auditEventRepository: AuditEventRepository | null = null;
 
-  /** Cached ProvisionWorkspaceUseCase. */
-  private _provisionWorkspaceUseCase: ProvisionWorkspaceUseCase | null = null;
-
   /** Cached ListAreasUseCase. */
   private _listAreasUseCase: ListAreasUseCase | null = null;
 
   /** Cached ListContextsUseCase. */
   private _listContextsUseCase: ListContextsUseCase | null = null;
+
+  /** Cached ProvisionWorkspaceUseCase. */
+  private _provisionWorkspaceUseCase: ProvisionWorkspaceUseCase | null = null;
 
   /** Cached requireApiAuth middleware. */
   private _requireApiAuthMiddleware: ReturnType<typeof createRequireApiAuth> | null = null;
@@ -316,22 +316,6 @@ export class ServiceFactory {
   }
 
   /**
-   * The workspace provisioning use case orchestrator.
-   *
-   * Creates workspace, actor, seeded areas/contexts, and audit events for a
-   * newly registered user. Wired to better-auth's `databaseHooks.user.create.after`.
-   *
-   * @returns The lazily-initialised ProvisionWorkspaceUseCase instance.
-   */
-  get provisionWorkspaceUseCase(): ProvisionWorkspaceUseCase {
-    if (this._provisionWorkspaceUseCase === null) {
-      const batchAdapter = new WorkspaceD1BatchAdapter(this.env.DB);
-      this._provisionWorkspaceUseCase = new ProvisionWorkspaceUseCase(batchAdapter);
-    }
-    return this._provisionWorkspaceUseCase;
-  }
-
-  /**
    * The list-areas use case orchestrator.
    *
    * @returns The lazily-initialised ListAreasUseCase instance.
@@ -349,6 +333,18 @@ export class ServiceFactory {
   get listContextsUseCase(): ListContextsUseCase {
     this._listContextsUseCase ??= new ListContextsUseCase(this.contextRepository);
     return this._listContextsUseCase;
+  }
+
+  /**
+   * The provision-workspace use case orchestrator.
+   *
+   * @returns The lazily-initialised ProvisionWorkspaceUseCase instance.
+   */
+  get provisionWorkspaceUseCase(): ProvisionWorkspaceUseCase {
+    this._provisionWorkspaceUseCase ??= new ProvisionWorkspaceUseCase(
+      new WorkspaceD1BatchAdapter(this.env.DB)
+    );
+    return this._provisionWorkspaceUseCase;
   }
 
   /**
@@ -402,7 +398,7 @@ export class ServiceFactory {
   get requireWorkspaceMiddleware(): ReturnType<typeof createRequireWorkspace> {
     this._requireWorkspaceMiddleware ??= createRequireWorkspace(
       this.workspaceRepository,
-      this.actorRepository,
+      this.actorRepository
     );
     return this._requireWorkspaceMiddleware;
   }

@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   D1AreaRepository: vi.fn(),
   D1ContextRepository: vi.fn(),
   D1AuditEventRepository: vi.fn(),
+  WorkspaceD1BatchAdapter: vi.fn(),
   ProvisionWorkspaceUseCase: vi.fn(),
   ListAreasUseCase: vi.fn(),
   ListContextsUseCase: vi.fn(),
@@ -88,6 +89,10 @@ vi.mock('../infrastructure/repositories/D1ContextRepository', () => ({
 
 vi.mock('../infrastructure/repositories/D1AuditEventRepository', () => ({
   D1AuditEventRepository: mocks.D1AuditEventRepository,
+}));
+
+vi.mock('../infrastructure/WorkspaceD1BatchAdapter', () => ({
+  WorkspaceD1BatchAdapter: mocks.WorkspaceD1BatchAdapter,
 }));
 
 vi.mock('../application/use-cases/ProvisionWorkspaceUseCase', () => ({
@@ -431,9 +436,7 @@ describe('ServiceFactory', () => {
       const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
 
       expect(factory.workspaceRepository).toBe(mockRepo);
-      expect(mocks.D1WorkspaceRepository).toHaveBeenCalledWith(
-        (env as { DB: D1Database }).DB
-      );
+      expect(mocks.D1WorkspaceRepository).toHaveBeenCalledWith((env as { DB: D1Database }).DB);
     });
 
     it('returns the same instance on successive calls (lazy singleton)', () => {
@@ -459,9 +462,7 @@ describe('ServiceFactory', () => {
       const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
 
       expect(factory.actorRepository).toBe(mockRepo);
-      expect(mocks.D1ActorRepository).toHaveBeenCalledWith(
-        (env as { DB: D1Database }).DB
-      );
+      expect(mocks.D1ActorRepository).toHaveBeenCalledWith((env as { DB: D1Database }).DB);
     });
 
     it('returns the same instance on successive calls (lazy singleton)', () => {
@@ -492,9 +493,7 @@ describe('ServiceFactory', () => {
       const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
 
       expect(factory.areaRepository).toBe(mockRepo);
-      expect(mocks.D1AreaRepository).toHaveBeenCalledWith(
-        (env as { DB: D1Database }).DB
-      );
+      expect(mocks.D1AreaRepository).toHaveBeenCalledWith((env as { DB: D1Database }).DB);
     });
 
     it('returns the same instance on successive calls (lazy singleton)', () => {
@@ -525,9 +524,7 @@ describe('ServiceFactory', () => {
       const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
 
       expect(factory.contextRepository).toBe(mockRepo);
-      expect(mocks.D1ContextRepository).toHaveBeenCalledWith(
-        (env as { DB: D1Database }).DB
-      );
+      expect(mocks.D1ContextRepository).toHaveBeenCalledWith((env as { DB: D1Database }).DB);
     });
 
     it('returns the same instance on successive calls (lazy singleton)', () => {
@@ -553,9 +550,7 @@ describe('ServiceFactory', () => {
       const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
 
       expect(factory.auditEventRepository).toBe(mockRepo);
-      expect(mocks.D1AuditEventRepository).toHaveBeenCalledWith(
-        (env as { DB: D1Database }).DB
-      );
+      expect(mocks.D1AuditEventRepository).toHaveBeenCalledWith((env as { DB: D1Database }).DB);
     });
 
     it('returns the same instance on successive calls (lazy singleton)', () => {
@@ -580,20 +575,24 @@ describe('ServiceFactory', () => {
       const env = makeEnv();
       const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
 
-      expect(factory.provisionWorkspaceUseCase).toBe(mockUseCase);
+      expect(
+        (factory as unknown as { provisionWorkspaceUseCase: unknown }).provisionWorkspaceUseCase
+      ).toBe(mockUseCase);
     });
 
-    it('returns the same instance on successive calls (lazy singleton)', () => {
-      const mockUseCase = { execute: vi.fn() };
-      mocks.ProvisionWorkspaceUseCase.mockReturnValue(mockUseCase);
+    it('constructs WorkspaceD1BatchAdapter with env.DB as the database binding', () => {
+      const mockAdapter = { provisionBatch: vi.fn() };
+      mocks.WorkspaceD1BatchAdapter.mockReturnValue(mockAdapter);
 
       const env = makeEnv();
       const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
 
-      const first = factory.provisionWorkspaceUseCase;
-      const second = factory.provisionWorkspaceUseCase;
-      expect(first).toBe(second);
-      expect(mocks.ProvisionWorkspaceUseCase).toHaveBeenCalledTimes(1);
+      // Trigger the lazy getter to instantiate
+      const _uc = (factory as unknown as { provisionWorkspaceUseCase: unknown })
+        .provisionWorkspaceUseCase;
+      expect(_uc).toBeDefined();
+
+      expect(mocks.WorkspaceD1BatchAdapter).toHaveBeenCalledWith((env as { DB: D1Database }).DB);
     });
   });
 
@@ -655,7 +654,11 @@ describe('ServiceFactory', () => {
       const mockWorkspaceRepo = { save: vi.fn(), getByUserId: vi.fn(), getById: vi.fn() };
       mocks.D1WorkspaceRepository.mockReturnValue(mockWorkspaceRepo);
 
-      const mockActorRepo = { save: vi.fn(), getById: vi.fn(), getHumanActorByWorkspaceId: vi.fn() };
+      const mockActorRepo = {
+        save: vi.fn(),
+        getById: vi.fn(),
+        getHumanActorByWorkspaceId: vi.fn(),
+      };
       mocks.D1ActorRepository.mockReturnValue(mockActorRepo);
 
       const env = makeEnv();

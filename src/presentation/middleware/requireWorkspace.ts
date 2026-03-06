@@ -35,16 +35,13 @@ import type { AppEnv } from '../types.js';
  */
 export function createRequireWorkspace(
   workspaceRepo: WorkspaceRepository,
-  actorRepo: ActorRepository,
+  actorRepo: ActorRepository
 ): (c: Context<AppEnv>, next: Next) => Promise<Response | void> {
-  return async function requireWorkspace(
-    c: Context<AppEnv>,
-    next: Next,
-  ): Promise<Response | void> {
+  return async function requireWorkspace(c: Context<AppEnv>, next: Next): Promise<Response | void> {
     const user = c.var.user;
     const workspace = await workspaceRepo.getByUserId(user.id);
 
-    if (!workspace) {
+    if (workspace == null) {
       if (c.req.header('HX-Request') === 'true') {
         return new Response(null, {
           status: 503,
@@ -53,20 +50,21 @@ export function createRequireWorkspace(
       }
       return c.json(
         { error: { code: 'workspace_not_found', message: 'Workspace setup is not complete.' } },
-        503,
+        503
       );
     }
 
     const actor = await actorRepo.getHumanActorByWorkspaceId(workspace.id);
-    if (!actor || !actor.id) {
+    const actorId = actor?.id;
+    if (actorId == null || actorId === '') {
       return c.json(
         { error: { code: 'workspace_not_found', message: 'Workspace actor not found.' } },
-        503,
+        503
       );
     }
 
     c.set('workspaceId', workspace.id);
-    c.set('actorId', actor.id);
+    c.set('actorId', actorId);
     await next();
   };
 }
