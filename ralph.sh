@@ -152,9 +152,18 @@ parse_ralph_signal() {
     signal_line=$(echo "$output" | grep -o 'RALPH_SIGNAL:{[^}]*}' | tail -1) || true
     if [[ -n "$signal_line" ]]; then
         local json_part="${signal_line#RALPH_SIGNAL:}"
+        # Try as-is first
         if echo "$json_part" | jq empty 2>/dev/null; then
             LAST_RALPH_SIGNAL="$json_part"
             log DEBUG "Parsed RALPH_SIGNAL: $LAST_RALPH_SIGNAL"
+            return 0
+        fi
+        # Fallback: unescape JSON string escapes (when signal comes from raw JSON envelope)
+        local unescaped
+        unescaped=$(echo "$json_part" | sed 's/\\"/"/g; s/\\\\/\\/g')
+        if echo "$unescaped" | jq empty 2>/dev/null; then
+            LAST_RALPH_SIGNAL="$unescaped"
+            log DEBUG "Parsed RALPH_SIGNAL (unescaped): $LAST_RALPH_SIGNAL"
             return 0
         fi
     fi
@@ -1819,7 +1828,16 @@ invoke_claude() {
     local exit_code
     local claude_output
 
-    log INFO "Invoking Claude with focused prompt"
+    local prompt_lines
+    prompt_lines=$(echo "$prompt" | wc -l)
+    log INFO "Invoking Claude with focused prompt (${prompt_lines} lines)"
+    # Show first 20 lines of prompt on stderr for visibility
+    echo "[ralph] ── Prompt preview (${prompt_lines} lines) ──" >&2
+    echo "$prompt" | head -20 >&2
+    if (( prompt_lines > 20 )); then
+        echo "[ralph] ... ($(( prompt_lines - 20 )) more lines)" >&2
+    fi
+    echo "[ralph] ── End preview ──" >&2
     log_section "CLAUDE INVOCATION - $(date -Iseconds)"
     log_block "Prompt" "$prompt"
 
@@ -1839,7 +1857,7 @@ invoke_claude() {
     #
     # timeout -k 10: send SIGKILL 10s after SIGTERM if process ignores it.
     timeout -k 10 "$CLAUDE_TIMEOUT" \
-        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format json" "$temp_output" &
+        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format json" "$temp_output" > /dev/null &
     CLAUDE_PID=$!
 
     # Clean up prompt file when no longer needed (after claude reads it)
@@ -1892,9 +1910,11 @@ invoke_claude() {
 
     # Log the output (strip ANSI/terminal escapes and script(1) header/footer)
     claude_output=$(sed -e 's/\x1b\[[0-9;?]*[a-zA-Z]//g' \
+                        -e 's/\x1b\[[<=>?][0-9;?]*[a-zA-Z]//g' \
                         -e 's/\x1b\][^\x1b]*\x07//g' \
                         -e 's/\x1b\][0-9;]*[^\a]*//g' \
                         -e 's/\x1b(B//g' \
+                        -e 's/\x07//g' \
                         -e 's/\r//g' \
                         -e '/^Script started on/d' \
                         -e '/^Script done on/d' \
@@ -1911,6 +1931,12 @@ invoke_claude() {
     result_text=$(echo "$claude_output" | jq -r '.result // empty' 2>/dev/null) || true
     if [[ -n "$result_text" ]]; then
         LAST_CLAUDE_OUTPUT="$result_text"
+        # Display formatted output to console
+        echo "" >&2
+        echo "[ralph] -------- Claude Response --------" >&2
+        echo "$result_text" >&2
+        echo "[ralph] -------- End Response --------" >&2
+        echo "" >&2
     fi
 
     # Parse RALPH_SIGNAL if present
