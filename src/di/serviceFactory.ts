@@ -15,29 +15,40 @@
 import type { AuthService } from '../application/ports/AuthService';
 import type { RateLimiter } from '../application/ports/RateLimiter';
 import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../application/ports/RateLimiter';
+import { ActivateActionUseCase } from '../application/use-cases/ActivateActionUseCase';
+import { CaptureInboxItemUseCase } from '../application/use-cases/CaptureInboxItemUseCase';
+import { ClarifyInboxItemToActionUseCase } from '../application/use-cases/ClarifyInboxItemToActionUseCase';
+import { CompleteActionUseCase } from '../application/use-cases/CompleteActionUseCase';
 import { ListAreasUseCase } from '../application/use-cases/ListAreasUseCase';
 import { ListContextsUseCase } from '../application/use-cases/ListContextsUseCase';
+import { ListInboxItemsUseCase } from '../application/use-cases/ListInboxItemsUseCase';
 import { ProvisionWorkspaceUseCase } from '../application/use-cases/ProvisionWorkspaceUseCase';
 import { SignInUseCase } from '../application/use-cases/SignInUseCase';
 import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
+import type { ActionRepository } from '../domain/interfaces/ActionRepository';
 import type { ActorRepository } from '../domain/interfaces/ActorRepository';
 import type { AreaRepository } from '../domain/interfaces/AreaRepository';
 import type { AuditEventRepository } from '../domain/interfaces/AuditEventRepository';
 import type { ContextRepository } from '../domain/interfaces/ContextRepository';
+import type { InboxItemRepository } from '../domain/interfaces/InboxItemRepository';
 import type { WorkspaceRepository } from '../domain/interfaces/WorkspaceRepository';
 import { getAuth, resetAuth } from '../infrastructure/auth';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
 import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
+import { D1ActionRepository } from '../infrastructure/repositories/D1ActionRepository';
 import { D1ActorRepository } from '../infrastructure/repositories/D1ActorRepository';
 import { D1AreaRepository } from '../infrastructure/repositories/D1AreaRepository';
 import { D1AuditEventRepository } from '../infrastructure/repositories/D1AuditEventRepository';
 import { D1ContextRepository } from '../infrastructure/repositories/D1ContextRepository';
+import { D1InboxItemRepository } from '../infrastructure/repositories/D1InboxItemRepository';
 import { D1WorkspaceRepository } from '../infrastructure/repositories/D1WorkspaceRepository';
 import { WorkspaceD1BatchAdapter } from '../infrastructure/WorkspaceD1BatchAdapter';
+import { createActionApiHandlers } from '../presentation/handlers/ActionApiHandlers';
 import { createAreaApiHandlers } from '../presentation/handlers/AreaApiHandlers';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createContextApiHandlers } from '../presentation/handlers/ContextApiHandlers';
+import { createInboxItemApiHandlers } from '../presentation/handlers/InboxItemApiHandlers';
 import { createApiAuthRateLimit } from '../presentation/middleware/apiAuthRateLimit';
 import { createRequireApiAuth } from '../presentation/middleware/requireApiAuth';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
@@ -120,6 +131,33 @@ export class ServiceFactory {
 
   /** Cached context API handlers. */
   private _contextApiHandlers: ReturnType<typeof createContextApiHandlers> | null = null;
+
+  /** Cached InboxItemRepository adapter. */
+  private _inboxItemRepository: InboxItemRepository | null = null;
+
+  /** Cached CaptureInboxItemUseCase. */
+  private _captureInboxItemUseCase: CaptureInboxItemUseCase | null = null;
+
+  /** Cached ListInboxItemsUseCase. */
+  private _listInboxItemsUseCase: ListInboxItemsUseCase | null = null;
+
+  /** Cached inbox item API handlers. */
+  private _inboxItemApiHandlers: ReturnType<typeof createInboxItemApiHandlers> | null = null;
+
+  /** Cached ActionRepository adapter. */
+  private _actionRepository: ActionRepository | null = null;
+
+  /** Cached ClarifyInboxItemToActionUseCase. */
+  private _clarifyInboxItemToActionUseCase: ClarifyInboxItemToActionUseCase | null = null;
+
+  /** Cached ActivateActionUseCase. */
+  private _activateActionUseCase: ActivateActionUseCase | null = null;
+
+  /** Cached CompleteActionUseCase. */
+  private _completeActionUseCase: CompleteActionUseCase | null = null;
+
+  /** Cached action API handlers. */
+  private _actionApiHandlers: ReturnType<typeof createActionApiHandlers> | null = null;
 
   /** Cached requireWorkspace middleware. */
   private _requireWorkspaceMiddleware: ReturnType<typeof createRequireWorkspace> | null = null;
@@ -383,6 +421,118 @@ export class ServiceFactory {
   get contextApiHandlers(): ReturnType<typeof createContextApiHandlers> {
     this._contextApiHandlers ??= createContextApiHandlers(this.listContextsUseCase);
     return this._contextApiHandlers;
+  }
+
+  /**
+   * The D1-backed InboxItemRepository implementation.
+   *
+   * @returns The lazily-initialised InboxItemRepository instance.
+   */
+  get inboxItemRepository(): InboxItemRepository {
+    this._inboxItemRepository ??= new D1InboxItemRepository(this.env.DB);
+    return this._inboxItemRepository;
+  }
+
+  /**
+   * The capture-inbox-item use case orchestrator.
+   *
+   * @returns The lazily-initialised CaptureInboxItemUseCase instance.
+   */
+  get captureInboxItemUseCase(): CaptureInboxItemUseCase {
+    this._captureInboxItemUseCase ??= new CaptureInboxItemUseCase(
+      this.inboxItemRepository,
+      this.auditEventRepository
+    );
+    return this._captureInboxItemUseCase;
+  }
+
+  /**
+   * The list-inbox-items use case orchestrator.
+   *
+   * @returns The lazily-initialised ListInboxItemsUseCase instance.
+   */
+  get listInboxItemsUseCase(): ListInboxItemsUseCase {
+    this._listInboxItemsUseCase ??= new ListInboxItemsUseCase(this.inboxItemRepository);
+    return this._listInboxItemsUseCase;
+  }
+
+  /**
+   * JSON API handlers for the Inbox resource.
+   *
+   * @returns The lazily-initialised inbox item API handlers object.
+   */
+  get inboxItemApiHandlers(): ReturnType<typeof createInboxItemApiHandlers> {
+    this._inboxItemApiHandlers ??= createInboxItemApiHandlers(
+      this.captureInboxItemUseCase,
+      this.listInboxItemsUseCase
+    );
+    return this._inboxItemApiHandlers;
+  }
+
+  /**
+   * The D1-backed ActionRepository implementation.
+   *
+   * @returns The lazily-initialised ActionRepository instance.
+   */
+  get actionRepository(): ActionRepository {
+    this._actionRepository ??= new D1ActionRepository(this.env.DB);
+    return this._actionRepository;
+  }
+
+  /**
+   * The clarify-inbox-item-to-action use case orchestrator.
+   *
+   * @returns The lazily-initialised ClarifyInboxItemToActionUseCase instance.
+   */
+  get clarifyInboxItemToActionUseCase(): ClarifyInboxItemToActionUseCase {
+    this._clarifyInboxItemToActionUseCase ??= new ClarifyInboxItemToActionUseCase(
+      this.inboxItemRepository,
+      this.actionRepository,
+      this.areaRepository,
+      this.contextRepository,
+      this.auditEventRepository
+    );
+    return this._clarifyInboxItemToActionUseCase;
+  }
+
+  /**
+   * The activate-action use case orchestrator.
+   *
+   * @returns The lazily-initialised ActivateActionUseCase instance.
+   */
+  get activateActionUseCase(): ActivateActionUseCase {
+    this._activateActionUseCase ??= new ActivateActionUseCase(
+      this.actionRepository,
+      this.auditEventRepository
+    );
+    return this._activateActionUseCase;
+  }
+
+  /**
+   * The complete-action use case orchestrator.
+   *
+   * @returns The lazily-initialised CompleteActionUseCase instance.
+   */
+  get completeActionUseCase(): CompleteActionUseCase {
+    this._completeActionUseCase ??= new CompleteActionUseCase(
+      this.actionRepository,
+      this.auditEventRepository
+    );
+    return this._completeActionUseCase;
+  }
+
+  /**
+   * JSON API handlers for the Actions resource.
+   *
+   * @returns The lazily-initialised action API handlers object.
+   */
+  get actionApiHandlers(): ReturnType<typeof createActionApiHandlers> {
+    this._actionApiHandlers ??= createActionApiHandlers(
+      this.clarifyInboxItemToActionUseCase,
+      this.activateActionUseCase,
+      this.completeActionUseCase
+    );
+    return this._actionApiHandlers;
   }
 
   /**

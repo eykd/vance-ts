@@ -42,6 +42,26 @@ const mocks = vi.hoisted(() => {
   const handleListContexts = vi.fn(
     (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
   );
+  /** Default: returns 201 Created. */
+  const handleCaptureInboxItem = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 201 }))
+  );
+  /** Default: returns 200 OK. */
+  const handleListInboxItems = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
+  /** Default: returns 200 OK. */
+  const handleClarify = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
+  /** Default: returns 200 OK. */
+  const handleActivate = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
+  /** Default: returns 200 OK. */
+  const handleComplete = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
 
   const mockFactory = {
     authHandler: authHandlerFn,
@@ -59,6 +79,8 @@ const mocks = vi.hoisted(() => {
     requireWorkspaceMiddleware: requireWorkspaceMiddlewareFn,
     areaApiHandlers: { handleListAreas },
     contextApiHandlers: { handleListContexts },
+    inboxItemApiHandlers: { handleCaptureInboxItem, handleListInboxItems },
+    actionApiHandlers: { handleClarify, handleActivate, handleComplete },
   };
 
   return {
@@ -75,6 +97,11 @@ const mocks = vi.hoisted(() => {
     requireWorkspaceMiddlewareFn,
     handleListAreas,
     handleListContexts,
+    handleCaptureInboxItem,
+    handleListInboxItems,
+    handleClarify,
+    handleActivate,
+    handleComplete,
     mockFactory,
   };
 });
@@ -526,10 +553,6 @@ describe('Worker', () => {
 
   describe('GET /api/v1/areas', () => {
     it('delegates to areaApiHandlers.handleListAreas when authenticated', async () => {
-      // This test is RED: the mock factory is missing requireApiAuthMiddleware and
-      // areaApiHandlers, so the worker will throw a TypeError → Hono returns 500.
-      // GREEN step: add requireApiAuthMiddleware (pass-through) and areaApiHandlers
-      // to the mock factory, then assert handleListAreas is called.
       const env = mockEnv();
       const req = new Request('https://example.com/api/v1/areas');
       const res = await app.fetch(req, env);
@@ -543,6 +566,62 @@ describe('Worker', () => {
       const req = new Request('https://example.com/api/v1/contexts');
       const res = await app.fetch(req, env);
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe('POST /api/v1/inbox', () => {
+    it('delegates to inboxItemApiHandlers.handleCaptureInboxItem when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/inbox', { method: 'POST' });
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(201);
+      expect(mocks.handleCaptureInboxItem).toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /api/v1/inbox', () => {
+    it('delegates to inboxItemApiHandlers.handleListInboxItems when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/inbox');
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(mocks.handleListInboxItems).toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/v1/inbox/:id/clarify', () => {
+    it('delegates to actionApiHandlers.handleClarify when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/inbox/inbox-1/clarify', {
+        method: 'POST',
+      });
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(mocks.handleClarify).toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/v1/actions/:id/activate', () => {
+    it('delegates to actionApiHandlers.handleActivate when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/actions/action-1/activate', {
+        method: 'POST',
+      });
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(mocks.handleActivate).toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/v1/actions/:id/complete', () => {
+    it('delegates to actionApiHandlers.handleComplete when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/actions/action-1/complete', {
+        method: 'POST',
+      });
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(mocks.handleComplete).toHaveBeenCalled();
     });
   });
 

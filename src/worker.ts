@@ -106,6 +106,31 @@ app.get('/api/v1/contexts', async (c): Promise<Response> => {
   return getServiceFactory(c.env).contextApiHandlers.handleListContexts(c as Context<AppEnv>);
 });
 
+/** Captures a new inbox item for the authenticated user. */
+app.post('/api/v1/inbox', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).inboxItemApiHandlers.handleCaptureInboxItem(c as Context<AppEnv>);
+});
+
+/** Lists inbox items for the authenticated user's workspace. */
+app.get('/api/v1/inbox', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).inboxItemApiHandlers.handleListInboxItems(c as Context<AppEnv>);
+});
+
+/** Clarifies an inbox item into an action. */
+app.post('/api/v1/inbox/:id/clarify', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleClarify(c as Context<AppEnv>);
+});
+
+/** Activates a ready action. */
+app.post('/api/v1/actions/:id/activate', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleActivate(c as Context<AppEnv>);
+});
+
+/** Completes an active action. */
+app.post('/api/v1/actions/:id/complete', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleComplete(c as Context<AppEnv>);
+});
+
 /** Catch-all for unimplemented API routes. */
 app.all('/api/*', apiNotFound);
 

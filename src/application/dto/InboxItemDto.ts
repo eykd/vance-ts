@@ -15,7 +15,7 @@ export interface InboxItemDto {
   /** Optional longer description. */
   readonly description: string | null;
   /** Lifecycle status. */
-  readonly status: string;
+  readonly status: InboxItem['status'];
   /** Type of entity this item was clarified into. */
   readonly clarifiedIntoType: string | null;
   /** ID of entity this item was clarified into. */

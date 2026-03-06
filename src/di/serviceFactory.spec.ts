@@ -24,10 +24,19 @@ const mocks = vi.hoisted(() => ({
   D1AreaRepository: vi.fn(),
   D1ContextRepository: vi.fn(),
   D1AuditEventRepository: vi.fn(),
+  D1InboxItemRepository: vi.fn(),
   WorkspaceD1BatchAdapter: vi.fn(),
   ProvisionWorkspaceUseCase: vi.fn(),
   ListAreasUseCase: vi.fn(),
   ListContextsUseCase: vi.fn(),
+  CaptureInboxItemUseCase: vi.fn(),
+  ListInboxItemsUseCase: vi.fn(),
+  createInboxItemApiHandlers: vi.fn(),
+  D1ActionRepository: vi.fn(),
+  ActivateActionUseCase: vi.fn(),
+  ClarifyInboxItemToActionUseCase: vi.fn(),
+  CompleteActionUseCase: vi.fn(),
+  createActionApiHandlers: vi.fn(),
 }));
 
 vi.mock('../infrastructure/auth', () => ({
@@ -105,6 +114,42 @@ vi.mock('../application/use-cases/ListAreasUseCase', () => ({
 
 vi.mock('../application/use-cases/ListContextsUseCase', () => ({
   ListContextsUseCase: mocks.ListContextsUseCase,
+}));
+
+vi.mock('../application/use-cases/CaptureInboxItemUseCase', () => ({
+  CaptureInboxItemUseCase: mocks.CaptureInboxItemUseCase,
+}));
+
+vi.mock('../application/use-cases/ListInboxItemsUseCase', () => ({
+  ListInboxItemsUseCase: mocks.ListInboxItemsUseCase,
+}));
+
+vi.mock('../infrastructure/repositories/D1InboxItemRepository', () => ({
+  D1InboxItemRepository: mocks.D1InboxItemRepository,
+}));
+
+vi.mock('../presentation/handlers/InboxItemApiHandlers', () => ({
+  createInboxItemApiHandlers: mocks.createInboxItemApiHandlers,
+}));
+
+vi.mock('../infrastructure/repositories/D1ActionRepository', () => ({
+  D1ActionRepository: mocks.D1ActionRepository,
+}));
+
+vi.mock('../application/use-cases/ActivateActionUseCase', () => ({
+  ActivateActionUseCase: mocks.ActivateActionUseCase,
+}));
+
+vi.mock('../application/use-cases/ClarifyInboxItemToActionUseCase', () => ({
+  ClarifyInboxItemToActionUseCase: mocks.ClarifyInboxItemToActionUseCase,
+}));
+
+vi.mock('../application/use-cases/CompleteActionUseCase', () => ({
+  CompleteActionUseCase: mocks.CompleteActionUseCase,
+}));
+
+vi.mock('../presentation/handlers/ActionApiHandlers', () => ({
+  createActionApiHandlers: mocks.createActionApiHandlers,
 }));
 
 /**
@@ -643,6 +688,265 @@ describe('ServiceFactory', () => {
       const second = factory.listContextsUseCase;
       expect(first).toBe(second);
       expect(mocks.ListContextsUseCase).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('inboxItemRepository', () => {
+    it('returns a D1InboxItemRepository instance', () => {
+      const mockRepo = { save: vi.fn(), getById: vi.fn(), listByWorkspaceId: vi.fn() };
+      mocks.D1InboxItemRepository.mockReturnValue(mockRepo);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      expect(factory.inboxItemRepository).toBe(mockRepo);
+      expect(mocks.D1InboxItemRepository).toHaveBeenCalledWith((env as { DB: D1Database }).DB);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockRepo = { save: vi.fn(), getById: vi.fn(), listByWorkspaceId: vi.fn() };
+      mocks.D1InboxItemRepository.mockReturnValue(mockRepo);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.inboxItemRepository;
+      const second = factory.inboxItemRepository;
+      expect(first).toBe(second);
+      expect(mocks.D1InboxItemRepository).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('captureInboxItemUseCase', () => {
+    it('returns a CaptureInboxItemUseCase instance', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.CaptureInboxItemUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      expect(factory.captureInboxItemUseCase).toBe(mockUseCase);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.CaptureInboxItemUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.captureInboxItemUseCase;
+      const second = factory.captureInboxItemUseCase;
+      expect(first).toBe(second);
+      expect(mocks.CaptureInboxItemUseCase).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('listInboxItemsUseCase', () => {
+    it('returns a ListInboxItemsUseCase instance', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.ListInboxItemsUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      expect(factory.listInboxItemsUseCase).toBe(mockUseCase);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.ListInboxItemsUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.listInboxItemsUseCase;
+      const second = factory.listInboxItemsUseCase;
+      expect(first).toBe(second);
+      expect(mocks.ListInboxItemsUseCase).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('inboxItemApiHandlers', () => {
+    it('returns the result of createInboxItemApiHandlers wired with capture and list use cases', () => {
+      const mockHandlers = { handleCaptureInboxItem: vi.fn(), handleListInboxItems: vi.fn() };
+      mocks.createInboxItemApiHandlers.mockReturnValue(mockHandlers);
+
+      const mockCaptureUseCase = { execute: vi.fn() };
+      mocks.CaptureInboxItemUseCase.mockReturnValue(mockCaptureUseCase);
+
+      const mockListUseCase = { execute: vi.fn() };
+      mocks.ListInboxItemsUseCase.mockReturnValue(mockListUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      expect(factory.inboxItemApiHandlers).toBe(mockHandlers);
+      expect(mocks.createInboxItemApiHandlers).toHaveBeenCalledWith(
+        mockCaptureUseCase,
+        mockListUseCase
+      );
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockHandlers = { handleCaptureInboxItem: vi.fn(), handleListInboxItems: vi.fn() };
+      mocks.createInboxItemApiHandlers.mockReturnValue(mockHandlers);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.inboxItemApiHandlers;
+      const second = factory.inboxItemApiHandlers;
+      expect(first).toBe(second);
+      expect(mocks.createInboxItemApiHandlers).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('actionRepository', () => {
+    it('returns a D1ActionRepository instance', () => {
+      const mockRepo = { save: vi.fn(), getById: vi.fn(), listByWorkspaceId: vi.fn() };
+      mocks.D1ActionRepository.mockReturnValue(mockRepo);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      expect(factory.actionRepository).toBe(mockRepo);
+      expect(mocks.D1ActionRepository).toHaveBeenCalledWith((env as { DB: D1Database }).DB);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockRepo = { save: vi.fn(), getById: vi.fn(), listByWorkspaceId: vi.fn() };
+      mocks.D1ActionRepository.mockReturnValue(mockRepo);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.actionRepository;
+      const second = factory.actionRepository;
+      expect(first).toBe(second);
+      expect(mocks.D1ActionRepository).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('clarifyInboxItemToActionUseCase', () => {
+    it('returns a ClarifyInboxItemToActionUseCase instance', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.ClarifyInboxItemToActionUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      expect(factory.clarifyInboxItemToActionUseCase).toBe(mockUseCase);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.ClarifyInboxItemToActionUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.clarifyInboxItemToActionUseCase;
+      const second = factory.clarifyInboxItemToActionUseCase;
+      expect(first).toBe(second);
+      expect(mocks.ClarifyInboxItemToActionUseCase).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('activateActionUseCase', () => {
+    it('returns an ActivateActionUseCase instance', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.ActivateActionUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      expect(factory.activateActionUseCase).toBe(mockUseCase);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.ActivateActionUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.activateActionUseCase;
+      const second = factory.activateActionUseCase;
+      expect(first).toBe(second);
+      expect(mocks.ActivateActionUseCase).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('completeActionUseCase', () => {
+    it('returns a CompleteActionUseCase instance', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.CompleteActionUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      expect(factory.completeActionUseCase).toBe(mockUseCase);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.CompleteActionUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.completeActionUseCase;
+      const second = factory.completeActionUseCase;
+      expect(first).toBe(second);
+      expect(mocks.CompleteActionUseCase).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('actionApiHandlers', () => {
+    it('returns the result of createActionApiHandlers wired with use cases', () => {
+      const mockHandlers = {
+        handleClarify: vi.fn(),
+        handleActivate: vi.fn(),
+        handleComplete: vi.fn(),
+      };
+      mocks.createActionApiHandlers.mockReturnValue(mockHandlers);
+
+      const mockClarify = { execute: vi.fn() };
+      mocks.ClarifyInboxItemToActionUseCase.mockReturnValue(mockClarify);
+
+      const mockActivate = { execute: vi.fn() };
+      mocks.ActivateActionUseCase.mockReturnValue(mockActivate);
+
+      const mockComplete = { execute: vi.fn() };
+      mocks.CompleteActionUseCase.mockReturnValue(mockComplete);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      expect(factory.actionApiHandlers).toBe(mockHandlers);
+      expect(mocks.createActionApiHandlers).toHaveBeenCalledWith(
+        mockClarify,
+        mockActivate,
+        mockComplete
+      );
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockHandlers = {
+        handleClarify: vi.fn(),
+        handleActivate: vi.fn(),
+        handleComplete: vi.fn(),
+      };
+      mocks.createActionApiHandlers.mockReturnValue(mockHandlers);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+
+      const first = factory.actionApiHandlers;
+      const second = factory.actionApiHandlers;
+      expect(first).toBe(second);
+      expect(mocks.createActionApiHandlers).toHaveBeenCalledTimes(1);
     });
   });
 
