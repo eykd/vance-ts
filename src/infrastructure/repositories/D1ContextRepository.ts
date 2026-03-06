@@ -48,7 +48,8 @@ export class D1ContextRepository implements ContextRepository {
         `INSERT INTO context (id, workspace_id, name, created_at)
          VALUES (?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
-           name = excluded.name`
+           name = excluded.name
+         WHERE workspace_id = excluded.workspace_id`
       )
       .bind(context.id, context.workspaceId, context.name, context.createdAt)
       .run();

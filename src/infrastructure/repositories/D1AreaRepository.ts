@@ -52,7 +52,8 @@ export class D1AreaRepository implements AreaRepository {
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name,
            status = excluded.status,
-           updated_at = excluded.updated_at`
+           updated_at = excluded.updated_at
+         WHERE workspace_id = excluded.workspace_id`
       )
       .bind(area.id, area.workspaceId, area.name, area.status, area.createdAt, area.updatedAt)
       .run();

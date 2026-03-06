@@ -183,5 +183,48 @@ describe('D1ActionRepository', () => {
       expect(found?.status).toBe('active');
       expect(found?.updatedAt).toBe('2024-06-01T00:00:00.000Z');
     });
+
+    it('does not overwrite when workspace_id mismatches', async () => {
+      await insertPrereqs();
+      // Create a second workspace with its own prereqs
+      await env.DB.prepare(
+        `INSERT INTO user (id, name, email, emailVerified, createdAt, updatedAt) VALUES ('u2', 'Other', 'u2@example.com', 0, '${NOW}', '${NOW}')`
+      ).run();
+      await env.DB.prepare(
+        `INSERT INTO workspace (id, user_id, created_at, updated_at) VALUES ('ws-2', 'u2', '${NOW}', '${NOW}')`
+      ).run();
+      await env.DB.prepare(
+        `INSERT INTO actor (id, workspace_id, user_id, type, created_at) VALUES ('actor-2', 'ws-2', 'u2', 'human', '${NOW}')`
+      ).run();
+      await env.DB.prepare(
+        `INSERT INTO area (id, workspace_id, name, status, created_at, updated_at) VALUES ('area-2', 'ws-2', 'Work', 'active', '${NOW}', '${NOW}')`
+      ).run();
+      await env.DB.prepare(
+        `INSERT INTO context (id, workspace_id, name, created_at) VALUES ('ctx-2', 'ws-2', 'computer', '${NOW}')`
+      ).run();
+
+      const action = sampleAction();
+      await repo.save(action);
+
+      // Attempt to overwrite action-1 with a different workspace_id
+      const attacker = {
+        ...action,
+        workspaceId: 'ws-2',
+        createdByActorId: 'actor-2',
+        title: 'Hijacked!',
+        status: 'active' as const,
+        areaId: 'area-2',
+        contextId: 'ctx-2',
+        updatedAt: '2099-01-01T00:00:00.000Z',
+      };
+      await repo.save(attacker);
+
+      // Original row should be unchanged
+      const found = await repo.getById('action-1', 'ws-1');
+      expect(found).not.toBeNull();
+      expect(found?.title).toBe('Do the thing');
+      expect(found?.status).toBe('ready');
+      expect(found?.workspaceId).toBe('ws-1');
+    });
   });
 });

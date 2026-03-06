@@ -61,7 +61,8 @@ export class D1InboxItemRepository implements InboxItemRepository {
            status = excluded.status,
            updated_at = excluded.updated_at,
            clarified_into_type = excluded.clarified_into_type,
-           clarified_into_id = excluded.clarified_into_id`
+           clarified_into_id = excluded.clarified_into_id
+         WHERE workspace_id = excluded.workspace_id`
       )
       .bind(
         item.id,

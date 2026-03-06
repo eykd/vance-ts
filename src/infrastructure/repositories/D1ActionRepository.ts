@@ -59,7 +59,8 @@ export class D1ActionRepository implements ActionRepository {
            title = excluded.title,
            description = excluded.description,
            status = excluded.status,
-           updated_at = excluded.updated_at`
+           updated_at = excluded.updated_at
+         WHERE workspace_id = excluded.workspace_id`
       )
       .bind(
         action.id,

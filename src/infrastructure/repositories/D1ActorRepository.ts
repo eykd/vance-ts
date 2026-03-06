@@ -49,7 +49,8 @@ export class D1ActorRepository implements ActorRepository {
         `INSERT INTO actor (id, workspace_id, user_id, type, created_at)
          VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
-           type = excluded.type`
+           type = excluded.type
+         WHERE workspace_id = excluded.workspace_id`
       )
       .bind(actor.id, actor.workspaceId, actor.userId, actor.type, actor.createdAt)
       .run();
