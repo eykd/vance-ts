@@ -152,9 +152,18 @@ parse_ralph_signal() {
     signal_line=$(echo "$output" | grep -o 'RALPH_SIGNAL:{[^}]*}' | tail -1) || true
     if [[ -n "$signal_line" ]]; then
         local json_part="${signal_line#RALPH_SIGNAL:}"
+        # Try as-is first
         if echo "$json_part" | jq empty 2>/dev/null; then
             LAST_RALPH_SIGNAL="$json_part"
             log DEBUG "Parsed RALPH_SIGNAL: $LAST_RALPH_SIGNAL"
+            return 0
+        fi
+        # Fallback: unescape JSON string escapes (when signal comes from raw JSON envelope)
+        local unescaped
+        unescaped=$(echo "$json_part" | sed 's/\\"/"/g; s/\\\\/\\/g')
+        if echo "$unescaped" | jq empty 2>/dev/null; then
+            LAST_RALPH_SIGNAL="$unescaped"
+            log DEBUG "Parsed RALPH_SIGNAL (unescaped): $LAST_RALPH_SIGNAL"
             return 0
         fi
     fi
@@ -1901,9 +1910,11 @@ invoke_claude() {
 
     # Log the output (strip ANSI/terminal escapes and script(1) header/footer)
     claude_output=$(sed -e 's/\x1b\[[0-9;?]*[a-zA-Z]//g' \
+                        -e 's/\x1b\[[<=>?][0-9;?]*[a-zA-Z]//g' \
                         -e 's/\x1b\][^\x1b]*\x07//g' \
                         -e 's/\x1b\][0-9;]*[^\a]*//g' \
                         -e 's/\x1b(B//g' \
+                        -e 's/\x07//g' \
                         -e 's/\r//g' \
                         -e '/^Script started on/d' \
                         -e '/^Script done on/d' \
