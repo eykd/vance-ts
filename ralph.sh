@@ -1802,6 +1802,143 @@ PROMPT
     return 1
 }
 
+# Generate a triage prompt for a blocked task
+# Assembles diagnostic context and asks Claude to choose an action
+generate_triage_prompt() {
+    local task_json="$1"
+    local epic_id="$2"
+    local task_id task_title task_description
+
+    task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
+    task_title=$(echo "$task_json" | jq -r '.title // "unknown"')
+    task_description=$(echo "$task_json" | jq -r '.description // ""')
+
+    # Fetch BLOCKED comments from task
+    local task_details blocked_comments
+    task_details=$(npx bd show "$task_id" --json 2>/dev/null) || task_details=""
+    if [[ -n "$task_details" ]]; then
+        blocked_comments=$(echo "$task_details" | jq -r \
+            '(if type == "array" then .[0] else . end) | .comments // [] | .[] | select(.text | startswith("BLOCKED:")) | "- \(.timestamp // "unknown"): \(.text)"' 2>/dev/null) || blocked_comments=""
+    else
+        blocked_comments=""
+    fi
+
+    # Recent git log for context
+    local recent_git
+    recent_git=$(git log --oneline -10 2>/dev/null) || recent_git="(unavailable)"
+
+    # Epic open task count
+    local open_count
+    open_count=$(npx bd list --status=open --parent="$epic_id" --json 2>/dev/null | jq 'length' 2>/dev/null) || open_count="unknown"
+
+    cat <<EOF
+You are triaging a BLOCKED task in ralph's automation loop.
+
+## Task
+- ID: $task_id
+- Title: $task_title
+- Description: $task_description
+
+## BLOCKED Comments (failure history)
+${blocked_comments:-"(none)"}
+
+## Recent Git Log
+$recent_git
+
+## Epic Context
+- Epic ID: $epic_id
+- Open tasks remaining: $open_count
+
+## Your Job
+
+Analyze the failure pattern and choose ONE action:
+
+| Action | When to use |
+|--------|------------|
+| close | The feature is actually complete — the circuit-breaker was a false positive |
+| decompose | The task is too big or blocked on a missing prerequisite — create a new sibling task |
+| defer | Stuck and needs time or human input |
+
+Emit your decision as a RALPH_SIGNAL on a single line:
+
+RALPH_SIGNAL:{"action":"<close|decompose|defer>","reason":"<brief explanation>","title":"<new task title, only for decompose>","description":"<new task description, only for decompose>","defer_duration":"<e.g. +1d or +4h, only for defer>"}
+
+Rules:
+- Choose exactly ONE action
+- For decompose: provide title and description for the new sibling task
+- For defer: provide defer_duration (default +1d if unsure)
+- For close: just provide the reason
+- Do NOT run any tests or tools — this is analysis only
+EOF
+}
+
+# Triage a blocked task by invoking Claude for diagnostic analysis
+# Always returns 0 — triage is best-effort
+triage_blocked_task() {
+    local task_json="$1"
+    local epic_id="$2"
+    local task_id
+
+    task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
+    log INFO "Triaging blocked task $task_id"
+
+    # Generate triage prompt
+    local triage_prompt
+    triage_prompt=$(generate_triage_prompt "$task_json" "$epic_id")
+
+    # Invoke Claude
+    if ! invoke_claude_with_retry "$triage_prompt"; then
+        log WARN "Triage invocation failed for $task_id — falling back to defer +1d"
+        npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
+        npx bd comment "$task_id" "BLOCKED: Triage invocation failed, auto-deferred +1d" 2>/dev/null || true
+        return 0
+    fi
+
+    # Parse RALPH_SIGNAL from Claude output
+    if ! parse_ralph_signal "$LAST_CLAUDE_OUTPUT"; then
+        log WARN "No RALPH_SIGNAL in triage output for $task_id — falling back to defer +1d"
+        npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
+        npx bd comment "$task_id" "BLOCKED: Triage produced no signal, auto-deferred +1d" 2>/dev/null || true
+        return 0
+    fi
+
+    local action reason
+    action=$(get_signal "action" "defer")
+    reason=$(get_signal "reason" "no reason provided")
+
+    log INFO "Triage decision for $task_id: action=$action reason=$reason"
+
+    case "$action" in
+        close)
+            log INFO "Triage closing task $task_id: $reason"
+            npx bd comment "$task_id" "TRIAGE: Closing — $reason" 2>/dev/null || true
+            npx bd close "$task_id" 2>/dev/null || true
+            auto_close_completed_parents "$task_id" "$epic_id"
+            ;;
+        decompose)
+            local new_title new_description parent_id
+            new_title=$(get_signal "title" "Follow-up for $task_id")
+            new_description=$(get_signal "description" "Decomposed from blocked task $task_id")
+            # Create sibling under the same parent (implement task)
+            parent_id="${task_id%.*}"
+            log INFO "Triage decomposing: creating sibling task under $parent_id"
+            npx bd create "$new_title" --parent "$parent_id" --description "$new_description" 2>/dev/null || true
+            npx bd comment "$task_id" "TRIAGE: Decomposed — $reason. New sibling task created under $parent_id" 2>/dev/null || true
+            npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
+            ;;
+        *)
+            # defer (explicit or unknown action fallback)
+            local duration
+            duration=$(get_signal "defer_duration" "+1d")
+            log INFO "Triage deferring task $task_id for $duration: $reason"
+            npx bd comment "$task_id" "TRIAGE: Deferring $duration — $reason" 2>/dev/null || true
+            npx bd update "$task_id" --status=open --defer="$duration" 2>/dev/null || true
+            ;;
+    esac
+
+    return 0
+}
+
 # Stop the heartbeat background process
 stop_heartbeat() {
     kill "$HEARTBEAT_PID" 2>/dev/null || true
@@ -2095,9 +2232,7 @@ $task_description"
                 log INFO "ATDD cycle completed for task $task_id"
                 auto_close_completed_parents "$task_id" "$epic_id"
             else
-                log WARN "Task $task_id marked BLOCKED — deferring for 1 day to avoid retry loop"
-                npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
-                # Continue loop to pick up the next task
+                triage_blocked_task "$next_task" "$epic_id"
             fi
         else
             # Generate focused prompt
