@@ -15,11 +15,11 @@
  * @module
  */
 
-import type { Actor } from '../../domain/entities/Actor.js';
-import type { Area } from '../../domain/entities/Area.js';
-import type { AuditEvent } from '../../domain/entities/AuditEvent.js';
-import type { Context } from '../../domain/entities/Context.js';
-import type { Workspace } from '../../domain/entities/Workspace.js';
+import { Actor } from '../../domain/entities/Actor.js';
+import { Area } from '../../domain/entities/Area.js';
+import { AuditEvent } from '../../domain/entities/AuditEvent.js';
+import { Context } from '../../domain/entities/Context.js';
+import { Workspace } from '../../domain/entities/Workspace.js';
 import type { WorkspaceBatchPort } from '../../domain/interfaces/WorkspaceBatchPort.js';
 
 /** Default areas seeded for every new workspace. */
@@ -66,60 +66,49 @@ export class ProvisionWorkspaceUseCase {
    * @returns Resolved promise on success.
    */
   async execute(request: ProvisionWorkspaceRequest): Promise<void> {
-    const now = new Date().toISOString();
+    const workspace = Workspace.create(request.userId);
+    const actor = Actor.createHuman(workspace.id, request.userId);
 
-    const workspace: Workspace = {
-      id: crypto.randomUUID(),
-      userId: request.userId,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const actor: Actor = {
-      id: crypto.randomUUID(),
-      workspaceId: workspace.id,
-      userId: request.userId,
-      type: 'human',
-      createdAt: now,
-    };
-
-    const areas: Area[] = SEED_AREA_NAMES.map((name) => ({
-      id: crypto.randomUUID(),
-      workspaceId: workspace.id,
-      name,
-      status: 'active',
-      createdAt: now,
-      updatedAt: now,
-    }));
-
-    const contexts: Context[] = SEED_CONTEXT_NAMES.map((name) => ({
-      id: crypto.randomUUID(),
-      workspaceId: workspace.id,
-      name,
-      createdAt: now,
-    }));
-
-    const makeAuditEvent = (
-      entityType: string,
-      entityId: string,
-      eventType: string,
-      payload: unknown
-    ): AuditEvent => ({
-      id: crypto.randomUUID(),
-      workspaceId: workspace.id,
-      entityType,
-      entityId,
-      eventType,
-      actorId: actor.id,
-      payload: JSON.stringify(payload),
-      createdAt: now,
-    });
+    const areas = SEED_AREA_NAMES.map((name) => Area.create(workspace.id, name));
+    const contexts = SEED_CONTEXT_NAMES.map((name) => Context.create(workspace.id, name));
 
     const auditEvents = [
-      makeAuditEvent('workspace', workspace.id, 'workspace.provisioned', workspace),
-      makeAuditEvent('actor', actor.id, 'actor.created', actor),
-      ...areas.map((area) => makeAuditEvent('area', area.id, 'area.created', area)),
-      ...contexts.map((ctx) => makeAuditEvent('context', ctx.id, 'context.created', ctx)),
+      AuditEvent.record(
+        workspace.id,
+        'workspace',
+        workspace.id,
+        'workspace.provisioned',
+        actor.id,
+        JSON.stringify(workspace)
+      ),
+      AuditEvent.record(
+        workspace.id,
+        'actor',
+        actor.id,
+        'actor.created',
+        actor.id,
+        JSON.stringify(actor)
+      ),
+      ...areas.map((area) =>
+        AuditEvent.record(
+          workspace.id,
+          'area',
+          area.id,
+          'area.created',
+          actor.id,
+          JSON.stringify(area)
+        )
+      ),
+      ...contexts.map((ctx) =>
+        AuditEvent.record(
+          workspace.id,
+          'context',
+          ctx.id,
+          'context.created',
+          actor.id,
+          JSON.stringify(ctx)
+        )
+      ),
     ];
 
     await this._batchPort.provisionBatch(workspace, actor, areas, contexts, auditEvents);
