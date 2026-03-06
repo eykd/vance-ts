@@ -73,8 +73,10 @@ describe('createInboxItemApiHandlers', () => {
   }
 
   describe('handleCaptureInboxItem', () => {
-    it('returns 400 when title is empty', async () => {
-      captureUseCaseMock.execute.mockRejectedValue(new DomainError('title_required'));
+    it('returns 422 with error envelope when DomainError is thrown', async () => {
+      captureUseCaseMock.execute.mockRejectedValue(
+        new DomainError('title_required', 'Title is required')
+      );
 
       const app = makeTestApp();
       const res = await app.fetch(
@@ -85,9 +87,40 @@ describe('createInboxItemApiHandlers', () => {
         })
       );
 
+      expect(res.status).toBe(422);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('title_required');
+      expect(body.error.message).toBe('Title is required');
+    });
+
+    it('returns 400 when title is missing from body', async () => {
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+      );
+
       expect(res.status).toBe(400);
-      const body = await res.json();
-      expect(body).toHaveProperty('error');
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('validation_error');
+    });
+
+    it('returns 400 when title is not a string', async () => {
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 123 }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('validation_error');
     });
 
     it('returns 201 with the created inbox item DTO', async () => {
@@ -126,6 +159,20 @@ describe('createInboxItemApiHandlers', () => {
       expect(listUseCaseMock.execute).toHaveBeenCalledWith({
         workspaceId: 'ws-1',
       });
+    });
+
+    it('returns 500 with error envelope when the use case throws', async () => {
+      listUseCaseMock.execute.mockRejectedValue(new Error('unexpected'));
+
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox', { method: 'GET' })
+      );
+
+      expect(res.status).toBe(500);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('service_error');
+      expect(typeof body.error.message).toBe('string');
     });
   });
 });

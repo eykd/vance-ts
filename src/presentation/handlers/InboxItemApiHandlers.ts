@@ -33,21 +33,32 @@ export function createInboxItemApiHandlers(
      * @returns JSON response with created inbox item.
      */
     async handleCaptureInboxItem(c: Context<AppEnv>): Promise<Response> {
-      const body = await c.req.json<{ title: string }>();
+      const body = await c.req.json<Record<string, unknown>>();
+      if (typeof body['title'] !== 'string') {
+        return c.json(
+          {
+            error: { code: 'validation_error', message: 'title is required and must be a string' },
+          },
+          400
+        );
+      }
       const workspaceId = c.get('workspaceId');
       const actorId = c.get('actorId');
       try {
         const result = await captureUseCase.execute({
           workspaceId,
-          title: body.title,
+          title: body['title'],
           actorId,
         });
         return c.json(result, 201);
       } catch (err: unknown) {
         if (err instanceof DomainError) {
-          return c.json({ error: err.message }, 400);
+          return c.json({ error: { code: err.code, message: err.message } }, 422);
         }
-        throw err;
+        return c.json(
+          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
+          500
+        );
       }
     },
 
@@ -59,8 +70,15 @@ export function createInboxItemApiHandlers(
      */
     async handleListInboxItems(c: Context<AppEnv>): Promise<Response> {
       const workspaceId = c.get('workspaceId');
-      const result = await listUseCase.execute({ workspaceId });
-      return c.json(result, 200);
+      try {
+        const result = await listUseCase.execute({ workspaceId });
+        return c.json(result, 200);
+      } catch {
+        return c.json(
+          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
+          500
+        );
+      }
     },
   };
 }

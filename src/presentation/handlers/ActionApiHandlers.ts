@@ -40,14 +40,29 @@ export function createActionApiHandlers(
       const inboxItemId = c.req.param('id');
       const workspaceId = c.get('workspaceId');
       const actorId = c.get('actorId');
-      const body = await c.req.json<{ title: string; areaId: string; contextId: string }>();
+      const body = await c.req.json<Record<string, unknown>>();
+      if (
+        typeof body['title'] !== 'string' ||
+        typeof body['areaId'] !== 'string' ||
+        typeof body['contextId'] !== 'string'
+      ) {
+        return c.json(
+          {
+            error: {
+              code: 'validation_error',
+              message: 'title, areaId, and contextId are required and must be strings',
+            },
+          },
+          400
+        );
+      }
       try {
         const result = await clarifyUseCase.execute({
           workspaceId,
           inboxItemId,
-          title: body.title,
-          areaId: body.areaId,
-          contextId: body.contextId,
+          title: body['title'],
+          areaId: body['areaId'],
+          contextId: body['contextId'],
           actorId,
         });
         return c.json(result, 200);
@@ -55,7 +70,10 @@ export function createActionApiHandlers(
         if (err instanceof DomainError) {
           return c.json({ error: { code: err.code, message: err.message } }, 422);
         }
-        throw err;
+        return c.json(
+          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
+          500
+        );
       }
     },
 
@@ -76,7 +94,10 @@ export function createActionApiHandlers(
         if (err instanceof DomainError) {
           return c.json({ error: { code: err.code, message: err.message } }, 422);
         }
-        throw err;
+        return c.json(
+          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
+          500
+        );
       }
     },
 
@@ -97,7 +118,10 @@ export function createActionApiHandlers(
         if (err instanceof DomainError) {
           return c.json({ error: { code: err.code, message: err.message } }, 422);
         }
-        throw err;
+        return c.json(
+          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
+          500
+        );
       }
     },
   };

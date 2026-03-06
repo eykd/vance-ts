@@ -139,6 +139,53 @@ describe('createActionApiHandlers', () => {
 
       expect(res.status).toBe(422);
     });
+
+    it('returns 400 when required fields are missing', async () => {
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox/inbox-1/clarify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'Do thing' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('validation_error');
+    });
+
+    it('returns 400 when fields have wrong types', async () => {
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox/inbox-1/clarify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 123, areaId: 'area-1', contextId: 'ctx-1' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('validation_error');
+    });
+
+    it('returns 500 with error envelope for unexpected errors', async () => {
+      clarifyMock.execute.mockRejectedValue(new Error('unexpected'));
+
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox/inbox-1/clarify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'Do thing', areaId: 'area-1', contextId: 'ctx-1' }),
+        })
+      );
+
+      expect(res.status).toBe(500);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('service_error');
+    });
   });
 
   describe('handleActivate', () => {
@@ -176,6 +223,21 @@ describe('createActionApiHandlers', () => {
       const body: { error: { code: string } } = await res.json();
       expect(body.error.code).toBe('invalid_status_transition');
     });
+
+    it('returns 500 with error envelope for unexpected errors', async () => {
+      activateMock.execute.mockRejectedValue(new Error('unexpected'));
+
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/actions/action-1/activate', {
+          method: 'POST',
+        })
+      );
+
+      expect(res.status).toBe(500);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('service_error');
+    });
   });
 
   describe('handleComplete', () => {
@@ -205,6 +267,21 @@ describe('createActionApiHandlers', () => {
       );
 
       expect(res.status).toBe(422);
+    });
+
+    it('returns 500 with error envelope for unexpected errors', async () => {
+      completeMock.execute.mockRejectedValue(new Error('unexpected'));
+
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/actions/action-1/complete', {
+          method: 'POST',
+        })
+      );
+
+      expect(res.status).toBe(500);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('service_error');
     });
   });
 });
