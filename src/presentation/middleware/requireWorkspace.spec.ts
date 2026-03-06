@@ -226,4 +226,51 @@ describe('createRequireWorkspace', () => {
 
     expect(actorRepo.getHumanActorByWorkspaceId).toHaveBeenCalledWith('ws-1');
   });
+
+  it('skips workspace lookup when workspaceId is already set in context', async () => {
+    actorRepo.getHumanActorByWorkspaceId.mockResolvedValue(TEST_ACTOR);
+
+    const app = new Hono();
+    // Simulate requireApiAuth having set both user and workspaceId
+    app.use('*', async (c, next) => {
+      c.set('user' as never, { id: 'user-1', email: 'test@example.com' });
+      c.set('workspaceId' as never, 'ws-already-set');
+      await next();
+    });
+    const middleware = createRequireWorkspace(
+      workspaceRepo as unknown as WorkspaceRepository,
+      actorRepo as unknown as ActorRepository
+    );
+    app.use('*', middleware);
+    app.get('/protected', (c) => c.json({ ok: true }));
+
+    const res = await app.fetch(new Request('https://example.com/protected'));
+
+    expect(res.status).toBe(200);
+    expect(workspaceRepo.getByUserId).not.toHaveBeenCalled();
+    expect(actorRepo.getHumanActorByWorkspaceId).toHaveBeenCalledWith('ws-already-set');
+  });
+
+  it('returns 503 JSON when workspace repository throws', async () => {
+    workspaceRepo.getByUserId.mockRejectedValue(new Error('D1 failure'));
+
+    const app = makeTestApp();
+    const res = await app.fetch(new Request('https://example.com/protected'));
+
+    expect(res.status).toBe(503);
+    const body = await res.json<{ error: { code: string } }>();
+    expect(body.error.code).toBe('service_error');
+  });
+
+  it('returns 503 JSON when actor repository throws', async () => {
+    workspaceRepo.getByUserId.mockResolvedValue(TEST_WORKSPACE);
+    actorRepo.getHumanActorByWorkspaceId.mockRejectedValue(new Error('D1 failure'));
+
+    const app = makeTestApp();
+    const res = await app.fetch(new Request('https://example.com/protected'));
+
+    expect(res.status).toBe(503);
+    const body = await res.json<{ error: { code: string } }>();
+    expect(body.error.code).toBe('service_error');
+  });
 });

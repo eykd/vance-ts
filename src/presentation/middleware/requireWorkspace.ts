@@ -38,23 +38,39 @@ export function createRequireWorkspace(
   actorRepo: ActorRepository
 ): (c: Context<AppEnv>, next: Next) => Promise<Response | void> {
   return async function requireWorkspace(c: Context<AppEnv>, next: Next): Promise<Response | void> {
-    const user = c.var.user;
-    const workspace = await workspaceRepo.getByUserId(user.id);
+    // Reuse workspaceId if already resolved by requireApiAuth (avoids redundant D1 query).
+    let workspaceId = c.var.workspaceId as string | undefined;
 
-    if (workspace == null) {
-      if (c.req.header('HX-Request') === 'true') {
-        return new Response(null, {
-          status: 503,
-          headers: { 'HX-Redirect': '/auth/sign-in' },
-        });
+    if (workspaceId == null || workspaceId === '') {
+      const user = c.var.user;
+      let workspace: Awaited<ReturnType<WorkspaceRepository['getByUserId']>>;
+      try {
+        workspace = await workspaceRepo.getByUserId(user.id);
+      } catch {
+        return c.json({ error: { code: 'service_error', message: 'Service unavailable' } }, 503);
       }
-      return c.json(
-        { error: { code: 'workspace_not_found', message: 'Workspace setup is not complete.' } },
-        503
-      );
+
+      if (workspace == null) {
+        if (c.req.header('HX-Request') === 'true') {
+          return new Response(null, {
+            status: 503,
+            headers: { 'HX-Redirect': '/auth/sign-in' },
+          });
+        }
+        return c.json(
+          { error: { code: 'workspace_not_found', message: 'Workspace setup is not complete.' } },
+          503
+        );
+      }
+      workspaceId = workspace.id;
     }
 
-    const actor = await actorRepo.getHumanActorByWorkspaceId(workspace.id);
+    let actor: Awaited<ReturnType<ActorRepository['getHumanActorByWorkspaceId']>>;
+    try {
+      actor = await actorRepo.getHumanActorByWorkspaceId(workspaceId);
+    } catch {
+      return c.json({ error: { code: 'service_error', message: 'Service unavailable' } }, 503);
+    }
     const actorId = actor?.id;
     if (actorId == null || actorId === '') {
       return c.json(
@@ -63,7 +79,7 @@ export function createRequireWorkspace(
       );
     }
 
-    c.set('workspaceId', workspace.id);
+    c.set('workspaceId', workspaceId);
     c.set('actorId', actorId);
     await next();
   };
