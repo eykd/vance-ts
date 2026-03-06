@@ -1637,13 +1637,31 @@ execute_unit_tdd_cycle() {
         local head_after
         head_after=$(git rev-parse HEAD 2>/dev/null)
         if [[ "$head_before" == "$head_after" ]]; then
-            log WARN "GREEN step did not commit - creating fallback commit"
-            git add -A 2>/dev/null || true
-            git commit -m "feat: implement $task_title (GREEN step - fallback commit)
+            log WARN "GREEN step did not commit - invoking /commit skill as fallback"
+            local fallback_commit_prompt
+            fallback_commit_prompt=$(cat <<PROMPT
+/commit
+
+## Context
+GREEN step completed for task: $task_title
+Unit TDD cycle: $cycle
+
+### Previous step output (GREEN)
+${prev_output:-(no output captured)}
+
+## Instructions
+Stage and commit all changes from the GREEN step. Include .beads state if changed.
+PROMPT
+)
+            if ! invoke_claude_with_retry "$fallback_commit_prompt"; then
+                log WARN "Fallback /commit skill failed — attempting raw commit"
+                git add -A 2>/dev/null || true
+                git commit -m "feat: implement $task_title (GREEN step - fallback commit)
 
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
-                log WARN "Fallback commit failed (possibly no changes)"
-            }
+                    log WARN "Raw fallback commit also failed (possibly no changes)"
+                }
+            fi
         fi
         git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
 
@@ -1811,13 +1829,33 @@ PROMPT
         local head_after
         head_after=$(git rev-parse HEAD 2>/dev/null)
         if [[ "$head_before" == "$head_after" ]]; then
-            log WARN "GREEN step did not commit - creating fallback commit"
-            git add -A 2>/dev/null || true
-            git commit -m "feat: implement $(echo "$task_json" | jq -r '.title // "task"') (GREEN step - fallback commit)
+            log WARN "GREEN step did not commit - invoking /commit skill as fallback"
+            local atdd_task_title
+            atdd_task_title=$(echo "$task_json" | jq -r '.title // "task"')
+            local fallback_commit_prompt
+            fallback_commit_prompt=$(cat <<PROMPT
+/commit
+
+## Context
+GREEN step completed for task: $atdd_task_title ($task_id)
+ATDD inner cycle: $cycle
+
+### Previous step output (GREEN)
+${prev_output:-(no output captured)}
+
+## Instructions
+Stage and commit all changes from the GREEN step. Include .beads state if changed.
+PROMPT
+)
+            if ! invoke_claude_with_retry "$fallback_commit_prompt"; then
+                log WARN "Fallback /commit skill failed — attempting raw commit"
+                git add -A 2>/dev/null || true
+                git commit -m "feat: implement $atdd_task_title (GREEN step - fallback commit)
 
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
-                log WARN "Fallback commit failed (possibly no changes)"
-            }
+                    log WARN "Raw fallback commit also failed (possibly no changes)"
+                }
+            fi
         fi
         git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
 
