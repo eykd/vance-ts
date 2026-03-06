@@ -74,3 +74,56 @@ describe('InboxItem.clarify', () => {
     expect(() => InboxItem.clarify(item, 'task', '')).toThrowError('clarified_id_required');
   });
 });
+
+describe('InboxItem.create validation', () => {
+  it('rejects an empty title', () => {
+    expect(() => InboxItem.create('ws-1', '')).toThrowError('title_required');
+  });
+
+  it('rejects a whitespace-only title', () => {
+    expect(() => InboxItem.create('ws-1', '   ')).toThrowError('title_required');
+  });
+
+  it('rejects a title exceeding 500 characters', () => {
+    expect(() => InboxItem.create('ws-1', 'a'.repeat(501))).toThrowError('title_too_long');
+  });
+
+  it('rejects a description exceeding 2000 characters', () => {
+    expect(() => InboxItem.create('ws-1', 'Valid', 'a'.repeat(2001))).toThrowError(
+      'description_too_long'
+    );
+  });
+
+  it('rejects an empty workspaceId', () => {
+    expect(() => InboxItem.create('', 'Buy milk')).toThrowError('workspace_id_required');
+  });
+
+  it('rejects a whitespace-only workspaceId', () => {
+    expect(() => InboxItem.create('   ', 'Buy milk')).toThrowError('workspace_id_required');
+  });
+});
+
+describe('InboxItem.reconstitute', () => {
+  it('hydrates a valid inbox item', () => {
+    const original = InboxItem.create('ws-1', 'Buy milk');
+    const hydrated = InboxItem.reconstitute(original);
+
+    expect(hydrated).toEqual(original);
+  });
+
+  it('rejects a clarified item missing clarifiedIntoType', () => {
+    expect(() =>
+      InboxItem.reconstitute({
+        id: crypto.randomUUID(),
+        workspaceId: 'ws-1',
+        title: 'Corrupted',
+        description: null,
+        status: 'clarified',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        clarifiedIntoType: null,
+        clarifiedIntoId: null,
+      })
+    ).toThrowError('clarified_missing_target');
+  });
+});

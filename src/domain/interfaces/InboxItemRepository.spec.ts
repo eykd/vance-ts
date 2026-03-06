@@ -209,30 +209,6 @@ describe('InboxItemRepository', () => {
     expect(found!.description).toBe('Get milk, eggs, and bread');
   });
 
-  it('should reject reconstituting a clarified item with null clarifiedIntoType', () => {
-    expect(() =>
-      InboxItem.reconstitute({
-        id: crypto.randomUUID(),
-        workspaceId: WORKSPACE_A,
-        title: 'Corrupted row',
-        description: null,
-        status: 'clarified',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-01T00:00:00.000Z',
-        clarifiedIntoType: null,
-        clarifiedIntoId: null,
-      })
-    ).toThrow();
-  });
-
-  it('should reject creating an inbox item with an empty title', () => {
-    expect(() => InboxItem.create(WORKSPACE_A, '')).toThrow();
-  });
-
-  it('should reject creating an inbox item with a whitespace-only title', () => {
-    expect(() => InboxItem.create(WORKSPACE_A, '   ')).toThrow();
-  });
-
   it('should return null when getById is called with a different workspace (tenant isolation)', async () => {
     const { repo } = createInMemoryRepo();
 
@@ -241,16 +217,6 @@ describe('InboxItemRepository', () => {
 
     const found = await repo.getById(item.id, WORKSPACE_B);
     expect(found).toBeNull();
-  });
-
-  it('should reject creating an inbox item with a title exceeding 500 characters', () => {
-    const longTitle = 'a'.repeat(501);
-    expect(() => InboxItem.create(WORKSPACE_A, longTitle)).toThrow();
-  });
-
-  it('should reject creating an inbox item with a description exceeding 2000 characters', () => {
-    const longDescription = 'a'.repeat(2001);
-    expect(() => InboxItem.create(WORKSPACE_A, 'Valid title', longDescription)).toThrow();
   });
 
   it('should return items ordered by createdAt descending (newest first)', async () => {

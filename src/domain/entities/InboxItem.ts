@@ -57,6 +57,9 @@ export namespace InboxItem {
     title: string,
     description: string | null = null
   ): InboxItem {
+    if (workspaceId.trim().length === 0) {
+      throw new DomainError('workspace_id_required');
+    }
     if (title.trim().length === 0) {
       throw new DomainError('title_required');
     }
