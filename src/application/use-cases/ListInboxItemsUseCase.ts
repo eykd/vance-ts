@@ -8,6 +8,9 @@ import type { InboxItemRepository } from '../../domain/interfaces/InboxItemRepos
 import type { InboxItemDto } from '../dto/InboxItemDto.js';
 import { toInboxItemDto } from '../dto/InboxItemDto.js';
 
+/** Maximum number of items before emitting a warning. */
+const LIST_SAFETY_CAP = 500;
+
 /**
  * Request DTO for {@link ListInboxItemsUseCase}.
  */
@@ -39,6 +42,11 @@ export class ListInboxItemsUseCase {
    */
   async execute(request: ListInboxItemsRequest): Promise<InboxItemDto[]> {
     const items = await this._repo.listByWorkspaceId(request.workspaceId, 'inbox');
+    if (items.length >= LIST_SAFETY_CAP) {
+      console.warn('[ListInboxItemsUseCase] Result count hit 500-item safety cap', {
+        workspaceId: request.workspaceId,
+      });
+    }
     return items.map(toInboxItemDto);
   }
 }

@@ -44,4 +44,27 @@ describe('ListInboxItemsUseCase', () => {
     expect(result).toEqual([]);
     expect(repoMock.listByWorkspaceId).toHaveBeenCalledWith('ws-1', 'inbox');
   });
+
+  it('emits console.warn when result count hits the safety cap', async () => {
+    const items = Array.from({ length: 500 }, (_, i) => ({
+      id: `item-${String(i)}`,
+      workspaceId: 'ws-1',
+      title: `Item ${String(i)}`,
+      description: null,
+      status: 'inbox' as const,
+      clarifiedIntoType: null,
+      clarifiedIntoId: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    }));
+    repoMock.listByWorkspaceId.mockResolvedValue(items);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await useCase.execute({ workspaceId: 'ws-1' });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[ListInboxItemsUseCase] Result count hit 500-item safety cap',
+      { workspaceId: 'ws-1' }
+    );
+  });
 });
