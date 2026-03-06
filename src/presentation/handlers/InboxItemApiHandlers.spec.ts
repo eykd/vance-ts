@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { InboxItemDto } from '../../application/dto/InboxItemDto.js';
 import type { CaptureInboxItemUseCase } from '../../application/use-cases/CaptureInboxItemUseCase.js';
+import type { ListInboxItemsUseCase } from '../../application/use-cases/ListInboxItemsUseCase.js';
 
 import { createInboxItemApiHandlers } from './InboxItemApiHandlers.js';
 
@@ -12,6 +13,15 @@ import { createInboxItemApiHandlers } from './InboxItemApiHandlers.js';
  * @returns An object with a vi.fn() stub for the execute method.
  */
 function makeCaptureUseCaseMock(): { execute: ReturnType<typeof vi.fn> } {
+  return { execute: vi.fn() };
+}
+
+/**
+ * Creates a minimal ListInboxItemsUseCase mock.
+ *
+ * @returns An object with a vi.fn() stub for the execute method.
+ */
+function makeListUseCaseMock(): { execute: ReturnType<typeof vi.fn> } {
   return { execute: vi.fn() };
 }
 
@@ -29,9 +39,11 @@ const INBOX_ITEM_DTO: InboxItemDto = {
 
 describe('createInboxItemApiHandlers', () => {
   let captureUseCaseMock: ReturnType<typeof makeCaptureUseCaseMock>;
+  let listUseCaseMock: ReturnType<typeof makeListUseCaseMock>;
 
   beforeEach(() => {
     captureUseCaseMock = makeCaptureUseCaseMock();
+    listUseCaseMock = makeListUseCaseMock();
   });
 
   afterEach(() => {
@@ -51,9 +63,11 @@ describe('createInboxItemApiHandlers', () => {
       return next();
     });
     const handlers = createInboxItemApiHandlers(
-      captureUseCaseMock as unknown as CaptureInboxItemUseCase
+      captureUseCaseMock as unknown as CaptureInboxItemUseCase,
+      listUseCaseMock as unknown as ListInboxItemsUseCase
     );
     app.post('/api/v1/inbox', (c) => handlers.handleCaptureInboxItem(c as never));
+    app.get('/api/v1/inbox', (c) => handlers.handleListInboxItems(c as never));
     return app;
   }
 
@@ -76,6 +90,23 @@ describe('createInboxItemApiHandlers', () => {
         workspaceId: 'ws-1',
         title: 'Buy milk',
         actorId: 'actor-1',
+      });
+    });
+  });
+
+  describe('handleListInboxItems', () => {
+    it('returns 200 with an array of inbox item DTOs', async () => {
+      listUseCaseMock.execute.mockResolvedValue([INBOX_ITEM_DTO]);
+
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox', { method: 'GET' })
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual([INBOX_ITEM_DTO]);
+      expect(listUseCaseMock.execute).toHaveBeenCalledWith({
+        workspaceId: 'ws-1',
       });
     });
   });
