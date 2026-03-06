@@ -1819,7 +1819,16 @@ invoke_claude() {
     local exit_code
     local claude_output
 
-    log INFO "Invoking Claude with focused prompt"
+    local prompt_lines
+    prompt_lines=$(echo "$prompt" | wc -l)
+    log INFO "Invoking Claude with focused prompt (${prompt_lines} lines)"
+    # Show first 20 lines of prompt on stderr for visibility
+    echo "[ralph] ── Prompt preview (${prompt_lines} lines) ──" >&2
+    echo "$prompt" | head -20 >&2
+    if (( prompt_lines > 20 )); then
+        echo "[ralph] ... ($(( prompt_lines - 20 )) more lines)" >&2
+    fi
+    echo "[ralph] ── End preview ──" >&2
     log_section "CLAUDE INVOCATION - $(date -Iseconds)"
     log_block "Prompt" "$prompt"
 
