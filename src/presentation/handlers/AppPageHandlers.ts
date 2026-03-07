@@ -11,6 +11,7 @@ import type { Context } from 'hono';
 import type { ListActionsUseCase } from '../../application/use-cases/ListActionsUseCase.js';
 import type { ListInboxItemsUseCase } from '../../application/use-cases/ListInboxItemsUseCase.js';
 import { dashboardPage } from '../templates/pages/dashboard.js';
+import { inboxPage } from '../templates/pages/inbox.js';
 
 /**
  * HTTP handlers for authenticated application pages.
@@ -57,6 +58,30 @@ export class AppPageHandlers {
       dashboardPage({
         inboxCount: inboxItems.length,
         actionCount: actions.length,
+      })
+    );
+  }
+
+  /**
+   * Handles GET /app/inbox — renders the inbox page.
+   *
+   * Fetches inbox items for the current workspace, then renders
+   * each item with its title and a Clarify button.
+   *
+   * @param c - The Hono request context.
+   * @returns An HTML response containing the inbox page.
+   */
+  async handleGetInbox(c: Context): Promise<Response> {
+    const workspaceId = c.get('workspaceId') as string;
+
+    const items = await this.listInboxItems.execute({ workspaceId });
+
+    return c.html(
+      inboxPage({
+        items: items.map((item: { id: string; title: string }) => ({
+          id: item.id,
+          title: item.title,
+        })),
       })
     );
   }

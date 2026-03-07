@@ -36,7 +36,12 @@ describe('AppPartialHandlers', () => {
         status: 'pending',
       });
 
-      const handlers = new AppPartialHandlers(captureInbox, makeUseCaseMock(), makeUseCaseMock());
+      const handlers = new AppPartialHandlers(
+        captureInbox,
+        makeUseCaseMock(),
+        makeUseCaseMock(),
+        makeUseCaseMock()
+      );
 
       const formData = new FormData();
       formData.set('title', 'Buy milk');
@@ -77,7 +82,12 @@ describe('AppPartialHandlers', () => {
         status: 'active',
       });
 
-      const handlers = new AppPartialHandlers(captureInbox, clarifyInbox, activateAction);
+      const handlers = new AppPartialHandlers(
+        captureInbox,
+        clarifyInbox,
+        activateAction,
+        makeUseCaseMock()
+      );
 
       const req = new Request('https://example.com/app/_/actions/action-1/activate', {
         method: 'POST',
@@ -169,7 +179,12 @@ describe('AppPartialHandlers', () => {
         updatedAt: '2026-03-07T00:00:00.000Z',
       });
 
-      const handlers = new AppPartialHandlers(captureInbox, clarifyInbox, makeUseCaseMock());
+      const handlers = new AppPartialHandlers(
+        captureInbox,
+        clarifyInbox,
+        makeUseCaseMock(),
+        makeUseCaseMock()
+      );
 
       const formData = new FormData();
       formData.set('title', 'Buy organic milk');

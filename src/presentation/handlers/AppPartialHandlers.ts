@@ -24,19 +24,9 @@ interface ClarifyInboxUseCase {
   }): Promise<{ id: string; title: string }>;
 }
 
-/** Use case contract for activating an action. */
-interface ActivateActionUseCase {
-  /** Executes the activate action use case. */
-  execute(input: {
-    workspaceId: string;
-    actionId: string;
-    actorId: string;
-  }): Promise<{ id: string; title: string; status: string }>;
-}
-
-/** Use case contract for completing an action. */
-interface CompleteActionUseCase {
-  /** Executes the complete action use case. */
+/** Use case contract for action state transitions (activate, complete). */
+interface ActionCommandUseCase {
+  /** Executes the action command use case. */
   execute(input: {
     workspaceId: string;
     actionId: string;
@@ -50,8 +40,8 @@ interface CompleteActionUseCase {
 export class AppPartialHandlers {
   private readonly captureInbox: CaptureInboxUseCase;
   private readonly clarifyInbox: ClarifyInboxUseCase;
-  private readonly activateAction: ActivateActionUseCase;
-  private readonly completeAction?: CompleteActionUseCase;
+  private readonly activateAction: ActionCommandUseCase;
+  private readonly completeAction: ActionCommandUseCase;
 
   /**
    * Creates an AppPartialHandlers instance.
@@ -64,8 +54,8 @@ export class AppPartialHandlers {
   constructor(
     captureInbox: CaptureInboxUseCase,
     clarifyInbox: ClarifyInboxUseCase,
-    activateAction: ActivateActionUseCase,
-    completeAction?: CompleteActionUseCase
+    activateAction: ActionCommandUseCase,
+    completeAction: ActionCommandUseCase
   ) {
     this.captureInbox = captureInbox;
     this.clarifyInbox = clarifyInbox;
@@ -111,7 +101,7 @@ export class AppPartialHandlers {
     const workspaceId = c.get('workspaceId') as string;
     const actorId = c.get('actorId') as string;
     const actionId = c.req.param('id');
-    const result = await this.completeAction!.execute({ workspaceId, actionId, actorId });
+    const result = await this.completeAction.execute({ workspaceId, actionId, actorId });
     return c.html(html`<li>${result.status}</li>`);
   }
 
