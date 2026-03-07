@@ -1,3 +1,5 @@
+import { html } from '../../utils/html';
+
 /** Props for the dashboard page template. */
 export interface DashboardPageProps {
   /** Number of items in the inbox. */
@@ -15,20 +17,20 @@ export interface DashboardPageProps {
  * @returns A complete HTML document string
  */
 export function dashboardPage(props: DashboardPageProps): string {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Dashboard</title>
-</head>
-<body>
-  <h1>Dashboard</h1>
-  <div>Inbox: ${String(props.inboxCount)}</div>
-  <div>Actions: ${String(props.actionCount)}</div>
-  <form hx-post="/app/_/inbox">
-    <input type="text" name="title" placeholder="Quick capture…" required />
-    <button type="submit">Capture</button>
-  </form>
-</body>
-</html>`;
+  return html`<!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Dashboard</title>
+      </head>
+      <body>
+        <h1>Dashboard</h1>
+        <div>Inbox: ${props.inboxCount}</div>
+        <div>Actions: ${props.actionCount}</div>
+        <form hx-post="/app/_/inbox">
+          <input type="text" name="title" placeholder="Quick capture…" required />
+          <button type="submit">Capture</button>
+        </form>
+      </body>
+    </html>`;
 }
