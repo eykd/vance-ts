@@ -30,9 +30,33 @@ export default defineConfig({
           name: 'acceptance',
           globals: true,
           include: ['generated-acceptance-tests/**/*.spec.ts'],
+          exclude: ['generated-acceptance-tests/**/*.do-heavy.spec.ts'],
           setupFiles: ['./generated-acceptance-tests/setup.ts'],
           poolOptions: {
             workers: {
+              wrangler: { configPath: './wrangler.toml' },
+              miniflare: {
+                bindings: {
+                  BETTER_AUTH_SECRET: 'test-acceptance-suite-secret-minimum-32-chars',
+                  BETTER_AUTH_URL: 'https://example.com',
+                },
+              },
+            },
+          },
+        },
+      }),
+      // Separate project for tests with heavy Durable Object usage.
+      // isolatedStorage is disabled to avoid the known vitest-pool-workers
+      // limitation where DO SQLite WAL shared-memory files prevent frame cleanup.
+      defineWorkersProject({
+        test: {
+          name: 'acceptance-do-heavy',
+          globals: true,
+          include: ['generated-acceptance-tests/**/*.do-heavy.spec.ts'],
+          setupFiles: ['./generated-acceptance-tests/setup.ts'],
+          poolOptions: {
+            workers: {
+              isolatedStorage: false,
               wrangler: { configPath: './wrangler.toml' },
               miniflare: {
                 bindings: {

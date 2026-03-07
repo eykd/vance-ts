@@ -85,7 +85,7 @@ it("An unregistered email shows the same generic error.", async () => {
 
 // Sign-in is blocked after too many failed attempts.
 // Source: specs/acceptance-specs/US04-sign-in.txt:25
-it.todo("Sign-in is blocked after too many failed attempts.");
+// Moved to US04-sign-in-rate-limit.spec.ts (isolated file for DO storage compatibility).
 
 // The original destination is preserved through sign-in.
 // Source: specs/acceptance-specs/US04-sign-in.txt:32
