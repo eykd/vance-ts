@@ -78,6 +78,36 @@ describe('Context.create', () => {
 
     expect(ctx.name).toBe('X');
   });
+
+  it('throws DomainError name_required when name is whitespace-only', () => {
+    expect(() => Context.create('ws-1', '   ')).toThrow(DomainError);
+
+    try {
+      Context.create('ws-1', '   ');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('name_required');
+    }
+  });
+
+  it('throws DomainError workspace_id_required when workspaceId is blank', () => {
+    expect(() => Context.create('', 'computer')).toThrow(DomainError);
+
+    try {
+      Context.create('', 'computer');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('workspace_id_required');
+    }
+  });
+
+  it('throws DomainError workspace_id_required when workspaceId is whitespace-only', () => {
+    expect(() => Context.create('   ', 'computer')).toThrow(DomainError);
+
+    try {
+      Context.create('   ', 'computer');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('workspace_id_required');
+    }
+  });
 });
 
 describe('Context.reconstitute', () => {

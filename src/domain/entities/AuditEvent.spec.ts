@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { DomainError } from '../errors/DomainError.js';
+
 import { AuditEvent } from './AuditEvent';
 
 /** UUID v4 pattern. */
@@ -14,7 +16,7 @@ describe('AuditEvent.record', () => {
       'ws-1',
       'inbox_item',
       'item-1',
-      'inbox_item.created',
+      'inbox_item.captured',
       'actor-1',
       '{}'
     );
@@ -62,6 +64,54 @@ describe('AuditEvent.record', () => {
     const b = AuditEvent.record('ws-1', 'action', 'e-1', 'action.activated', 'actor-1', '{}');
 
     expect(a.id).not.toBe(b.id);
+  });
+
+  it('throws DomainError workspace_id_required when workspaceId is blank', () => {
+    expect(() => AuditEvent.record('', 'action', 'e-1', 'action.created', 'actor-1', '{}')).toThrow(
+      DomainError
+    );
+
+    try {
+      AuditEvent.record('', 'action', 'e-1', 'action.created', 'actor-1', '{}');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('workspace_id_required');
+    }
+  });
+
+  it('throws DomainError entity_id_required when entityId is blank', () => {
+    expect(() =>
+      AuditEvent.record('ws-1', 'action', '', 'action.created', 'actor-1', '{}')
+    ).toThrow(DomainError);
+
+    try {
+      AuditEvent.record('ws-1', 'action', '', 'action.created', 'actor-1', '{}');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('entity_id_required');
+    }
+  });
+
+  it('throws DomainError actor_id_required when actorId is blank', () => {
+    expect(() => AuditEvent.record('ws-1', 'action', 'e-1', 'action.created', '', '{}')).toThrow(
+      DomainError
+    );
+
+    try {
+      AuditEvent.record('ws-1', 'action', 'e-1', 'action.created', '', '{}');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('actor_id_required');
+    }
+  });
+
+  it('throws DomainError payload_required when payload is blank', () => {
+    expect(() =>
+      AuditEvent.record('ws-1', 'action', 'e-1', 'action.created', 'actor-1', '')
+    ).toThrow(DomainError);
+
+    try {
+      AuditEvent.record('ws-1', 'action', 'e-1', 'action.created', 'actor-1', '');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('payload_required');
+    }
   });
 });
 

@@ -8,6 +8,8 @@
  * @module
  */
 
+import { requireNonBlank } from '../shared/validation.js';
+
 /**
  * Actor entity representing an identity that can author mutations in a workspace.
  *
@@ -46,6 +48,8 @@ export namespace Actor {
    * @returns A new immutable Actor with `type='human'` and `createdAt` set to now.
    */
   export function createHuman(workspaceId: string, userId: string): Actor {
+    requireNonBlank(workspaceId, 'workspace_id_required');
+    requireNonBlank(userId, 'user_id_required');
     return {
       id: crypto.randomUUID(),
       workspaceId,

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { DomainError } from '../errors/DomainError.js';
+
 import { Actor } from './Actor.js';
 
 /** UUID v4 pattern. */
@@ -43,6 +45,46 @@ describe('Actor.createHuman', () => {
     const b = Actor.createHuman('ws-1', 'user-1');
 
     expect(a.id).not.toBe(b.id);
+  });
+
+  it('throws DomainError workspace_id_required when workspaceId is blank', () => {
+    expect(() => Actor.createHuman('', 'user-1')).toThrow(DomainError);
+
+    try {
+      Actor.createHuman('', 'user-1');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('workspace_id_required');
+    }
+  });
+
+  it('throws DomainError workspace_id_required when workspaceId is whitespace-only', () => {
+    expect(() => Actor.createHuman('   ', 'user-1')).toThrow(DomainError);
+
+    try {
+      Actor.createHuman('   ', 'user-1');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('workspace_id_required');
+    }
+  });
+
+  it('throws DomainError user_id_required when userId is blank', () => {
+    expect(() => Actor.createHuman('ws-1', '')).toThrow(DomainError);
+
+    try {
+      Actor.createHuman('ws-1', '');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('user_id_required');
+    }
+  });
+
+  it('throws DomainError user_id_required when userId is whitespace-only', () => {
+    expect(() => Actor.createHuman('ws-1', '   ')).toThrow(DomainError);
+
+    try {
+      Actor.createHuman('ws-1', '   ');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('user_id_required');
+    }
   });
 });
 

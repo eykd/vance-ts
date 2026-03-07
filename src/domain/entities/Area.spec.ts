@@ -81,6 +81,36 @@ describe('Area.create', () => {
 
     expect(area.name).toBe('X');
   });
+
+  it('throws DomainError name_required when name is whitespace-only', () => {
+    expect(() => Area.create('ws-1', '   ')).toThrow(DomainError);
+
+    try {
+      Area.create('ws-1', '   ');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('name_required');
+    }
+  });
+
+  it('throws DomainError workspace_id_required when workspaceId is blank', () => {
+    expect(() => Area.create('', 'Work')).toThrow(DomainError);
+
+    try {
+      Area.create('', 'Work');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('workspace_id_required');
+    }
+  });
+
+  it('throws DomainError workspace_id_required when workspaceId is whitespace-only', () => {
+    expect(() => Area.create('   ', 'Work')).toThrow(DomainError);
+
+    try {
+      Area.create('   ', 'Work');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('workspace_id_required');
+    }
+  });
 });
 
 describe('Area.archive', () => {

@@ -8,6 +8,8 @@
  * @module
  */
 
+import { requireNonBlank } from '../shared/validation.js';
+
 /**
  * Workspace entity representing a user's GTD workspace.
  *
@@ -42,6 +44,7 @@ export namespace Workspace {
    * @returns A new immutable Workspace with `createdAt` and `updatedAt` set to now.
    */
   export function create(userId: string): Workspace {
+    requireNonBlank(userId, 'user_id_required');
     const now = new Date().toISOString();
     return {
       id: crypto.randomUUID(),

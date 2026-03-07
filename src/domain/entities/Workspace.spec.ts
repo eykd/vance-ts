@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { DomainError } from '../errors/DomainError.js';
+
 import { Workspace } from './Workspace.js';
 
 /** UUID v4 pattern. */
@@ -45,6 +47,26 @@ describe('Workspace.create', () => {
     const b = Workspace.create('user-1');
 
     expect(a.id).not.toBe(b.id);
+  });
+
+  it('throws DomainError user_id_required when userId is empty', () => {
+    expect(() => Workspace.create('')).toThrow(DomainError);
+
+    try {
+      Workspace.create('');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('user_id_required');
+    }
+  });
+
+  it('throws DomainError user_id_required when userId is whitespace-only', () => {
+    expect(() => Workspace.create('   ')).toThrow(DomainError);
+
+    try {
+      Workspace.create('   ');
+    } catch (e) {
+      expect((e as DomainError).code).toBe('user_id_required');
+    }
   });
 });
 

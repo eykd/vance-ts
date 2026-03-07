@@ -8,7 +8,7 @@
  * @module
  */
 
-import { DomainError } from '../errors/DomainError.js';
+import { requireMaxLength, requireNonBlank } from '../shared/validation.js';
 
 /**
  * Context entity representing a situational tag for actions within a workspace.
@@ -43,16 +43,11 @@ export namespace Context {
    * @param workspaceId - FK → `workspace.id`.
    * @param name - Display name (1–100 chars).
    * @returns A new immutable Context.
-   * @throws {DomainError} `'name_required'` if name is empty.
-   * @throws {DomainError} `'name_too_long'` if name exceeds 100 chars.
    */
   export function create(workspaceId: string, name: string): Context {
-    if (name.length === 0) {
-      throw new DomainError('name_required');
-    }
-    if (name.length > 100) {
-      throw new DomainError('name_too_long');
-    }
+    requireNonBlank(workspaceId, 'workspace_id_required');
+    requireNonBlank(name, 'name_required');
+    requireMaxLength(name, 100, 'name_too_long');
     return {
       id: crypto.randomUUID(),
       workspaceId,

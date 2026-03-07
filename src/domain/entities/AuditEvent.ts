@@ -8,6 +8,23 @@
  * @module
  */
 
+import { requireNonBlank } from '../shared/validation.js';
+
+/** Auditable entity types within the domain. */
+export type AuditEntityType = 'workspace' | 'actor' | 'area' | 'context' | 'inbox_item' | 'action';
+
+/** Audit event types representing domain mutations. */
+export type AuditEventKind =
+  | 'workspace.provisioned'
+  | 'actor.created'
+  | 'area.created'
+  | 'context.created'
+  | 'inbox_item.captured'
+  | 'inbox_item.clarified'
+  | 'action.created'
+  | 'action.activated'
+  | 'action.completed';
+
 /**
  * AuditEvent entity — an immutable, append-only record of a domain mutation.
  *
@@ -19,12 +36,12 @@ export interface AuditEvent {
   readonly id: string;
   /** FK → `workspace.id`. The workspace this event belongs to. */
   readonly workspaceId: string;
-  /** Type of the affected entity (e.g. `'inbox_item'`, `'action'`). */
-  readonly entityType: string;
+  /** Type of the affected entity. */
+  readonly entityType: AuditEntityType;
   /** UUID of the affected entity. */
   readonly entityId: string;
-  /** Event type string (e.g. `'action.created'`, `'workspace.provisioned'`). */
-  readonly eventType: string;
+  /** Event type describing the mutation. */
+  readonly eventType: AuditEventKind;
   /** FK → `actor.id`. The actor who caused this event. */
   readonly actorId: string;
   /** JSON snapshot of the entity state at the time of the event. */
@@ -54,21 +71,25 @@ export namespace AuditEvent {
    * operations exist — audit events are append-only.
    *
    * @param workspaceId - FK → `workspace.id`.
-   * @param entityType - Type of the affected entity (e.g. `'inbox_item'`).
+   * @param entityType - Type of the affected entity.
    * @param entityId - UUID of the affected entity.
-   * @param eventType - Event type string (e.g. `'action.created'`).
+   * @param eventType - Event type describing the mutation.
    * @param actorId - FK → `actor.id`.
    * @param payload - JSON snapshot of the entity state at event time.
    * @returns A new immutable AuditEvent.
    */
   export function record(
     workspaceId: string,
-    entityType: string,
+    entityType: AuditEntityType,
     entityId: string,
-    eventType: string,
+    eventType: AuditEventKind,
     actorId: string,
     payload: string
   ): AuditEvent {
+    requireNonBlank(workspaceId, 'workspace_id_required');
+    requireNonBlank(entityId, 'entity_id_required');
+    requireNonBlank(actorId, 'actor_id_required');
+    requireNonBlank(payload, 'payload_required');
     return {
       id: crypto.randomUUID(),
       workspaceId,
@@ -94,9 +115,9 @@ export namespace AuditEvent {
     return {
       id: row.id,
       workspaceId: row.workspace_id,
-      entityType: row.entity_type,
+      entityType: row.entity_type as AuditEntityType,
       entityId: row.entity_id,
-      eventType: row.event_type,
+      eventType: row.event_type as AuditEventKind,
       actorId: row.actor_id,
       payload: row.payload,
       createdAt: row.created_at,

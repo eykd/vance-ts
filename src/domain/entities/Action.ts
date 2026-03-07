@@ -8,37 +8,13 @@
  */
 
 import { DomainError } from '../errors/DomainError.js';
+import { requireMaxLength, requireNonBlank } from '../shared/validation.js';
 
 /** Maximum allowed length for an action title. */
 const MAX_TITLE_LENGTH = 255;
 
 /** Maximum allowed length for an action description. */
 const MAX_DESCRIPTION_LENGTH = 2000;
-
-/**
- * Throws a DomainError if the string is empty or whitespace-only.
- *
- * @param value - The string to validate.
- * @param errorCode - The error code to throw.
- */
-function requireNonBlank(value: string, errorCode: string): void {
-  if (value.trim().length === 0) {
-    throw new DomainError(errorCode);
-  }
-}
-
-/**
- * Throws a DomainError if the string exceeds the maximum length.
- *
- * @param value - The string to validate.
- * @param max - The maximum allowed length.
- * @param errorCode - The error code to throw.
- */
-function requireMaxLength(value: string, max: number, errorCode: string): void {
-  if (value.length > max) {
-    throw new DomainError(errorCode);
-  }
-}
 
 /** Valid action statuses. */
 export type ActionStatus = 'ready' | 'active' | 'done' | 'waiting' | 'scheduled' | 'archived';
