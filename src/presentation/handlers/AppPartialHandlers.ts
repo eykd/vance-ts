@@ -34,13 +34,24 @@ interface ActivateActionUseCase {
   }): Promise<{ id: string; title: string; status: string }>;
 }
 
+/** Use case contract for completing an action. */
+interface CompleteActionUseCase {
+  /** Executes the complete action use case. */
+  execute(input: {
+    workspaceId: string;
+    actionId: string;
+    actorId: string;
+  }): Promise<{ id: string; title: string; status: string }>;
+}
+
 /**
  * Handlers for HTMX partial responses under /app/_/.
  */
 export class AppPartialHandlers {
   private readonly captureInbox: CaptureInboxUseCase;
   private readonly clarifyInbox: ClarifyInboxUseCase;
-  private readonly activateAction?: ActivateActionUseCase;
+  private readonly activateAction: ActivateActionUseCase;
+  private readonly completeAction?: CompleteActionUseCase;
 
   /**
    * Creates an AppPartialHandlers instance.
@@ -48,15 +59,18 @@ export class AppPartialHandlers {
    * @param captureInbox - Use case for capturing inbox items.
    * @param clarifyInbox - Use case for clarifying inbox items into actions.
    * @param activateAction - Use case for activating actions.
+   * @param completeAction - Use case for completing actions.
    */
   constructor(
     captureInbox: CaptureInboxUseCase,
     clarifyInbox: ClarifyInboxUseCase,
-    activateAction?: ActivateActionUseCase
+    activateAction: ActivateActionUseCase,
+    completeAction?: CompleteActionUseCase
   ) {
     this.captureInbox = captureInbox;
     this.clarifyInbox = clarifyInbox;
     this.activateAction = activateAction;
+    this.completeAction = completeAction;
   }
 
   /**
@@ -83,7 +97,21 @@ export class AppPartialHandlers {
     const workspaceId = c.get('workspaceId') as string;
     const actorId = c.get('actorId') as string;
     const actionId = c.req.param('id');
-    const result = await this.activateAction!.execute({ workspaceId, actionId, actorId });
+    const result = await this.activateAction.execute({ workspaceId, actionId, actorId });
+    return c.html(html`<li>${result.status}</li>`);
+  }
+
+  /**
+   * Handles POST to complete an action, returning an HTML partial.
+   *
+   * @param c - Hono context with workspaceId and actorId set by middleware.
+   * @returns HTML partial response containing the completed action status.
+   */
+  async handleCompleteAction(c: Context): Promise<Response> {
+    const workspaceId = c.get('workspaceId') as string;
+    const actorId = c.get('actorId') as string;
+    const actionId = c.req.param('id');
+    const result = await this.completeAction!.execute({ workspaceId, actionId, actorId });
     return c.html(html`<li>${result.status}</li>`);
   }
 
