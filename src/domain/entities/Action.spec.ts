@@ -98,7 +98,7 @@ describe('Action', () => {
       const action = Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1');
       const activated = Action.activate(action);
       expect(activated.status).toBe('active');
-      expect(activated.updatedAt).toBeDefined();
+      expect(activated.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
 
     it('throws when action is not ready', () => {
@@ -108,6 +108,7 @@ describe('Action', () => {
     });
 
     it('throws with invalid_status_transition code', () => {
+      expect.assertions(2);
       const action = Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1');
       const activated = Action.activate(action);
       try {
@@ -125,7 +126,7 @@ describe('Action', () => {
       const activated = Action.activate(action);
       const completed = Action.complete(activated);
       expect(completed.status).toBe('done');
-      expect(completed.updatedAt).toBeDefined();
+      expect(completed.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
 
     it('throws when action is not active', () => {

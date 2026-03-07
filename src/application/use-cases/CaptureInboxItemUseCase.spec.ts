@@ -1,43 +1,20 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+/**
+ * CaptureInboxItemUseCase unit tests.
+ *
+ * @module
+ */
 
-import type { AuditEventRepository } from '../../domain/interfaces/AuditEventRepository.js';
-import type { InboxItemRepository } from '../../domain/interfaces/InboxItemRepository.js';
+import { describe, expect, it } from 'vitest';
+
+import { mockAuditRepo, mockInboxRepo } from '../../../tests/mocks/repositories';
 
 import { CaptureInboxItemUseCase } from './CaptureInboxItemUseCase.js';
 
-/**
- * Creates a minimal InboxItemRepository mock.
- *
- * @returns An object with vi.fn() stubs for each InboxItemRepository method.
- */
-function makeInboxItemRepoMock(): {
-  save: ReturnType<typeof vi.fn>;
-  getById: ReturnType<typeof vi.fn>;
-  listByWorkspaceId: ReturnType<typeof vi.fn>;
-  countByWorkspaceId: ReturnType<typeof vi.fn>;
-} {
-  return {
-    save: vi.fn().mockResolvedValue(undefined),
-    getById: vi.fn(),
-    listByWorkspaceId: vi.fn(),
-    countByWorkspaceId: vi.fn(),
-  };
-}
-
 describe('CaptureInboxItemUseCase', () => {
-  let repoMock: ReturnType<typeof makeInboxItemRepoMock>;
-  let useCase: CaptureInboxItemUseCase;
-
-  beforeEach(() => {
-    repoMock = makeInboxItemRepoMock();
-    useCase = new CaptureInboxItemUseCase(repoMock as unknown as InboxItemRepository);
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('saves a new inbox item and returns its DTO', async () => {
+    const repoMock = mockInboxRepo();
+    const useCase = new CaptureInboxItemUseCase(repoMock);
+
     const result = await useCase.execute({
       workspaceId: 'ws-1',
       title: 'Buy milk',
@@ -51,6 +28,9 @@ describe('CaptureInboxItemUseCase', () => {
   });
 
   it('passes an optional description through to the saved entity', async () => {
+    const repoMock = mockInboxRepo();
+    const useCase = new CaptureInboxItemUseCase(repoMock);
+
     const result = await useCase.execute({
       workspaceId: 'ws-1',
       title: 'Buy milk',
@@ -64,13 +44,11 @@ describe('CaptureInboxItemUseCase', () => {
   });
 
   it('records an audit event for the capture', async () => {
-    const auditRepoMock = { save: vi.fn().mockResolvedValue(undefined), saveBatch: vi.fn() };
-    const useCaseWithAudit = new CaptureInboxItemUseCase(
-      repoMock as unknown as InboxItemRepository,
-      auditRepoMock as unknown as AuditEventRepository
-    );
+    const repoMock = mockInboxRepo();
+    const auditRepoMock = mockAuditRepo();
+    const useCase = new CaptureInboxItemUseCase(repoMock, auditRepoMock);
 
-    const result = await useCaseWithAudit.execute({
+    const result = await useCase.execute({
       workspaceId: 'ws-1',
       actorId: 'actor-1',
       title: 'Buy milk',

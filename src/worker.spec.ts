@@ -130,6 +130,18 @@ function mockEnv(assetResponse?: Response): Env {
   } as unknown as Env;
 }
 
+/**
+ * Asserts that the response includes the expected security headers.
+ *
+ * @param res - The Response to check.
+ */
+function expectSecurityHeaders(res: Response): void {
+  expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+  expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+  expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+}
+
 describe('Worker', () => {
   describe('GET /api/health', () => {
     it('returns 200 JSON with status ok', async () => {
@@ -148,10 +160,7 @@ describe('Worker', () => {
 
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -172,10 +181,7 @@ describe('Worker', () => {
 
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -196,10 +202,7 @@ describe('Worker', () => {
 
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -247,10 +250,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/auth/sign-in');
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -279,10 +279,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/auth/sign-in', { method: 'POST' });
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -309,10 +306,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/auth/sign-up');
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -341,10 +335,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/auth/sign-up', { method: 'POST' });
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -373,10 +364,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/auth/sign-out', { method: 'POST' });
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -418,10 +406,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/api/auth/session');
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -466,8 +451,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expectSecurityHeaders(res);
     });
   });
 
