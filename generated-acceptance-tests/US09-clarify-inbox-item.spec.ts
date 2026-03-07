@@ -3,67 +3,7 @@
 
 import { SELF, env } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
-import { getAuthForm, submitAuthForm, signInAs } from "./helpers";
-
-/**
- * Registers a user, signs in, and returns the session cookie.
- *
- * @param email - User email.
- * @param ip - IP address for rate limit isolation.
- * @returns Session cookie string.
- */
-async function setupUser(email: string, ip: string): Promise<string> {
-  const { csrfToken } = await getAuthForm('/auth/sign-up');
-  await submitAuthForm('/auth/sign-up', { email, password: 'SuperSecure#Pass789' }, csrfToken, undefined, ip);
-  return signInAs(email, 'SuperSecure#Pass789', ip);
-}
-
-/**
- * Captures an inbox item and returns its ID.
- *
- * @param sessionCookie - Session cookie for auth.
- * @param title - Inbox item title.
- * @returns The created inbox item ID.
- */
-async function captureInboxItem(sessionCookie: string, title: string): Promise<string> {
-  const res = await SELF.fetch(
-    new Request('https://example.com/api/v1/inbox', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: sessionCookie },
-      body: JSON.stringify({ title }),
-    }),
-  );
-  const body = await res.json() as { id: string };
-  return body.id;
-}
-
-/**
- * Gets the first area ID from the API.
- *
- * @param sessionCookie - Session cookie for auth.
- * @returns The first area ID.
- */
-async function getFirstAreaId(sessionCookie: string): Promise<string> {
-  const res = await SELF.fetch(
-    new Request('https://example.com/api/v1/areas', { headers: { Cookie: sessionCookie } }),
-  );
-  const areas = await res.json() as Array<{ id: string }>;
-  return areas[0]!.id;
-}
-
-/**
- * Gets the first context ID from the API.
- *
- * @param sessionCookie - Session cookie for auth.
- * @returns The first context ID.
- */
-async function getFirstContextId(sessionCookie: string): Promise<string> {
-  const res = await SELF.fetch(
-    new Request('https://example.com/api/v1/contexts', { headers: { Cookie: sessionCookie } }),
-  );
-  const contexts = await res.json() as Array<{ id: string }>;
-  return contexts[0]!.id;
-}
+import { setupUser, captureInboxItem, getFirstAreaId, getFirstContextId } from "./helpers";
 
 describe("US09-clarify-inbox-item", () => {
 

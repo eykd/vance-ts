@@ -3,61 +3,7 @@
 
 import { SELF, env } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
-import { getAuthForm, submitAuthForm, signInAs } from "./helpers";
-
-/**
- * Registers a user, signs in, and returns the session cookie.
- *
- * @param email - User email.
- * @param ip - IP address for rate limit isolation.
- * @returns Session cookie string.
- */
-async function setupUser(email: string, ip: string): Promise<string> {
-  const { csrfToken } = await getAuthForm('/auth/sign-up');
-  await submitAuthForm('/auth/sign-up', { email, password: 'SuperSecure#Pass789' }, csrfToken, undefined, ip);
-  return signInAs(email, 'SuperSecure#Pass789', ip);
-}
-
-/**
- * Captures an inbox item, clarifies it into an action, and returns the action ID.
- *
- * @param sessionCookie - Session cookie for auth.
- * @param title - Action title.
- * @returns The created action ID.
- */
-async function createReadyAction(sessionCookie: string, title: string): Promise<string> {
-  // Capture inbox item
-  const captureRes = await SELF.fetch(
-    new Request('https://example.com/api/v1/inbox', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: sessionCookie },
-      body: JSON.stringify({ title }),
-    }),
-  );
-  const inbox = await captureRes.json() as { id: string };
-
-  // Get area and context
-  const areasRes = await SELF.fetch(
-    new Request('https://example.com/api/v1/areas', { headers: { Cookie: sessionCookie } }),
-  );
-  const areas = await areasRes.json() as Array<{ id: string }>;
-
-  const ctxRes = await SELF.fetch(
-    new Request('https://example.com/api/v1/contexts', { headers: { Cookie: sessionCookie } }),
-  );
-  const contexts = await ctxRes.json() as Array<{ id: string }>;
-
-  // Clarify into action
-  const clarifyRes = await SELF.fetch(
-    new Request(`https://example.com/api/v1/inbox/${inbox.id}/clarify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: sessionCookie },
-      body: JSON.stringify({ title, areaId: areas[0]!.id, contextId: contexts[0]!.id }),
-    }),
-  );
-  const action = await clarifyRes.json() as { id: string };
-  return action.id;
-}
+import { setupUser, createReadyAction } from "./helpers";
 
 describe("US10-activate-complete-action", () => {
 
