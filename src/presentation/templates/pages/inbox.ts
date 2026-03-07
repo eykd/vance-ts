@@ -1,4 +1,5 @@
 import { html, safe } from '../../utils/html.js';
+import { appLayout } from '../layouts/appLayout.js';
 
 /** A single inbox item for the inbox page. */
 export interface InboxPageItem {
@@ -27,17 +28,10 @@ export function inboxPage(props: InboxPageProps): string {
     .map((item) => html`<li>${item.title} <button type="button">Clarify</button></li>`)
     .join('');
 
-  return html`<!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Inbox</title>
-      </head>
-      <body>
-        <h1>Inbox</h1>
-        <ul>
-          ${safe(itemsHtml)}
-        </ul>
-      </body>
-    </html>`;
+  const content = html`<h1>Inbox</h1>
+    <ul>
+      ${safe(itemsHtml)}
+    </ul>`;
+
+  return appLayout({ title: 'Inbox', content });
 }

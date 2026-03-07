@@ -1,4 +1,5 @@
-import { html } from '../../utils/html';
+import { html } from '../../utils/html.js';
+import { appLayout } from '../layouts/appLayout.js';
 
 /** Props for the dashboard page template. */
 export interface DashboardPageProps {
@@ -17,20 +18,13 @@ export interface DashboardPageProps {
  * @returns A complete HTML document string
  */
 export function dashboardPage(props: DashboardPageProps): string {
-  return html`<!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Dashboard</title>
-      </head>
-      <body>
-        <h1>Dashboard</h1>
-        <div>Inbox: ${props.inboxCount}</div>
-        <div>Actions: ${props.actionCount}</div>
-        <form hx-post="/app/_/inbox">
-          <input type="text" name="title" placeholder="Quick capture…" required />
-          <button type="submit">Capture</button>
-        </form>
-      </body>
-    </html>`;
+  const content = html`<h1>Dashboard</h1>
+    <div>Inbox: ${props.inboxCount}</div>
+    <div>Actions: ${props.actionCount}</div>
+    <form hx-post="/app/_/inbox">
+      <input type="text" name="title" placeholder="Quick capture…" required />
+      <button type="submit">Capture</button>
+    </form>`;
+
+  return appLayout({ title: 'Dashboard', content });
 }

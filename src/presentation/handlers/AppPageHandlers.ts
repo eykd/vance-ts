@@ -10,6 +10,7 @@ import type { Context } from 'hono';
 
 import type { ListActionsUseCase } from '../../application/use-cases/ListActionsUseCase.js';
 import type { ListInboxItemsUseCase } from '../../application/use-cases/ListInboxItemsUseCase.js';
+import { actionsPage } from '../templates/pages/actions.js';
 import { dashboardPage } from '../templates/pages/dashboard.js';
 import { inboxPage } from '../templates/pages/inbox.js';
 
@@ -76,13 +77,23 @@ export class AppPageHandlers {
 
     const items = await this.listInboxItems.execute({ workspaceId });
 
-    return c.html(
-      inboxPage({
-        items: items.map((item: { id: string; title: string }) => ({
-          id: item.id,
-          title: item.title,
-        })),
-      })
-    );
+    return c.html(inboxPage({ items }));
+  }
+
+  /**
+   * Handles GET /app/actions — renders the actions page.
+   *
+   * Fetches actions for the current workspace, then renders
+   * each action with its title and status.
+   *
+   * @param c - The Hono request context.
+   * @returns An HTML response containing the actions page.
+   */
+  async handleGetActions(c: Context): Promise<Response> {
+    const workspaceId = c.get('workspaceId') as string;
+
+    const actions = await this.listActions.execute({ workspaceId });
+
+    return c.html(actionsPage({ actions }));
   }
 }

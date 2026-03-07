@@ -83,4 +83,28 @@ describe('AppPageHandlers', () => {
       expect(htmlArg).toContain('Clarify');
     });
   });
+
+  describe('handleGetActions', () => {
+    it('returns HTML listing actions with their titles and statuses', async () => {
+      const listInbox = makeUseCaseMock();
+      const listActions = makeUseCaseMock();
+      listActions.execute.mockResolvedValue([
+        { id: 'a1', title: 'Write report', status: 'active' },
+        { id: 'a2', title: 'Review PR', status: 'active' },
+      ]);
+
+      const handlers = new AppPageHandlers(listInbox, listActions);
+      const c = makeContext('ws-1');
+
+      await handlers.handleGetActions(c as never);
+
+      expect(listActions.execute).toHaveBeenCalledWith({ workspaceId: 'ws-1' });
+      expect(c.html).toHaveBeenCalledOnce();
+
+      const htmlArg = c.html.mock.calls[0]![0] as string;
+      expect(htmlArg).toContain('Write report');
+      expect(htmlArg).toContain('Review PR');
+      expect(htmlArg).toContain('active');
+    });
+  });
 });
