@@ -10,8 +10,8 @@ import type { ActivateActionUseCase } from '../../application/use-cases/Activate
 import type { ClarifyInboxItemToActionUseCase } from '../../application/use-cases/ClarifyInboxItemToActionUseCase.js';
 import type { CompleteActionUseCase } from '../../application/use-cases/CompleteActionUseCase.js';
 import type { ListActionsUseCase } from '../../application/use-cases/ListActionsUseCase.js';
-import { DomainError } from '../../domain/errors/DomainError.js';
 import type { AppEnv } from '../types.js';
+import { apiErrorResponse } from '../utils/apiErrorResponse.js';
 
 /**
  * Factory that creates the action API handler object.
@@ -79,13 +79,7 @@ export function createActionApiHandlers(
         });
         return c.json(result, 200);
       } catch (err: unknown) {
-        if (err instanceof DomainError) {
-          return c.json({ error: { code: err.code, message: err.message } }, 422);
-        }
-        return c.json(
-          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
-          500
-        );
+        return apiErrorResponse(c, err);
       }
     },
 
@@ -103,13 +97,7 @@ export function createActionApiHandlers(
         const result = await activateUseCase.execute({ workspaceId, actionId, actorId });
         return c.json(result, 200);
       } catch (err: unknown) {
-        if (err instanceof DomainError) {
-          return c.json({ error: { code: err.code, message: err.message } }, 422);
-        }
-        return c.json(
-          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
-          500
-        );
+        return apiErrorResponse(c, err);
       }
     },
 
@@ -127,13 +115,7 @@ export function createActionApiHandlers(
         const result = await completeUseCase.execute({ workspaceId, actionId, actorId });
         return c.json(result, 200);
       } catch (err: unknown) {
-        if (err instanceof DomainError) {
-          return c.json({ error: { code: err.code, message: err.message } }, 422);
-        }
-        return c.json(
-          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
-          500
-        );
+        return apiErrorResponse(c, err);
       }
     },
 
@@ -148,11 +130,8 @@ export function createActionApiHandlers(
       try {
         const result = await listUseCase.execute({ workspaceId });
         return c.json(result, 200);
-      } catch {
-        return c.json(
-          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
-          500
-        );
+      } catch (err: unknown) {
+        return apiErrorResponse(c, err);
       }
     },
   };

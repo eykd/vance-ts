@@ -12,6 +12,7 @@ import type { Context } from 'hono';
 
 import type { ListContextsUseCase } from '../../application/use-cases/ListContextsUseCase.js';
 import type { AppEnv } from '../types.js';
+import { apiErrorResponse } from '../utils/apiErrorResponse.js';
 
 /**
  * Factory that creates the context API handler object.
@@ -41,11 +42,8 @@ export function createContextApiHandlers(listContextsUseCase: ListContextsUseCas
       try {
         const contexts = await listContextsUseCase.execute({ workspaceId });
         return c.json(contexts);
-      } catch {
-        return c.json(
-          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
-          500
-        );
+      } catch (err: unknown) {
+        return apiErrorResponse(c, err);
       }
     },
   };

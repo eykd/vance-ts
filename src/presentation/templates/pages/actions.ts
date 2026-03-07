@@ -29,8 +29,13 @@ function actionItem(action: ActionsPageItem): string {
       ? html` <button hx-post="/app/_/actions/${action.id}/activate">Activate</button>`
       : '';
 
+  const completeButton =
+    action.status === 'active'
+      ? html` <button hx-post="/app/_/actions/${action.id}/complete">Complete</button>`
+      : '';
+
   return html`<li data-id="${action.id}">
-    ${action.title} — ${action.status}${safe(activateButton)}
+    ${action.title} — ${action.status}${safe(activateButton)}${safe(completeButton)}
   </li>`;
 }
 

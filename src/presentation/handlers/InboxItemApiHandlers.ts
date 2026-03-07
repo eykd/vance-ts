@@ -8,8 +8,8 @@ import type { Context } from 'hono';
 
 import type { CaptureInboxItemUseCase } from '../../application/use-cases/CaptureInboxItemUseCase.js';
 import type { ListInboxItemsUseCase } from '../../application/use-cases/ListInboxItemsUseCase.js';
-import { DomainError } from '../../domain/errors/DomainError.js';
 import type { AppEnv } from '../types.js';
+import { apiErrorResponse } from '../utils/apiErrorResponse.js';
 
 /**
  * Factory that creates the inbox item API handler object.
@@ -60,13 +60,7 @@ export function createInboxItemApiHandlers(
         });
         return c.json(result, 201);
       } catch (err: unknown) {
-        if (err instanceof DomainError) {
-          return c.json({ error: { code: err.code, message: err.message } }, 422);
-        }
-        return c.json(
-          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
-          500
-        );
+        return apiErrorResponse(c, err);
       }
     },
 
@@ -81,11 +75,8 @@ export function createInboxItemApiHandlers(
       try {
         const result = await listUseCase.execute({ workspaceId });
         return c.json(result, 200);
-      } catch {
-        return c.json(
-          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
-          500
-        );
+      } catch (err: unknown) {
+        return apiErrorResponse(c, err);
       }
     },
   };

@@ -12,6 +12,7 @@ import type { Context } from 'hono';
 
 import type { ListAreasUseCase } from '../../application/use-cases/ListAreasUseCase.js';
 import type { AppEnv } from '../types.js';
+import { apiErrorResponse } from '../utils/apiErrorResponse.js';
 
 /**
  * Factory that creates the area API handler object.
@@ -41,11 +42,8 @@ export function createAreaApiHandlers(listAreasUseCase: ListAreasUseCase): {
       try {
         const areas = await listAreasUseCase.execute({ workspaceId });
         return c.json(areas);
-      } catch {
-        return c.json(
-          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
-          500
-        );
+      } catch (err: unknown) {
+        return apiErrorResponse(c, err);
       }
     },
   };
