@@ -38,9 +38,6 @@ describe('AppPartialHandlers', () => {
 
       const handlers = new AppPartialHandlers(captureInbox);
 
-      const app = new Hono();
-      app.post('/app/_/inbox', async (c) => handlers.handleCaptureInbox(c));
-
       const formData = new FormData();
       formData.set('title', 'Buy milk');
 
@@ -48,11 +45,6 @@ describe('AppPartialHandlers', () => {
         method: 'POST',
         body: formData,
         headers: { 'HX-Request': 'true' },
-      });
-      // Simulate workspaceId middleware
-      app.use('*', async (c, next) => {
-        c.set('workspaceId', 'ws-1');
-        await next();
       });
 
       const appWithMiddleware = new Hono();
@@ -71,6 +63,60 @@ describe('AppPartialHandlers', () => {
       });
       const html = await res.text();
       expect(html).toContain('Buy milk');
+    });
+  });
+
+  describe('handleClarifyInbox', () => {
+    it('calls ClarifyInboxItemToActionUseCase and returns HTML partial with action title', async () => {
+      const captureInbox = makeUseCaseMock();
+      const clarifyInbox = makeUseCaseMock();
+      clarifyInbox.execute.mockResolvedValue({
+        id: 'action-1',
+        title: 'Buy organic milk',
+        description: null,
+        status: 'ready',
+        areaId: 'area-1',
+        contextId: 'ctx-1',
+        createdAt: '2026-03-07T00:00:00.000Z',
+        updatedAt: '2026-03-07T00:00:00.000Z',
+      });
+
+      const handlers = new AppPartialHandlers(captureInbox, clarifyInbox);
+
+      const formData = new FormData();
+      formData.set('title', 'Buy organic milk');
+      formData.set('areaId', 'area-1');
+      formData.set('contextId', 'ctx-1');
+
+      const req = new Request('https://example.com/app/_/inbox/inbox-1/clarify', {
+        method: 'POST',
+        body: formData,
+        headers: { 'HX-Request': 'true' },
+      });
+
+      const appWithMiddleware = new Hono();
+      appWithMiddleware.use('*', async (c, next) => {
+        c.set('workspaceId', 'ws-1');
+        c.set('actorId', 'actor-1');
+        await next();
+      });
+      appWithMiddleware.post('/app/_/inbox/:id/clarify', async (c) =>
+        handlers.handleClarifyInbox(c)
+      );
+
+      const res = await appWithMiddleware.fetch(req);
+
+      expect(res.status).toBe(200);
+      expect(clarifyInbox.execute).toHaveBeenCalledWith({
+        workspaceId: 'ws-1',
+        inboxItemId: 'inbox-1',
+        title: 'Buy organic milk',
+        areaId: 'area-1',
+        contextId: 'ctx-1',
+        actorId: 'actor-1',
+      });
+      const html = await res.text();
+      expect(html).toContain('Buy organic milk');
     });
   });
 });
