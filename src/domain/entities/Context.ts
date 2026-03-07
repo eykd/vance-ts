@@ -14,7 +14,7 @@ import { requireMaxLength, requireNonBlank } from '../shared/validation.js';
  * Context entity representing a situational tag for actions within a workspace.
  *
  * Immutable value object hydrated from persistent storage.
- * Use factory functions (`create`, `reconstitute`) to construct instances.
+ * Use the `create` factory to construct new instances.
  */
 export interface Context {
   /** Unique identifier (UUID). */
@@ -25,14 +25,6 @@ export interface Context {
   readonly name: string;
   /** ISO-8601 UTC timestamp of context creation. */
   readonly createdAt: string;
-}
-
-/** Raw D1 row shape for the `context` table. */
-export interface ContextRow {
-  id: string;
-  workspace_id: string;
-  name: string;
-  created_at: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-namespace, no-redeclare
@@ -53,24 +45,6 @@ export namespace Context {
       workspaceId,
       name,
       createdAt: new Date().toISOString(),
-    };
-  }
-
-  /**
-   * Hydrates a Context from a raw D1 database row.
-   *
-   * Bypasses validation — the data is assumed valid as it was written by this
-   * application.
-   *
-   * @param row - Raw D1 row from the `context` table.
-   * @returns The hydrated Context domain entity.
-   */
-  export function reconstitute(row: ContextRow): Context {
-    return {
-      id: row.id,
-      workspaceId: row.workspace_id,
-      name: row.name,
-      createdAt: row.created_at,
     };
   }
 }

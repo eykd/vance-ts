@@ -14,7 +14,7 @@ import { requireNonBlank } from '../shared/validation.js';
  * Workspace entity representing a user's GTD workspace.
  *
  * Immutable value object hydrated from persistent storage.
- * Use factory functions (`create`, `reconstitute`) to construct instances.
+ * Use the `create` factory to construct new instances.
  */
 export interface Workspace {
   /** Unique identifier (UUID). */
@@ -25,14 +25,6 @@ export interface Workspace {
   readonly createdAt: string;
   /** ISO-8601 UTC timestamp of last workspace update. */
   readonly updatedAt: string;
-}
-
-/** Raw D1 row shape for the `workspace` table. */
-export interface WorkspaceRow {
-  id: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-namespace, no-redeclare
@@ -51,24 +43,6 @@ export namespace Workspace {
       userId,
       createdAt: now,
       updatedAt: now,
-    };
-  }
-
-  /**
-   * Hydrates a Workspace from a raw D1 database row.
-   *
-   * Bypasses validation — the data is assumed valid as it was written by this
-   * application.
-   *
-   * @param row - Raw D1 row from the `workspace` table.
-   * @returns The hydrated Workspace domain entity.
-   */
-  export function reconstitute(row: WorkspaceRow): Workspace {
-    return {
-      id: row.id,
-      userId: row.user_id,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
     };
   }
 }

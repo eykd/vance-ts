@@ -69,38 +69,3 @@ describe('Workspace.create', () => {
     }
   });
 });
-
-describe('Workspace.reconstitute', () => {
-  it('hydrates a Workspace from a D1 row', () => {
-    const row = {
-      id: 'ws-1',
-      user_id: 'user-1',
-      created_at: '2026-01-01T00:00:00.000Z',
-      updated_at: '2026-01-02T00:00:00.000Z',
-    };
-
-    const ws = Workspace.reconstitute(row);
-
-    expect(ws).toEqual({
-      id: 'ws-1',
-      userId: 'user-1',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-02T00:00:00.000Z',
-    });
-  });
-
-  it('maps snake_case columns to camelCase fields', () => {
-    const row = {
-      id: 'ws-99',
-      user_id: 'user-99',
-      created_at: '2026-03-01T12:00:00.000Z',
-      updated_at: '2026-03-02T12:00:00.000Z',
-    };
-
-    const ws = Workspace.reconstitute(row);
-
-    expect(ws.userId).toBe('user-99');
-    expect(ws.createdAt).toBe('2026-03-01T12:00:00.000Z');
-    expect(ws.updatedAt).toBe('2026-03-02T12:00:00.000Z');
-  });
-});

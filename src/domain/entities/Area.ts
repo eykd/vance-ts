@@ -14,7 +14,7 @@ import { requireMaxLength, requireNonBlank } from '../shared/validation.js';
  * Area entity representing a sphere of responsibility within a workspace.
  *
  * Immutable value object hydrated from persistent storage.
- * Use factory functions (`create`, `archive`, `reconstitute`) to construct instances.
+ * Use factory functions (`create`, `archive`) to construct instances.
  *
  * State machine: `active` → (archive) → `archived`
  */
@@ -31,16 +31,6 @@ export interface Area {
   readonly createdAt: string;
   /** ISO-8601 UTC timestamp of last area update. */
   readonly updatedAt: string;
-}
-
-/** Raw D1 row shape for the `area` table. */
-export interface AreaRow {
-  id: string;
-  workspace_id: string;
-  name: string;
-  status: 'active' | 'archived';
-  created_at: string;
-  updated_at: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-namespace, no-redeclare
@@ -84,26 +74,6 @@ export namespace Area {
       ...area,
       status: 'archived',
       updatedAt: new Date().toISOString(),
-    };
-  }
-
-  /**
-   * Hydrates an Area from a raw D1 database row.
-   *
-   * Bypasses validation — the data is assumed valid as it was written by this
-   * application.
-   *
-   * @param row - Raw D1 row from the `area` table.
-   * @returns The hydrated Area domain entity.
-   */
-  export function reconstitute(row: AreaRow): Area {
-    return {
-      id: row.id,
-      workspaceId: row.workspace_id,
-      name: row.name,
-      status: row.status,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
     };
   }
 }

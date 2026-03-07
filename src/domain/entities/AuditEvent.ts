@@ -50,18 +50,6 @@ export interface AuditEvent {
   readonly createdAt: string;
 }
 
-/** Raw D1 row shape for the `audit_event` table. */
-export interface AuditEventRow {
-  id: string;
-  workspace_id: string;
-  entity_type: string;
-  entity_id: string;
-  event_type: string;
-  actor_id: string;
-  payload: string;
-  created_at: string;
-}
-
 // eslint-disable-next-line @typescript-eslint/no-namespace, no-redeclare
 export namespace AuditEvent {
   /**
@@ -99,28 +87,6 @@ export namespace AuditEvent {
       actorId,
       payload,
       createdAt: new Date().toISOString(),
-    };
-  }
-
-  /**
-   * Hydrates an AuditEvent from a raw D1 database row.
-   *
-   * Bypasses validation — the data is assumed valid as it was written by this
-   * application.
-   *
-   * @param row - Raw D1 row from the `audit_event` table.
-   * @returns The hydrated AuditEvent domain entity.
-   */
-  export function reconstitute(row: AuditEventRow): AuditEvent {
-    return {
-      id: row.id,
-      workspaceId: row.workspace_id,
-      entityType: row.entity_type as AuditEntityType,
-      entityId: row.entity_id,
-      eventType: row.event_type as AuditEventKind,
-      actorId: row.actor_id,
-      payload: row.payload,
-      createdAt: row.created_at,
     };
   }
 }

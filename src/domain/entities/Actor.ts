@@ -14,7 +14,7 @@ import { requireNonBlank } from '../shared/validation.js';
  * Actor entity representing an identity that can author mutations in a workspace.
  *
  * Immutable value object hydrated from persistent storage.
- * Use factory functions (`createHuman`, `reconstitute`) to construct instances.
+ * Use the `createHuman` factory to construct new instances.
  */
 export interface Actor {
   /** Unique identifier (UUID). */
@@ -27,15 +27,6 @@ export interface Actor {
   readonly type: 'human' | 'agent';
   /** ISO-8601 UTC timestamp of actor creation. */
   readonly createdAt: string;
-}
-
-/** Raw D1 row shape for the `actor` table. */
-export interface ActorRow {
-  id: string;
-  workspace_id: string;
-  user_id: string;
-  type: 'human' | 'agent';
-  created_at: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-namespace, no-redeclare
@@ -56,25 +47,6 @@ export namespace Actor {
       userId,
       type: 'human',
       createdAt: new Date().toISOString(),
-    };
-  }
-
-  /**
-   * Hydrates an Actor from a raw D1 database row.
-   *
-   * Bypasses validation — the data is assumed valid as it was written by this
-   * application.
-   *
-   * @param row - Raw D1 row from the `actor` table.
-   * @returns The hydrated Actor domain entity.
-   */
-  export function reconstitute(row: ActorRow): Actor {
-    return {
-      id: row.id,
-      workspaceId: row.workspace_id,
-      userId: row.user_id,
-      type: row.type,
-      createdAt: row.created_at,
     };
   }
 }

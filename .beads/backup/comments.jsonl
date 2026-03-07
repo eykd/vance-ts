@@ -43,3 +43,5 @@
 {"author":"eykd","created_at":"2026-03-06T23:43:24Z","id":43,"issue_id":"CLAW-7ad.14","text":"Starting: adding workspace_id guards to ON CONFLICT upserts"}
 {"author":"eykd","created_at":"2026-03-06T23:52:54Z","id":44,"issue_id":"CLAW-7ad.10","text":"Starting work: adding global error handler and malformed JSON handling"}
 {"author":"eykd","created_at":"2026-03-06T23:56:53Z","id":45,"issue_id":"CLAW-7ad.22","text":"Starting work on DTO inconsistencies remediation"}
+{"author":"eykd","created_at":"2026-03-07T00:14:38Z","id":46,"issue_id":"CLAW-7ad.19","text":"Starting work on validation remediation"}
+{"author":"eykd","created_at":"2026-03-07T00:24:13Z","id":47,"issue_id":"CLAW-7ad.12","text":"Starting: Move Row interfaces from domain entities to infrastructure layer"}

@@ -109,39 +109,3 @@ describe('Context.create', () => {
     }
   });
 });
-
-describe('Context.reconstitute', () => {
-  it('hydrates a Context from a D1 row', () => {
-    const row = {
-      id: 'ctx-1',
-      workspace_id: 'ws-1',
-      name: 'computer',
-      created_at: '2026-01-01T00:00:00.000Z',
-    };
-
-    const ctx = Context.reconstitute(row);
-
-    expect(ctx).toEqual({
-      id: 'ctx-1',
-      workspaceId: 'ws-1',
-      name: 'computer',
-      createdAt: '2026-01-01T00:00:00.000Z',
-    });
-  });
-
-  it('preserves all field values exactly as stored', () => {
-    const row = {
-      id: 'ctx-99',
-      workspace_id: 'ws-99',
-      name: 'errands',
-      created_at: '2026-02-15T12:30:00.000Z',
-    };
-
-    const ctx = Context.reconstitute(row);
-
-    expect(ctx.id).toBe('ctx-99');
-    expect(ctx.workspaceId).toBe('ws-99');
-    expect(ctx.name).toBe('errands');
-    expect(ctx.createdAt).toBe('2026-02-15T12:30:00.000Z');
-  });
-});
