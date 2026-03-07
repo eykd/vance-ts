@@ -24,22 +24,39 @@ interface ClarifyInboxUseCase {
   }): Promise<{ id: string; title: string }>;
 }
 
+/** Use case contract for activating an action. */
+interface ActivateActionUseCase {
+  /** Executes the activate action use case. */
+  execute(input: {
+    workspaceId: string;
+    actionId: string;
+    actorId: string;
+  }): Promise<{ id: string; title: string; status: string }>;
+}
+
 /**
  * Handlers for HTMX partial responses under /app/_/.
  */
 export class AppPartialHandlers {
   private readonly captureInbox: CaptureInboxUseCase;
-  private readonly clarifyInbox?: ClarifyInboxUseCase;
+  private readonly clarifyInbox: ClarifyInboxUseCase;
+  private readonly activateAction?: ActivateActionUseCase;
 
   /**
    * Creates an AppPartialHandlers instance.
    *
    * @param captureInbox - Use case for capturing inbox items.
    * @param clarifyInbox - Use case for clarifying inbox items into actions.
+   * @param activateAction - Use case for activating actions.
    */
-  constructor(captureInbox: CaptureInboxUseCase, clarifyInbox?: ClarifyInboxUseCase) {
+  constructor(
+    captureInbox: CaptureInboxUseCase,
+    clarifyInbox: ClarifyInboxUseCase,
+    activateAction?: ActivateActionUseCase
+  ) {
     this.captureInbox = captureInbox;
     this.clarifyInbox = clarifyInbox;
+    this.activateAction = activateAction;
   }
 
   /**
@@ -57,6 +74,20 @@ export class AppPartialHandlers {
   }
 
   /**
+   * Handles POST to activate an action, returning an HTML partial.
+   *
+   * @param c - Hono context with workspaceId and actorId set by middleware.
+   * @returns HTML partial response containing the activated action status.
+   */
+  async handleActivateAction(c: Context): Promise<Response> {
+    const workspaceId = c.get('workspaceId') as string;
+    const actorId = c.get('actorId') as string;
+    const actionId = c.req.param('id');
+    const result = await this.activateAction!.execute({ workspaceId, actionId, actorId });
+    return c.html(html`<li>${result.status}</li>`);
+  }
+
+  /**
    * Handles POST to clarify an inbox item into an action, returning an HTML partial.
    *
    * @param c - Hono context with workspaceId and actorId set by middleware.
@@ -70,7 +101,7 @@ export class AppPartialHandlers {
     const workspaceId = c.get('workspaceId') as string;
     const actorId = c.get('actorId') as string;
     const inboxItemId = c.req.param('id');
-    const result = await this.clarifyInbox!.execute({
+    const result = await this.clarifyInbox.execute({
       workspaceId,
       inboxItemId,
       title,

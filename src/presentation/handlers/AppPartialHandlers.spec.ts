@@ -36,7 +36,7 @@ describe('AppPartialHandlers', () => {
         status: 'pending',
       });
 
-      const handlers = new AppPartialHandlers(captureInbox);
+      const handlers = new AppPartialHandlers(captureInbox, makeUseCaseMock());
 
       const formData = new FormData();
       formData.set('title', 'Buy milk');
@@ -63,6 +63,47 @@ describe('AppPartialHandlers', () => {
       });
       const html = await res.text();
       expect(html).toContain('Buy milk');
+    });
+  });
+
+  describe('handleActivateAction', () => {
+    it('calls ActivateActionUseCase and returns HTML partial with activated status', async () => {
+      const captureInbox = makeUseCaseMock();
+      const clarifyInbox = makeUseCaseMock();
+      const activateAction = makeUseCaseMock();
+      activateAction.execute.mockResolvedValue({
+        id: 'action-1',
+        title: 'Buy organic milk',
+        status: 'active',
+      });
+
+      const handlers = new AppPartialHandlers(captureInbox, clarifyInbox, activateAction);
+
+      const req = new Request('https://example.com/app/_/actions/action-1/activate', {
+        method: 'POST',
+        headers: { 'HX-Request': 'true' },
+      });
+
+      const appWithMiddleware = new Hono();
+      appWithMiddleware.use('*', async (c, next) => {
+        c.set('workspaceId', 'ws-1');
+        c.set('actorId', 'actor-1');
+        await next();
+      });
+      appWithMiddleware.post('/app/_/actions/:id/activate', async (c) =>
+        handlers.handleActivateAction(c)
+      );
+
+      const res = await appWithMiddleware.fetch(req);
+
+      expect(res.status).toBe(200);
+      expect(activateAction.execute).toHaveBeenCalledWith({
+        workspaceId: 'ws-1',
+        actionId: 'action-1',
+        actorId: 'actor-1',
+      });
+      const html = await res.text();
+      expect(html).toContain('active');
     });
   });
 
