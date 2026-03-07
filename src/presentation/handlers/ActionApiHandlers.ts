@@ -13,6 +13,38 @@ import type { ListActionsUseCase } from '../../application/use-cases/ListActions
 import type { AppEnv } from '../types.js';
 import { apiErrorResponse } from '../utils/apiErrorResponse.js';
 
+/** Use case contract for action state transitions (activate, complete). */
+interface ActionCommandUseCase {
+  /** Executes the action command. */
+  execute(input: {
+    workspaceId: string;
+    actionId: string;
+    actorId: string;
+  }): Promise<{ id: string; title: string; status: string }>;
+}
+
+/**
+ * Extracts action command params from context, executes the use case, and returns JSON.
+ *
+ * @param c - Hono context with workspaceId and actorId set by middleware.
+ * @param useCase - The action command use case to execute.
+ * @returns JSON response with action result or error envelope.
+ */
+async function executeActionCommand(
+  c: Context<AppEnv>,
+  useCase: ActionCommandUseCase
+): Promise<Response> {
+  const actionId = c.req.param('id');
+  const workspaceId = c.get('workspaceId');
+  const actorId = c.get('actorId');
+  try {
+    const result = await useCase.execute({ workspaceId, actionId, actorId });
+    return c.json(result, 200);
+  } catch (err: unknown) {
+    return apiErrorResponse(c, err);
+  }
+}
+
 /**
  * Factory that creates the action API handler object.
  *
@@ -90,15 +122,7 @@ export function createActionApiHandlers(
      * @returns JSON response with activated action.
      */
     async handleActivate(c: Context<AppEnv>): Promise<Response> {
-      const actionId = c.req.param('id');
-      const workspaceId = c.get('workspaceId');
-      const actorId = c.get('actorId');
-      try {
-        const result = await activateUseCase.execute({ workspaceId, actionId, actorId });
-        return c.json(result, 200);
-      } catch (err: unknown) {
-        return apiErrorResponse(c, err);
-      }
+      return executeActionCommand(c, activateUseCase);
     },
 
     /**
@@ -108,15 +132,7 @@ export function createActionApiHandlers(
      * @returns JSON response with completed action.
      */
     async handleComplete(c: Context<AppEnv>): Promise<Response> {
-      const actionId = c.req.param('id');
-      const workspaceId = c.get('workspaceId');
-      const actorId = c.get('actorId');
-      try {
-        const result = await completeUseCase.execute({ workspaceId, actionId, actorId });
-        return c.json(result, 200);
-      } catch (err: unknown) {
-        return apiErrorResponse(c, err);
-      }
+      return executeActionCommand(c, completeUseCase);
     },
 
     /**
