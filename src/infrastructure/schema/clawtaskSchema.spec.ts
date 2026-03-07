@@ -8,6 +8,7 @@
  */
 
 import { getTableConfig } from 'drizzle-orm/sqlite-core';
+import type { ForeignKey } from 'drizzle-orm/sqlite-core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -19,6 +20,31 @@ import {
   inboxItemTable,
   workspaceTable,
 } from './clawtaskSchema';
+
+/**
+ * Finds a foreign key by the source column name in the given table config.
+ *
+ * @param foreignKeys - the foreign keys from getTableConfig
+ * @param columnName - the source column name to search for
+ * @returns the FK target info, or undefined if not found
+ */
+function findFk(
+  foreignKeys: readonly ForeignKey[],
+  columnName: string
+): { tableName: string; columnName: string; onDelete: string | undefined } | undefined {
+  for (const fk of foreignKeys) {
+    const ref = fk.reference();
+    const srcCol = ref.columns.find((c) => c.name === columnName);
+    if (srcCol !== undefined) {
+      return {
+        tableName: getTableConfig(ref.foreignTable).name,
+        columnName: ref.foreignColumns[0]?.name ?? '',
+        onDelete: fk.onDelete,
+      };
+    }
+  }
+  return undefined;
+}
 
 describe('workspaceTable', () => {
   it('has the correct SQL table name', () => {
@@ -39,6 +65,12 @@ describe('workspaceTable', () => {
     const config = getTableConfig(workspaceTable);
     const userIdCol = config.columns.find((c) => c.name === 'user_id');
     expect(userIdCol?.isUnique).toBe(true);
+  });
+
+  it('has user_id FK referencing user(id) ON DELETE CASCADE', () => {
+    const config = getTableConfig(workspaceTable);
+    const fk = findFk(config.foreignKeys, 'user_id');
+    expect(fk).toEqual({ tableName: 'user', columnName: 'id', onDelete: 'cascade' });
   });
 });
 
@@ -62,6 +94,18 @@ describe('actorTable', () => {
     const config = getTableConfig(actorTable);
     const typeCol = config.columns.find((c) => c.name === 'type');
     expect(typeCol?.enumValues).toEqual(['human', 'agent']);
+  });
+
+  it('has workspace_id FK referencing workspace(id) ON DELETE CASCADE', () => {
+    const config = getTableConfig(actorTable);
+    const fk = findFk(config.foreignKeys, 'workspace_id');
+    expect(fk).toEqual({ tableName: 'workspace', columnName: 'id', onDelete: 'cascade' });
+  });
+
+  it('has user_id FK referencing user(id) ON DELETE CASCADE', () => {
+    const config = getTableConfig(actorTable);
+    const fk = findFk(config.foreignKeys, 'user_id');
+    expect(fk).toEqual({ tableName: 'user', columnName: 'id', onDelete: 'cascade' });
   });
 });
 
@@ -88,6 +132,12 @@ describe('areaTable', () => {
     expect(statusCol?.enumValues).toEqual(['active', 'archived']);
     expect(statusCol?.default).toBe('active');
   });
+
+  it('has workspace_id FK referencing workspace(id) ON DELETE CASCADE', () => {
+    const config = getTableConfig(areaTable);
+    const fk = findFk(config.foreignKeys, 'workspace_id');
+    expect(fk).toEqual({ tableName: 'workspace', columnName: 'id', onDelete: 'cascade' });
+  });
 });
 
 describe('contextTable', () => {
@@ -103,6 +153,12 @@ describe('contextTable', () => {
     expect(columnNames).toContain('workspace_id');
     expect(columnNames).toContain('name');
     expect(columnNames).toContain('created_at');
+  });
+
+  it('has workspace_id FK referencing workspace(id) ON DELETE CASCADE', () => {
+    const config = getTableConfig(contextTable);
+    const fk = findFk(config.foreignKeys, 'workspace_id');
+    expect(fk).toEqual({ tableName: 'workspace', columnName: 'id', onDelete: 'cascade' });
   });
 });
 
@@ -137,6 +193,12 @@ describe('inboxItemTable', () => {
     const config = getTableConfig(inboxItemTable);
     const col = config.columns.find((c) => c.name === 'clarified_into_type');
     expect(col?.enumValues).toEqual(['action']);
+  });
+
+  it('has workspace_id FK referencing workspace(id) ON DELETE CASCADE', () => {
+    const config = getTableConfig(inboxItemTable);
+    const fk = findFk(config.foreignKeys, 'workspace_id');
+    expect(fk).toEqual({ tableName: 'workspace', columnName: 'id', onDelete: 'cascade' });
   });
 });
 
@@ -175,6 +237,30 @@ describe('actionTable', () => {
     ]);
     expect(statusCol?.default).toBe('ready');
   });
+
+  it('has workspace_id FK referencing workspace(id) ON DELETE CASCADE', () => {
+    const config = getTableConfig(actionTable);
+    const fk = findFk(config.foreignKeys, 'workspace_id');
+    expect(fk).toEqual({ tableName: 'workspace', columnName: 'id', onDelete: 'cascade' });
+  });
+
+  it('has created_by_actor_id FK referencing actor(id) ON DELETE CASCADE', () => {
+    const config = getTableConfig(actionTable);
+    const fk = findFk(config.foreignKeys, 'created_by_actor_id');
+    expect(fk).toEqual({ tableName: 'actor', columnName: 'id', onDelete: 'cascade' });
+  });
+
+  it('has area_id FK referencing area(id) with no cascade', () => {
+    const config = getTableConfig(actionTable);
+    const fk = findFk(config.foreignKeys, 'area_id');
+    expect(fk).toEqual({ tableName: 'area', columnName: 'id', onDelete: undefined });
+  });
+
+  it('has context_id FK referencing context(id) with no cascade', () => {
+    const config = getTableConfig(actionTable);
+    const fk = findFk(config.foreignKeys, 'context_id');
+    expect(fk).toEqual({ tableName: 'context', columnName: 'id', onDelete: undefined });
+  });
 });
 
 describe('auditEventTable', () => {
@@ -194,5 +280,17 @@ describe('auditEventTable', () => {
     expect(columnNames).toContain('actor_id');
     expect(columnNames).toContain('payload');
     expect(columnNames).toContain('created_at');
+  });
+
+  it('has workspace_id FK referencing workspace(id) ON DELETE CASCADE', () => {
+    const config = getTableConfig(auditEventTable);
+    const fk = findFk(config.foreignKeys, 'workspace_id');
+    expect(fk).toEqual({ tableName: 'workspace', columnName: 'id', onDelete: 'cascade' });
+  });
+
+  it('has actor_id FK referencing actor(id) ON DELETE CASCADE', () => {
+    const config = getTableConfig(auditEventTable);
+    const fk = findFk(config.foreignKeys, 'actor_id');
+    expect(fk).toEqual({ tableName: 'actor', columnName: 'id', onDelete: 'cascade' });
   });
 });

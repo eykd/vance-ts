@@ -11,12 +11,17 @@
 
 import { index, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
+import { user } from '../authSchema';
+
 /**
  * The `workspace` table — tenant boundary, one per user account.
  */
 export const workspaceTable = sqliteTable('workspace', {
   id: text('id').primaryKey(),
-  userId: text('user_id').notNull().unique(),
+  userId: text('user_id')
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: 'cascade' }),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
@@ -28,8 +33,12 @@ export const actorTable = sqliteTable(
   'actor',
   {
     id: text('id').primaryKey(),
-    workspaceId: text('workspace_id').notNull(),
-    userId: text('user_id').notNull(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaceTable.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
     type: text('type', { enum: ['human', 'agent'] }).notNull(),
     createdAt: text('created_at').notNull(),
   },
@@ -43,7 +52,9 @@ export const areaTable = sqliteTable(
   'area',
   {
     id: text('id').primaryKey(),
-    workspaceId: text('workspace_id').notNull(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaceTable.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     status: text('status', { enum: ['active', 'archived'] })
       .notNull()
@@ -61,7 +72,9 @@ export const contextTable = sqliteTable(
   'context',
   {
     id: text('id').primaryKey(),
-    workspaceId: text('workspace_id').notNull(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaceTable.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     createdAt: text('created_at').notNull(),
   },
@@ -75,7 +88,9 @@ export const inboxItemTable = sqliteTable(
   'inbox_item',
   {
     id: text('id').primaryKey(),
-    workspaceId: text('workspace_id').notNull(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaceTable.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     description: text('description'),
     status: text('status', { enum: ['inbox', 'clarified'] })
@@ -96,8 +111,12 @@ export const actionTable = sqliteTable(
   'action',
   {
     id: text('id').primaryKey(),
-    workspaceId: text('workspace_id').notNull(),
-    createdByActorId: text('created_by_actor_id').notNull(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaceTable.id, { onDelete: 'cascade' }),
+    createdByActorId: text('created_by_actor_id')
+      .notNull()
+      .references(() => actorTable.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     description: text('description'),
     status: text('status', {
@@ -105,8 +124,12 @@ export const actionTable = sqliteTable(
     })
       .notNull()
       .default('ready'),
-    areaId: text('area_id').notNull(),
-    contextId: text('context_id').notNull(),
+    areaId: text('area_id')
+      .notNull()
+      .references(() => areaTable.id),
+    contextId: text('context_id')
+      .notNull()
+      .references(() => contextTable.id),
     projectId: text('project_id'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
@@ -124,11 +147,15 @@ export const auditEventTable = sqliteTable(
   'audit_event',
   {
     id: text('id').primaryKey(),
-    workspaceId: text('workspace_id').notNull(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaceTable.id, { onDelete: 'cascade' }),
     entityType: text('entity_type').notNull(),
     entityId: text('entity_id').notNull(),
     eventType: text('event_type').notNull(),
-    actorId: text('actor_id').notNull(),
+    actorId: text('actor_id')
+      .notNull()
+      .references(() => actorTable.id, { onDelete: 'cascade' }),
     payload: text('payload').notNull(),
     createdAt: text('created_at').notNull(),
   },
