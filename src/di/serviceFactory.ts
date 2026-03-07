@@ -19,6 +19,7 @@ import { ActivateActionUseCase } from '../application/use-cases/ActivateActionUs
 import { CaptureInboxItemUseCase } from '../application/use-cases/CaptureInboxItemUseCase';
 import { ClarifyInboxItemToActionUseCase } from '../application/use-cases/ClarifyInboxItemToActionUseCase';
 import { CompleteActionUseCase } from '../application/use-cases/CompleteActionUseCase';
+import { ListActionsUseCase } from '../application/use-cases/ListActionsUseCase';
 import { ListAreasUseCase } from '../application/use-cases/ListAreasUseCase';
 import { ListContextsUseCase } from '../application/use-cases/ListContextsUseCase';
 import { ListInboxItemsUseCase } from '../application/use-cases/ListInboxItemsUseCase';
@@ -156,6 +157,9 @@ export class ServiceFactory {
 
   /** Cached CompleteActionUseCase. */
   private _completeActionUseCase: CompleteActionUseCase | null = null;
+
+  /** Cached ListActionsUseCase. */
+  private _listActionsUseCase: ListActionsUseCase | null = null;
 
   /** Cached action API handlers. */
   private _actionApiHandlers: ReturnType<typeof createActionApiHandlers> | null = null;
@@ -522,6 +526,16 @@ export class ServiceFactory {
   }
 
   /**
+   * The list-actions use case orchestrator.
+   *
+   * @returns The lazily-initialised ListActionsUseCase instance.
+   */
+  get listActionsUseCase(): ListActionsUseCase {
+    this._listActionsUseCase ??= new ListActionsUseCase(this.actionRepository);
+    return this._listActionsUseCase;
+  }
+
+  /**
    * JSON API handlers for the Actions resource.
    *
    * @returns The lazily-initialised action API handlers object.
@@ -530,7 +544,8 @@ export class ServiceFactory {
     this._actionApiHandlers ??= createActionApiHandlers(
       this.clarifyInboxItemToActionUseCase,
       this.activateActionUseCase,
-      this.completeActionUseCase
+      this.completeActionUseCase,
+      this.listActionsUseCase
     );
     return this._actionApiHandlers;
   }

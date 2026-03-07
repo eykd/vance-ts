@@ -62,6 +62,10 @@ const mocks = vi.hoisted(() => {
   const handleComplete = vi.fn(
     (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
   );
+  /** Default: returns 200 OK. */
+  const handleListActions = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
 
   const mockFactory = {
     authHandler: authHandlerFn,
@@ -80,7 +84,7 @@ const mocks = vi.hoisted(() => {
     areaApiHandlers: { handleListAreas },
     contextApiHandlers: { handleListContexts },
     inboxItemApiHandlers: { handleCaptureInboxItem, handleListInboxItems },
-    actionApiHandlers: { handleClarify, handleActivate, handleComplete },
+    actionApiHandlers: { handleClarify, handleActivate, handleComplete, handleListActions },
   };
 
   return {
@@ -102,6 +106,7 @@ const mocks = vi.hoisted(() => {
     handleClarify,
     handleActivate,
     handleComplete,
+    handleListActions,
     mockFactory,
   };
 });
@@ -582,6 +587,16 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
       expect(res.status).toBe(200);
       expect(mocks.handleClarify).toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /api/v1/actions', () => {
+    it('delegates to actionApiHandlers.handleListActions when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/actions');
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(mocks.handleListActions).toHaveBeenCalled();
     });
   });
 

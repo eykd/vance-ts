@@ -42,7 +42,7 @@ export function createInboxItemApiHandlers(
           400
         );
       }
-      if (typeof body['title'] !== 'string') {
+      if (typeof body['title'] !== 'string' || body['title'].trim() === '') {
         return c.json(
           {
             error: { code: 'validation_error', message: 'title is required and must be a string' },

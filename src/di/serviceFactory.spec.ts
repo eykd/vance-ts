@@ -37,6 +37,7 @@ const mocks = vi.hoisted(() => ({
   ActivateActionUseCase: vi.fn(),
   ClarifyInboxItemToActionUseCase: vi.fn(),
   CompleteActionUseCase: vi.fn(),
+  ListActionsUseCase: vi.fn(),
   createActionApiHandlers: vi.fn(),
 }));
 
@@ -151,6 +152,10 @@ vi.mock('../application/use-cases/ClarifyInboxItemToActionUseCase', () => ({
 
 vi.mock('../application/use-cases/CompleteActionUseCase', () => ({
   CompleteActionUseCase: mocks.CompleteActionUseCase,
+}));
+
+vi.mock('../application/use-cases/ListActionsUseCase', () => ({
+  ListActionsUseCase: mocks.ListActionsUseCase,
 }));
 
 vi.mock('../presentation/handlers/ActionApiHandlers', () => ({
@@ -908,12 +913,38 @@ describe('ServiceFactory', () => {
     });
   });
 
+  describe('listActionsUseCase', () => {
+    it('returns a ListActionsUseCase instance', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.ListActionsUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      expect(factory.listActionsUseCase).toBe(mockUseCase);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockUseCase = { execute: vi.fn() };
+      mocks.ListActionsUseCase.mockReturnValue(mockUseCase);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      const first = factory.listActionsUseCase;
+      const second = factory.listActionsUseCase;
+      expect(first).toBe(second);
+      expect(mocks.ListActionsUseCase).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('actionApiHandlers', () => {
     it('returns the result of createActionApiHandlers wired with use cases', () => {
       const mockHandlers = {
         handleClarify: vi.fn(),
         handleActivate: vi.fn(),
         handleComplete: vi.fn(),
+        handleListActions: vi.fn(),
       };
       mocks.createActionApiHandlers.mockReturnValue(mockHandlers);
 
@@ -926,6 +957,9 @@ describe('ServiceFactory', () => {
       const mockComplete = { execute: vi.fn() };
       mocks.CompleteActionUseCase.mockReturnValue(mockComplete);
 
+      const mockList = { execute: vi.fn() };
+      mocks.ListActionsUseCase.mockReturnValue(mockList);
+
       const env = makeEnv();
       const factory = getServiceFactory(env);
 
@@ -933,7 +967,8 @@ describe('ServiceFactory', () => {
       expect(mocks.createActionApiHandlers).toHaveBeenCalledWith(
         mockClarify,
         mockActivate,
-        mockComplete
+        mockComplete,
+        mockList
       );
     });
 
@@ -942,6 +977,7 @@ describe('ServiceFactory', () => {
         handleClarify: vi.fn(),
         handleActivate: vi.fn(),
         handleComplete: vi.fn(),
+        handleListActions: vi.fn(),
       };
       mocks.createActionApiHandlers.mockReturnValue(mockHandlers);
 

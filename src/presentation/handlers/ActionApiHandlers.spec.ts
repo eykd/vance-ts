@@ -5,6 +5,7 @@ import type { ActionDto } from '../../application/dto/ActionDto.js';
 import type { ActivateActionUseCase } from '../../application/use-cases/ActivateActionUseCase.js';
 import type { ClarifyInboxItemToActionUseCase } from '../../application/use-cases/ClarifyInboxItemToActionUseCase.js';
 import type { CompleteActionUseCase } from '../../application/use-cases/CompleteActionUseCase.js';
+import type { ListActionsUseCase } from '../../application/use-cases/ListActionsUseCase.js';
 import { DomainError } from '../../domain/errors/DomainError.js';
 
 import { createActionApiHandlers } from './ActionApiHandlers.js';
@@ -34,11 +35,13 @@ describe('createActionApiHandlers', () => {
   let clarifyMock: ReturnType<typeof makeMock>;
   let activateMock: ReturnType<typeof makeMock>;
   let completeMock: ReturnType<typeof makeMock>;
+  let listMock: ReturnType<typeof makeMock>;
 
   beforeEach(() => {
     clarifyMock = makeMock();
     activateMock = makeMock();
     completeMock = makeMock();
+    listMock = makeMock();
   });
 
   afterEach(() => {
@@ -60,11 +63,13 @@ describe('createActionApiHandlers', () => {
     const handlers = createActionApiHandlers(
       clarifyMock as unknown as ClarifyInboxItemToActionUseCase,
       activateMock as unknown as ActivateActionUseCase,
-      completeMock as unknown as CompleteActionUseCase
+      completeMock as unknown as CompleteActionUseCase,
+      listMock as unknown as ListActionsUseCase
     );
     app.post('/api/v1/inbox/:id/clarify', (c) => handlers.handleClarify(c as never));
     app.post('/api/v1/actions/:id/activate', (c) => handlers.handleActivate(c as never));
     app.post('/api/v1/actions/:id/complete', (c) => handlers.handleComplete(c as never));
+    app.get('/api/v1/actions', (c) => handlers.handleListActions(c as never));
     return app;
   }
 
@@ -313,6 +318,37 @@ describe('createActionApiHandlers', () => {
       expect(res.status).toBe(500);
       const body = await res.json<{ error: { code: string; message: string } }>();
       expect(body.error.code).toBe('service_error');
+    });
+  });
+
+  describe('handleListActions', () => {
+    it('returns 200 with an array of action DTOs', async () => {
+      listMock.execute.mockResolvedValue([ACTION_DTO]);
+
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/actions', { method: 'GET' })
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual([ACTION_DTO]);
+      expect(listMock.execute).toHaveBeenCalledWith({
+        workspaceId: 'ws-1',
+      });
+    });
+
+    it('returns 500 with error envelope when the use case throws', async () => {
+      listMock.execute.mockRejectedValue(new Error('unexpected'));
+
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/actions', { method: 'GET' })
+      );
+
+      expect(res.status).toBe(500);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('service_error');
+      expect(typeof body.error.message).toBe('string');
     });
   });
 });

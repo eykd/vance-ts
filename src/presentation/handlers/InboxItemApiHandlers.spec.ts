@@ -83,7 +83,7 @@ describe('createInboxItemApiHandlers', () => {
         new Request('https://example.com/api/v1/inbox', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: '' }),
+          body: JSON.stringify({ title: 'valid title' }),
         })
       );
 
@@ -115,6 +115,36 @@ describe('createInboxItemApiHandlers', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: 123 }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('validation_error');
+    });
+
+    it('returns 400 when title is an empty string', async () => {
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: '' }),
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('validation_error');
+    });
+
+    it('returns 400 when title is whitespace only', async () => {
+      const app = makeTestApp();
+      const res = await app.fetch(
+        new Request('https://example.com/api/v1/inbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: '   ' }),
         })
       );
 

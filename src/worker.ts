@@ -138,6 +138,11 @@ app.post('/api/v1/inbox/:id/clarify', async (c): Promise<Response> => {
   return getServiceFactory(c.env).actionApiHandlers.handleClarify(c as Context<AppEnv>);
 });
 
+/** Lists actions for the authenticated user's workspace. */
+app.get('/api/v1/actions', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleListActions(c as Context<AppEnv>);
+});
+
 /** Activates a ready action. */
 app.post('/api/v1/actions/:id/activate', async (c): Promise<Response> => {
   return getServiceFactory(c.env).actionApiHandlers.handleActivate(c as Context<AppEnv>);

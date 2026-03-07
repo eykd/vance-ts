@@ -9,6 +9,7 @@ import type { Context } from 'hono';
 import type { ActivateActionUseCase } from '../../application/use-cases/ActivateActionUseCase.js';
 import type { ClarifyInboxItemToActionUseCase } from '../../application/use-cases/ClarifyInboxItemToActionUseCase.js';
 import type { CompleteActionUseCase } from '../../application/use-cases/CompleteActionUseCase.js';
+import type { ListActionsUseCase } from '../../application/use-cases/ListActionsUseCase.js';
 import { DomainError } from '../../domain/errors/DomainError.js';
 import type { AppEnv } from '../types.js';
 
@@ -18,16 +19,19 @@ import type { AppEnv } from '../types.js';
  * @param clarifyUseCase - Use case for clarifying inbox items into actions.
  * @param activateUseCase - Use case for activating actions.
  * @param completeUseCase - Use case for completing actions.
+ * @param listUseCase - Use case for listing actions.
  * @returns An object containing the route handler methods.
  */
 export function createActionApiHandlers(
   clarifyUseCase: ClarifyInboxItemToActionUseCase,
   activateUseCase: ActivateActionUseCase,
-  completeUseCase: CompleteActionUseCase
+  completeUseCase: CompleteActionUseCase,
+  listUseCase: ListActionsUseCase
 ): {
   handleClarify(c: Context<AppEnv>): Promise<Response>;
   handleActivate(c: Context<AppEnv>): Promise<Response>;
   handleComplete(c: Context<AppEnv>): Promise<Response>;
+  handleListActions(c: Context<AppEnv>): Promise<Response>;
 } {
   return {
     /**
@@ -126,6 +130,25 @@ export function createActionApiHandlers(
         if (err instanceof DomainError) {
           return c.json({ error: { code: err.code, message: err.message } }, 422);
         }
+        return c.json(
+          { error: { code: 'service_error', message: 'An unexpected error occurred' } },
+          500
+        );
+      }
+    },
+
+    /**
+     * Handles `GET /api/v1/actions`.
+     *
+     * @param c - Hono context with workspaceId set by requireApiAuth.
+     * @returns JSON response with array of action DTOs.
+     */
+    async handleListActions(c: Context<AppEnv>): Promise<Response> {
+      const workspaceId = c.get('workspaceId');
+      try {
+        const result = await listUseCase.execute({ workspaceId });
+        return c.json(result, 200);
+      } catch {
         return c.json(
           { error: { code: 'service_error', message: 'An unexpected error occurred' } },
           500
