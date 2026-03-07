@@ -38,11 +38,6 @@ interface ActionCommandUseCase {
  * Handlers for HTMX partial responses under /app/_/.
  */
 export class AppPartialHandlers {
-  private readonly captureInbox: CaptureInboxUseCase;
-  private readonly clarifyInbox: ClarifyInboxUseCase;
-  private readonly activateAction: ActionCommandUseCase;
-  private readonly completeAction: ActionCommandUseCase;
-
   /**
    * Creates an AppPartialHandlers instance.
    *
@@ -52,16 +47,11 @@ export class AppPartialHandlers {
    * @param completeAction - Use case for completing actions.
    */
   constructor(
-    captureInbox: CaptureInboxUseCase,
-    clarifyInbox: ClarifyInboxUseCase,
-    activateAction: ActionCommandUseCase,
-    completeAction: ActionCommandUseCase
-  ) {
-    this.captureInbox = captureInbox;
-    this.clarifyInbox = clarifyInbox;
-    this.activateAction = activateAction;
-    this.completeAction = completeAction;
-  }
+    private readonly captureInbox: CaptureInboxUseCase,
+    private readonly clarifyInbox: ClarifyInboxUseCase,
+    private readonly activateAction: ActionCommandUseCase,
+    private readonly completeAction: ActionCommandUseCase
+  ) {}
 
   /**
    * Handles POST to capture an inbox item, returning an HTML partial.

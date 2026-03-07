@@ -21,22 +21,16 @@ import { inboxPage } from '../templates/pages/inbox.js';
  * template output. Use case instances are injected at construction time.
  */
 export class AppPageHandlers {
-  /** Injected list-inbox-items use case. */
-  private readonly listInboxItems: ListInboxItemsUseCase;
-
-  /** Injected list-actions use case. */
-  private readonly listActions: ListActionsUseCase;
-
   /**
    * Creates a new AppPageHandlers instance.
    *
    * @param listInboxItems - Use case for listing inbox items.
    * @param listActions - Use case for listing actions.
    */
-  constructor(listInboxItems: ListInboxItemsUseCase, listActions: ListActionsUseCase) {
-    this.listInboxItems = listInboxItems;
-    this.listActions = listActions;
-  }
+  constructor(
+    private readonly listInboxItems: ListInboxItemsUseCase,
+    private readonly listActions: ListActionsUseCase
+  ) {}
 
   /**
    * Handles GET /app — renders the dashboard page.

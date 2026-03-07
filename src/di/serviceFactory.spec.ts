@@ -40,6 +40,7 @@ const mocks = vi.hoisted(() => ({
   ListActionsUseCase: vi.fn(),
   createActionApiHandlers: vi.fn(),
   AppPageHandlers: vi.fn(),
+  AppPartialHandlers: vi.fn(),
 }));
 
 vi.mock('../infrastructure/auth', () => ({
@@ -165,6 +166,10 @@ vi.mock('../presentation/handlers/ActionApiHandlers', () => ({
 
 vi.mock('../presentation/handlers/AppPageHandlers', () => ({
   AppPageHandlers: mocks.AppPageHandlers,
+}));
+
+vi.mock('../presentation/handlers/AppPartialHandlers', () => ({
+  AppPartialHandlers: mocks.AppPartialHandlers,
 }));
 
 /**
@@ -1068,6 +1073,54 @@ describe('ServiceFactory', () => {
       const second = factory.appPageHandlers;
       expect(first).toBe(second);
       expect(mocks.AppPageHandlers).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('appPartialHandlers', () => {
+    it('returns an AppPartialHandlers instance wired with use cases', () => {
+      const mockHandlers = {
+        handleCaptureInbox: vi.fn(),
+        handleClarifyInbox: vi.fn(),
+        handleActivateAction: vi.fn(),
+        handleCompleteAction: vi.fn(),
+      };
+      mocks.AppPartialHandlers.mockReturnValue(mockHandlers);
+
+      const mockCapture = { execute: vi.fn() };
+      mocks.CaptureInboxItemUseCase.mockReturnValue(mockCapture);
+
+      const mockClarify = { execute: vi.fn() };
+      mocks.ClarifyInboxItemToActionUseCase.mockReturnValue(mockClarify);
+
+      const mockActivate = { execute: vi.fn() };
+      mocks.ActivateActionUseCase.mockReturnValue(mockActivate);
+
+      const mockComplete = { execute: vi.fn() };
+      mocks.CompleteActionUseCase.mockReturnValue(mockComplete);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      expect(factory.appPartialHandlers).toBe(mockHandlers);
+      expect(mocks.AppPartialHandlers).toHaveBeenCalledWith(
+        mockCapture,
+        mockClarify,
+        mockActivate,
+        mockComplete
+      );
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockHandlers = { handleCaptureInbox: vi.fn() };
+      mocks.AppPartialHandlers.mockReturnValue(mockHandlers);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      const first = factory.appPartialHandlers;
+      const second = factory.appPartialHandlers;
+      expect(first).toBe(second);
+      expect(mocks.AppPartialHandlers).toHaveBeenCalledTimes(1);
     });
   });
 });

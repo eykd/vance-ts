@@ -48,6 +48,7 @@ import { D1WorkspaceRepository } from '../infrastructure/repositories/D1Workspac
 import { WorkspaceD1BatchAdapter } from '../infrastructure/WorkspaceD1BatchAdapter';
 import { createActionApiHandlers } from '../presentation/handlers/ActionApiHandlers';
 import { AppPageHandlers } from '../presentation/handlers/AppPageHandlers';
+import { AppPartialHandlers } from '../presentation/handlers/AppPartialHandlers';
 import { createAreaApiHandlers } from '../presentation/handlers/AreaApiHandlers';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createContextApiHandlers } from '../presentation/handlers/ContextApiHandlers';
@@ -170,6 +171,9 @@ export class ServiceFactory {
 
   /** Cached AppPageHandlers. */
   private _appPageHandlers: AppPageHandlers | null = null;
+
+  /** Cached AppPartialHandlers. */
+  private _appPartialHandlers: AppPartialHandlers | null = null;
 
   /**
    * Creates a new ServiceFactory and initialises the better-auth instance.
@@ -583,6 +587,21 @@ export class ServiceFactory {
       this.listActionsUseCase
     );
     return this._appPageHandlers;
+  }
+
+  /**
+   * HTMX partial handlers for application interactions (capture, clarify, activate, complete).
+   *
+   * @returns The lazily-initialised AppPartialHandlers instance.
+   */
+  get appPartialHandlers(): AppPartialHandlers {
+    this._appPartialHandlers ??= new AppPartialHandlers(
+      this.captureInboxItemUseCase,
+      this.clarifyInboxItemToActionUseCase,
+      this.activateActionUseCase,
+      this.completeActionUseCase
+    );
+    return this._appPartialHandlers;
   }
 
   /**
