@@ -39,6 +39,7 @@ const mocks = vi.hoisted(() => ({
   CompleteActionUseCase: vi.fn(),
   ListActionsUseCase: vi.fn(),
   createActionApiHandlers: vi.fn(),
+  AppPageHandlers: vi.fn(),
 }));
 
 vi.mock('../infrastructure/auth', () => ({
@@ -160,6 +161,10 @@ vi.mock('../application/use-cases/ListActionsUseCase', () => ({
 
 vi.mock('../presentation/handlers/ActionApiHandlers', () => ({
   createActionApiHandlers: mocks.createActionApiHandlers,
+}));
+
+vi.mock('../presentation/handlers/AppPageHandlers', () => ({
+  AppPageHandlers: mocks.AppPageHandlers,
 }));
 
 /**
@@ -1027,6 +1032,42 @@ describe('ServiceFactory', () => {
       const second = factory.requireWorkspaceMiddleware;
       expect(first).toBe(second);
       expect(mocks.createRequireWorkspace).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('appPageHandlers', () => {
+    it('returns an AppPageHandlers instance wired with use cases', () => {
+      const mockHandlers = {
+        handleGetDashboard: vi.fn(),
+        handleGetInbox: vi.fn(),
+        handleGetActions: vi.fn(),
+      };
+      mocks.AppPageHandlers.mockReturnValue(mockHandlers);
+
+      const mockListInboxItems = { execute: vi.fn() };
+      mocks.ListInboxItemsUseCase.mockReturnValue(mockListInboxItems);
+
+      const mockListActions = { execute: vi.fn() };
+      mocks.ListActionsUseCase.mockReturnValue(mockListActions);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      expect(factory.appPageHandlers).toBe(mockHandlers);
+      expect(mocks.AppPageHandlers).toHaveBeenCalledWith(mockListInboxItems, mockListActions);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockHandlers = { handleGetDashboard: vi.fn() };
+      mocks.AppPageHandlers.mockReturnValue(mockHandlers);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      const first = factory.appPageHandlers;
+      const second = factory.appPageHandlers;
+      expect(first).toBe(second);
+      expect(mocks.AppPageHandlers).toHaveBeenCalledTimes(1);
     });
   });
 });

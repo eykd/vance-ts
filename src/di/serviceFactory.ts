@@ -47,6 +47,7 @@ import { D1InboxItemRepository } from '../infrastructure/repositories/D1InboxIte
 import { D1WorkspaceRepository } from '../infrastructure/repositories/D1WorkspaceRepository';
 import { WorkspaceD1BatchAdapter } from '../infrastructure/WorkspaceD1BatchAdapter';
 import { createActionApiHandlers } from '../presentation/handlers/ActionApiHandlers';
+import { AppPageHandlers } from '../presentation/handlers/AppPageHandlers';
 import { createAreaApiHandlers } from '../presentation/handlers/AreaApiHandlers';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createContextApiHandlers } from '../presentation/handlers/ContextApiHandlers';
@@ -166,6 +167,9 @@ export class ServiceFactory {
 
   /** Cached requireWorkspace middleware. */
   private _requireWorkspaceMiddleware: ReturnType<typeof createRequireWorkspace> | null = null;
+
+  /** Cached AppPageHandlers. */
+  private _appPageHandlers: AppPageHandlers | null = null;
 
   /**
    * Creates a new ServiceFactory and initialises the better-auth instance.
@@ -566,6 +570,19 @@ export class ServiceFactory {
       this.actorRepository
     );
     return this._requireWorkspaceMiddleware;
+  }
+
+  /**
+   * HTML page handlers for authenticated application pages (dashboard, inbox, actions).
+   *
+   * @returns The lazily-initialised AppPageHandlers instance.
+   */
+  get appPageHandlers(): AppPageHandlers {
+    this._appPageHandlers ??= new AppPageHandlers(
+      this.listInboxItemsUseCase,
+      this.listActionsUseCase
+    );
+    return this._appPageHandlers;
   }
 
   /**
