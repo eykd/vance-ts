@@ -142,6 +142,19 @@ Spec: specs/011-better-auth/spec.md
 
 ---
 
+## ClawTask Vertical Slice
+
+Keywords: clawtask, inbox, inbox capture, inbox item, clarify, standalone action, action lifecycle,
+GTD, getting things done, inbox zero, workspace, workspace provisioning, actor, area, context,
+audit event, audit trail, status transition, ready active done, provision, seed data, D1 repositories,
+domain layer, application commands, use cases, CaptureInboxItem, ClarifyInboxItemToAction,
+ActivateAction, CompleteAction, ProvisionWorkspace, tenant isolation, workspace-scoped,
+HTMX UI, JSON API, api/v1, app/inbox, app/actions, dashboard, quick capture, vertical slice,
+better-auth integration, signup hook
+Spec: specs/012-clawtask-vertical-slice/spec.md
+
+---
+
 ## How to Update This File
 
 When adding a new spec via `/sp:01-specify`, the workflow updates this file automatically.

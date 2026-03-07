@@ -17,4 +17,7 @@ Solutions are organized by category. Each entry links to a detailed solution doc
 
 ## Solutions
 
-_No solutions documented yet. Run `/compound` after solving a problem to capture the learning._
+### tooling
+
+- [ralph.sh Epic Detection Fails When Branch Uses Hyphens but Epic Title Uses Spaces](tooling/ralph-epic-detection-hyphens-vs-spaces.md) — `gsub("-"; " ")` normalizes branch hyphens before jq title match (2026-03-03)
+- [Two Kinds of Remediation Tasks: Design Constraints vs Pre-Existing Code Fixes](tooling/remediation-task-classification.md) — findings for unwritten code belong in US story descriptions, not standalone tasks (2026-03-03)

@@ -26,6 +26,46 @@ const mocks = vi.hoisted(() => {
   const signUpApiRateLimitMiddlewareFn = vi.fn(
     async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
   );
+  /** Default: passes through by calling next() (authenticated). */
+  const requireApiAuthMiddlewareFn = vi.fn(
+    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+  );
+  /** Default: passes through by calling next() (workspace provisioned). */
+  const requireWorkspaceMiddlewareFn = vi.fn(
+    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+  );
+  /** Default: returns 200 OK. */
+  const handleListAreas = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
+  /** Default: returns 200 OK. */
+  const handleListContexts = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
+  /** Default: returns 201 Created. */
+  const handleCaptureInboxItem = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 201 }))
+  );
+  /** Default: returns 200 OK. */
+  const handleListInboxItems = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
+  /** Default: returns 200 OK. */
+  const handleClarify = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
+  /** Default: returns 200 OK. */
+  const handleActivate = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
+  /** Default: returns 200 OK. */
+  const handleComplete = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
+  /** Default: returns 200 OK. */
+  const handleListActions = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
+  );
 
   const mockFactory = {
     authHandler: authHandlerFn,
@@ -39,6 +79,12 @@ const mocks = vi.hoisted(() => {
     requireAuthMiddleware: requireAuthMiddlewareFn,
     signInApiRateLimitMiddleware: signInApiRateLimitMiddlewareFn,
     signUpApiRateLimitMiddleware: signUpApiRateLimitMiddlewareFn,
+    requireApiAuthMiddleware: requireApiAuthMiddlewareFn,
+    requireWorkspaceMiddleware: requireWorkspaceMiddlewareFn,
+    areaApiHandlers: { handleListAreas },
+    contextApiHandlers: { handleListContexts },
+    inboxItemApiHandlers: { handleCaptureInboxItem, handleListInboxItems },
+    actionApiHandlers: { handleClarify, handleActivate, handleComplete, handleListActions },
   };
 
   return {
@@ -51,6 +97,16 @@ const mocks = vi.hoisted(() => {
     requireAuthMiddlewareFn,
     signInApiRateLimitMiddlewareFn,
     signUpApiRateLimitMiddlewareFn,
+    requireApiAuthMiddlewareFn,
+    requireWorkspaceMiddlewareFn,
+    handleListAreas,
+    handleListContexts,
+    handleCaptureInboxItem,
+    handleListInboxItems,
+    handleClarify,
+    handleActivate,
+    handleComplete,
+    handleListActions,
     mockFactory,
   };
 });
@@ -79,6 +135,18 @@ function mockEnv(assetResponse?: Response): Env {
   } as unknown as Env;
 }
 
+/**
+ * Asserts that the response includes the expected security headers.
+ *
+ * @param res - The Response to check.
+ */
+function expectSecurityHeaders(res: Response): void {
+  expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+  expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+  expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+  expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+}
+
 describe('Worker', () => {
   describe('GET /api/health', () => {
     it('returns 200 JSON with status ok', async () => {
@@ -97,10 +165,7 @@ describe('Worker', () => {
 
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -121,10 +186,7 @@ describe('Worker', () => {
 
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -145,10 +207,7 @@ describe('Worker', () => {
 
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -196,10 +255,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/auth/sign-in');
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -228,10 +284,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/auth/sign-in', { method: 'POST' });
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -258,10 +311,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/auth/sign-up');
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -290,10 +340,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/auth/sign-up', { method: 'POST' });
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -322,10 +369,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/auth/sign-out', { method: 'POST' });
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -367,10 +411,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/api/auth/session');
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
-      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
-      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+      expectSecurityHeaders(res);
     });
   });
 
@@ -415,8 +456,7 @@ describe('Worker', () => {
       const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
       const res = await app.fetch(req, env);
 
-      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
-      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expectSecurityHeaders(res);
     });
   });
 
@@ -497,6 +537,145 @@ describe('Worker', () => {
       await app.fetch(req, env);
 
       expect(mocks.signUpApiRateLimitMiddlewareFn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /api/v1/areas', () => {
+    it('delegates to areaApiHandlers.handleListAreas when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/areas');
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('GET /api/v1/contexts', () => {
+    it('delegates to contextApiHandlers.handleListContexts when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/contexts');
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('POST /api/v1/inbox', () => {
+    it('delegates to inboxItemApiHandlers.handleCaptureInboxItem when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/inbox', { method: 'POST' });
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(201);
+      expect(mocks.handleCaptureInboxItem).toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /api/v1/inbox', () => {
+    it('delegates to inboxItemApiHandlers.handleListInboxItems when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/inbox');
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(mocks.handleListInboxItems).toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/v1/inbox/:id/clarify', () => {
+    it('delegates to actionApiHandlers.handleClarify when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/inbox/inbox-1/clarify', {
+        method: 'POST',
+      });
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(mocks.handleClarify).toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /api/v1/actions', () => {
+    it('delegates to actionApiHandlers.handleListActions when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/actions');
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(mocks.handleListActions).toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/v1/actions/:id/activate', () => {
+    it('delegates to actionApiHandlers.handleActivate when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/actions/action-1/activate', {
+        method: 'POST',
+      });
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(mocks.handleActivate).toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/v1/actions/:id/complete', () => {
+    it('delegates to actionApiHandlers.handleComplete when authenticated', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/actions/action-1/complete', {
+        method: 'POST',
+      });
+      const res = await app.fetch(req, env);
+      expect(res.status).toBe(200);
+      expect(mocks.handleComplete).toHaveBeenCalled();
+    });
+  });
+
+  describe('/api/v1/* requireWorkspaceMiddleware', () => {
+    it('returns 503 when requireWorkspaceMiddleware short-circuits a /api/v1/* request (workspace not provisioned)', async () => {
+      // Constraint workspace-35c: requireWorkspaceMiddleware must guard all /api/v1/* routes
+      // so that requests with a missing actor return 503, not fall through to handlers.
+      mocks.requireWorkspaceMiddlewareFn.mockImplementationOnce(
+        (): Promise<Response> =>
+          Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: { code: 'workspace_not_found', message: 'Workspace not provisioned.' },
+              }),
+              { status: 503, headers: { 'Content-Type': 'application/json' } }
+            )
+          )
+      );
+
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/areas');
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(503);
+      expect(mocks.handleListAreas).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('global onError handler', () => {
+    it('returns 500 with safe error envelope when a handler throws', async () => {
+      const env = mockEnv();
+      mocks.handleCaptureInboxItem.mockRejectedValue(new Error('kaboom'));
+
+      const req = new Request('https://example.com/api/v1/inbox', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(500);
+      const body = await res.json<{ error: { code: string; message: string } }>();
+      expect(body.error.code).toBe('internal_error');
+      expect(body.error.message).toBe('An unexpected error occurred');
+    });
+
+    it('does not leak stack traces or internal details', async () => {
+      const env = mockEnv();
+      mocks.handleCaptureInboxItem.mockRejectedValue(
+        new Error('secret internal detail at /src/foo.ts:42')
+      );
+
+      const req = new Request('https://example.com/api/v1/inbox', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      const text = await res.text();
+      expect(text).not.toContain('secret');
+      expect(text).not.toContain('kaboom');
+      expect(text).not.toContain('/src/');
     });
   });
 

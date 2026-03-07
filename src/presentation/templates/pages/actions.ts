@@ -1,0 +1,56 @@
+import { html, safe } from '../../utils/html.js';
+import { appLayout } from '../layouts/appLayout.js';
+
+/** A single action item for display on the actions page. */
+export interface ActionsPageItem {
+  /** The action identifier. */
+  readonly id: string;
+  /** The action title. */
+  readonly title: string;
+  /** The action status. */
+  readonly status: string;
+}
+
+/** Props for the actions page template. */
+export interface ActionsPageProps {
+  /** The actions to display. */
+  readonly actions: readonly ActionsPageItem[];
+}
+
+/**
+ * Renders a single action list item with optional Activate button.
+ *
+ * @param action - The action item to render
+ * @returns An HTML list item string
+ */
+function actionItem(action: ActionsPageItem): string {
+  const activateButton =
+    action.status === 'inactive' || action.status === 'ready'
+      ? html` <button hx-post="/app/_/actions/${action.id}/activate">Activate</button>`
+      : '';
+
+  const completeButton =
+    action.status === 'active'
+      ? html` <button hx-post="/app/_/actions/${action.id}/complete">Complete</button>`
+      : '';
+
+  return html`<li data-id="${action.id}">
+    ${action.title} — ${action.status}${safe(activateButton)}${safe(completeButton)}
+  </li>`;
+}
+
+/**
+ * Renders the actions page as a complete HTML document.
+ *
+ * @param props - The actions page properties
+ * @returns A complete HTML document string
+ */
+export function actionsPage(props: ActionsPageProps): string {
+  const items = props.actions.map(actionItem).join('');
+  const content = html`<h1>Actions</h1>
+    <ul>
+      ${safe(items)}
+    </ul>`;
+
+  return appLayout({ title: 'Actions', content });
+}

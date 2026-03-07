@@ -122,3 +122,86 @@ export async function signInAs(
   );
   return extractSessionCookie(res);
 }
+
+/**
+ * Registers a user, signs in, and returns the session cookie.
+ *
+ * @param email - User email.
+ * @param ip - IP address for rate limit isolation.
+ * @returns Session cookie string.
+ */
+export async function setupUser(email: string, ip: string): Promise<string> {
+  const { csrfToken } = await getAuthForm('/auth/sign-up');
+  await submitAuthForm('/auth/sign-up', { email, password: 'SuperSecure#Pass789' }, csrfToken, undefined, ip);
+  return signInAs(email, 'SuperSecure#Pass789', ip);
+}
+
+/**
+ * Captures an inbox item and returns its ID.
+ *
+ * @param sessionCookie - Session cookie for auth.
+ * @param title - Inbox item title.
+ * @returns The created inbox item ID.
+ */
+export async function captureInboxItem(sessionCookie: string, title: string): Promise<string> {
+  const res = await SELF.fetch(
+    new Request('https://example.com/api/v1/inbox', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: sessionCookie },
+      body: JSON.stringify({ title }),
+    }),
+  );
+  const body = await res.json() as { id: string };
+  return body.id;
+}
+
+/**
+ * Gets the first area ID from the API.
+ *
+ * @param sessionCookie - Session cookie for auth.
+ * @returns The first area ID.
+ */
+export async function getFirstAreaId(sessionCookie: string): Promise<string> {
+  const res = await SELF.fetch(
+    new Request('https://example.com/api/v1/areas', { headers: { Cookie: sessionCookie } }),
+  );
+  const areas = await res.json() as Array<{ id: string }>;
+  return areas[0]!.id;
+}
+
+/**
+ * Gets the first context ID from the API.
+ *
+ * @param sessionCookie - Session cookie for auth.
+ * @returns The first context ID.
+ */
+export async function getFirstContextId(sessionCookie: string): Promise<string> {
+  const res = await SELF.fetch(
+    new Request('https://example.com/api/v1/contexts', { headers: { Cookie: sessionCookie } }),
+  );
+  const contexts = await res.json() as Array<{ id: string }>;
+  return contexts[0]!.id;
+}
+
+/**
+ * Captures an inbox item, clarifies it into an action, and returns the action ID.
+ *
+ * @param sessionCookie - Session cookie for auth.
+ * @param title - Action title.
+ * @returns The created action ID.
+ */
+export async function createReadyAction(sessionCookie: string, title: string): Promise<string> {
+  const inboxItemId = await captureInboxItem(sessionCookie, title);
+  const areaId = await getFirstAreaId(sessionCookie);
+  const contextId = await getFirstContextId(sessionCookie);
+
+  const clarifyRes = await SELF.fetch(
+    new Request(`https://example.com/api/v1/inbox/${inboxItemId}/clarify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: sessionCookie },
+      body: JSON.stringify({ title, areaId, contextId }),
+    }),
+  );
+  const action = await clarifyRes.json() as { id: string };
+  return action.id;
+}

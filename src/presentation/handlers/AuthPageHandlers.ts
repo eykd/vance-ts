@@ -51,18 +51,6 @@ const SIGN_UP_ERROR_MESSAGES: Record<
  * depends on infrastructure directly.
  */
 export class AuthPageHandlers {
-  /** Injected sign-in use case. */
-  private readonly signInUseCase: SignInUseCase;
-
-  /** Injected sign-up use case. */
-  private readonly signUpUseCase: SignUpUseCase;
-
-  /** Injected sign-out use case. */
-  private readonly signOutUseCase: SignOutUseCase;
-
-  /** Injected auth service port (used for session cookie detection). */
-  private readonly authService: AuthService;
-
   /**
    * Creates a new AuthPageHandlers instance.
    *
@@ -72,16 +60,11 @@ export class AuthPageHandlers {
    * @param authService - The auth service port (for session presence detection).
    */
   constructor(
-    signInUseCase: SignInUseCase,
-    signUpUseCase: SignUpUseCase,
-    signOutUseCase: SignOutUseCase,
-    authService: AuthService
-  ) {
-    this.signInUseCase = signInUseCase;
-    this.signUpUseCase = signUpUseCase;
-    this.signOutUseCase = signOutUseCase;
-    this.authService = authService;
-  }
+    private readonly signInUseCase: SignInUseCase,
+    private readonly signUpUseCase: SignUpUseCase,
+    private readonly signOutUseCase: SignOutUseCase,
+    private readonly authService: AuthService
+  ) {}
 
   /**
    * Builds standard HTML response headers for auth pages.

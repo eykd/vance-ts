@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   UnboundSentinel,
   extractBoundFunctions,
+  extractCustomImports,
   generateTests,
   sanitizeFuncName,
 } from './generator.js';
@@ -143,6 +144,53 @@ describe('extractBoundFunctions', () => {
   });
 });
 
+describe('extractCustomImports', () => {
+  it('returns empty array for empty source', () => {
+    expect(extractCustomImports('')).toEqual([]);
+  });
+
+  it('returns empty array when only standard imports are present', () => {
+    const source = [
+      'import { SELF } from "cloudflare:test";',
+      'import { describe, it, expect } from "vitest";',
+    ].join('\n');
+    expect(extractCustomImports(source)).toEqual([]);
+  });
+
+  it('returns the extended cloudflare:test import when env is added', () => {
+    const source = 'import { SELF, env } from "cloudflare:test";';
+    expect(extractCustomImports(source)).toEqual([source]);
+  });
+
+  it('returns helper import lines that are not standard', () => {
+    const source = [
+      'import { SELF } from "cloudflare:test";',
+      'import { describe, it, expect } from "vitest";',
+      'import { getAuthForm, submitAuthForm } from "./helpers";',
+    ].join('\n');
+    expect(extractCustomImports(source)).toEqual([
+      'import { getAuthForm, submitAuthForm } from "./helpers";',
+    ]);
+  });
+
+  it('returns multiple custom imports', () => {
+    const source = [
+      'import { SELF, env } from "cloudflare:test";',
+      'import { describe, it, expect } from "vitest";',
+      'import { getAuthForm, submitAuthForm } from "./helpers";',
+    ].join('\n');
+    expect(extractCustomImports(source)).toEqual([
+      'import { SELF, env } from "cloudflare:test";',
+      'import { getAuthForm, submitAuthForm } from "./helpers";',
+    ]);
+  });
+
+  it('ignores non-import lines', () => {
+    const source = 'const x = 1;';
+    expect(extractCustomImports(source)).toEqual([]);
+  });
+});
+
 describe('generateTests', () => {
   const emptyFeature: Feature = {
     sourceFile: 'specs/acceptance-specs/US01-my-feature.txt',
@@ -161,6 +209,30 @@ describe('generateTests', () => {
     const output = generateTests(emptyFeature, '');
     expect(output).toContain('import { SELF } from "cloudflare:test";');
     expect(output).toContain('import { describe, it, expect } from "vitest";');
+  });
+
+  it('uses the extended cloudflare:test import from existing source when env is present', () => {
+    const existingSource = 'import { SELF, env } from "cloudflare:test";';
+    const output = generateTests(emptyFeature, existingSource);
+    expect(output).toContain('import { SELF, env } from "cloudflare:test";');
+    expect(output).not.toContain('import { SELF } from "cloudflare:test";');
+  });
+
+  it('preserves helper imports from the existing source', () => {
+    const existingSource = [
+      'import { SELF } from "cloudflare:test";',
+      'import { describe, it, expect } from "vitest";',
+      'import { getAuthForm, submitAuthForm } from "./helpers";',
+    ].join('\n');
+    const output = generateTests(emptyFeature, existingSource);
+    expect(output).toContain('import { getAuthForm, submitAuthForm } from "./helpers";');
+  });
+
+  it('does not duplicate standard imports when existing source has extended cloudflare:test', () => {
+    const existingSource = 'import { SELF, env } from "cloudflare:test";';
+    const output = generateTests(emptyFeature, existingSource);
+    const cloudflareImportCount = (output.match(/from "cloudflare:test"/g) ?? []).length;
+    expect(cloudflareImportCount).toBe(1);
   });
 
   it('derives the describe name from the sourceFile basename without extension', () => {

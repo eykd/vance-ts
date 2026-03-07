@@ -147,7 +147,23 @@ npx bd init
 Error: No epic found matching feature 'my-feature'
 ```
 
-**Fix**: Create an epic or check branch name matches epic title
+Ralph strips the numeric branch prefix (`012-clawtask-vertical-slice` →
+`clawtask-vertical-slice`), normalizes hyphens to spaces, then searches
+open epics for a title containing those words (case-insensitive).
+
+**Common causes**:
+- No open epic exists yet → run `/sp:01-specify`
+- Epic title doesn't contain the branch-name words
+
+**Quick fix** — pass the epic ID explicitly:
+
+```bash
+./ralph.sh --epic workspace-bms
+```
+
+**Permanent fix** — ensure the epic title contains the branch words.
+`"Feature: ClawTask Vertical Slice"` matches `012-clawtask-vertical-slice`
+because hyphens are normalized to spaces before matching.
 
 ### Not a Git Repository
 

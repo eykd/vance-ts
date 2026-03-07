@@ -54,3 +54,15 @@ tmp/
 # Acceptance pipeline IR (ephemeral, regenerated each run)
 acceptance-pipeline/ir/
 .claude/worktrees/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
+
+# Beads runtime state
+.beads/*.pid
+.beads/*.port
+.beads/*.lock
+.beads/*.log
+.beads/*.activity
+.beads/dolt/

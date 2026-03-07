@@ -85,41 +85,7 @@ it("An unregistered email shows the same generic error.", async () => {
 
 // Sign-in is blocked after too many failed attempts.
 // Source: specs/acceptance-specs/US04-sign-in.txt:25
-it("Sign-in is blocked after too many failed attempts.", { timeout: 30000 }, async () => {
-  // GIVEN a visitor has exceeded the allowed number of sign-in attempts.
-  // Register a user first, then exhaust the rate limit with 5 failed sign-in
-  // attempts (invalid_credentials increments the Durable Object counter).
-  const rateLimitIp = '198.51.100.13';
-  const { csrfToken: regCsrf } = await getAuthForm('/auth/sign-up');
-  await submitAuthForm(
-    '/auth/sign-up',
-    { email: 'alice@example.com', password: 'SuperSecure#Pass789' },
-    regCsrf,
-    undefined,
-    rateLimitIp,
-  );
-  for (let i = 0; i < 5; i++) {
-    const { csrfToken: signInCsrf } = await getAuthForm('/auth/sign-in');
-    await submitAuthForm(
-      '/auth/sign-in',
-      { email: 'alice@example.com', password: 'WrongPassword123!' },
-      signInCsrf,
-      undefined,
-      rateLimitIp,
-    );
-  }
-  // WHEN they attempt to sign in again.
-  const { csrfToken } = await getAuthForm('/auth/sign-in');
-  const res = await submitAuthForm(
-    '/auth/sign-in',
-    { email: 'alice@example.com', password: 'WrongPassword123!' },
-    csrfToken,
-    undefined,
-    rateLimitIp,
-  );
-  // THEN they are told to wait before trying again.
-  expect(res.status).toBe(429);
-});
+// Moved to US04-sign-in-rate-limit.spec.ts (isolated file for DO storage compatibility).
 
 // The original destination is preserved through sign-in.
 // Source: specs/acceptance-specs/US04-sign-in.txt:32

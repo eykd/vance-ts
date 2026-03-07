@@ -47,12 +47,15 @@ import type { Auth, BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 
+import { ProvisionWorkspaceUseCase } from '../application/use-cases/ProvisionWorkspaceUseCase';
 import { hashPassword, verifyPassword } from '../domain/services/passwordHasher';
 import type { Env } from '../shared/env';
 
 import * as authSchema from './authSchema.js';
 import { wrapD1ForDrizzle } from './d1DateProxy.js';
 import { hashToken } from './tokenHasher';
+import { WorkspaceD1BatchAdapter } from './WorkspaceD1BatchAdapter.js';
+import { WorkspaceProvisioningService } from './WorkspaceProvisioningService.js';
 
 /**
  * Snapshot of the env bindings that were active when `_auth` was created.
@@ -117,6 +120,13 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
     // Capture the validated secret into a const so the databaseHooks closures
     // below can reference it without TypeScript requiring further narrowing.
     const secret: string = env.BETTER_AUTH_SECRET;
+
+    // Construct the workspace provisioner inside the getAuth closure so it has
+    // access to env.DB (raw D1) for the D1 batch transport.
+    // The provisioner is garbage-collected when _auth is reset (no teardown needed).
+    const batchAdapter = new WorkspaceD1BatchAdapter(env.DB);
+    const provisionUseCase = new ProvisionWorkspaceUseCase(batchAdapter);
+    const provisioner = new WorkspaceProvisioningService(provisionUseCase);
 
     _auth = betterAuth({
       database: drizzleAdapter(drizzle(wrapD1ForDrizzle(env.DB)), {
@@ -213,6 +223,34 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
             ): Promise<{ data: { value: string } }> => ({
               data: { value: await hashToken(verification.value, secret, 'verification-token-v1') },
             }),
+          },
+        },
+        user: {
+          create: {
+            /**
+             * Provision a workspace for the newly registered user.
+             *
+             * Fires after the user row is committed to D1. Errors are caught and
+             * logged rather than rethrown — better-auth has already committed the
+             * user row, so propagating would surface a provisioning failure as a
+             * sign-up error after the user was actually created.
+             *
+             * If provisioning fails, the user will receive a 503 from the
+             * `requireWorkspace` middleware on first login. Manual recovery:
+             * call {@link ProvisionWorkspaceUseCase} with the user's ID.
+             *
+             * @param user - The newly created user record from better-auth.
+             */
+            after: async (user: { id: string } & Record<string, unknown>): Promise<void> => {
+              try {
+                await provisioner.onUserCreated(user.id);
+              } catch (err: unknown) {
+                console.error('[WorkspaceProvisioner] Failed to provision workspace', {
+                  userId: user.id,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              }
+            },
           },
         },
       },

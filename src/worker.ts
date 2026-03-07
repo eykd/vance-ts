@@ -28,6 +28,23 @@ const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<
   applySecurityHeaders(c.res.headers);
 };
 
+/**
+ * Global error handler that catches unhandled exceptions.
+ *
+ * Returns a generic 500 JSON response for API routes without leaking
+ * stack traces or internal details.
+ *
+ * @param _err - The caught error (intentionally unused to prevent leakage).
+ * @param c - The Hono context.
+ * @returns A safe 500 JSON response.
+ */
+app.onError((_err, c): Response => {
+  return c.json(
+    { error: { code: 'internal_error', message: 'An unexpected error occurred' } },
+    500
+  );
+});
+
 app.use('/api/*', withSecurityHeaders);
 app.use('/app/_/*', withSecurityHeaders);
 app.use('/auth/*', withSecurityHeaders);
@@ -81,6 +98,59 @@ app.use('/api/auth/sign-up/*', async (c, next): Promise<Response | void> => {
 app.on(['GET', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
   const authResponse = await getServiceFactory(c.env).authHandler(c.req.raw);
   return new Response(authResponse.body, authResponse);
+});
+
+/**
+ * Middleware: require session authentication and workspace resolution for all
+ * `/api/v1/*` routes. Returns JSON 401/503 on failure; populates
+ * `c.var.workspaceId` on success.
+ */
+app.use('/api/v1/*', async (c, next): Promise<Response | void> => {
+  return getServiceFactory(c.env).requireApiAuthMiddleware(c as Context<AppEnv>, next);
+});
+
+app.use('/api/v1/*', async (c, next): Promise<Response | void> => {
+  return getServiceFactory(c.env).requireWorkspaceMiddleware(c as Context<AppEnv>, next);
+});
+
+/** Lists all areas in the authenticated user's workspace. */
+app.get('/api/v1/areas', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).areaApiHandlers.handleListAreas(c as Context<AppEnv>);
+});
+
+/** Lists all contexts in the authenticated user's workspace. */
+app.get('/api/v1/contexts', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).contextApiHandlers.handleListContexts(c as Context<AppEnv>);
+});
+
+/** Captures a new inbox item for the authenticated user. */
+app.post('/api/v1/inbox', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).inboxItemApiHandlers.handleCaptureInboxItem(c as Context<AppEnv>);
+});
+
+/** Lists inbox items for the authenticated user's workspace. */
+app.get('/api/v1/inbox', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).inboxItemApiHandlers.handleListInboxItems(c as Context<AppEnv>);
+});
+
+/** Clarifies an inbox item into an action. */
+app.post('/api/v1/inbox/:id/clarify', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleClarify(c as Context<AppEnv>);
+});
+
+/** Lists actions for the authenticated user's workspace. */
+app.get('/api/v1/actions', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleListActions(c as Context<AppEnv>);
+});
+
+/** Activates a ready action. */
+app.post('/api/v1/actions/:id/activate', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleActivate(c as Context<AppEnv>);
+});
+
+/** Completes an active action. */
+app.post('/api/v1/actions/:id/complete', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleComplete(c as Context<AppEnv>);
 });
 
 /** Catch-all for unimplemented API routes. */
