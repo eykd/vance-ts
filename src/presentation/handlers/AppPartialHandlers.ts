@@ -84,11 +84,7 @@ export class AppPartialHandlers {
    * @returns HTML partial response containing the activated action status.
    */
   async handleActivateAction(c: Context): Promise<Response> {
-    const workspaceId = c.get('workspaceId') as string;
-    const actorId = c.get('actorId') as string;
-    const actionId = c.req.param('id');
-    const result = await this.activateAction.execute({ workspaceId, actionId, actorId });
-    return c.html(html`<li>${result.status}</li>`);
+    return this.executeActionCommand(c, this.activateAction);
   }
 
   /**
@@ -98,10 +94,21 @@ export class AppPartialHandlers {
    * @returns HTML partial response containing the completed action status.
    */
   async handleCompleteAction(c: Context): Promise<Response> {
+    return this.executeActionCommand(c, this.completeAction);
+  }
+
+  /**
+   * Executes an action command use case and returns an HTML partial with the status.
+   *
+   * @param c - Hono context with workspaceId and actorId set by middleware.
+   * @param useCase - The action command use case to execute.
+   * @returns HTML partial response containing the action status.
+   */
+  private async executeActionCommand(c: Context, useCase: ActionCommandUseCase): Promise<Response> {
     const workspaceId = c.get('workspaceId') as string;
     const actorId = c.get('actorId') as string;
     const actionId = c.req.param('id');
-    const result = await this.completeAction.execute({ workspaceId, actionId, actorId });
+    const result = await useCase.execute({ workspaceId, actionId, actorId });
     return c.html(html`<li>${result.status}</li>`);
   }
 
