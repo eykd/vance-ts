@@ -136,3 +136,22 @@
 {"actor":"eykd","comment":null,"created_at":"2026-03-07T00:21:30Z","event_type":"closed","id":136,"issue_id":"CLAW-7ad.19","new_value":"Closed","old_value":""}
 {"actor":"eykd","comment":null,"created_at":"2026-03-07T00:28:49Z","event_type":"closed","id":137,"issue_id":"CLAW-7ad.12","new_value":"Closed","old_value":""}
 {"actor":"eykd","comment":null,"created_at":"2026-03-07T02:37:41Z","event_type":"closed","id":138,"issue_id":"CLAW-7ad.6.2.5","new_value":"ListInboxItemsUseCase fully implemented and tested","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:37:56Z","event_type":"closed","id":139,"issue_id":"CLAW-7ad.6.2.7","new_value":"InboxApiHandlers fully implemented and tested","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:37:57Z","event_type":"closed","id":140,"issue_id":"CLAW-7ad.6.2.8","new_value":"serviceFactory + worker.ts routes wired for inbox","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:37:59Z","event_type":"closed","id":141,"issue_id":"CLAW-7ad.6.2.9","new_value":"US08 acceptance tests all passing","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:06Z","event_type":"closed","id":142,"issue_id":"CLAW-7ad.6.3.1","new_value":"Action entity implemented with create/reconstitute/activate/complete","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:08Z","event_type":"closed","id":143,"issue_id":"CLAW-7ad.6.3.2","new_value":"ActionRepository interface defined","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:09Z","event_type":"closed","id":144,"issue_id":"CLAW-7ad.6.3.4","new_value":"ActionDto implemented with toActionDto mapper","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:10Z","event_type":"closed","id":145,"issue_id":"CLAW-7ad.6.3.5","new_value":"ClarifyInboxItemToActionUseCase implemented and tested","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:12Z","event_type":"closed","id":146,"issue_id":"CLAW-7ad.6.3.6","new_value":"ClarifyBatchPort + D1ClarifyBatchAdapter implemented","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:13Z","event_type":"closed","id":147,"issue_id":"CLAW-7ad.6.3.7","new_value":"D1ActionRepository implemented and tested","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:19Z","event_type":"closed","id":148,"issue_id":"CLAW-7ad.6.3.8","new_value":"Clarify handler in ActionApiHandlers implemented and tested","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:20Z","event_type":"closed","id":149,"issue_id":"CLAW-7ad.6.3.9","new_value":"serviceFactory + worker.ts routes wired for clarify/actions","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:22Z","event_type":"closed","id":150,"issue_id":"CLAW-7ad.6.3.10","new_value":"US09 acceptance test binding — ListActionsUseCase + GET /api/v1/actions now available","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:29Z","event_type":"closed","id":151,"issue_id":"CLAW-7ad.6.4.1","new_value":"Action entity activate/complete methods implemented and tested","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:30Z","event_type":"closed","id":152,"issue_id":"CLAW-7ad.6.4.2","new_value":"ActivateActionUseCase implemented and tested","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:32Z","event_type":"closed","id":153,"issue_id":"CLAW-7ad.6.4.3","new_value":"CompleteActionUseCase implemented and tested","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:33Z","event_type":"closed","id":154,"issue_id":"CLAW-7ad.6.4.4","new_value":"ListActionsUseCase implemented and tested","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:34Z","event_type":"closed","id":155,"issue_id":"CLAW-7ad.6.4.5","new_value":"ActionApiHandlers implemented with all handlers including handleListActions","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:35Z","event_type":"closed","id":156,"issue_id":"CLAW-7ad.6.4.6","new_value":"serviceFactory + worker.ts routes wired for activate/complete/list actions","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-07T02:38:37Z","event_type":"closed","id":157,"issue_id":"CLAW-7ad.6.4.7","new_value":"US10 acceptance test binding — GET /api/v1/actions endpoint now available","old_value":""}
