@@ -314,7 +314,7 @@ detect_task_source() {
     log DEBUG "Detecting task source mode for epic $epic_id..."
 
     # Query all tasks under the epic
-    all_tasks=$(npx bd list --parent "$epic_id" --json 2>/dev/null) || {
+    all_tasks=$(npx bd list --parent "$epic_id" --all --json 2>/dev/null) || {
         log DEBUG "Failed to query tasks, defaulting to generic mode"
         echo "generic"
         return 0
@@ -688,13 +688,13 @@ get_in_progress_tasks() {
     local epic_id="$1"
     local in_progress_json
 
-    in_progress_json=$(npx bd list --status=in_progress --parent "$epic_id" --json 2>/dev/null) || {
+    in_progress_json=$(npx bd list --status=in_progress --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))]') || {
         echo "Error: Failed to query beads for in-progress tasks" >&2
         return 1
     }
 
     # Filter out the epic itself and event tasks
-    # (bd list --parent already returns only child tasks)
     echo "$in_progress_json" | jq --arg epic "$epic_id" \
         '[.[] | select(.id != $epic and .issue_type != "event")]'
 }
@@ -767,9 +767,9 @@ sweep_completed_parents() {
     local closed_any=false
     local open_tasks
 
-    open_tasks=$(npx bd list --status open --parent "$epic_id" --json 2>/dev/null | \
-        jq --arg epic "$epic_id" \
-        '[.[] | select(.id != $epic and .issue_type != "event")]') || return 1
+    open_tasks=$(npx bd list --status open --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." --arg epic "$epic_id" \
+        '[.[] | select(.id | startswith($prefix)) | select(.id != $epic and .issue_type != "event")]') || return 1
 
     local task_count
     task_count=$(echo "$open_tasks" | jq 'length')
@@ -813,13 +813,13 @@ get_ready_tasks() {
     local epic_id="$1"
     local ready_json
 
-    ready_json=$(npx bd ready --parent "$epic_id" --limit 1000 --json 2>/dev/null) || {
+    ready_json=$(npx bd ready --limit 1000 --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))]') || {
         echo "Error: Failed to query beads for ready tasks" >&2
         return 1
     }
 
     # Filter out the epic itself and event tasks
-    # (bd ready --parent already returns only child tasks)
     echo "$ready_json" | jq --arg epic "$epic_id" \
         '[.[] | select(.id != $epic and .issue_type != "event")]'
 }
@@ -921,13 +921,13 @@ get_open_tasks() {
     local epic_id="$1"
     local open_json
 
-    open_json=$(npx bd list --status open --parent "$epic_id" --json 2>/dev/null) || {
+    open_json=$(npx bd list --status open --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))]') || {
         echo "Error: Failed to query beads for open tasks" >&2
         return 1
     }
 
     # Filter out the epic itself and event tasks
-    # (bd list --parent already returns only child tasks)
     echo "$open_json" | jq --arg epic "$epic_id" \
         '[.[] | select(.id != $epic and .issue_type != "event")]'
 }
@@ -1637,13 +1637,31 @@ execute_unit_tdd_cycle() {
         local head_after
         head_after=$(git rev-parse HEAD 2>/dev/null)
         if [[ "$head_before" == "$head_after" ]]; then
-            log WARN "GREEN step did not commit - creating fallback commit"
-            git add -A 2>/dev/null || true
-            git commit -m "feat: implement $task_title (GREEN step - fallback commit)
+            log WARN "GREEN step did not commit - invoking /commit skill as fallback"
+            local fallback_commit_prompt
+            fallback_commit_prompt=$(cat <<PROMPT
+/commit
+
+## Context
+GREEN step completed for task: $task_title
+Unit TDD cycle: $cycle
+
+### Previous step output (GREEN)
+${prev_output:-(no output captured)}
+
+## Instructions
+Stage and commit all changes from the GREEN step. Include .beads state if changed.
+PROMPT
+)
+            if ! invoke_claude_with_retry "$fallback_commit_prompt"; then
+                log WARN "Fallback /commit skill failed — attempting raw commit"
+                git add -A 2>/dev/null || true
+                git commit -m "feat: implement $task_title (GREEN step - fallback commit)
 
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
-                log WARN "Fallback commit failed (possibly no changes)"
-            }
+                    log WARN "Raw fallback commit also failed (possibly no changes)"
+                }
+            fi
         fi
         git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
 
@@ -1811,13 +1829,33 @@ PROMPT
         local head_after
         head_after=$(git rev-parse HEAD 2>/dev/null)
         if [[ "$head_before" == "$head_after" ]]; then
-            log WARN "GREEN step did not commit - creating fallback commit"
-            git add -A 2>/dev/null || true
-            git commit -m "feat: implement $(echo "$task_json" | jq -r '.title // "task"') (GREEN step - fallback commit)
+            log WARN "GREEN step did not commit - invoking /commit skill as fallback"
+            local atdd_task_title
+            atdd_task_title=$(echo "$task_json" | jq -r '.title // "task"')
+            local fallback_commit_prompt
+            fallback_commit_prompt=$(cat <<PROMPT
+/commit
+
+## Context
+GREEN step completed for task: $atdd_task_title ($task_id)
+ATDD inner cycle: $cycle
+
+### Previous step output (GREEN)
+${prev_output:-(no output captured)}
+
+## Instructions
+Stage and commit all changes from the GREEN step. Include .beads state if changed.
+PROMPT
+)
+            if ! invoke_claude_with_retry "$fallback_commit_prompt"; then
+                log WARN "Fallback /commit skill failed — attempting raw commit"
+                git add -A 2>/dev/null || true
+                git commit -m "feat: implement $atdd_task_title (GREEN step - fallback commit)
 
 Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
-                log WARN "Fallback commit failed (possibly no changes)"
-            }
+                    log WARN "Raw fallback commit also failed (possibly no changes)"
+                }
+            fi
         fi
         git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
 
@@ -2077,7 +2115,8 @@ generate_triage_prompt() {
 
     # Epic open task count
     local open_count
-    open_count=$(npx bd list --status=open --parent="$epic_id" --json 2>/dev/null | jq 'length' 2>/dev/null) || open_count="unknown"
+    open_count=$(npx bd list --status=open --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))] | length' 2>/dev/null) || open_count="unknown"
 
     cat <<EOF
 You are triaging a BLOCKED task in ralph's automation loop.
