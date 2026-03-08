@@ -57,3 +57,7 @@ tmp/
 # Acceptance pipeline IR (ephemeral, regenerated each run)
 acceptance-pipeline/ir/
 .claude/worktrees/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

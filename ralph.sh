@@ -190,7 +190,7 @@ get_signal() {
         echo "$default"; return
     fi
     local val
-    val=$(echo "$LAST_RALPH_SIGNAL" | jq -r ".$field // empty" 2>/dev/null) || true
+    val=$(echo "$LAST_RALPH_SIGNAL" | jq -r --arg f "$field" '.[$f] // empty' 2>/dev/null) || true
     echo "${val:-$default}"
 }
 
@@ -466,7 +466,7 @@ validate_prerequisites() {
         }
 
         # Exclude the epic itself and event tasks
-        task_count=$(echo "$all_tasks" | jq '[.[] | select(.id != "'"$epic_id"'" and .issue_type != "event")] | length' 2>/dev/null || echo "0")
+        task_count=$(echo "$all_tasks" | jq --arg eid "$epic_id" '[.[] | select(.id != $eid and .issue_type != "event")] | length' 2>/dev/null || echo "0")
 
         if [[ "$task_count" -eq 0 ]]; then
             log ERROR "The epic has no tasks to process"
