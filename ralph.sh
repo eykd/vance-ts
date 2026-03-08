@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # Script version
-readonly VERSION="1.0.0"
+readonly VERSION="2.0.0"
 
 # Default configuration
 readonly DEFAULT_MAX_ITERATIONS=50
@@ -20,7 +20,7 @@ readonly MAX_RETRIES=10
 readonly MAX_RETRY_DELAY=300  # 5 minutes cap
 
 # Claude CLI timeout
-readonly CLAUDE_TIMEOUT=1800  # 30 minutes max per invocation
+readonly CLAUDE_TIMEOUT=3600  # 60 minutes max per invocation
 
 # Heartbeat interval during Claude invocations
 readonly HEARTBEAT_INTERVAL=30  # seconds between progress updates
@@ -31,7 +31,10 @@ readonly STEP_RED="RED"
 readonly STEP_GREEN="GREEN"
 readonly STEP_REFACTOR="REFACTOR"
 readonly STEP_REVIEW="REVIEW"
-readonly TDD_STEP_RETRIES=3
+readonly TDD_STEP_RETRIES=7
+readonly TDD_STEP_RETRY_BASE_DELAY=1   # base seconds for Claude invocation backoff
+readonly TDD_STEP_RETRY_MAX_DELAY=60   # cap for Claude invocation backoff
+readonly TDD_MAX_CYCLES=5         # max R-G-R-Review cycles per task
 readonly ATDD_MAX_INNER_CYCLES=15
 readonly ACCEPTANCE_OUTPUT_FILE=".ralph-acceptance.json"
 
@@ -41,16 +44,31 @@ readonly EXIT_FAILURE=1
 readonly EXIT_LIMIT_REACHED=2
 readonly EXIT_SIGINT=130
 
+# Colors (disabled if stderr is not a terminal)
+if [[ -t 2 ]]; then
+    readonly CLR_RESET=$'\033[0m'
+    readonly CLR_INFO=$'\033[0;36m'     # cyan
+    readonly CLR_WARN=$'\033[0;33m'     # yellow
+    readonly CLR_ERROR=$'\033[0;31m'    # red
+    readonly CLR_BOLD=$'\033[1m'        # bold
+else
+    readonly CLR_RESET="" CLR_INFO="" CLR_WARN="" CLR_ERROR="" CLR_BOLD=""
+fi
+
 # Runtime configuration (set by argument parsing)
 DRY_RUN=false
 MAX_ITERATIONS="$DEFAULT_MAX_ITERATIONS"
 EXPLICIT_EPIC_ID=""  # Epic ID provided via --epic argument
+EPIC_ID=""  # Set by run_loop(); used by find_leaf_task() safety net
 
 # Runtime state (used for signal handlers and summary)
 CURRENT_ITERATION=0
 START_TIME=0
 CLAUDE_PID=""
 HEARTBEAT_PID=""
+LAST_CLAUDE_OUTPUT=""
+LAST_STEP_OUTPUT=""
+LAST_RALPH_SIGNAL=""  # Parsed JSON from RALPH_SIGNAL line
 
 ##############################################################################
 # Logging infrastructure
@@ -97,13 +115,13 @@ log() {
     # Also write to console for INFO/WARN/ERROR (always to stderr to avoid capture in command substitution)
     case "$level" in
         INFO)
-            echo "[ralph] $short_ts $message" >&2
+            echo "${CLR_INFO}[ralph]${CLR_RESET} $short_ts $message" >&2
             ;;
         WARN)
-            echo "[ralph] $short_ts WARNING: $message" >&2
+            echo "${CLR_WARN}[ralph] $short_ts WARNING: $message${CLR_RESET}" >&2
             ;;
         ERROR)
-            echo "[ralph] $short_ts ERROR: $message" >&2
+            echo "${CLR_ERROR}[ralph] $short_ts ERROR: $message${CLR_RESET}" >&2
             ;;
     esac
 }
@@ -131,6 +149,49 @@ log_block() {
         echo "-------- End $label --------"
         echo ""
     } >> "$LOG_FILE"
+}
+
+##############################################################################
+# RALPH_SIGNAL parsing
+##############################################################################
+
+# Extract RALPH_SIGNAL JSON from Claude's output
+# Sets LAST_RALPH_SIGNAL global. Returns 0 if found, 1 if not.
+parse_ralph_signal() {
+    local output="$1"
+    LAST_RALPH_SIGNAL=""
+    local signal_line
+    signal_line=$(echo "$output" | grep -o 'RALPH_SIGNAL:{[^}]*}' | tail -1) || true
+    if [[ -n "$signal_line" ]]; then
+        local json_part="${signal_line#RALPH_SIGNAL:}"
+        # Try as-is first
+        if echo "$json_part" | jq empty 2>/dev/null; then
+            LAST_RALPH_SIGNAL="$json_part"
+            log DEBUG "Parsed RALPH_SIGNAL: $LAST_RALPH_SIGNAL"
+            return 0
+        fi
+        # Fallback: unescape JSON string escapes (when signal comes from raw JSON envelope)
+        local unescaped
+        unescaped=$(echo "$json_part" | sed 's/\\"/"/g; s/\\\\/\\/g')
+        if echo "$unescaped" | jq empty 2>/dev/null; then
+            LAST_RALPH_SIGNAL="$unescaped"
+            log DEBUG "Parsed RALPH_SIGNAL (unescaped): $LAST_RALPH_SIGNAL"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Read a field from LAST_RALPH_SIGNAL
+# Usage: get_signal field [default]
+get_signal() {
+    local field="$1" default="${2:-}"
+    if [[ -z "$LAST_RALPH_SIGNAL" ]]; then
+        echo "$default"; return
+    fi
+    local val
+    val=$(echo "$LAST_RALPH_SIGNAL" | jq -r ".$field // empty" 2>/dev/null) || true
+    echo "${val:-$default}"
 }
 
 ##############################################################################
@@ -253,7 +314,7 @@ detect_task_source() {
     log DEBUG "Detecting task source mode for epic $epic_id..."
 
     # Query all tasks under the epic
-    all_tasks=$(npx bd list --parent "$epic_id" --json 2>/dev/null) || {
+    all_tasks=$(npx bd list --parent "$epic_id" --all --json 2>/dev/null) || {
         log DEBUG "Failed to query tasks, defaulting to generic mode"
         echo "generic"
         return 0
@@ -531,9 +592,10 @@ find_epic_id() {
     }
 
     # Find epic where title contains the feature name
+    # Normalize hyphens to spaces so "linemark-mvp" matches "Linemark MVP"
     local epic_id
     epic_id=$(echo "$epics_json" | jq -r --arg name "$feature_name" \
-        '.[] | select(.title | ascii_downcase | contains($name | ascii_downcase)) | .id' | head -n1)
+        '.[] | select(.title | ascii_downcase | gsub("-"; " ") | contains($name | ascii_downcase | gsub("-"; " "))) | .id' | head -n1)
 
     if [[ -z "$epic_id" ]]; then
         echo "Error: No epic found matching feature '$feature_name'" >&2
@@ -626,13 +688,13 @@ get_in_progress_tasks() {
     local epic_id="$1"
     local in_progress_json
 
-    in_progress_json=$(npx bd list --status=in_progress --parent "$epic_id" --json 2>/dev/null) || {
+    in_progress_json=$(npx bd list --status=in_progress --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))]') || {
         echo "Error: Failed to query beads for in-progress tasks" >&2
         return 1
     }
 
     # Filter out the epic itself and event tasks
-    # (bd list --parent already returns only child tasks)
     echo "$in_progress_json" | jq --arg epic "$epic_id" \
         '[.[] | select(.id != $epic and .issue_type != "event")]'
 }
@@ -648,6 +710,82 @@ task_has_active_children() {
         jq '[.[] | select(.issue_type != "event")] | length' 2>/dev/null || echo "0")
 
     [[ "$((open_count + in_progress_count))" -gt 0 ]]
+}
+
+# Check if a task has children (is a parent container)
+task_has_children() {
+    local task_id="$1"
+    local child_count
+    child_count=$(npx bd list --parent "$task_id" --limit 1 --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    [[ "$child_count" -gt 0 ]]
+}
+
+# Check if all direct children of a task are closed
+all_children_closed() {
+    local task_id="$1"
+    local non_closed_count
+    non_closed_count=$(npx bd list --parent "$task_id" --json 2>/dev/null | \
+        jq '[.[] | select(.status != "closed")] | length' 2>/dev/null) || return 1
+    [[ "$non_closed_count" -eq 0 ]]
+}
+
+# Auto-close parent container tasks when all their children are completed.
+# Walks up from the given task ID, closing ancestors bottom-up.
+auto_close_completed_parents() {
+    local task_id="$1"
+    local epic_id="$2"
+    local current_id="$task_id"
+
+    while true; do
+        # Remove last ID segment to get parent
+        local parent_id="${current_id%.*}"
+
+        # Stop if we can't go higher or reached the epic
+        [[ "$parent_id" == "$current_id" ]] && break
+        [[ "$parent_id" == "$epic_id" ]] && break
+
+        # Check if parent has children and all are closed
+        if task_has_children "$parent_id" && all_children_closed "$parent_id"; then
+            log INFO "Auto-closing completed parent task: $parent_id"
+            npx bd close "$parent_id" 2>/dev/null || {
+                log WARN "Failed to auto-close parent task: $parent_id"
+                break
+            }
+        else
+            break  # If this parent can't close, no ancestor can either
+        fi
+
+        current_id="$parent_id"
+    done
+}
+
+# Sweep all open tasks under the epic, closing any parent-container tasks
+# whose children are all closed. Handles cases where auto_close_completed_parents
+# missed stale parents (it only walks one branch of the tree).
+sweep_completed_parents() {
+    local epic_id="$1"
+    local closed_any=false
+    local open_tasks
+
+    open_tasks=$(npx bd list --status open --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." --arg epic "$epic_id" \
+        '[.[] | select(.id | startswith($prefix)) | select(.id != $epic and .issue_type != "event")]') || return 1
+
+    local task_count
+    task_count=$(echo "$open_tasks" | jq 'length')
+    [[ "$task_count" -eq 0 ]] && return 1
+
+    local task_id
+    while read -r task_id; do
+        if task_has_children "$task_id" && all_children_closed "$task_id"; then
+            log INFO "Sweep: auto-closing completed parent: $task_id"
+            if npx bd close "$task_id" 2>/dev/null; then
+                closed_any=true
+            fi
+        fi
+    done < <(echo "$open_tasks" | jq -r '.[].id')
+
+    [[ "$closed_any" == "true" ]]
 }
 
 # Check if there are in-progress tasks
@@ -721,7 +859,8 @@ get_ready_tasks() {
     local epic_id="$1"
     local ready_json
 
-    ready_json=$(npx bd ready --parent "$epic_id" --limit 1000 --json 2>/dev/null) || {
+    ready_json=$(npx bd ready --limit 1000 --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))]') || {
         echo "Error: Failed to query beads for ready tasks" >&2
         return 1
     }
@@ -796,8 +935,11 @@ find_leaf_task() {
         local task_id
         task_id=$(echo "$in_progress_json" | jq -r '.[0].id')
         if task_has_active_children "$task_id"; then
-            find_leaf_task "$task_id"
-            return
+            # Try to find a leaf among children; fall back to returning this task
+            if ! find_leaf_task "$task_id"; then
+                echo "$in_progress_json" | jq '.[0]'
+            fi
+            return 0
         else
             echo "$in_progress_json" | jq '.[0]'
             return 0
@@ -814,8 +956,11 @@ find_leaf_task() {
         local task_id
         task_id=$(echo "$ready_json" | jq -r '.[0].id')
         if task_has_active_children "$task_id"; then
-            find_leaf_task "$task_id"
-            return
+            # Try to find a leaf among children; fall back to returning this task
+            if ! find_leaf_task "$task_id"; then
+                echo "$ready_json" | jq '.[0]'
+            fi
+            return 0
         else
             echo "$ready_json" | jq '.[0]'
             return 0
@@ -849,13 +994,13 @@ get_open_tasks() {
     local epic_id="$1"
     local open_json
 
-    open_json=$(npx bd list --status open --parent "$epic_id" --json 2>/dev/null) || {
+    open_json=$(npx bd list --status open --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))]') || {
         echo "Error: Failed to query beads for open tasks" >&2
         return 1
     }
 
     # Filter out the epic itself and event tasks
-    # (bd list --parent already returns only child tasks)
     echo "$open_json" | jq --arg epic "$epic_id" \
         '[.[] | select(.id != $epic and .issue_type != "event")]'
 }
@@ -910,6 +1055,22 @@ generate_focused_prompt() {
         comments_text=""
     fi
 
+    # Fetch parent US story constraints if this is a sub-task
+    local parent_constraints=""
+    local parent_id="${task_id%.*}"
+    if [[ "$parent_id" != "$task_id" ]]; then
+        local parent_desc
+        parent_desc=$(npx bd show "$parent_id" --json 2>/dev/null | \
+            jq -r '(if type == "array" then .[0] else . end) | .description // ""')
+        # Extract the ## Implementation Constraints section
+        parent_constraints=$(echo "$parent_desc" | awk \
+            '/^## Implementation Constraints/{found=1; next} found && /^## /{exit} found{print}')
+        # Discard if it's only the auto-generated placeholder line
+        if echo "$parent_constraints" | grep -qE '^\s*_\(Review findings'; then
+            parent_constraints=""
+        fi
+    fi
+
     # Start with base prompt (no /sp:next — ralph already resolved the task)
     cat <<EOF
 ## Non-Interactive Mode
@@ -946,6 +1107,16 @@ EOF
 
 Previous Comments:
 $comments_text
+EOF
+    fi
+
+    # Add parent US story constraints if this task is a sub-task
+    if [[ -n "$parent_constraints" ]]; then
+        cat <<EOF
+
+## Parent US Story — Implementation Constraints
+These constraints must be applied when implementing this task. Do NOT implement the code first and fix it later — apply them from the start:
+$parent_constraints
 EOF
     fi
 
@@ -1049,7 +1220,7 @@ The task is ONLY complete when:
 If ANY of these are false, the task is INCOMPLETE - keep working until all pass.
 
 Ralph will create a series of commits across iterations.
-User will push all commits manually when the feature is ready.
+Ralph pushes to the remote after each commit for durability.
 EOF
 }
 
@@ -1233,6 +1404,13 @@ $acceptance_skill
 
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all stubs were already bound (no unbound stubs found), output:
+RALPH_SIGNAL:{"already_bound":true,"stubs_modified":0}
+If you bound N stubs, output:
+RALPH_SIGNAL:{"already_bound":false,"stubs_modified":N}
+replacing N with the actual number. This line must appear exactly once, as your final line.
 PROMPT
 }
 
@@ -1244,6 +1422,7 @@ generate_tdd_step_prompt() {
     local cycle="$3"
     local remaining_items="$4"
     local retry_context="$5"
+    local prev_step_output="${6:-}"
 
     local task_title task_id task_description
     task_title=$(echo "$task_json" | jq -r '.title // "unknown"')
@@ -1278,6 +1457,13 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If the feature is fully implemented and you cannot write a meaningful failing test, output:
+RALPH_SIGNAL:{"already_implemented":true,"test_written":false}
+If you wrote a new failing test, output:
+RALPH_SIGNAL:{"already_implemented":false,"test_written":true}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
         "$STEP_GREEN")
@@ -1288,6 +1474,9 @@ You are in ralph's ATDD automation loop.
 Task: $task_title ($task_id)
 ATDD Inner Cycle: $cycle
 
+${prev_step_output:+### Previous Step Output
+$prev_step_output
+}
 ### Instructions
 
 Write MINIMAL code to make the failing test pass.
@@ -1304,6 +1493,13 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all tests pass after your changes, output:
+RALPH_SIGNAL:{"tests_passing":true}
+If tests are still failing, output:
+RALPH_SIGNAL:{"tests_passing":false}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
         "$STEP_REFACTOR")
@@ -1314,6 +1510,9 @@ You are in ralph's ATDD automation loop.
 Task: $task_title ($task_id)
 ATDD Inner Cycle: $cycle
 
+${prev_step_output:+### Previous Step Output
+$prev_step_output
+}
 ### Instructions
 
 Improve the code without changing behavior.
@@ -1330,6 +1529,13 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all tests pass after your changes, output:
+RALPH_SIGNAL:{"tests_passing":true}
+If tests are still failing, output:
+RALPH_SIGNAL:{"tests_passing":false}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
         "$STEP_REVIEW")
@@ -1340,6 +1546,9 @@ You are in ralph's ATDD automation loop.
 Task: $task_title ($task_id)
 ATDD Inner Cycle: $cycle
 
+${prev_step_output:+### Previous Step Output
+$prev_step_output
+}
 ### Instructions
 
 Review the work done so far in this inner cycle.
@@ -1355,13 +1564,20 @@ $retry_context
 }
 ### Task Description
 $task_description
+
+IMPORTANT: As your very last line of output, you MUST emit a structured signal.
+If all tests pass after your changes, output:
+RALPH_SIGNAL:{"tests_passing":true}
+If tests are still failing, output:
+RALPH_SIGNAL:{"tests_passing":false}
+This line must appear exactly once, as your final line.
 PROMPT
             ;;
     esac
 }
 
 # Execute one TDD step with retries
-# Usage: execute_tdd_step step task_json cycle remaining_items spec_file
+# Usage: execute_tdd_step step task_json cycle remaining_items spec_file [prev_step_output]
 # Returns: 0 on success, 1 on failure
 execute_tdd_step() {
     local step="$1"
@@ -1369,8 +1585,10 @@ execute_tdd_step() {
     local cycle="$3"
     local remaining_items="$4"
     local spec_file="$5"
+    local prev_step_output="${6:-}"
     local retry_count=0
     local retry_context=""
+    local red_no_fail_count=0
 
     log INFO "Executing TDD step: $step (cycle $cycle)"
 
@@ -1382,27 +1600,64 @@ execute_tdd_step() {
         if [[ "$step" == "$STEP_BIND" ]]; then
             prompt=$(generate_bind_prompt "$task_json" "$cycle" "$spec_file" "$retry_context")
         else
-            prompt=$(generate_tdd_step_prompt "$step" "$task_json" "$cycle" "$remaining_items" "$retry_context")
+            prompt=$(generate_tdd_step_prompt "$step" "$task_json" "$cycle" "$remaining_items" "$retry_context" "$prev_step_output")
         fi
 
         if ! invoke_claude_with_retry "$prompt"; then
             log WARN "Claude invocation failed for step $step attempt $retry_count"
             retry_context="Previous attempt failed due to Claude invocation error."
+            local backoff=$(( TDD_STEP_RETRY_BASE_DELAY * (2 ** (retry_count - 1)) ))
+            (( backoff > TDD_STEP_RETRY_MAX_DELAY )) && backoff=$TDD_STEP_RETRY_MAX_DELAY
+            log DEBUG "Backing off ${backoff}s before retry"
+            sleep "$backoff"
             continue
         fi
 
         # After BIND, skip test verification (tests are expected to fail)
         if [[ "$step" == "$STEP_BIND" ]]; then
+            local already_bound
+            already_bound=$(get_signal "already_bound" "false")
+            if [[ "$already_bound" == "true" ]]; then
+                log INFO "BIND step: Claude signals all stubs already bound"
+            fi
             log INFO "BIND step complete — tests expected to fail at this point"
+            LAST_STEP_OUTPUT="$LAST_CLAUDE_OUTPUT"
             return 0
         fi
 
-        # After RED/GREEN/REFACTOR/REVIEW, verify tests pass
+        # After RED, confirm at least one test is failing (that's the goal)
+        if [[ "$step" == "$STEP_RED" ]]; then
+            # Check structured signal FIRST
+            local already_implemented
+            already_implemented=$(get_signal "already_implemented" "false")
+            if [[ "$already_implemented" == "true" ]]; then
+                log WARN "RED step: Claude signals feature already implemented"
+                return 2  # Circuit breaker on FIRST attempt
+            fi
+
+            # Existing test-based verification as fallback
+            if ! check_baseline_tests; then
+                log INFO "RED step complete — new failing test confirmed"
+                LAST_STEP_OUTPUT="$LAST_CLAUDE_OUTPUT"
+                return 0
+            fi
+            red_no_fail_count=$((red_no_fail_count + 1))
+            if (( red_no_fail_count >= 2 )); then
+                log WARN "RED circuit-breaker: all tests passed on $red_no_fail_count consecutive attempts — feature may already be implemented"
+                return 2
+            fi
+            log WARN "RED step produced no failing test (attempt $retry_count/$TDD_STEP_RETRIES), retrying..."
+            retry_context="After the RED step, all tests passed. Write a test that fails for the right reason."
+            continue
+        fi
+
+        # After GREEN/REFACTOR/REVIEW, verify all tests pass
         if check_baseline_tests; then
             log INFO "TDD step $step completed successfully"
+            LAST_STEP_OUTPUT="$LAST_CLAUDE_OUTPUT"
             return 0
         else
-            log WARN "Baseline tests failing after $step step (attempt $retry_count)"
+            log WARN "Baseline tests failing after $step step (attempt $retry_count/$TDD_STEP_RETRIES), retrying..."
             retry_context="After the $step step, baseline tests are still failing. Fix the issues."
         fi
     done
@@ -1417,23 +1672,84 @@ execute_tdd_step() {
 execute_unit_tdd_cycle() {
     local task_json="$1"
     local epic_id="$2"
-    local task_id
+    local task_id task_title
     task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
-    local max_cycles=5
+    task_title=$(echo "$task_json" | jq -r '.title // "task"')
 
     log INFO "Executing unit TDD cycle for task $task_id (no spec found)"
 
-    for (( cycle=1; cycle <= max_cycles; cycle++ )); do
-        log INFO "Unit TDD cycle $cycle/$max_cycles"
+    for (( cycle=1; cycle <= TDD_MAX_CYCLES; cycle++ )); do
+        log INFO "Unit TDD cycle $cycle/$TDD_MAX_CYCLES"
 
-        # RED → GREEN → REFACTOR → REVIEW
-        for step in "$STEP_RED" "$STEP_GREEN" "$STEP_REFACTOR" "$STEP_REVIEW"; do
-            if ! execute_tdd_step "$step" "$task_json" "$cycle" "" ""; then
-                log ERROR "TDD step $step failed in unit cycle $cycle"
-                npx bd comment "$task_id" "BLOCKED: TDD step $step failed after retries in unit cycle $cycle" 2>/dev/null || true
-                return 1
+        # RED step with circuit-breaker handling (no previous output — RED starts fresh)
+        local red_exit=0
+        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "" "" || red_exit=$?
+        local prev_output="${LAST_STEP_OUTPUT:0:2000}"
+        if (( red_exit == 2 )); then
+            log WARN "RED circuit-breaker: all unit tests pass and no spec to check — closing task as complete"
+            npx bd comment "$task_id" "Circuit-breaker: all unit tests pass and no failing test could be written after 2 consecutive attempts. Feature appears complete." 2>/dev/null || true
+            npx bd close "$task_id" 2>/dev/null || true
+            return 0
+        elif (( red_exit != 0 )); then
+            log ERROR "TDD step $STEP_RED failed in unit cycle $cycle"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_RED failed after retries in unit cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
+
+        # GREEN step with fallback commit check (receives RED output)
+        local head_before
+        head_before=$(git rev-parse HEAD 2>/dev/null)
+        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "" "$prev_output"; then
+            log ERROR "TDD step $STEP_GREEN failed in unit cycle $cycle"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed after retries in unit cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
+        prev_output="${LAST_STEP_OUTPUT:0:2000}"
+        local head_after
+        head_after=$(git rev-parse HEAD 2>/dev/null)
+        if [[ "$head_before" == "$head_after" ]]; then
+            log WARN "GREEN step did not commit - invoking /commit skill as fallback"
+            local fallback_commit_prompt
+            fallback_commit_prompt=$(cat <<PROMPT
+/commit
+
+## Context
+GREEN step completed for task: $task_title
+Unit TDD cycle: $cycle
+
+### Previous step output (GREEN)
+${prev_output:-(no output captured)}
+
+## Instructions
+Stage and commit all changes from the GREEN step. Include .beads state if changed.
+PROMPT
+)
+            if ! invoke_claude_with_retry "$fallback_commit_prompt"; then
+                log WARN "Fallback /commit skill failed — attempting raw commit"
+                git add -A 2>/dev/null || true
+                git commit -m "feat: implement $task_title (GREEN step - fallback commit)
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
+                    log WARN "Raw fallback commit also failed (possibly no changes)"
+                }
             fi
-        done
+        fi
+        git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
+
+        # REFACTOR step (receives GREEN output)
+        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "" "$prev_output"; then
+            log ERROR "TDD step $STEP_REFACTOR failed in unit cycle $cycle"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed after retries in unit cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
+        prev_output="${LAST_STEP_OUTPUT:0:2000}"
+
+        # REVIEW step (receives REFACTOR output)
+        if ! execute_tdd_step "$STEP_REVIEW" "$task_json" "$cycle" "" "" "$prev_output"; then
+            log ERROR "TDD step $STEP_REVIEW failed in unit cycle $cycle"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REVIEW failed after retries in unit cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
 
         # Check if task appears complete after REVIEW
         # Use generate_focused_prompt path as the decision maker — invoke /sp:next to close if done
@@ -1471,7 +1787,7 @@ PROMPT
     done
 
     log WARN "Unit TDD cycle limit reached for task $task_id"
-    npx bd comment "$task_id" "BLOCKED: Unit TDD cycle limit ($max_cycles) reached without task completion" 2>/dev/null || true
+    npx bd comment "$task_id" "BLOCKED: Unit TDD cycle limit ($TDD_MAX_CYCLES) reached without task completion" 2>/dev/null || true
     return 1
 }
 
@@ -1521,25 +1837,105 @@ PROMPT
         return 0
     fi
 
-    # Step 3: BIND step — write acceptance test implementations
-    if ! execute_tdd_step "$STEP_BIND" "$task_json" 1 "" "$spec_file"; then
-        log ERROR "BIND step failed for task $task_id"
-        npx bd comment "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
-        return 1
+    # Step 3: BIND step — write acceptance test implementations (no previous output)
+    # Pre-flight check: skip BIND if stubs are already bound
+    local stub_file
+    stub_file=$(find generated-acceptance-tests/ -name "$(basename "$spec_file" .txt)*" -type f 2>/dev/null | head -1) || true
+    if [[ -n "$stub_file" ]] && ! grep -q 'acceptance test not yet bound' "$stub_file" 2>/dev/null; then
+        log INFO "Acceptance test stubs already bound — skipping BIND step"
+    else
+        if ! execute_tdd_step "$STEP_BIND" "$task_json" 1 "" "$spec_file" ""; then
+            log ERROR "BIND step failed for task $task_id"
+            npx bd comment "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
+            return 1
+        fi
     fi
 
     # Step 4: Inner TDD loop
     for (( cycle=1; cycle <= ATDD_MAX_INNER_CYCLES; cycle++ )); do
         log INFO "ATDD inner cycle $cycle/$ATDD_MAX_INNER_CYCLES"
 
-        # RED → GREEN → REFACTOR
-        for step in "$STEP_RED" "$STEP_GREEN" "$STEP_REFACTOR"; do
-            if ! execute_tdd_step "$step" "$task_json" "$cycle" "" "$spec_file"; then
-                log ERROR "TDD step $step failed in ATDD cycle $cycle for task $task_id"
-                npx bd comment "$task_id" "BLOCKED: TDD step $step failed in ATDD cycle $cycle" 2>/dev/null || true
+        # RED step with circuit-breaker handling (no previous output — RED starts fresh)
+        local red_exit=0
+        execute_tdd_step "$STEP_RED" "$task_json" "$cycle" "" "$spec_file" "" || red_exit=$?
+        local prev_output="${LAST_STEP_OUTPUT:0:2000}"
+        if (( red_exit == 2 )); then
+            log WARN "RED circuit-breaker triggered in ATDD cycle $cycle — checking acceptance tests"
+            if run_acceptance_check "$spec_file"; then
+                log INFO "Feature complete — acceptance tests pass. Closing task $task_id"
+                npx bd close "$task_id" 2>/dev/null || true
+                local commit_prompt
+                commit_prompt=$(cat <<PROMPT
+/commit
+
+Commit message: feat: complete $(echo "$task_json" | jq -r '.title // "task"')
+
+The feature was already implemented. RED circuit-breaker detected all unit tests passing. Acceptance tests confirm feature complete.
+- npx bd close $task_id (if not already closed)
+- Run /commit
+PROMPT
+)
+                invoke_claude_with_retry "$commit_prompt" || true
+                return 0
+            else
+                log ERROR "RED circuit-breaker: unit tests pass but acceptance tests still fail — task needs human review"
+                npx bd comment "$task_id" "BLOCKED: RED circuit-breaker triggered in cycle $cycle. All unit tests pass but no failing test could be written, AND acceptance tests still fail. Feature may be partially implemented. Needs human review." 2>/dev/null || true
                 return 1
             fi
-        done
+        elif (( red_exit != 0 )); then
+            log ERROR "TDD step $STEP_RED failed in ATDD cycle $cycle for task $task_id"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_RED failed in ATDD cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
+
+        # GREEN step with fallback commit check (receives RED output)
+        local head_before
+        head_before=$(git rev-parse HEAD 2>/dev/null)
+        if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "$spec_file" "$prev_output"; then
+            log ERROR "TDD step $STEP_GREEN failed in ATDD cycle $cycle for task $task_id"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed in ATDD cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
+        prev_output="${LAST_STEP_OUTPUT:0:2000}"
+        local head_after
+        head_after=$(git rev-parse HEAD 2>/dev/null)
+        if [[ "$head_before" == "$head_after" ]]; then
+            log WARN "GREEN step did not commit - invoking /commit skill as fallback"
+            local atdd_task_title
+            atdd_task_title=$(echo "$task_json" | jq -r '.title // "task"')
+            local fallback_commit_prompt
+            fallback_commit_prompt=$(cat <<PROMPT
+/commit
+
+## Context
+GREEN step completed for task: $atdd_task_title ($task_id)
+ATDD inner cycle: $cycle
+
+### Previous step output (GREEN)
+${prev_output:-(no output captured)}
+
+## Instructions
+Stage and commit all changes from the GREEN step. Include .beads state if changed.
+PROMPT
+)
+            if ! invoke_claude_with_retry "$fallback_commit_prompt"; then
+                log WARN "Fallback /commit skill failed — attempting raw commit"
+                git add -A 2>/dev/null || true
+                git commit -m "feat: implement $atdd_task_title (GREEN step - fallback commit)
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
+                    log WARN "Raw fallback commit also failed (possibly no changes)"
+                }
+            fi
+        fi
+        git push origin "$(git branch --show-current)" 2>/dev/null || log WARN "Push failed - will retry on next commit"
+
+        # REFACTOR step (receives GREEN output)
+        if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "$spec_file" "$prev_output"; then
+            log ERROR "TDD step $STEP_REFACTOR failed in ATDD cycle $cycle for task $task_id"
+            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed in ATDD cycle $cycle" 2>/dev/null || true
+            return 1
+        fi
 
         # Check if acceptance tests now pass
         if run_acceptance_check "$spec_file"; then
@@ -1589,7 +1985,16 @@ invoke_claude() {
     local exit_code
     local claude_output
 
-    log INFO "Invoking Claude with focused prompt"
+    local prompt_lines
+    prompt_lines=$(echo "$prompt" | wc -l)
+    log INFO "Invoking Claude with focused prompt (${prompt_lines} lines)"
+    # Show first 20 lines of prompt on stderr for visibility
+    echo "[ralph] ── Prompt preview (${prompt_lines} lines) ──" >&2
+    echo "$prompt" | head -20 >&2
+    if (( prompt_lines > 20 )); then
+        echo "[ralph] ... ($(( prompt_lines - 20 )) more lines)" >&2
+    fi
+    echo "[ralph] ── End preview ──" >&2
     log_section "CLAUDE INVOCATION - $(date -Iseconds)"
     log_block "Prompt" "$prompt"
 
@@ -1597,10 +2002,23 @@ invoke_claude() {
     local temp_output
     temp_output=$(mktemp)
 
-    # Start claude in background so we can capture its PID
-    # This allows us to kill it explicitly on SIGINT
-    timeout "$CLAUDE_TIMEOUT" claude -p "$prompt" > >(tee "$temp_output") 2>&1 &
+    # Write prompt to a temp file to avoid shell quoting issues with script -c
+    local prompt_file
+    prompt_file=$(mktemp)
+    printf '%s' "$prompt" > "$prompt_file"
+
+    # Use script(1) to provide a PTY — claude -p hangs when stdout is not a
+    # terminal because its tool-execution framework requires a TTY.  Wrapping
+    # with `script -qc` gives claude a pseudo-terminal while still capturing
+    # output to a file.  We strip ANSI escape sequences afterwards.
+    #
+    # timeout -k 10: send SIGKILL 10s after SIGTERM if process ignores it.
+    timeout -k 10 "$CLAUDE_TIMEOUT" \
+        script -qc "claude -p \"\$(cat '$prompt_file')\" --output-format json" "$temp_output" > /dev/null &
     CLAUDE_PID=$!
+
+    # Clean up prompt file when no longer needed (after claude reads it)
+    ( sleep 5; rm -f "$prompt_file" ) &
 
     # Launch heartbeat: prints elapsed-time every HEARTBEAT_INTERVAL seconds
     local invocation_start heartbeat_pid
@@ -1647,13 +2065,40 @@ invoke_claude() {
 
     CLAUDE_PID=""
 
-    # Wait for the tee subprocess from process substitution to finish
-    # flushing all output to temp_output before we read it.
-    wait 2>/dev/null || true
-
-    # Log the output
-    claude_output=$(cat "$temp_output")
+    # Log the output (strip ANSI/terminal escapes and script(1) header/footer)
+    claude_output=$(sed -e 's/\x1b\[[0-9;?]*[a-zA-Z]//g' \
+                        -e 's/\x1b\[[<=>?][0-9;?]*[a-zA-Z]//g' \
+                        -e 's/\x1b\][^\x1b]*\x07//g' \
+                        -e 's/\x1b\][0-9;]*[^\a]*//g' \
+                        -e 's/\x1b(B//g' \
+                        -e 's/\x07//g' \
+                        -e 's/\r//g' \
+                        -e '/^Script started on/d' \
+                        -e '/^Script done on/d' \
+                        -e '/^\[COMMAND/d' \
+                        "$temp_output")
     log_block "Claude Output" "$claude_output"
+    LAST_CLAUDE_OUTPUT="$claude_output"
+
+    # Extract .result from JSON envelope if present
+    # Note: jq may return non-zero exit (code 5) when trailing garbage exists
+    # in the output (e.g. partial ANSI escapes like "[<u"), but still produces
+    # correct output. So we capture first, then check if non-empty.
+    local result_text
+    result_text=$(echo "$claude_output" | jq -r '.result // empty' 2>/dev/null) || true
+    if [[ -n "$result_text" ]]; then
+        LAST_CLAUDE_OUTPUT="$result_text"
+        # Display formatted output to console
+        echo "" >&2
+        echo "[ralph] -------- Claude Response --------" >&2
+        echo "$result_text" >&2
+        echo "[ralph] -------- End Response --------" >&2
+        echo "" >&2
+    fi
+
+    # Parse RALPH_SIGNAL if present
+    parse_ralph_signal "$LAST_CLAUDE_OUTPUT" || true
+
     rm -f "$temp_output"
 
     return "$exit_code"
@@ -1712,6 +2157,147 @@ invoke_claude_with_retry() {
 }
 
 ##############################################################################
+# Triage blocked tasks
+##############################################################################
+
+# Generate a diagnostic prompt for Claude to triage a blocked task
+generate_triage_prompt() {
+    local task_json="$1"
+    local epic_id="$2"
+    local task_id task_title task_description
+
+    task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
+    task_title=$(echo "$task_json" | jq -r '.title // "unknown"')
+    task_description=$(echo "$task_json" | jq -r '.description // ""')
+
+    # Fetch BLOCKED comments from task
+    local task_details blocked_comments
+    task_details=$(npx bd show "$task_id" --json 2>/dev/null) || task_details=""
+    if [[ -n "$task_details" ]]; then
+        blocked_comments=$(echo "$task_details" | jq -r \
+            '(if type == "array" then .[0] else . end) | .comments // [] | .[] | select(.text | startswith("BLOCKED:")) | "- \(.timestamp // "unknown"): \(.text)"' 2>/dev/null) || blocked_comments=""
+    else
+        blocked_comments=""
+    fi
+
+    # Recent git log for context
+    local recent_git
+    recent_git=$(git log --oneline -10 2>/dev/null) || recent_git="(unavailable)"
+
+    # Epic open task count
+    local open_count
+    open_count=$(npx bd list --status=open --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))] | length' 2>/dev/null) || open_count="unknown"
+
+    cat <<EOF
+You are triaging a BLOCKED task in ralph's automation loop.
+
+## Task
+- ID: $task_id
+- Title: $task_title
+- Description: $task_description
+
+## BLOCKED Comments (failure history)
+${blocked_comments:-"(none)"}
+
+## Recent Git Log
+$recent_git
+
+## Epic Context
+- Epic ID: $epic_id
+- Open tasks remaining: $open_count
+
+## Your Job
+
+Analyze the failure pattern and choose ONE action:
+
+| Action | When to use |
+|--------|------------|
+| close | The feature is actually complete — the circuit-breaker was a false positive |
+| decompose | The task is too big or blocked on a missing prerequisite — create a new sibling task |
+| defer | Stuck and needs time or human input |
+
+Emit your decision as a RALPH_SIGNAL on a single line:
+
+RALPH_SIGNAL:{"action":"<close|decompose|defer>","reason":"<brief explanation>","title":"<new task title, only for decompose>","description":"<new task description, only for decompose>","defer_duration":"<e.g. +1d or +4h, only for defer>"}
+
+Rules:
+- Choose exactly ONE action
+- For decompose: provide title and description for the new sibling task
+- For defer: provide defer_duration (default +1d if unsure)
+- For close: just provide the reason
+- Do NOT run any tests or tools — this is analysis only
+EOF
+}
+
+# Triage a blocked task by invoking Claude for diagnostic analysis
+# Always returns 0 — triage is best-effort
+triage_blocked_task() {
+    local task_json="$1"
+    local epic_id="$2"
+    local task_id
+
+    task_id=$(echo "$task_json" | jq -r '.id // "unknown"')
+    log INFO "Triaging blocked task $task_id"
+
+    # Generate triage prompt
+    local triage_prompt
+    triage_prompt=$(generate_triage_prompt "$task_json" "$epic_id")
+
+    # Invoke Claude
+    if ! invoke_claude_with_retry "$triage_prompt"; then
+        log WARN "Triage invocation failed for $task_id — falling back to defer +1d"
+        npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
+        npx bd comment "$task_id" "BLOCKED: Triage invocation failed, auto-deferred +1d" 2>/dev/null || true
+        return 0
+    fi
+
+    # Parse RALPH_SIGNAL from Claude output
+    if ! parse_ralph_signal "$LAST_CLAUDE_OUTPUT"; then
+        log WARN "No RALPH_SIGNAL in triage output for $task_id — falling back to defer +1d"
+        npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
+        npx bd comment "$task_id" "BLOCKED: Triage produced no signal, auto-deferred +1d" 2>/dev/null || true
+        return 0
+    fi
+
+    local action reason
+    action=$(get_signal "action" "defer")
+    reason=$(get_signal "reason" "no reason provided")
+
+    log INFO "Triage decision for $task_id: action=$action reason=$reason"
+
+    case "$action" in
+        close)
+            log INFO "Triage closing task $task_id: $reason"
+            npx bd comment "$task_id" "TRIAGE: Closing — $reason" 2>/dev/null || true
+            npx bd close "$task_id" 2>/dev/null || true
+            auto_close_completed_parents "$task_id" "$epic_id"
+            ;;
+        decompose)
+            local new_title new_description parent_id
+            new_title=$(get_signal "title" "Follow-up for $task_id")
+            new_description=$(get_signal "description" "Decomposed from blocked task $task_id")
+            # Create sibling under the same parent (implement task)
+            parent_id="${task_id%.*}"
+            log INFO "Triage decomposing: creating sibling task under $parent_id"
+            npx bd create "$new_title" --parent "$parent_id" --description "$new_description" 2>/dev/null || true
+            npx bd comment "$task_id" "TRIAGE: Decomposed — $reason. New sibling task created under $parent_id" 2>/dev/null || true
+            npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
+            ;;
+        *)
+            # defer (explicit or unknown action fallback)
+            local duration
+            duration=$(get_signal "defer_duration" "+1d")
+            log INFO "Triage deferring task $task_id for $duration: $reason"
+            npx bd comment "$task_id" "TRIAGE: Deferring $duration — $reason" 2>/dev/null || true
+            npx bd update "$task_id" --status=open --defer="$duration" 2>/dev/null || true
+            ;;
+    esac
+
+    return 0
+}
+
+##############################################################################
 # Main loop
 ##############################################################################
 
@@ -1722,6 +2308,8 @@ run_loop() {
     local focused_prompt
     local is_resuming=false
     local task_source
+
+    EPIC_ID="$epic_id"  # Set global for find_leaf_task safety net
 
     log INFO "Starting automation loop (max $MAX_ITERATIONS iterations)"
     log_section "AUTOMATION LOOP START"
@@ -1747,6 +2335,12 @@ run_loop() {
         if ! next_task=$(find_leaf_task "$epic_id"); then
             log DEBUG "No leaf tasks found. Checking for remaining open tasks..."
             if has_open_tasks "$epic_id"; then
+                log INFO "Attempting to sweep completed parent tasks..."
+                if sweep_completed_parents "$epic_id"; then
+                    log INFO "Sweep closed parent tasks -- retrying iteration"
+                    iteration=$((iteration - 1))
+                    continue
+                fi
                 local open_tasks open_count
                 open_tasks=$(get_open_tasks "$epic_id")
                 open_count=$(echo "$open_tasks" | jq 'length')
@@ -1835,9 +2429,9 @@ $task_description"
 
             if execute_atdd_cycle "$next_task" "$epic_id"; then
                 log INFO "ATDD cycle completed for task $task_id"
+                auto_close_completed_parents "$task_id" "$epic_id"
             else
-                log ERROR "ATDD cycle failed for task $task_id"
-                return "$EXIT_FAILURE"
+                triage_blocked_task "$next_task" "$epic_id"
             fi
         else
             # Generate focused prompt
@@ -1856,6 +2450,7 @@ $task_description"
             # Invoke Claude CLI with retry logic
             if invoke_claude_with_retry "$focused_prompt"; then
                 log INFO "Task processing completed successfully"
+                auto_close_completed_parents "$task_id" "$epic_id"
             else
                 log ERROR "Task processing failed after $MAX_RETRIES retries"
                 return "$EXIT_FAILURE"
@@ -1912,12 +2507,12 @@ show_summary() {
 
     # Display to console
     echo ""
-    echo "[ralph] ========================================="
-    echo "[ralph] Summary: $exit_reason"
-    echo "[ralph] Iterations: $CURRENT_ITERATION"
-    echo "[ralph] Elapsed time: $elapsed_formatted"
-    echo "[ralph] Log file: $LOG_FILE"
-    echo "[ralph] ========================================="
+    echo "${CLR_BOLD}[ralph] =========================================${CLR_RESET}"
+    echo "${CLR_BOLD}[ralph] Summary:${CLR_RESET} $exit_reason"
+    echo "${CLR_BOLD}[ralph] Iterations:${CLR_RESET} $CURRENT_ITERATION"
+    echo "${CLR_BOLD}[ralph] Elapsed time:${CLR_RESET} $elapsed_formatted"
+    echo "${CLR_BOLD}[ralph] Log file:${CLR_RESET} $LOG_FILE"
+    echo "${CLR_BOLD}[ralph] =========================================${CLR_RESET}"
 }
 
 ##############################################################################

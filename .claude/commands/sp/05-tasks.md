@@ -97,7 +97,10 @@ You **MUST** consider the user input before proceeding (if not empty).
    npx bd create "US<N>: <user-story-title>" -p <priority> --parent $IMPLEMENT_TASK_ID \
      --description "**Spec**: specs/$BRANCH/spec.md §US-<N>
    **Goal**: <user-story-goal-from-spec>
-   **Acceptance**: <acceptance-criteria-summary>" --json
+   **Acceptance**: <acceptance-criteria-summary>
+
+   ## Implementation Constraints
+   _(Review findings for unwritten code in this story are merged here by sp:06/08/09/10. Read this section before writing any code.)_" --json
    ```
 
    - `<N>`: User story number (1, 2, 3...)
@@ -259,3 +262,11 @@ If beads commands fail during task creation:
 4. **bd command not found**: Suggest `npm install --save-dev @beads/bd`
 
 If beads commands fail completely, report failures and suggest troubleshooting steps.
+
+## Commit Changes
+
+Run the `/commit` skill to stage and commit all changes made during this phase. Do not push.
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.

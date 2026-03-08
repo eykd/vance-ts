@@ -83,6 +83,8 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    b. **Execute the task implementation**:
 
+   **REQUIRED — Read constraints before writing code**: Before writing any code, read the full description of both the current task AND its parent US story task (`npx bd show <parent-id>`). If the US story contains an `## Implementation Constraints` section, those constraints define how the code must be written correctly from the start. Apply them during initial implementation — do NOT implement the code first and fix it later as a separate task.
+
    **For TypeScript code changes** - Apply strict red-green-refactor TDD:
    - **RED**: Write a failing test FIRST (create `.spec.ts` file if needed)
    - **GREEN**: Write MINIMAL code to make the test pass
@@ -218,3 +220,11 @@ If beads commands fail:
 2. **No ready tasks but open tasks exist**: Check dependencies with `bd dep tree`
 3. **Task update fails**: Log error, continue with next task, report at end
 4. **Epic not found**: Run `/sp:05-tasks` to create beads tasks
+
+## Commit Changes
+
+Run the `/commit` skill to stage and commit all changes made during this phase. Do not push.
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.

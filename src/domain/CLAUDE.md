@@ -24,6 +24,8 @@ This layer contains business rules independent of frameworks, databases, and UI.
 
 - `/glossary` - Domain terminology and Ubiquitous Language reference
 - `/ddd-domain-modeling` - Entity and value object patterns
+- `/prefactoring` - Design, naming, type structure, interface contracts
+- `/portable-datetime` - UTC storage, timezone handling for timestamps
 - `/typescript-unit-testing` - TDD for domain logic
 - `/clean-architecture-validator` - Verify dependency rules
 

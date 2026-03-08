@@ -65,6 +65,44 @@ Only use these flags when explicitly requested by the user.
       process.exit(2); // Exit 2 = blocking error
     }
 
+    // Strip quoted string content to avoid false positives (e.g. commit messages mentioning bd init --force)
+    const commandUnquoted = bashCommand
+      .replace(/<<'?[A-Z_]+'?\n[\s\S]*?\n[A-Z_]+/gu, '') // heredocs
+      .replace(/"(?:[^"\\]|\\.)*"/gu, '""') // double-quoted strings
+      .replace(/'[^']*'/gu, "''"); // single-quoted strings
+
+    // Check for bare bd (must use npx bd instead)
+    const bareBdPattern = /(?:^|&&|\|\||[;(|])\s*bd(?:\s|$)/mu;
+
+    if (bareBdPattern.test(commandUnquoted)) {
+      const errorMsg = `BLOCKED: bare \`bd\` is not permitted. Use \`npx bd\` instead.
+
+Running a globally installed bd may use a different version than the project specifies.
+
+Replace:
+  bd <subcommand>
+
+With:
+  npx bd <subcommand>
+`;
+      process.stderr.write(errorMsg);
+      process.exit(2);
+    }
+
+    // Check for bd init --force (or -f)
+    const bdInitPattern = /\bbd\s+init\b.*(-f\b|--force\b)/u;
+
+    if (bdInitPattern.test(commandUnquoted)) {
+      const errorMsg = `BLOCKED: bd init --force is not permitted.
+
+Reinitializing the beads database would destroy all issue history.
+
+If you genuinely need to reset beads, have the user run this manually.
+`;
+      process.stderr.write(errorMsg);
+      process.exit(2);
+    }
+
     process.exit(0); // Allow the command
   } catch (error) {
     process.stderr.write(`Hook error: ${error instanceof Error ? error.message : String(error)}`);

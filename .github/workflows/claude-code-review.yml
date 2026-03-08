@@ -2,7 +2,7 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, ready_for_review]
     # Optional: Only run on specific file changes
     # paths:
     #   - "src/**/*.ts"
@@ -10,17 +10,24 @@ on:
     #   - "src/**/*.js"
     #   - "src/**/*.jsx"
 
+concurrency:
+  group: code-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   # Quality gate - wait for CI quality checks to pass before running reviews
   await-quality:
     # Skip Dependabot PRs - secrets are not available to Dependabot-triggered workflows
     # for security reasons (prevents malicious dependencies from exfiltrating secrets)
-    if: github.actor != 'dependabot[bot]'
+    if: github.actor != 'dependabot[bot]' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       checks: read
       contents: read
     steps:
+      - name: Debounce - wait for push burst to settle
+        run: sleep 300
+
       - name: Wait for quality checks
         uses: lewagon/wait-on-check-action@v1.5.0
         with:
@@ -80,6 +87,7 @@ jobs:
         id: security-review
         uses: anthropics/claude-code-action@v1
         with:
+          model: claude-opus-4-6
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}

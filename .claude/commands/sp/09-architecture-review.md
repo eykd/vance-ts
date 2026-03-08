@@ -80,8 +80,44 @@ If the skill supports reading the git diff directly, prefer providing it the dif
 
 For each distinct finding:
 
+**Step A — Classify the finding (do this first):**
+
+Check whether the target file(s) referenced in the finding exist on the current branch:
+
+```bash
+git show HEAD:<file-path> 2>/dev/null && echo "exists" || echo "not-yet-written"
+```
+
+- **File does NOT exist on HEAD** → This is a **design constraint**, not an independent fixable issue. The code hasn't been written yet; implementing a standalone task forces a build-wrong-then-fix cycle.
+  - Identify the US story task that will own this code:
+    ```bash
+    npx bd list --parent <epic-id> --json | jq -r '.[] | select(.title | test("^US[0-9]+:")) | {id, title}'
+    ```
+  - Append the finding to that US story's description as an `## Implementation Constraints` entry:
+    ```bash
+    npx bd update <us-story-id> --description "<current-description>
+    ```
+
+---
+
+## Implementation Constraints (from [sp:09-architecture-review])
+
+**[SEVERITY] <short title>**
+Problem: <what is wrong>
+Fix: <concrete steps to implement it correctly from the start>"
+```
+
+- Do **NOT** create a standalone task for this finding. Stop here for this finding.
+
+- **File DOES exist on HEAD** → This is an **independent fix** on pre-existing code. Continue to Steps B and C.
+
+**Step B — Check for duplicates (pre-existing files only):**
+
 - Check if an existing task already covers it (match by keywords + file path).
-- If not covered, create a new task under the epic:
+
+**Step C — Create task (pre-existing files only, if not already covered):**
+
+- Create a new task under the epic:
 
 ```bash
 npx bd create "Remediate: <short finding title>" -p <1|2|3> --parent <epic-id> \
@@ -108,3 +144,11 @@ Severity → priority mapping:
 - Number of new tasks created
 - List created task IDs + titles
 - If remediation tasks were created, include: "Consider running `/compound` to document what you learned fixing these issues."
+
+## Commit Changes
+
+Run the `/commit` skill to stage and commit all changes made during this phase. Do not push.
+
+---
+
+Use subagents liberally and aggressively to conserve the main context window.
