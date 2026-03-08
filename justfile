@@ -168,3 +168,25 @@ acceptance-regen:
 
 # Run both unit tests and acceptance tests
 test-all: test acceptance-run
+
+# ============================================================================
+# Beads Task Tracker
+# ============================================================================
+
+# Initialize beads database from tracked JSONL (run after fresh clone)
+beads-init:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Ensure dolt is installed
+    if ! command -v dolt &>/dev/null; then
+        echo "Installing dolt..."
+        curl -fsSL https://github.com/dolthub/dolt/releases/latest/download/install.sh | sudo bash
+    fi
+    # Skip if already initialized and healthy
+    if npx bd dolt test --quiet 2>/dev/null && npx bd list --json --quiet 2>/dev/null | grep -q '"id"'; then
+        echo "✅ Beads already initialized and healthy — nothing to do."
+        exit 0
+    fi
+    # Hydrate dolt database from the JSONL that travels with the repo
+    npx bd init --from-jsonl --server-port 14080
+    echo "✅ Beads initialized from issues.jsonl"
