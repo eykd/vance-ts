@@ -94,7 +94,8 @@ jobs:
           NAME=$(grep -E '^name\s*=' wrangler.toml | head -1 | sed 's/^name\s*=\s*"\([^"]*\)".*/\1/')
           DB_ID=$(grep -E '^database_id\s*=' wrangler.toml | head -1 | sed 's/^database_id\s*=\s*"\([^"]*\)".*/\1/')
           if [ "$NAME" = "turtlebased-ts" ] || [ "$NAME" = "turtlebased" ] || \
-             [ "$DB_ID" = "00000000-0000-0000-0000-000000000000" ]; then
+             [ "$DB_ID" = "00000000-0000-0000-0000-000000000000" ] || \
+             [ "$DB_ID" = "LOCAL_DEV_PLACEHOLDER" ]; then
             echo "configured=false" >> $GITHUB_OUTPUT
             echo "::warning::wrangler.toml has placeholder values. Run the 'start' command to configure your project before deploying."
           else
