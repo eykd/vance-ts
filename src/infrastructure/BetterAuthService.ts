@@ -26,7 +26,7 @@ const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
 type AuthInstance = ReturnType<typeof betterAuth>;
 
 /**
- * Generates a randomly-salted dummy Argon2id hash string at module load time.
+ * Generates a randomly-salted dummy Argon2id hash string on first access.
  *
  * The hash is in `argon2id$<memory_kb>$<time_cost>$<parallelism>$<salt-hex>$<filler-hex>`
  * format so that {@link verifyPassword} performs a full Argon2id computation
@@ -59,6 +59,15 @@ function generateDummyHash(): string {
  */
 export class BetterAuthService implements AuthService {
   /**
+   * Lazily-initialised backing field for {@link DUMMY_HASH}.
+   *
+   * `null` until the first access, then populated by {@link generateDummyHash}.
+   * Deferred to avoid calling `crypto.getRandomValues` at module-evaluation
+   * time, which is forbidden in the Cloudflare Workers global scope.
+   */
+  private static dummyHashCache: string | null = null;
+
+  /**
    * Per-startup Argon2id dummy hash for timing oracle defence (FR-007).
    *
    * `verifyPassword(submittedPassword, DUMMY_HASH)` is called on every
@@ -67,10 +76,15 @@ export class BetterAuthService implements AuthService {
    * found, wrong password" (full Argon2id computation), preventing
    * timing-based email enumeration attacks.
    *
-   * Generated once at module load with a fresh random salt — changes per
-   * deployment so the value is never observable in source code or binaries.
+   * Generated once on first access with a fresh random salt — changes per
+   * Worker cold-start so the value is never observable in source code or binaries.
    */
-  static readonly DUMMY_HASH = generateDummyHash();
+  static get DUMMY_HASH(): string {
+    if (BetterAuthService.dummyHashCache === null) {
+      BetterAuthService.dummyHashCache = generateDummyHash();
+    }
+    return BetterAuthService.dummyHashCache;
+  }
 
   /** The better-auth instance obtained from `getAuth(env)`. */
   private readonly auth: AuthInstance;
