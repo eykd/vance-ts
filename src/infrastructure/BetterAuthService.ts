@@ -67,10 +67,19 @@ export class BetterAuthService implements AuthService {
    * found, wrong password" (full Argon2id computation), preventing
    * timing-based email enumeration attacks.
    *
-   * Generated once at module load with a fresh random salt — changes per
-   * deployment so the value is never observable in source code or binaries.
+   * Lazily generated on first access (not at module load) because
+   * Cloudflare Workers forbid crypto operations in global scope.
+   * Once generated, the value is cached for the lifetime of the isolate.
    */
-  static readonly DUMMY_HASH = generateDummyHash();
+  private static _dummyHash: string | undefined;
+
+  /** Returns the cached dummy hash, generating it on first access. */
+  static get DUMMY_HASH(): string {
+    if (BetterAuthService._dummyHash === undefined) {
+      BetterAuthService._dummyHash = generateDummyHash();
+    }
+    return BetterAuthService._dummyHash;
+  }
 
   /** The better-auth instance obtained from `getAuth(env)`. */
   private readonly auth: AuthInstance;

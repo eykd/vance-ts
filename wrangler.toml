@@ -1,4 +1,4 @@
-name = "vance-ts"
+name = "vance"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
@@ -9,8 +9,8 @@ binding = "ASSETS"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "vance-db"
-database_id = "LOCAL_DEV_PLACEHOLDER"
+database_name = "vance"
+database_id = "dc38112c-f52f-432a-abd8-e7d130fda3c8"
 migrations_dir = "migrations"
 
 [[durable_objects.bindings]]
