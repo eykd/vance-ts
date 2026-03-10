@@ -1,9 +1,6 @@
 ---
+name: sp:02-clarify
 description: Interview the user one question at a time to clarify any underspecified areas in the current feature spec, with no fixed cap on questions. Writes answers back into the spec.
-handoffs:
-  - label: Build Technical Plan
-    agent: sp:03-plan
-    prompt: Create a plan for the spec. I am building with...
 ---
 
 ## User Input

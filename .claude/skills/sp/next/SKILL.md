@@ -1,4 +1,5 @@
 ---
+name: sp:next
 description: Query beads for ready phase tasks and invoke the appropriate skill based on [sp:XX-name] prefix. Use to progress through the spec workflow.
 ---
 

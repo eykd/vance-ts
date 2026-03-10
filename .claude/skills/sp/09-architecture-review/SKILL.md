@@ -1,5 +1,6 @@
 ---
-description: Review all changes from the base branch to HEAD for general code quality. Create remediation beads tasks on the current epic for any findings not already tracked.
+name: sp:09-architecture-review
+description: Review all changes from the base branch to HEAD for architectural compliance. Create remediation beads tasks on the current epic for any findings not already tracked.
 ---
 
 ## User Input
@@ -65,19 +66,14 @@ git diff --stat <base>..HEAD
 
 5. Run the review skill over this change set:
 
-- Skill: `/quality-review`
+- Skill: `/clean-architecture-validator`
 - Review range: `<base>..HEAD`
-- Focus: general code quality
+- Focus: architectural compliance
 - **Style Requirements**:
   - Report problems only, never praise or positive feedback
   - Make findings scannable in 30 seconds
   - Format: file:line, severity, one-sentence problem, concise fix
   - Include copy-paste prompt ONLY if findings exist (3-5 lines)
-- **Naming quality**: Use `/glossary` to validate:
-  - Class/interface/type names match glossary terms
-  - Domain concepts use canonical terminology
-  - No synonyms are introduced in new code
-  - Prominent names (especially in domain/application layers) correspond to glossary entries
 
 If the skill supports reading the git diff directly, prefer providing it the diff for `<base>..HEAD`.
 
@@ -105,7 +101,7 @@ git show HEAD:<file-path> 2>/dev/null && echo "exists" || echo "not-yet-written"
 
 ---
 
-## Implementation Constraints (from [sp:10-code-quality-review])
+## Implementation Constraints (from [sp:09-architecture-review])
 
 **[SEVERITY] <short title>**
 Problem: <what is wrong>
@@ -126,7 +122,7 @@ Fix: <concrete steps to implement it correctly from the start>"
 
 ```bash
 npx bd create "Remediate: <short finding title>" -p <1|2|3> --parent <epic-id> \
-  --description "**Review**: [sp:10-code-quality-review]\n**Range**: <base>..HEAD\n**Files**: <file paths>\n\n**Finding**:\n<what's wrong>\n\n**Fix suggestion**:\n<concrete steps>\n\n**Acceptance**:\n- <verifiable criteria>" --json
+  --description "**Review**: [sp:09-architecture-review]\n**Range**: <base>..HEAD\n**Files**: <file paths>\n\n**Finding**:\n<what's wrong>\n\n**Fix suggestion**:\n<concrete steps>\n\n**Acceptance**:\n- <verifiable criteria>" --json
 ```
 
 Severity → priority mapping:
@@ -138,9 +134,9 @@ Severity → priority mapping:
 7. Cross-reference with Prior Learnings:
 
    Search `.specify/solutions/` for solutions matching current finding categories. If the directory does not exist, skip this step silently.
-   - Search `.specify/solutions/test-coverage/`, `.specify/solutions/type-safety/`, and `.specify/solutions/clean-architecture/` for solutions related to current findings
+   - Search `.specify/solutions/clean-architecture/` and `.specify/solutions/type-safety/` for solutions related to current findings
    - If an implementation repeats a previously solved pattern, note it in the remediation task description with a reference to the original solution document
-   - Example addition to task description: `\n\n**Prior Learning**: See .specify/solutions/test-coverage/{slug}.md for a previous solution to this pattern.`
+   - Example addition to task description: `\n\n**Prior Learning**: See .specify/solutions/clean-architecture/{slug}.md for a previous solution to this pattern.`
 
 8. Output a concise summary:
 

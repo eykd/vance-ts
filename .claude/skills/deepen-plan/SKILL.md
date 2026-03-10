@@ -1,4 +1,5 @@
 ---
+name: deepen-plan
 description: Enhance the current feature plan with focused research on uncertain sections. Use after /sp:03-plan for complex features, before /sp:04-red-team.
 ---
 

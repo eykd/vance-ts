@@ -1,4 +1,5 @@
 ---
+name: spec-check
 description: Audit GWT acceptance specs for implementation language leakage
 ---
 

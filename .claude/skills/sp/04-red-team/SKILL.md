@@ -1,4 +1,5 @@
 ---
+name: sp:04-red-team
 description: Perform adversarial review of spec and plan to identify security, edge cases, performance, and accessibility concerns. Enhances plan.md with findings before task generation.
 ---
 

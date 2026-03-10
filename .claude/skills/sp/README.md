@@ -62,7 +62,7 @@ Phase tasks use the `[sp:NN-name]` prefix for automatic skill invocation:
 | Phase Task                        | Skill Invoked                |
 | --------------------------------- | ---------------------------- |
 | `[sp:02-clarify] ...`             | `/sp:02-clarify`             |
-| `[sp:03-plan] ...`                | `/sp:03-plan`                |
+| `[sp:03-plan] ...`               | `/sp:03-plan`                |
 | `[sp:04-red-team] ...`            | `/sp:04-red-team`            |
 | `[sp:05-tasks] ...`               | `/sp:05-tasks`               |
 | `[sp:06-analyze] ...`             | `/sp:06-analyze`             |

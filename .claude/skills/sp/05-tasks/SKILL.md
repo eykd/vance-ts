@@ -1,14 +1,6 @@
 ---
+name: sp:05-tasks
 description: Generate beads tasks for the feature based on available design artifacts. Creates tasks in beads hierarchy instead of markdown checkboxes.
-handoffs:
-  - label: Analyze For Consistency
-    agent: sp:06-analyze
-    prompt: Run a project analysis for consistency
-    send: true
-  - label: Implement Project
-    agent: sp:07-implement
-    prompt: Start the implementation in phases
-    send: true
 ---
 
 ## User Input
