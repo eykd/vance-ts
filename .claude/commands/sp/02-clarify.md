@@ -205,7 +205,7 @@ Execution steps:
    c. Mark the task in progress (if not already):
 
    ```bash
-   npx bd update <clarify-task-id> --status in_progress
+   npx bd update <clarify-task-id> --claim
    ```
 
    d. Close the task with a completion summary:

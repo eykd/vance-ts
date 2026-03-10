@@ -151,7 +151,7 @@ c. Check if task is blocked (has unfinished dependencies):
 
 ```bash
 # Task status check
-TASK_STATUS=$(npx bd show <task-id> --json | jq -r '.status')
+TASK_STATUS=$(npx bd show <task-id> --json | jq -r '.[0].status')
 ```
 
 d. If blocked:
@@ -172,7 +172,7 @@ If multiple phase tasks are ready (rare):
 Mark the selected phase as in-progress:
 
 ```bash
-npx bd update <phase-task-id> --status in_progress
+npx bd update <phase-task-id> --claim
 ```
 
 Display:
@@ -225,7 +225,7 @@ Invoke the corresponding skill:
 | -------------------- | ---------------------------------------------- |
 | List epics           | `npx bd list --type epic --status open --json` |
 | Get ready tasks      | `npx bd ready --json`                          |
-| Mark in progress     | `npx bd update <id> --status in_progress`      |
+| Claim task           | `npx bd update <id> --claim`                   |
 | Close (skip)         | `npx bd close <id> --reason "..."`             |
 | View all phases      | `npx bd list --parent <epic-id> --json`        |
 | View dependency tree | `npx bd dep tree <epic-id>`                    |

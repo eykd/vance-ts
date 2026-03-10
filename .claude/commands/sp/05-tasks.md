@@ -48,7 +48,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    c. If no epic exists, create one:
 
    ```bash
-   npx bd create "Feature: <feature-name>" -t epic -p 0 --json
+   npx bd create "Feature: <feature-name>" -t epic -p 0 --description "Epic for <feature-name> feature" --json
    ```
 
    - Store the returned ID for use in task creation
