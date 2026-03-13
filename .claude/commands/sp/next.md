@@ -1,8 +1,3 @@
----
-name: sp:next
-description: Query beads for ready phase tasks and invoke the appropriate skill based on [sp:XX-name] prefix. Use to progress through the spec workflow.
----
-
 ## User Input
 
 ```text
@@ -13,14 +8,14 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Outline
 
-The `/sp:next` command queries beads for ready tasks, identifies phase tasks by their `[sp:XX-name]` prefix, and invokes the appropriate skill.
+The `/sp:next` command queries beads for ready tasks, identifies phase tasks by their `[sp:XX-name]` prefix, and invokes the appropriate command.
 
 ### 1. Parse Arguments
 
 Check for special flags in `$ARGUMENTS`:
 
-- `--skip`: Skip the current phase (close it without running the skill)
-- `--status`: Show workflow state without invoking any skill
+- `--skip`: Skip the current phase (close it without running the command)
+- `--status`: Show workflow state without invoking any command
 - `<phase-name>`: Force a specific phase (e.g., `03-plan`, `06-implement`)
 
 ### 2. Find Active Epic
@@ -112,7 +107,7 @@ If `--status` flag is present:
 **Next Ready Phase**: [phase-name] or "None (workflow complete)"
 ```
 
-- Exit without invoking any skill
+- Exit without invoking any command
 
 ### 6. Handle Skip (--skip flag)
 
@@ -188,7 +183,7 @@ Display:
 Invoking `/sp:XX-name`...
 ```
 
-Invoke the corresponding skill:
+Invoke the corresponding command:
 
 - `[sp:02-clarify]` → `/sp:02-clarify`
 - `[sp:03-plan]` → `/sp:03-plan`
@@ -198,19 +193,19 @@ Invoke the corresponding skill:
 - `[sp:07-implement]` → `/sp:07-implement`
 - `[sp:08-security-review] / [sp:09-architecture-review] / [sp:10-code-quality-review]` → `/sp:08-security-review` (or 09/10 depending on prefix)
 
-## Skill Mapping
+## Command Mapping
 
-| Pattern                       | Skill to Invoke              |
-| ----------------------------- | ---------------------------- |
-| `[sp:02-clarify]`             | `/sp:02-clarify`             |
-| `[sp:03-plan]`                | `/sp:03-plan`                |
-| `[sp:04-red-team]`            | `/sp:04-red-team`            |
-| `[sp:05-tasks]`               | `/sp:05-tasks`               |
-| `[sp:06-analyze]`             | `/sp:06-analyze`             |
-| `[sp:07-implement]`           | `/sp:07-implement`           |
-| `[sp:08-security-review]`     | `/sp:08-security-review`     |
-| `[sp:09-architecture-review]` | `/sp:09-architecture-review` |
-| `[sp:10-code-quality-review]` | `/sp:10-code-quality-review` |
+| Pattern                       | Command to Invoke              |
+| ----------------------------- | ------------------------------ |
+| `[sp:02-clarify]`             | `/sp:02-clarify`               |
+| `[sp:03-plan]`                | `/sp:03-plan`                  |
+| `[sp:04-red-team]`            | `/sp:04-red-team`              |
+| `[sp:05-tasks]`               | `/sp:05-tasks`                 |
+| `[sp:06-analyze]`             | `/sp:06-analyze`               |
+| `[sp:07-implement]`           | `/sp:07-implement`             |
+| `[sp:08-security-review]`     | `/sp:08-security-review`       |
+| `[sp:09-architecture-review]` | `/sp:09-architecture-review`   |
+| `[sp:10-code-quality-review]` | `/sp:10-code-quality-review`   |
 
 ## Error Handling
 

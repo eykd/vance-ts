@@ -1,8 +1,3 @@
----
-name: sp:08-security-review
-description: Review all changes from the base branch to HEAD for security vulnerabilities. Create remediation beads tasks on the current epic for any findings not already tracked.
----
-
 ## User Input
 
 ```text

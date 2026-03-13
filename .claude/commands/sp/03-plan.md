@@ -1,8 +1,3 @@
----
-name: sp:03-plan
-description: Execute the implementation planning workflow using the plan template to generate design artifacts.
----
-
 ## User Input
 
 ```text

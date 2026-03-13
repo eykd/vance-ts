@@ -1,8 +1,3 @@
----
-name: sp:05-tasks
-description: Generate beads tasks for the feature based on available design artifacts. Creates tasks in beads hierarchy instead of markdown checkboxes.
----
-
 ## User Input
 
 ```text

@@ -1,8 +1,3 @@
----
-name: sp:01-specify
-description: Create or update the feature specification from a natural language description, using an explicit one-question-at-a-time user interview. Creates a beads epic for task tracking.
----
-
 ## User Input
 
 ```text

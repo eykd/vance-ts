@@ -1,8 +1,3 @@
----
-name: sp:09-architecture-review
-description: Review all changes from the base branch to HEAD for architectural compliance. Create remediation beads tasks on the current epic for any findings not already tracked.
----
-
 ## User Input
 
 ```text

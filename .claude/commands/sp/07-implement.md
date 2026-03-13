@@ -1,8 +1,3 @@
----
-name: sp:07-implement
-description: Execute the implementation plan by processing tasks from beads. Uses bd ready to get available tasks and bd close to mark completion.
----
-
 ## User Input
 
 ```text
