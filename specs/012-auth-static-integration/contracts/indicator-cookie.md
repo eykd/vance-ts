@@ -50,7 +50,7 @@ Set-Cookie: auth_status=; Secure; SameSite=Lax; Path=/; Max-Age=0
 ```javascript
 // Registered before Alpine.start()
 Alpine.store('auth', {
-  isAuthenticated: document.cookie.split(';').some(c => c.trim().startsWith('auth_status='))
+  isAuthenticated: document.cookie.split(';').some(c => c.trim() === 'auth_status=1')
 });
 ```
 
@@ -58,18 +58,18 @@ Alpine.store('auth', {
 
 ```html
 <!-- Navbar: show auth links when unauthenticated -->
-<div x-show="!$store.auth.isAuthenticated">
+<div x-show="!$store.auth?.isAuthenticated">
   <a href="/auth/sign-in">Sign In</a>
   <a href="/auth/sign-up">Sign Up</a>
 </div>
 
 <!-- Navbar: show dashboard when authenticated -->
-<div x-show="$store.auth.isAuthenticated">
+<div x-show="$store.auth?.isAuthenticated">
   <a href="/dashboard/">Dashboard</a>
 </div>
 
 <!-- Dashboard: redirect guard -->
-<div x-init="if (!$store.auth.isAuthenticated) window.location.replace('/auth/sign-in?redirectTo=%2Fdashboard%2F')">
+<div x-init="if (!$store.auth?.isAuthenticated) window.location.replace('/auth/sign-in?redirectTo=%2Fdashboard%2F')">
 ```
 
 ## Security Boundaries
