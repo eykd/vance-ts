@@ -344,6 +344,21 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 - **Attack chain**: An XSS vulnerability on any static page (enabled by `script-src 'unsafe-inline'` CSP) could execute `document.cookie = 'auth_status=1; Path=/; Secure; SameSite=Lax'`, causing the victim's navbar to show "Dashboard" instead of Sign In / Sign Up. While the dashboard is a static placeholder and data endpoints require server-side auth, this could be used in social engineering: the attacker injects the cookie, the victim believes they are authenticated, and clicks "Dashboard" expecting their data — seeing an empty page or being redirected.
 - **Mitigation**: (1) The primary mitigation is CSP hardening — migrate static pages from `unsafe-inline` to strict CSP when feasible. (2) The exact-match check (`=== 'auth_status=1'`) prevents value-based injection variants. (3) Never place sensitive content in the static dashboard template. (4) Document this as a known and accepted risk in the indicator cookie design, contingent on the absence of user-generated content on static pages.
 
+### Third-Party Script Cookie Visibility (Red Team)
+
+- **Concern**: The `auth_status` cookie is non-HttpOnly by design, meaning any JavaScript on the page can read it — including third-party scripts (analytics, chat widgets, tag managers). If third-party scripts are added to static pages in the future, they can read `document.cookie` and exfiltrate the binary authentication signal (`auth_status=1` present or absent). While the cookie contains no secrets, it leaks whether the current visitor is authenticated, which is a privacy signal.
+- **Mitigation**: (1) Audit any third-party scripts added to static pages for cookie access patterns before inclusion. (2) Document in the cookie design that adding third-party scripts to Hugo pages exposes the authentication status signal. (3) Long-term: evaluate the `Partitioned` cookie attribute (CHIPS proposal) or cookie isolation APIs when browser support matures, to prevent cross-site cookie access while preserving first-party JS readability.
+
+### Cross-Origin Cookie Scope (Red Team)
+
+- **Assumption**: The indicator cookie uses `Path=/` without an explicit `Domain` attribute. Without `Domain`, the cookie is bound to the exact host only (not subdomains). The plan implicitly assumes the static Hugo site and the Workers API are served from the same origin (same host + port + scheme). If they are ever served from different subdomains (e.g., `www.example.com` for static pages, `api.example.com` for Workers), the indicator cookie set by Workers will not be readable by JavaScript on the static site — breaking all auth-aware UI.
+- **Mitigation**: (1) Add a code comment in `buildAuthIndicatorCookie()` documenting the same-origin assumption. (2) If a subdomain split is ever introduced, the cookie must include `Domain=.example.com` to be shared across subdomains (but note this also exposes it to all subdomains, expanding the attack surface). (3) Cloudflare Workers static assets routing currently serves both static and dynamic content from the same origin — document that this routing architecture is a dependency of the indicator cookie design.
+
+### Referrer Leakage on Auth Redirect (Red Team)
+
+- **Concern**: When the dashboard auth guard redirects unauthenticated users to `/auth/sign-in?redirectTo=%2Fdashboard%2F`, the browser sends a `Referer` header containing the dashboard URL. While `/dashboard/` is not sensitive today, this establishes a pattern where protected page paths leak via referrer. If future protected pages have meaningful names (e.g., `/admin/billing/`, `/app/reports/`), the referrer reveals which protected resource the user attempted to access.
+- **Mitigation**: Verify the existing `Referrer-Policy` header (set in `securityHeaders.ts`) is `strict-origin-when-cross-origin` or stricter. For same-origin redirects (dashboard → sign-in), the full path is sent regardless of referrer policy — this is acceptable for same-origin navigation. No action needed now, but note the pattern for future protected pages that may redirect to external auth providers.
+
 ## Edge Cases & Error Handling
 
 ### Sign-Out Error Paths
@@ -356,6 +371,7 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 
 - **Secure cookie on localhost**: The `Secure` attribute on `auth_status` causes browsers to reject the cookie on `http://localhost`. Chrome makes an exception for localhost, but Firefox and Safari may not. Developers should use Chrome for local testing, or set up HTTPS localhost via `mkcert`. Document this in quickstart.md.
 - **Safari ITP**: The `auth_status` cookie is set server-side via `Set-Cookie` header, so it is not subject to Safari ITP's 7-day client-cookie cap. The 30-day Max-Age is respected. If future features set cookies via JavaScript, monitor for ITP reclassification.
+- **Browser privacy feature cookie deletion (Red Team)**: Beyond Safari ITP, other browsers aggressively manage cookies: Firefox Enhanced Tracking Protection (strict mode) may classify infrequently-accessed first-party cookies for deletion; Brave Shields blocks or clears cookies based on heuristics; privacy-focused browser extensions (Privacy Badger, Cookie AutoDelete) may clear the indicator cookie independently of the session cookie. If the indicator cookie is cleared but the session cookie survives (or vice versa), the UI state desyncs. This is acceptable by the existing "desynchronization by design" principle — the indicator cookie is a UI hint, and the server remains authoritative. No action needed, but document that cookie-clearing browser features may cause the navbar to show Sign In / Sign Up for users who are actually authenticated (harmless — clicking Sign In when already authenticated should handle gracefully).
 
 ### JavaScript Failure
 
@@ -366,6 +382,21 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 
 - **Max-Age alignment**: The indicator cookie uses `Max-Age=2592000` (30 days), matching the session cookie's `Max-Age=2592000` (confirmed in `cookieBuilder.ts` line 94, synchronized with better-auth's `session.expiresIn: 2_592_000`). If either lifetime changes, both must be updated together. Add a code comment in `buildAuthIndicatorCookie()` cross-referencing `buildSessionCookie()` to prevent drift.
 - **Sign-up auto-login assumption**: `handlePostSignUp()` does not set the indicator cookie, which is correct because sign-up redirects to sign-in without creating a session. If better-auth is ever configured to auto-login after registration (creating a session on sign-up), the indicator cookie will be missing, causing newly registered users to see Sign In / Sign Up in the navbar despite being authenticated. Add a code comment in `handlePostSignUp()` documenting this assumption: "If this handler ever sets a session cookie, it must also set the indicator cookie."
+
+### Script Loading Order Fragility (Red Team)
+
+- **Concern**: The auth system depends on `auth-store.js` executing before Alpine.js, relying on `defer` attribute ordering (DOM order execution guarantee). If a future developer changes either script tag to `async` (e.g., for perceived performance), the execution order is no longer guaranteed. If Alpine initializes before `auth-store.js`, the `alpine:init` event fires before the store listener is registered — the store never initializes, and all `$store.auth` references fail (mitigated by optional chaining but still results in permanently unauthenticated UI state).
+- **Mitigation**: (1) Add an HTML comment in `baseof.html` above the script tags: `<!-- CRITICAL: Both scripts MUST use defer (NOT async) — auth-store.js must execute before Alpine.js -->`. (2) The optional chaining mitigation from "Auth Guard Resilience" provides defense-in-depth (fail-secure rather than fail-broken). (3) Consider adding a Hugo build-time lint or acceptance test that verifies both scripts use `defer`.
+
+### Alpine Store Namespace Collision (Red Team)
+
+- **Concern**: The auth store uses the generic name `Alpine.store('auth', ...)`. If a future feature (e.g., a form auth helper, an OAuth widget) registers its own `Alpine.store('auth', ...)`, it will overwrite the existing store silently — Alpine does not warn on store name collisions. The navbar and dashboard auth guard would then reference the wrong store, breaking auth-aware UI.
+- **Mitigation**: (1) The name `auth` is appropriate for the current scope — do not over-engineer with a verbose name like `globalAuthIndicator`. (2) Add a code comment in `auth-store.js`: `// Store name 'auth' — do not reuse; navbar and dashboard depend on $store.auth.isAuthenticated`. (3) If additional auth-related stores are needed in the future, use distinct names (e.g., `authForm`, `authSession`).
+
+### 303 Redirect Cookie Atomicity (Red Team)
+
+- **Dependency**: The sign-in handler sets the session cookie and indicator cookie as `Set-Cookie` headers on a 303 redirect response. The browser processes all response headers (including both cookies) before following the redirect — this is atomic from the browser's perspective. If the sign-in endpoint is ever changed to use a client-side redirect (JavaScript `window.location`), the cookies might not be set before navigation occurs, causing a race between cookie storage and page load.
+- **Mitigation**: Add a code comment in `handlePostSignIn()` documenting that the 303 redirect is essential for cookie atomicity: `// 303 redirect ensures browser processes Set-Cookie headers before following the redirect — do not replace with client-side redirect`.
 
 ## Performance Considerations
 
@@ -384,6 +415,11 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 
 - **Alpine.js site-wide**: Loading Alpine.js (~17KB gzipped) on all pages adds modest transfer cost to content-only pages (blog posts, about, privacy). This is an acceptable trade-off: (1) the navbar auth swap is present on every page, so every page genuinely uses Alpine; (2) the file is cached after first load; (3) conditional loading would add template complexity without meaningful performance gain.
 
+### Cookie Overhead on Static Asset Requests (Red Team)
+
+- **Concern**: The `auth_status` cookie is set with `Path=/`, meaning browsers include it in every HTTP request to the same origin — including requests for static assets (images, CSS, JS files, fonts). Each request carries an additional ~30 bytes in the `Cookie` header. For a page loading 20+ static assets, this adds ~600 bytes of upload overhead per page load. On the Workers side, Cloudflare Workers Static Assets serves these files and ignores the cookie, so the overhead is wasted bandwidth.
+- **Accepted risk**: At current scale, this is negligible. The indicator cookie is one of several cookies already sent on every request (session cookie, CSRF cookie). If the site grows to serve many static assets, consider serving them from a separate cookieless domain or configuring `Path` more narrowly (though a narrower path would break the feature, since the cookie must be readable on all pages for the navbar swap).
+
 ## Accessibility Requirements
 
 ### Screen Reader Support
@@ -393,6 +429,11 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 - **Dashboard redirect feedback**: The dashboard template includes a `<p role="status" class="sr-only">` element that is populated with "Redirecting to sign in..." before the redirect fires, giving screen reader users context for the navigation change.
 - **Dashboard content exposure before redirect (Red Team)**: For unauthenticated users on `/dashboard/`, the page content is in the DOM and readable by screen readers during the brief window before `x-init` fires the redirect. The `x-show` directive hides content visually but does not remove it from the accessibility tree until Alpine processes it. The current dashboard is a static placeholder with no sensitive data, so this is acceptable. If future dashboard content includes personalized information loaded via HTMX, ensure that content is fetched only after auth confirmation — never pre-rendered in the Hugo template.
 - **x-cloak timing**: During the window between HTML parse and Alpine initialization, screen readers only see Sign In / Sign Up regardless of auth state. This is by design — showing Dashboard before confirming authentication would be worse. On typical connections with cached assets, this window is imperceptible (<100ms).
+
+### Focus Management After Auth Redirect (Red Team)
+
+- **Concern**: When the dashboard auth guard redirects an unauthenticated user to `/auth/sign-in?redirectTo=%2Fdashboard%2F` and the user successfully signs in, they land on `/dashboard/` via the `redirectTo` redirect. After this multi-page redirect flow, the browser places focus at the top of the document. Screen reader users have no programmatic focus target to orient themselves — they hear the page title but must navigate to find the dashboard content. Sighted keyboard users similarly lose their place. This is a WCAG 2.4.3 (Focus Order, Level A) consideration for multi-step navigation flows.
+- **Mitigation**: (1) Add `id="main-content"` to the dashboard's main `<div>` and include a skip-to-content link pattern. (2) In the dashboard's `x-init`, after confirming authentication, check for a `redirectTo` origin indicator (e.g., `document.referrer` containing `/auth/sign-in` or a URL hash like `#authenticated`) and programmatically move focus to the `<h1>` via `$el.querySelector('h1')?.focus()`. (3) Ensure the `<h1>` has `tabindex="-1"` so it can receive programmatic focus without appearing in the tab order. Evaluate during implementation — the referrer-based detection is heuristic and may not fire in all cases (e.g., if the sign-in page sets `Referrer-Policy: no-referrer`).
 
 ### Keyboard Navigation
 
