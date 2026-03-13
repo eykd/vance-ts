@@ -327,10 +327,22 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 ### Data Protection
 
 - **Dashboard content safety**: Since `/dashboard/` is a static Hugo page served without server-side auth, its HTML source is always visible (View Source, curl, JavaScript disabled). Never put sensitive content, personalized data, or internal URLs in the Hugo dashboard template. Dynamic dashboard content must be loaded via authenticated `/app/*` endpoints after the page renders. Add `<meta name="robots" content="noindex">` to the dashboard layout to prevent search engine indexing.
+- **Implementation note (Red Team)**: The `<meta name="robots" content="noindex">` tag MUST be included in the `hugo/layouts/dashboard/list.html` template (e.g., via a `{{ define "head" }}` block or directly in the layout). The US4 template code in this plan does not currently include it — add it during implementation.
 
 ### CSP Awareness
 
 - **Static site CSP and indicator cookie**: The Hugo `_headers` file permits `script-src 'unsafe-inline'`, while Workers auth pages use strict `script-src 'self'`. The indicator cookie is JS-readable by design, and `unsafe-inline` means any HTML injection on static pages could read or manipulate it. This is acceptable today (no user-generated content on static pages). Prioritize CSP migration away from `unsafe-inline` if user-generated content is added.
+
+### Auth Guard Resilience (Red Team)
+
+- **Partial script failure — fail-open risk**: If `auth-store.js` fails to load (404, CDN error, content blocker) but Alpine.js loads successfully, `$store.auth` is undefined. Alpine evaluates `$store.auth.isAuthenticated` which throws a TypeError on the undefined access. Alpine's internal try/catch catches the error, but the result is: (1) on the dashboard page, `x-init` does not fire, so the auth guard redirect never executes — **the page fails open**, showing dashboard content to unauthenticated users; (2) on the navbar, `x-show` with `x-cloak` keeps Dashboard hidden (correct), and Sign In / Sign Up stays visible (correct). The dashboard fail-open is the only problematic case.
+- **Mitigation — optional chaining in Alpine expressions**: Use `$store.auth?.isAuthenticated` instead of `$store.auth.isAuthenticated` in all Alpine directives and `x-init` expressions. When the store is undefined, optional chaining returns `undefined` (falsy), so: `x-show="$store.auth?.isAuthenticated"` → hidden (correct), `!$store.auth?.isAuthenticated` → true → redirect fires (fail-secure). This applies to: (1) both `x-show` directives in `header.html`, (2) the `x-init` guard in `dashboard/list.html`, (3) the `x-show` on dashboard content.
+- **Distinct from total Alpine failure**: The plan already covers Alpine.js total load failure (JavaScript Failure section). This finding addresses the narrower scenario where Alpine loads but the auth store registration script does not — a case not previously considered.
+
+### XSS and Indicator Cookie Manipulation (Red Team)
+
+- **Attack chain**: An XSS vulnerability on any static page (enabled by `script-src 'unsafe-inline'` CSP) could execute `document.cookie = 'auth_status=1; Path=/; Secure; SameSite=Lax'`, causing the victim's navbar to show "Dashboard" instead of Sign In / Sign Up. While the dashboard is a static placeholder and data endpoints require server-side auth, this could be used in social engineering: the attacker injects the cookie, the victim believes they are authenticated, and clicks "Dashboard" expecting their data — seeing an empty page or being redirected.
+- **Mitigation**: (1) The primary mitigation is CSP hardening — migrate static pages from `unsafe-inline` to strict CSP when feasible. (2) The exact-match check (`=== 'auth_status=1'`) prevents value-based injection variants. (3) Never place sensitive content in the static dashboard template. (4) Document this as a known and accepted risk in the indicator cookie design, contingent on the absence of user-generated content on static pages.
 
 ## Edge Cases & Error Handling
 
@@ -338,6 +350,7 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 
 - **No-session early return**: When `handlePostSignOut()` detects no session cookie, always clear the indicator cookie in the redirect response. If the session cookie was deleted by browser privacy settings but the indicator cookie survived, this prevents the user from being stuck with a stale "Dashboard" navbar.
 - **Service error fallback**: When the sign-out use case returns a service error, always clear the indicator cookie in the redirect response. This ensures consistent UI state even when server-side session invalidation fails.
+- **Implementation completeness (Red Team)**: The US2 code snippets in this plan only show `clearAuthIndicatorCookie()` in the success branch (lines 319–325 of `AuthPageHandlers.ts`). The no-session early return (lines 309–314) and service error fallback (lines 327–331) currently only redirect without clearing any cookies. During implementation, add `headers.append('Set-Cookie', clearAuthIndicatorCookie())` to BOTH non-success branches. Without this, users whose session cookie is deleted by browser privacy settings will be stuck with a stale "Dashboard" navbar and no way to clear it (sign-out redirects without clearing the indicator cookie).
 
 ### Cookie Behavior
 
@@ -347,6 +360,12 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 ### JavaScript Failure
 
 - **Alpine.js load failure**: If Alpine.js fails to load (network error, content blocker), `x-cloak` permanently hides the Dashboard button (correct progressive enhancement). On `/dashboard/`, the `<noscript>` block provides a sign-in link instead of showing an empty page. The `x-init` redirect does not fire, so the page content is accessible but unguarded (acceptable — server-side auth protects data endpoints).
+- **Partial script failure (Red Team)**: If `auth-store.js` fails to load but Alpine.js loads successfully, the `auth` store is never registered. This is distinct from total Alpine failure and causes the auth guard to fail open on `/dashboard/`. See "Auth Guard Resilience" in Security Considerations for mitigation (optional chaining in all `$store.auth` expressions).
+
+### Cookie Synchronization (Red Team)
+
+- **Max-Age alignment**: The indicator cookie uses `Max-Age=2592000` (30 days), matching the session cookie's `Max-Age=2592000` (confirmed in `cookieBuilder.ts` line 94, synchronized with better-auth's `session.expiresIn: 2_592_000`). If either lifetime changes, both must be updated together. Add a code comment in `buildAuthIndicatorCookie()` cross-referencing `buildSessionCookie()` to prevent drift.
+- **Sign-up auto-login assumption**: `handlePostSignUp()` does not set the indicator cookie, which is correct because sign-up redirects to sign-in without creating a session. If better-auth is ever configured to auto-login after registration (creating a session on sign-up), the indicator cookie will be missing, causing newly registered users to see Sign In / Sign Up in the navbar despite being authenticated. Add a code comment in `handlePostSignUp()` documenting this assumption: "If this handler ever sets a session cookie, it must also set the indicator cookie."
 
 ## Performance Considerations
 
@@ -354,10 +373,12 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 
 - **Non-blocking auth-store.js**: Both `auth-store.js` and Alpine.js load with `defer` to avoid render-blocking. The `defer` attribute guarantees document-order execution, so the `alpine:init` listener in `auth-store.js` is always registered before Alpine fires the event.
 - **No double-loading risk**: `authLayout.ts` renders Workers-served auth pages (`/auth/sign-in`, `/auth/sign-up`), while `baseof.html` renders Hugo-generated static pages. These are disjoint page sets, so no page loads both layouts. The auth pages do not need `auth-store.js` because they are the sign-in/sign-up forms themselves.
+- **Cache-busting for auth-store.js (Red Team)**: Files in `hugo/static/js/` are served as-is without fingerprinting (unlike CSS processed through Hugo Pipes). If `auth-store.js` is updated between deployments, browsers may serve a stale cached version, causing behavior mismatches (e.g., old store logic running with new template expectations). Mitigation options: (1) process through Hugo Pipes via `resources.Get` + `fingerprint` (preferred — matches CSS pattern), or (2) add a version query parameter in `baseof.html` (`/js/auth-store.js?v=1`). Option 1 requires moving the file from `static/js/` to `assets/js/` and updating the script tag to use Hugo's asset pipeline. Evaluate during implementation — if the file is unlikely to change after initial deployment, the risk is low and option 2 suffices.
 
 ### Layout Stability
 
 - **CLS during navbar swap**: The `x-show` toggle between Sign In/Sign Up (two items) and Dashboard (one item) changes the flex container width, causing a Cumulative Layout Shift. Mitigate by setting a consistent `min-w` on the `<div x-data>` wrapper, sized to the wider state (Sign In + Sign Up). This prevents reflowing adjacent navbar content.
+- **Implementation note (Red Team)**: The US1 template code does not include the `min-w` class on the `<div x-data>` wrapper. During implementation, measure the rendered width of the Sign In + Sign Up state and set an appropriate `min-w-[Xpx]` or `min-w-48` (whichever fits). Without this, every page load for authenticated users triggers a visible layout shift as the navbar shrinks from two items to one.
 
 ### Bundle Size
 
@@ -368,7 +389,9 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 ### Screen Reader Support
 
 - **Navbar auth swap announcement**: The `<div x-data aria-live="polite">` wrapper ensures screen readers announce the content change when Alpine swaps between auth states (WCAG 4.1.3 Status Messages, Level AA). The `polite` value ensures the announcement waits until the screen reader finishes current output.
+- **Announcement verbosity (Red Team)**: The `aria-live="polite"` region triggers an announcement on every page load for authenticated users, because Alpine swaps the visible content from Sign In / Sign Up to Dashboard during init. On multi-page browsing sessions, screen reader users hear the "Dashboard" announcement repeatedly. Mitigation: consider using `aria-live` only for dynamic in-page changes (e.g., sign-in/sign-out without page reload) rather than on the static wrapper. Alternatively, accept the per-page-load announcement as a minor verbosity trade-off for accessibility correctness — screen reader users benefit from knowing the auth state on each page. Evaluate during implementation based on the actual screen reader experience.
 - **Dashboard redirect feedback**: The dashboard template includes a `<p role="status" class="sr-only">` element that is populated with "Redirecting to sign in..." before the redirect fires, giving screen reader users context for the navigation change.
+- **Dashboard content exposure before redirect (Red Team)**: For unauthenticated users on `/dashboard/`, the page content is in the DOM and readable by screen readers during the brief window before `x-init` fires the redirect. The `x-show` directive hides content visually but does not remove it from the accessibility tree until Alpine processes it. The current dashboard is a static placeholder with no sensitive data, so this is acceptable. If future dashboard content includes personalized information loaded via HTMX, ensure that content is fetched only after auth confirmation — never pre-rendered in the Hugo template.
 - **x-cloak timing**: During the window between HTML parse and Alpine initialization, screen readers only see Sign In / Sign Up regardless of auth state. This is by design — showing Dashboard before confirming authentication would be worse. On typical connections with cached assets, this window is imperceptible (<100ms).
 
 ### Keyboard Navigation
