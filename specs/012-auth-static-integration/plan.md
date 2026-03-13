@@ -130,6 +130,30 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
    - Add `clearAuthIndicatorCookie()`: Returns `'auth_status=; Secure; SameSite=Lax; Path=/; Max-Age=0'`
    - Follow the exact same pattern as existing `buildSessionCookie`/`clearSessionCookie` (constant name + attributes, function returns the full Set-Cookie value)
 
+   **TDD test cases** (add to `cookieBuilder.spec.ts`, following the existing describe-per-function pattern):
+
+   ```
+   describe('buildAuthIndicatorCookie', () => {
+     it('should start with auth_status=1')
+     it('should include Secure flag')
+     it('should include SameSite=Lax')
+     it('should include Path=/')
+     it('should include Max-Age=2592000')
+     it('should NOT include HttpOnly flag')
+   })
+
+   describe('clearAuthIndicatorCookie', () => {
+     it('should start with auth_status=')
+     it('should include Secure flag')
+     it('should include SameSite=Lax')
+     it('should include Path=/')
+     it('should include Max-Age=0')
+     it('should NOT include HttpOnly flag')
+   })
+   ```
+
+   The "NOT HttpOnly" assertions are unique to the indicator cookie — all other cookies in `cookieBuilder.ts` use HttpOnly. These tests document that the indicator cookie is intentionally JS-readable.
+
 2. **`src/presentation/handlers/AuthPageHandlers.ts`**:
 
    In `handlePostSignIn()` success branch (line 194–199), add one `headers.append` call:
@@ -161,6 +185,12 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
    **Note**: `Headers.append()` is the correct method — it adds multiple `Set-Cookie` headers without overwriting. This is the same pattern already used for session + CSRF cookies (see lines 197–198). The import must add `buildAuthIndicatorCookie` and `clearAuthIndicatorCookie` to the existing import from `cookieBuilder.js`.
 
    **Sign-up flow (no indicator cookie)**: `handlePostSignUp()` does NOT set the indicator cookie. On successful registration, it redirects to `/auth/sign-in?registered=true` — the user must sign in to create a session, at which point `handlePostSignIn()` sets both the session cookie and the indicator cookie. This is correct by design: no session exists after registration, so no auth indicator should be present.
+
+   **Test updates for `AuthPageHandlers.spec.ts`**: The existing test file (1,093 lines) uses `res.headers.get('Set-Cookie')` with `.toContain()` assertions to verify Set-Cookie headers. Two existing test sections need indicator cookie assertions added:
+
+   - **`handlePostSignIn` → "successful sign-in"** (around lines 401–408): Add assertion `expect(setCookies).toContain('auth_status=1')` alongside the existing session cookie assertion.
+   - **`handlePostSignOut` → "successful sign-out"** (around lines 1047–1058): Add assertion `expect(setCookies).toContain('auth_status=')` and `expect(setCookies).toContain('Max-Age=0')` for the cleared indicator cookie, alongside the existing session/CSRF clear assertions.
+   - **`handlePostSignUp`**: No changes needed — sign-up does not set any cookies (verified: line 259 uses only a Location header redirect).
 
 3. **`hugo/static/js/auth-store.js`**: Alpine.js store — a single self-contained file:
 
@@ -239,7 +269,7 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 
 ### Cookie Design Decisions
 
-- **Cookie name**: `auth_status` (not `__Host-` prefixed because `__Host-` requires `HttpOnly` in practice and we need JS access)
+- **Cookie name**: `auth_status` (not `__Host-` prefixed — while `__Host-` only technically requires `Secure` + `Path=/` + no `Domain`, the prefix convention signals a security-critical cookie; the indicator cookie is a non-sensitive UI hint and does not warrant that signal)
 - **Value**: `1` (presence = authenticated, absence = not authenticated)
 - **Attributes**: `Secure; SameSite=Lax; Path=/; Max-Age=2592000`
 - **NOT HttpOnly**: Must be readable by `document.cookie` in Alpine.js
