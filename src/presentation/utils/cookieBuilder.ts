@@ -69,6 +69,22 @@ export function clearCsrfCookie(): string {
   return `${CSRF_COOKIE_NAME}=; ${CSRF_COOKIE_ATTRIBUTES}; Max-Age=0`;
 }
 
+const AUTH_INDICATOR_COOKIE_NAME = 'auth_status';
+const AUTH_INDICATOR_COOKIE_ATTRIBUTES = 'Secure; SameSite=Lax; Path=/';
+
+/**
+ * Builds a Set-Cookie header value for the auth indicator cookie.
+ *
+ * This cookie is intentionally NOT HttpOnly so that client-side JavaScript
+ * (Alpine.js auth store) can read it. It carries no secret — only a flag
+ * indicating that the user has an active session.
+ *
+ * @returns A Set-Cookie header value string
+ */
+export function buildAuthIndicatorCookie(): string {
+  return `${AUTH_INDICATOR_COOKIE_NAME}=1; ${AUTH_INDICATOR_COOKIE_ATTRIBUTES}; Max-Age=2592000`;
+}
+
 const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
 const SESSION_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Lax; Path=/';
 

@@ -1,4 +1,5 @@
 import {
+  buildAuthIndicatorCookie,
   buildCsrfCookie,
   buildSessionCookie,
   clearCsrfCookie,
@@ -9,6 +10,13 @@ import {
   generateCsrfToken,
   hasSessionCookie,
 } from './cookieBuilder';
+
+describe('buildAuthIndicatorCookie', () => {
+  it('should start with auth_status=1', () => {
+    const value = buildAuthIndicatorCookie();
+    expect(value).toMatch(/^auth_status=1;/);
+  });
+});
 
 describe('generateCsrfToken', () => {
   it('returns a 64-character hex string', () => {
