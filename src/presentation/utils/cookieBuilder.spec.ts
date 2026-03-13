@@ -2,6 +2,7 @@ import {
   buildAuthIndicatorCookie,
   buildCsrfCookie,
   buildSessionCookie,
+  clearAuthIndicatorCookie,
   clearCsrfCookie,
   clearSessionCookie,
   deriveCsrfToken,
@@ -15,6 +16,14 @@ describe('buildAuthIndicatorCookie', () => {
   it('should start with auth_status=1', () => {
     const value = buildAuthIndicatorCookie();
     expect(value).toMatch(/^auth_status=1;/);
+  });
+});
+
+describe('clearAuthIndicatorCookie', () => {
+  it('should set auth_status to empty with Max-Age=0', () => {
+    const value = clearAuthIndicatorCookie();
+    expect(value).toContain('auth_status=');
+    expect(value).toContain('Max-Age=0');
   });
 });
 
