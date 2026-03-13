@@ -81,28 +81,32 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 
    ```html
    {{/* Auth-aware navbar buttons — Alpine.js swaps between states */}}
-   {{/* Unauthenticated: visible by default (progressive enhancement for no-JS) */}}
-   <ul class="menu menu-horizontal" x-show="!$store.auth.isAuthenticated">
-     <li class="text-center">
-       <a class="link link-hover" href="/auth/sign-in">Sign In</a>
-     </li>
-     <li class="text-center">
-       {{ partial "components/button/primary" (dict "label" "Sign Up" "href" "/auth/sign-up") }}
-     </li>
-   </ul>
-   {{/* Authenticated: hidden until Alpine confirms auth (x-cloak prevents FOUC) */}}
-   <ul class="menu menu-horizontal" x-cloak x-show="$store.auth.isAuthenticated">
-     <li class="text-center">
-       {{ partial "components/button/primary" (dict "label" "Dashboard" "href" "/dashboard/") }}
-     </li>
-   </ul>
+   <div x-data>
+     {{/* Unauthenticated: visible by default (progressive enhancement for no-JS) */}}
+     <ul class="menu menu-horizontal" x-show="!$store.auth.isAuthenticated">
+       <li class="text-center">
+         <a class="link link-hover" href="/auth/sign-in">Sign In</a>
+       </li>
+       <li class="text-center">
+         {{ partial "components/button/primary" (dict "label" "Sign Up" "href" "/auth/sign-up") }}
+       </li>
+     </ul>
+     {{/* Authenticated: hidden until Alpine confirms auth (x-cloak prevents FOUC) */}}
+     <ul class="menu menu-horizontal" x-cloak x-show="$store.auth.isAuthenticated">
+       <li class="text-center">
+         {{ partial "components/button/primary" (dict "label" "Dashboard" "href" "/dashboard/") }}
+       </li>
+     </ul>
+   </div>
    ```
 
-   **Structure decision**: Two separate `<ul>` elements rather than a single loop — removes the need for Hugo menu entries to carry auth-awareness, keeps the Alpine conditional at the container level, and preserves the existing button partial reuse.
+   **Alpine.js `x-data` scope requirement**: The wrapping `<div x-data>` is mandatory — Alpine.js 3 only processes directives (`x-show`, `x-cloak`, `$store`) on elements that are inside an `x-data` component scope. Without it, Alpine ignores the `x-show` directives entirely and both sections remain visible. The bare `x-data` attribute (no value) creates a minimal component with no local state, since we only need access to the global `$store`.
 
-   **Progressive enhancement behavior**:
-   - **Without JavaScript**: Sign In / Sign Up visible (no `x-cloak`), Dashboard hidden (`x-cloak` CSS keeps it hidden forever) — correct default state.
-   - **With JS, unauthenticated**: Alpine processes `x-show`, Sign In / Sign Up stays visible, Dashboard stays hidden — correct.
+   **Structure decision**: Two separate `<ul>` elements inside a single `x-data` wrapper rather than a single loop — removes the need for Hugo menu entries to carry auth-awareness, keeps the Alpine conditional at the container level, and preserves the existing button partial reuse.
+
+   **Progressive enhancement behavior** (requires `x-data` wrapper for Alpine to process directives):
+   - **Without JavaScript**: Sign In / Sign Up visible (no `x-cloak`), Dashboard hidden (`x-cloak` CSS keeps it hidden forever), `<div x-data>` is inert — correct default state.
+   - **With JS, unauthenticated**: Alpine scans `x-data` scope, processes `x-show`, Sign In / Sign Up stays visible, Dashboard stays hidden — correct.
    - **With JS, authenticated**: Alpine hides Sign In / Sign Up via `x-show="false"`, removes `x-cloak` and shows Dashboard via `x-show="true"` — correct. Brief flash of Sign In / Sign Up is acceptable per spec Q2 resolution.
 
 3. **`x-cloak` CSS rule**: Add to `hugo/assets/css/styles.css` (the TailwindCSS source processed by Hugo Pipes):
@@ -156,6 +160,8 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 
    **Note**: `Headers.append()` is the correct method — it adds multiple `Set-Cookie` headers without overwriting. This is the same pattern already used for session + CSRF cookies (see lines 197–198). The import must add `buildAuthIndicatorCookie` and `clearAuthIndicatorCookie` to the existing import from `cookieBuilder.js`.
 
+   **Sign-up flow (no indicator cookie)**: `handlePostSignUp()` does NOT set the indicator cookie. On successful registration, it redirects to `/auth/sign-in?registered=true` — the user must sign in to create a session, at which point `handlePostSignIn()` sets both the session cookie and the indicator cookie. This is correct by design: no session exists after registration, so no auth indicator should be present.
+
 3. **`hugo/static/js/auth-store.js`**: Alpine.js store — a single self-contained file:
 
    ```javascript
@@ -170,7 +176,7 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 
    Uses `alpine:init` event (fires before Alpine processes `x-show`/`x-cloak`) to register the store. The cookie read is synchronous — no network request, no async.
 
-4. **`hugo/layouts/baseof.html`**: Add two script tags inside `<head>`, after the TailwindCSS `<link>` block (line 81):
+4. **`hugo/layouts/baseof.html`**: Add two script tags inside `<head>`, immediately before the closing `</head>` tag (currently line 82). Insert between the Tailwind CSS `{{ end }}` (line 81) and `</head>` (line 82):
 
    ```html
    <!-- Auth store (must register before Alpine initializes) -->
@@ -179,7 +185,11 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
    <script defer src="/js/alpine-3.15.8.min.js"></script>
    ```
 
+   **Prerequisite verified**: `hugo/static/js/alpine-3.15.8.min.js` already exists in the repo (self-hosted, same file used by the Workers auth layout at path `/js/alpine-3.15.8.min.js`). No file copy or download needed.
+
    **Script ordering rationale**: `auth-store.js` loads without `defer` so it executes immediately and registers the `alpine:init` event listener. Alpine.js loads with `defer` so it runs after DOM parsing. When Alpine initializes, it fires the `alpine:init` event, which triggers the store registration, then Alpine processes `x-show`/`x-cloak` directives with the store already populated.
+
+   **Note**: This adds Alpine.js site-wide to all Hugo pages. Currently Alpine.js is only loaded on Workers-rendered auth pages (`authLayout.ts`). After this change, both static Hugo pages and Workers auth pages will have Alpine.js available. The auth pages will continue to use their own `authLayout.ts` Alpine.js loading (separate request path).
 
 ### US3: Authenticated Navbar Swap (P2)
 
@@ -235,6 +245,7 @@ hugo/static/js/auth-store.js               # Alpine.js auth store (reads indicat
 - **NOT HttpOnly**: Must be readable by `document.cookie` in Alpine.js
 - **NOT sensitive**: Contains no tokens, session IDs, or user data
 - **Lifetime**: Matches session cookie (30 days) — cleared on sign-out
+- **Desynchronization by design**: The indicator cookie is a UI hint, not an auth mechanism. If the server-side session is invalidated (e.g., admin revocation, database reset) while the indicator cookie persists, the user sees Dashboard in the navbar and can navigate to `/dashboard/`. This is acceptable because: (1) the dashboard page is a static placeholder with no sensitive data, (2) actual data endpoints behind `/app/*` are protected by server-side `requireAuth` middleware that checks the real session, and (3) when the user eventually hits a server-side endpoint, the failed auth will redirect them to sign-in, at which point the new sign-in flow sets a fresh indicator cookie. The indicator cookie will naturally expire at the same time as the session cookie (both Max-Age=2592000).
 
 ### Progressive Enhancement Strategy
 
