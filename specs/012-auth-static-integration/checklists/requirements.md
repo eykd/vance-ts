@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain — _spec has 0 markers, but 1 open interview question pending_
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -27,10 +27,11 @@
 - [x] All functional requirements have clear acceptance criteria
 - [x] User scenarios cover primary flows
 - [x] Feature meets measurable outcomes defined in Success Criteria
-- [ ] No implementation details leak into specification — _minor: FR-006 mentions "HTML fragment" and "HTMX swap" which are implementation-adjacent but acceptable given user explicitly requested HTMX patterns_
+- [x] No implementation details leak into specification
 
 ## Notes
 
-- One open interview question remains about the auth status endpoint response format (JSON vs HTML fragment)
-- The spec intentionally references HTMX and Alpine.js per user's explicit request — these are architectural constraints, not implementation leakage
-- Checklist will be fully green once the interview question is resolved
+- All interview questions resolved (2 of 2)
+- The spec intentionally references Alpine.js per user's explicit request — this is an architectural constraint, not implementation leakage
+- Cookie-based auth check approach confirmed: non-HttpOnly indicator cookie, no server round-trip
+- Dashboard flash behavior confirmed: show content immediately, redirect if unauthenticated
