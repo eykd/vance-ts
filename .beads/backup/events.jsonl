@@ -77,3 +77,4 @@
 {"actor":"Sprite","comment":null,"created_at":"2026-03-08T19:21:07Z","event_type":"closed","id":77,"issue_id":"turtlebased-ts-7dt.1.2","new_value":"Closed","old_value":""}
 {"actor":"Sprite","comment":null,"created_at":"2026-03-08T19:22:24Z","event_type":"closed","id":78,"issue_id":"turtlebased-ts-7dt.1","new_value":"Closed","old_value":""}
 {"actor":"Sprite","comment":null,"created_at":"2026-03-08T19:22:24Z","event_type":"closed","id":79,"issue_id":"turtlebased-ts-7dt","new_value":"all steps complete","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-13T20:38:04Z","event_type":"created","id":80,"issue_id":"turtlebased-ts-bjd","new_value":"","old_value":""}
