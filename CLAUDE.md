@@ -187,3 +187,10 @@ Before implementing any feature, read `specs/readme.md` first. It lists all spec
 ---
 
 Always use subagents liberally and aggressively to conserve the main context window.
+
+## Active Technologies
+- TypeScript (ES2022) + Hugo Go templates + Hono (HTTP), Alpine.js 3.15.8, DaisyUI 5, better-auth (012-auth-static-integration)
+- D1 (sessions via better-auth), indicator cookie (client-side only) (012-auth-static-integration)
+
+## Recent Changes
+- 012-auth-static-integration: Added TypeScript (ES2022) + Hugo Go templates + Hono (HTTP), Alpine.js 3.15.8, DaisyUI 5, better-auth
