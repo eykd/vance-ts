@@ -33,7 +33,7 @@
     <link rel="canonical" href="{{ .Permalink }}" />
 
     <!-- Robots -->
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="{{ .Params.robots | default "index, follow" }}" />
 
     <!-- SEO -->
     {{ partial "seo/google_analytics.html" . }}

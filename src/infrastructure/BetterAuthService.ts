@@ -59,7 +59,7 @@ function generateDummyHash(): string {
  */
 export class BetterAuthService implements AuthService {
   /**
-   * Lazily-initialised backing field for {@link DUMMY_HASH}.
+   * Lazily-initialised backing field for {@link BetterAuthService.DUMMY_HASH}.
    *
    * `null` until the first access, then populated by {@link generateDummyHash}.
    * Deferred to avoid calling `crypto.getRandomValues` at module-evaluation
@@ -78,11 +78,11 @@ export class BetterAuthService implements AuthService {
    *
    * Generated once on first access with a fresh random salt — changes per
    * Worker cold-start so the value is never observable in source code or binaries.
+   *
+   * @returns The cached dummy Argon2id hash string.
    */
   static get DUMMY_HASH(): string {
-    if (BetterAuthService.dummyHashCache === null) {
-      BetterAuthService.dummyHashCache = generateDummyHash();
-    }
+    BetterAuthService.dummyHashCache ??= generateDummyHash();
     return BetterAuthService.dummyHashCache;
   }
 

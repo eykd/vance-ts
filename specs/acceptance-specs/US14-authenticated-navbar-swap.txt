@@ -1,0 +1,20 @@
+;=============================================
+; Authenticated users see a Dashboard link in the navbar.
+;=============================================
+GIVEN an authenticated user on any page.
+WHEN the page loads.
+THEN the navbar displays a "Dashboard" link pointing to /dashboard/ instead of Sign In and Sign Up links.
+
+;=============================================
+; Unauthenticated visitors see Sign In and Sign Up links in the navbar.
+;=============================================
+GIVEN an unauthenticated visitor on any page.
+WHEN the page loads.
+THEN the navbar displays "Sign In" and "Sign Up" links.
+
+;=============================================
+; The Dashboard link navigates to the dashboard page.
+;=============================================
+GIVEN an authenticated user viewing the navbar.
+WHEN they click the "Dashboard" link.
+THEN the browser navigates to /dashboard/.

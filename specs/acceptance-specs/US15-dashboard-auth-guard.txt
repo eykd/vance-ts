@@ -1,0 +1,21 @@
+;=============================================
+; An authenticated user can view the dashboard.
+;=============================================
+GIVEN a user who has signed in.
+WHEN they navigate to the dashboard page.
+THEN the dashboard content is displayed.
+
+;=============================================
+; An unauthenticated visitor is redirected from the dashboard to sign-in.
+;=============================================
+GIVEN a visitor who has not signed in.
+WHEN they navigate to the dashboard page.
+THEN they are redirected to the sign-in page.
+THEN the sign-in page retains the address of the dashboard as the return destination.
+
+;=============================================
+; After signing in, the user is returned to the dashboard.
+;=============================================
+GIVEN a visitor who was redirected from the dashboard to the sign-in page.
+WHEN they sign in successfully.
+THEN they are redirected back to the dashboard page.
