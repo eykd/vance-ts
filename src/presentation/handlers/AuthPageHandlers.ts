@@ -137,6 +137,25 @@ export class AuthPageHandlers {
   }
 
   /**
+   * Builds a 303 redirect response with optional Set-Cookie headers.
+   *
+   * Centralises the redirect-with-cookies pattern used by sign-in success,
+   * sign-up success, and all three sign-out branches.
+   *
+   * @param location - The redirect target URL.
+   * @param cookies - Zero or more Set-Cookie header values to append.
+   * @returns A 303 Response with Location and Set-Cookie headers.
+   */
+  private static buildRedirect(location: string, cookies: string[] = []): Response {
+    const headers = new Headers();
+    headers.set('Location', location);
+    for (const cookie of cookies) {
+      headers.append('Set-Cookie', cookie);
+    }
+    return new Response(null, { status: 303, headers });
+  }
+
+  /**
    * Builds a 429 Too Many Requests response with an optional Retry-After header.
    *
    * @param retryAfter - Optional seconds until the client may retry.
@@ -194,12 +213,11 @@ export class AuthPageHandlers {
     const result = await this.signInUseCase.execute({ email, password, ip });
 
     if (result.ok) {
-      const headers = new Headers();
-      headers.set('Location', redirectTo);
-      headers.append('Set-Cookie', buildSessionCookie(result.sessionToken));
-      headers.append('Set-Cookie', buildAuthIndicatorCookie());
-      headers.append('Set-Cookie', clearCsrfCookie());
-      return new Response(null, { status: 303, headers });
+      return AuthPageHandlers.buildRedirect(redirectTo, [
+        buildSessionCookie(result.sessionToken),
+        buildAuthIndicatorCookie(),
+        clearCsrfCookie(),
+      ]);
     }
 
     if (result.kind === 'rate_limited') {
@@ -258,10 +276,7 @@ export class AuthPageHandlers {
     const result = await this.signUpUseCase.execute({ email, password, ip });
 
     if (result.ok || result.kind === 'email_taken') {
-      return new Response(null, {
-        status: 303,
-        headers: { Location: '/auth/sign-in?registered=true' },
-      });
+      return AuthPageHandlers.buildRedirect('/auth/sign-in?registered=true');
     }
 
     if (result.kind === 'rate_limited') {
@@ -312,10 +327,7 @@ export class AuthPageHandlers {
     const cookieHeader = request.headers.get('Cookie') ?? '';
     if (!this.authService.hasSession(cookieHeader)) {
       // Clear indicator cookie even without a session — cookie may linger after expiry
-      const noSessionHeaders = new Headers();
-      noSessionHeaders.set('Location', '/auth/sign-in');
-      noSessionHeaders.append('Set-Cookie', clearAuthIndicatorCookie());
-      return new Response(null, { status: 303, headers: noSessionHeaders });
+      return AuthPageHandlers.buildRedirect('/auth/sign-in', [clearAuthIndicatorCookie()]);
     }
 
     const sessionToken = extractSessionToken(cookieHeader) ?? '';
@@ -323,19 +335,15 @@ export class AuthPageHandlers {
 
     if (result.ok) {
       // 303 redirect + Set-Cookie headers are atomic — browser applies all cookies before navigating
-      const headers = new Headers();
-      headers.set('Location', '/auth/sign-in');
-      headers.append('Set-Cookie', clearSessionCookie());
-      headers.append('Set-Cookie', clearAuthIndicatorCookie());
-      headers.append('Set-Cookie', clearCsrfCookie());
-      return new Response(null, { status: 303, headers });
+      return AuthPageHandlers.buildRedirect('/auth/sign-in', [
+        clearSessionCookie(),
+        clearAuthIndicatorCookie(),
+        clearCsrfCookie(),
+      ]);
     }
 
     // service_error — redirect home gracefully; session may still be valid
     // Still clear indicator cookie so UI reflects uncertain auth state
-    const errorHeaders = new Headers();
-    errorHeaders.set('Location', '/');
-    errorHeaders.append('Set-Cookie', clearAuthIndicatorCookie());
-    return new Response(null, { status: 303, headers: errorHeaders });
+    return AuthPageHandlers.buildRedirect('/', [clearAuthIndicatorCookie()]);
   }
 }
