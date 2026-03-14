@@ -25,6 +25,11 @@ readonly EXCLUSIONS=(
     "thoughts/"
 )
 
+# Files excluded because the template generates its own version
+readonly FILE_EXCLUSIONS=(
+    "wrangler.toml"
+)
+
 # Statistics
 files_processed=0
 dirs_excluded=0
@@ -48,6 +53,13 @@ is_excluded() {
     for exclusion in "${EXCLUSIONS[@]}"; do
         # Check if path starts with exclusion pattern (directory)
         if [[ "$path" == "${exclusion}"* ]] || [[ "$path" == "${exclusion%/}"* ]]; then
+            return 0
+        fi
+    done
+
+    # Check exact file exclusions (generated replacements exist)
+    for exclusion in "${FILE_EXCLUSIONS[@]}"; do
+        if [[ "$path" == "$exclusion" ]]; then
             return 0
         fi
     done
