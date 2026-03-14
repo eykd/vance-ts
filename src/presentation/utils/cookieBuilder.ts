@@ -168,6 +168,16 @@ export function hasSessionCookie(cookieHeader: string | null): boolean {
 }
 
 /**
+ * Returns true when the Cookie request header contains the auth indicator cookie.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @returns True if the auth indicator cookie is present
+ */
+export function hasAuthIndicatorCookie(cookieHeader: string | null): boolean {
+  return extractCookieValue(cookieHeader, AUTH_INDICATOR_COOKIE_NAME) !== null;
+}
+
+/**
  * Extracts the CSRF token value from a Cookie header string.
  *
  * @param cookieHeader - The value of the Cookie request header, or null if absent

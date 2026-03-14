@@ -9,6 +9,7 @@ import {
   extractCsrfTokenFromCookies,
   extractSessionToken,
   generateCsrfToken,
+  hasAuthIndicatorCookie,
   hasSessionCookie,
 } from './cookieBuilder';
 
@@ -203,6 +204,30 @@ describe('hasSessionCookie', () => {
   it('returns true when session cookie is present alongside other cookies', () => {
     expect(
       hasSessionCookie('other=value; __Host-better-auth.session_token=abc123; more=stuff')
+    ).toBe(true);
+  });
+});
+
+describe('hasAuthIndicatorCookie', () => {
+  it('returns false when cookieHeader is null', () => {
+    expect(hasAuthIndicatorCookie(null)).toBe(false);
+  });
+
+  it('returns false when cookieHeader is empty string', () => {
+    expect(hasAuthIndicatorCookie('')).toBe(false);
+  });
+
+  it('returns false when auth indicator cookie is absent from the header', () => {
+    expect(hasAuthIndicatorCookie('other=value; __Host-csrf=token')).toBe(false);
+  });
+
+  it('returns true when auth indicator cookie is present in the header', () => {
+    expect(hasAuthIndicatorCookie('auth_status=1')).toBe(true);
+  });
+
+  it('returns true when auth indicator cookie is present alongside other cookies', () => {
+    expect(
+      hasAuthIndicatorCookie('other=value; auth_status=1; more=stuff')
     ).toBe(true);
   });
 });
