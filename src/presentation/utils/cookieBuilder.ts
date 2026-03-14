@@ -69,11 +69,15 @@ export function clearCsrfCookie(): string {
   return `${CSRF_COOKIE_NAME}=; ${CSRF_COOKIE_ATTRIBUTES}; Max-Age=0`;
 }
 
+/**
+ * 30 days in seconds — matches better-auth `session.expiresIn`.
+ * Shared by both buildSessionCookie() and buildAuthIndicatorCookie()
+ * so that the indicator cookie expires in lockstep with the session.
+ */
+const THIRTY_DAY_MAX_AGE = 2_592_000;
+
 const AUTH_INDICATOR_COOKIE_NAME = 'auth_status';
 const AUTH_INDICATOR_COOKIE_ATTRIBUTES = 'Secure; SameSite=Lax; Path=/';
-
-/** 30 days in seconds — matches better-auth `session.expiresIn`. */
-const THIRTY_DAY_MAX_AGE = 2_592_000;
 
 /**
  * Builds a Set-Cookie header value for the auth indicator cookie.
@@ -101,15 +105,6 @@ const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
 const SESSION_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Lax; Path=/';
 
 /**
- * Builds a Set-Cookie header value that clears the Better Auth session cookie.
- *
- * @returns A Set-Cookie header value string with Max-Age=0
- */
-export function clearSessionCookie(): string {
-  return `${SESSION_COOKIE_NAME}=; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=0`;
-}
-
-/**
  * Builds a Set-Cookie header value for the Better Auth session cookie.
  *
  * Sets a 30-day Max-Age to match the server-side session lifetime configured in
@@ -120,6 +115,15 @@ export function clearSessionCookie(): string {
  */
 export function buildSessionCookie(token: string): string {
   return `${SESSION_COOKIE_NAME}=${token}; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=${THIRTY_DAY_MAX_AGE}`;
+}
+
+/**
+ * Builds a Set-Cookie header value that clears the Better Auth session cookie.
+ *
+ * @returns A Set-Cookie header value string with Max-Age=0
+ */
+export function clearSessionCookie(): string {
+  return `${SESSION_COOKIE_NAME}=; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=0`;
 }
 
 /**

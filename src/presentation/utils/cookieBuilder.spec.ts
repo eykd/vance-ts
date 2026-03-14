@@ -13,17 +13,52 @@ import {
 } from './cookieBuilder';
 
 describe('buildAuthIndicatorCookie', () => {
-  it('should start with auth_status=1', () => {
-    const value = buildAuthIndicatorCookie();
-    expect(value).toMatch(/^auth_status=1;/);
+  it('sets cookie value to auth_status=1', () => {
+    expect(buildAuthIndicatorCookie()).toMatch(/^auth_status=1;/);
+  });
+
+  it('includes Secure flag', () => {
+    expect(buildAuthIndicatorCookie()).toContain('Secure');
+  });
+
+  it('includes SameSite=Lax', () => {
+    expect(buildAuthIndicatorCookie()).toContain('SameSite=Lax');
+  });
+
+  it('includes Path=/', () => {
+    expect(buildAuthIndicatorCookie()).toContain('Path=/');
+  });
+
+  it('includes Max-Age=2592000 (30 days, matching session cookie)', () => {
+    expect(buildAuthIndicatorCookie()).toContain('Max-Age=2592000');
+  });
+
+  it('is NOT HttpOnly so client-side JS can read it', () => {
+    expect(buildAuthIndicatorCookie()).not.toContain('HttpOnly');
   });
 });
 
 describe('clearAuthIndicatorCookie', () => {
-  it('should set auth_status to empty with Max-Age=0', () => {
+  it('sets auth_status to empty with Max-Age=0', () => {
     const value = clearAuthIndicatorCookie();
     expect(value).toContain('auth_status=');
     expect(value).toContain('Max-Age=0');
+  });
+
+  it('includes Secure flag', () => {
+    expect(clearAuthIndicatorCookie()).toContain('Secure');
+  });
+
+  it('includes SameSite=Lax', () => {
+    expect(clearAuthIndicatorCookie()).toContain('SameSite=Lax');
+  });
+
+  it('includes Path=/', () => {
+    expect(clearAuthIndicatorCookie()).toContain('Path=/');
+  });
+
+  it('is NOT HttpOnly so attributes match the build cookie', () => {
+    expect(clearAuthIndicatorCookie()).not.toContain('HttpOnly');
   });
 });
 
