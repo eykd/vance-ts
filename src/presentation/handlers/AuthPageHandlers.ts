@@ -14,8 +14,10 @@ import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js
 import { loginPage } from '../templates/pages/login.js';
 import { registerPage } from '../templates/pages/register.js';
 import {
+  buildAuthIndicatorCookie,
   buildCsrfCookie,
   buildSessionCookie,
+  clearAuthIndicatorCookie,
   clearCsrfCookie,
   clearSessionCookie,
   extractCsrfTokenFromCookies,
@@ -195,6 +197,7 @@ export class AuthPageHandlers {
       const headers = new Headers();
       headers.set('Location', redirectTo);
       headers.append('Set-Cookie', buildSessionCookie(result.sessionToken));
+      headers.append('Set-Cookie', buildAuthIndicatorCookie());
       headers.append('Set-Cookie', clearCsrfCookie());
       return new Response(null, { status: 303, headers });
     }
@@ -241,6 +244,7 @@ export class AuthPageHandlers {
    * @param request - The incoming HTTP request.
    * @returns The appropriate HTTP response.
    */
+  // No indicator cookie on sign-up: user is redirected to sign-in, which sets it on success.
   async handlePostSignUp(request: Request): Promise<Response> {
     const formOrError = await this.parseValidatedAuthForm(request);
     if (formOrError instanceof Response) {
@@ -307,27 +311,31 @@ export class AuthPageHandlers {
 
     const cookieHeader = request.headers.get('Cookie') ?? '';
     if (!this.authService.hasSession(cookieHeader)) {
-      return new Response(null, {
-        status: 303,
-        headers: { Location: '/auth/sign-in' },
-      });
+      // Clear indicator cookie even without a session — cookie may linger after expiry
+      const noSessionHeaders = new Headers();
+      noSessionHeaders.set('Location', '/auth/sign-in');
+      noSessionHeaders.append('Set-Cookie', clearAuthIndicatorCookie());
+      return new Response(null, { status: 303, headers: noSessionHeaders });
     }
 
     const sessionToken = extractSessionToken(cookieHeader) ?? '';
     const result = await this.signOutUseCase.execute({ sessionToken });
 
     if (result.ok) {
+      // 303 redirect + Set-Cookie headers are atomic — browser applies all cookies before navigating
       const headers = new Headers();
       headers.set('Location', '/auth/sign-in');
       headers.append('Set-Cookie', clearSessionCookie());
+      headers.append('Set-Cookie', clearAuthIndicatorCookie());
       headers.append('Set-Cookie', clearCsrfCookie());
       return new Response(null, { status: 303, headers });
     }
 
     // service_error — redirect home gracefully; session may still be valid
-    return new Response(null, {
-      status: 303,
-      headers: { Location: '/' },
-    });
+    // Still clear indicator cookie so UI reflects uncertain auth state
+    const errorHeaders = new Headers();
+    errorHeaders.set('Location', '/');
+    errorHeaders.append('Set-Cookie', clearAuthIndicatorCookie());
+    return new Response(null, { status: 303, headers: errorHeaders });
   }
 }

@@ -410,6 +410,13 @@ describe('AuthPageHandlers', () => {
         expect(setCookies).toContain('Max-Age=0');
       });
 
+      it('sets the auth indicator cookie on success', async () => {
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        const setCookies = res.headers.get('Set-Cookie') ?? '';
+        expect(setCookies).toContain('auth_status=1');
+      });
+
       it('passes email, password, and IP to the sign-in use case', async () => {
         const req = makePostRequest({ email: 'alice@example.com', password: 'hunter2abcdef' });
         await handlers.handlePostSignIn(req);
@@ -1022,6 +1029,14 @@ describe('AuthPageHandlers', () => {
         await handlers.handlePostSignOut(req);
         expect(signOutUseCaseMock.execute).not.toHaveBeenCalled();
       });
+
+      it('clears the auth indicator cookie even without a session', async () => {
+        const req = makeSignOutPostRequest({ sessionCookie: null });
+        const res = await handlers.handlePostSignOut(req);
+        const setCookies = res.headers.get('Set-Cookie') ?? '';
+        expect(setCookies).toContain('auth_status=');
+        expect(setCookies).toContain('Max-Age=0');
+      });
     });
 
     describe('successful sign-out', () => {
@@ -1057,6 +1072,13 @@ describe('AuthPageHandlers', () => {
         expect(setCookies).toContain('Max-Age=0');
       });
 
+      it('clears the auth indicator cookie on success', async () => {
+        const req = makeSignOutPostRequest();
+        const res = await handlers.handlePostSignOut(req);
+        const setCookies = res.headers.get('Set-Cookie') ?? '';
+        expect(setCookies).toContain('auth_status=');
+      });
+
       it('passes the extracted sessionToken to the use case', async () => {
         const req = makeSignOutPostRequest({
           sessionCookie: '__Host-better-auth.session_token=sess_abc123',
@@ -1087,6 +1109,14 @@ describe('AuthPageHandlers', () => {
         const res = await handlers.handlePostSignOut(req);
         expect(res.status).toBe(303);
         expect(res.headers.get('Location')).toBe('/');
+      });
+
+      it('clears the auth indicator cookie on service error', async () => {
+        const req = makeSignOutPostRequest();
+        const res = await handlers.handlePostSignOut(req);
+        const setCookies = res.headers.get('Set-Cookie') ?? '';
+        expect(setCookies).toContain('auth_status=');
+        expect(setCookies).toContain('Max-Age=0');
       });
     });
   });
