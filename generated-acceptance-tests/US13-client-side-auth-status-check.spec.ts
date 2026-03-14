@@ -6,32 +6,32 @@ import { describe, it, expect } from "vitest";
 
 describe("US13-client-side-auth-status-check", () => {
 
-// An unauthenticated visitor has no client-side auth state.
+// An unauthenticated visitor has no client-side auth status.
 // Source: specs/acceptance-specs/US13-client-side-auth-status-check.txt:2
-it("An unauthenticated visitor has no client-side auth state.", async () => {
-  // GIVEN an unauthenticated visitor loads any static page.
-  // WHEN Alpine.js reads cookies on init.
-  // THEN the auth state reflects not authenticated because the indicator cookie is absent.
+it("An unauthenticated visitor has no client-side auth status.", async () => {
+  // GIVEN a visitor who has not signed in.
+  // WHEN they load any page on the site.
+  // THEN the client-side auth status indicates they are not authenticated.
 
   throw new Error("acceptance test not yet bound");
 });
 
-// An authenticated user has client-side auth state.
+// An authenticated user has client-side auth status.
 // Source: specs/acceptance-specs/US13-client-side-auth-status-check.txt:9
-it("An authenticated user has client-side auth state.", async () => {
-  // GIVEN an authenticated user loads any static page.
-  // WHEN Alpine.js reads cookies on init.
-  // THEN the auth state reflects authenticated because the indicator cookie is present.
+it("An authenticated user has client-side auth status.", async () => {
+  // GIVEN a user who has signed in.
+  // WHEN they load any page on the site.
+  // THEN the client-side auth status indicates they are authenticated.
 
   throw new Error("acceptance test not yet bound");
 });
 
-// The indicator cookie is a UI hint only; the server is authoritative.
+// The server is the authority on authentication, not the client.
 // Source: specs/acceptance-specs/US13-client-side-auth-status-check.txt:16
-it("The indicator cookie is a UI hint only; the server is authoritative.", async () => {
-  // GIVEN the indicator cookie is present but the server session has expired.
+it("The server is the authority on authentication, not the client.", async () => {
+  // GIVEN a user whose session has expired but the auth indicator has not been cleared.
   // WHEN the user attempts a protected action.
-  // THEN the server rejects the request because the indicator cookie is not authoritative.
+  // THEN the server rejects the request.
 
   throw new Error("acceptance test not yet bound");
 });

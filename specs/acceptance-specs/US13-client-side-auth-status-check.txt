@@ -1,20 +1,20 @@
 ;=============================================
-; An unauthenticated visitor has no client-side auth state.
+; An unauthenticated visitor has no client-side auth status.
 ;=============================================
-GIVEN an unauthenticated visitor loads any static page.
-WHEN Alpine.js reads cookies on init.
-THEN the auth state reflects not authenticated because the indicator cookie is absent.
+GIVEN a visitor who has not signed in.
+WHEN they load any page on the site.
+THEN the client-side auth status indicates they are not authenticated.
 
 ;=============================================
-; An authenticated user has client-side auth state.
+; An authenticated user has client-side auth status.
 ;=============================================
-GIVEN an authenticated user loads any static page.
-WHEN Alpine.js reads cookies on init.
-THEN the auth state reflects authenticated because the indicator cookie is present.
+GIVEN a user who has signed in.
+WHEN they load any page on the site.
+THEN the client-side auth status indicates they are authenticated.
 
 ;=============================================
-; The indicator cookie is a UI hint only; the server is authoritative.
+; The server is the authority on authentication, not the client.
 ;=============================================
-GIVEN the indicator cookie is present but the server session has expired.
+GIVEN a user whose session has expired but the auth indicator has not been cleared.
 WHEN the user attempts a protected action.
-THEN the server rejects the request because the indicator cookie is not authoritative.
+THEN the server rejects the request.
