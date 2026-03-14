@@ -163,6 +163,25 @@ describe('createRequireAuth', () => {
     expect(setCookie).toContain('Max-Age=3600');
   });
 
+  it('clears the auth indicator cookie when redirecting due to an expired session', async () => {
+    authServiceMock.getSession.mockResolvedValue(null);
+
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: {
+          Cookie: '__Host-better-auth.session_token=stale-token; auth_status=1',
+        },
+      })
+    );
+
+    expect(res.status).toBe(302);
+    const setCookieHeaders = res.headers.getSetCookie();
+    const indicatorClear = setCookieHeaders.find((h) => h.startsWith('auth_status='));
+    expect(indicatorClear).toBeDefined();
+    expect(indicatorClear).toContain('Max-Age=0');
+  });
+
   it('sets user, session, and csrfToken on Hono context for valid session', async () => {
     authServiceMock.getSession.mockResolvedValue({ user: TEST_USER, session: TEST_SESSION });
 

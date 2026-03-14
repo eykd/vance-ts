@@ -14,6 +14,7 @@ import type { AuthService } from '../../application/ports/AuthService.js';
 import type { AppEnv } from '../types.js';
 import {
   buildCsrfCookie,
+  clearAuthIndicatorCookie,
   clearSessionCookie,
   deriveCsrfToken,
   extractSessionToken,
@@ -63,6 +64,9 @@ export function createRequireAuth(
     if (session === null) {
       if (hasSessionCookie(cookieHeader)) {
         c.header('Set-Cookie', clearSessionCookie());
+      }
+      if (cookieHeader.includes('auth_status=')) {
+        c.header('Set-Cookie', clearAuthIndicatorCookie(), { append: true });
       }
       return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
     }
