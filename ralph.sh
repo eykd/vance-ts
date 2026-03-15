@@ -37,6 +37,8 @@ readonly TDD_STEP_RETRY_MAX_DELAY=60   # cap for Claude invocation backoff
 readonly TDD_MAX_CYCLES=5         # max R-G-R-Review cycles per task
 readonly ATDD_MAX_INNER_CYCLES=15
 readonly ACCEPTANCE_OUTPUT_FILE=".ralph-acceptance.json"
+readonly MAX_AUTO_DEFERRALS=3       # escalate after this many transient triage failures
+readonly FALLBACK_DEFER="+4h"       # deferral for transient failures (shorter than +1d)
 
 # Exit codes
 readonly EXIT_SUCCESS=0
@@ -2224,10 +2226,18 @@ RALPH_SIGNAL:{"action":"<close|decompose|defer>","reason":"<brief explanation>",
 Rules:
 - Choose exactly ONE action
 - For decompose: provide title and description for the new sibling task
-- For defer: provide defer_duration (default +1d if unsure)
+- For defer: provide defer_duration (e.g. +4h for transient issues, +1d for external dependencies)
 - For close: just provide the reason
 - Do NOT run any tests or tools — this is analysis only
 EOF
+}
+
+# Count how many times a task has been auto-deferred due to transient triage failures
+count_auto_deferrals() {
+    local task_id="$1"
+    local comments
+    comments=$(npx bd comments "$task_id" --json 2>/dev/null) || { echo "0"; return; }
+    echo "$comments" | jq '[.[] | select(.text | test("^BLOCKED: Triage (invocation failed|produced no signal)"))] | length' 2>/dev/null || echo "0"
 }
 
 # Triage a blocked task by invoking Claude for diagnostic analysis
@@ -2246,17 +2256,33 @@ triage_blocked_task() {
 
     # Invoke Claude
     if ! invoke_claude_with_retry "$triage_prompt"; then
-        log WARN "Triage invocation failed for $task_id — falling back to defer +1d"
-        npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
-        npx bd comment "$task_id" "BLOCKED: Triage invocation failed, auto-deferred +1d" 2>/dev/null || true
+        local defer_count
+        defer_count=$(count_auto_deferrals "$task_id")
+        if (( defer_count >= MAX_AUTO_DEFERRALS )); then
+            log WARN "Task $task_id auto-deferred $defer_count times — escalating to P1"
+            npx bd update "$task_id" --status=open --priority 1 2>/dev/null || true
+            npx bd comment "$task_id" "BLOCKED: Triage invocation failed $((defer_count + 1)) times. Escalated to P1 for human review." 2>/dev/null || true
+        else
+            log WARN "Triage invocation failed for $task_id — deferring $FALLBACK_DEFER"
+            npx bd update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
+            npx bd comment "$task_id" "BLOCKED: Triage invocation failed, auto-deferred $FALLBACK_DEFER" 2>/dev/null || true
+        fi
         return 0
     fi
 
     # Parse RALPH_SIGNAL from Claude output
     if ! parse_ralph_signal "$LAST_CLAUDE_OUTPUT"; then
-        log WARN "No RALPH_SIGNAL in triage output for $task_id — falling back to defer +1d"
-        npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
-        npx bd comment "$task_id" "BLOCKED: Triage produced no signal, auto-deferred +1d" 2>/dev/null || true
+        local defer_count
+        defer_count=$(count_auto_deferrals "$task_id")
+        if (( defer_count >= MAX_AUTO_DEFERRALS )); then
+            log WARN "Task $task_id auto-deferred $defer_count times — escalating to P1"
+            npx bd update "$task_id" --status=open --priority 1 2>/dev/null || true
+            npx bd comment "$task_id" "BLOCKED: Triage produced no signal $((defer_count + 1)) times. Escalated to P1 for human review." 2>/dev/null || true
+        else
+            log WARN "No RALPH_SIGNAL in triage output for $task_id — deferring $FALLBACK_DEFER"
+            npx bd update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
+            npx bd comment "$task_id" "BLOCKED: Triage produced no signal, auto-deferred $FALLBACK_DEFER" 2>/dev/null || true
+        fi
         return 0
     fi
 
@@ -2274,20 +2300,26 @@ triage_blocked_task() {
             auto_close_completed_parents "$task_id" "$epic_id"
             ;;
         decompose)
-            local new_title new_description parent_id
+            local new_title new_description parent_id sibling_id
             new_title=$(get_signal "title" "Follow-up for $task_id")
             new_description=$(get_signal "description" "Decomposed from blocked task $task_id")
-            # Create sibling under the same parent (implement task)
             parent_id="${task_id%.*}"
             log INFO "Triage decomposing: creating sibling task under $parent_id"
-            npx bd create "$new_title" --parent "$parent_id" --description "$new_description" 2>/dev/null || true
-            npx bd comment "$task_id" "TRIAGE: Decomposed — $reason. New sibling task created under $parent_id" 2>/dev/null || true
-            npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
+            sibling_id=$(npx bd create "$new_title" --parent "$parent_id" --description "$new_description" --silent 2>/dev/null) || true
+            if [[ -n "$sibling_id" ]]; then
+                npx bd dep "$sibling_id" --blocks "$task_id" 2>/dev/null || true
+                npx bd comment "$task_id" "TRIAGE: Decomposed — $reason. Blocked by sibling $sibling_id" 2>/dev/null || true
+                log INFO "Created sibling $sibling_id blocking $task_id"
+            else
+                npx bd update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
+                npx bd comment "$task_id" "TRIAGE: Decomposed — $reason. Sibling creation failed, deferred $FALLBACK_DEFER" 2>/dev/null || true
+                log WARN "Could not capture sibling ID for $task_id — fell back to $FALLBACK_DEFER defer"
+            fi
             ;;
         *)
             # defer (explicit or unknown action fallback)
             local duration
-            duration=$(get_signal "defer_duration" "+1d")
+            duration=$(get_signal "defer_duration" "$FALLBACK_DEFER")
             log INFO "Triage deferring task $task_id for $duration: $reason"
             npx bd comment "$task_id" "TRIAGE: Deferring $duration — $reason" 2>/dev/null || true
             npx bd update "$task_id" --status=open --defer="$duration" 2>/dev/null || true
