@@ -2,4 +2,5 @@ npx bd hooks run pre-commit
 npx lint-staged
 npm run format:check
 npm run test:coverage
+npm run test:acceptance
 npm run build
