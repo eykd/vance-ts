@@ -32,15 +32,22 @@ app.use('/api/*', withSecurityHeaders);
 app.use('/app/_/*', withSecurityHeaders);
 app.use('/auth/*', withSecurityHeaders);
 
-/** Middleware: require authentication for all app routes. */
-app.use('/app/*', async (c, next): Promise<Response | void> => {
+/**
+ * Middleware: require authentication before proceeding.
+ *
+ * Delegates to the ServiceFactory's requireAuthMiddleware which validates
+ * the session cookie and redirects unauthenticated visitors to sign-in.
+ *
+ * @param c - The Hono context.
+ * @param next - The next middleware function in the chain.
+ * @returns A redirect response for unauthenticated visitors, or void if authenticated.
+ */
+const withRequireAuth: MiddlewareHandler<AppEnv> = async (c, next): Promise<Response | void> => {
   return getServiceFactory(c.env).requireAuthMiddleware(c as Context<AppEnv>, next);
-});
+};
 
-/** Middleware: require authentication for all dashboard routes. */
-app.use('/dashboard/*', async (c, next): Promise<Response | void> => {
-  return getServiceFactory(c.env).requireAuthMiddleware(c as Context<AppEnv>, next);
-});
+app.use('/app/*', withRequireAuth);
+app.use('/dashboard/*', withRequireAuth);
 
 /** Health check endpoint. */
 app.get('/api/health', healthCheck);

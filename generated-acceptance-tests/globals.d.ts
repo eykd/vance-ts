@@ -34,6 +34,9 @@ declare global {
     password: string,
     ip?: string
   ) => Promise<string>;
+
+  /** Cloudflare Workers environment bindings (D1, KV, etc.) from cloudflare:test. */
+  var env: import('cloudflare:test').ProvidedEnv;
 }
 /* eslint-enable no-var */
 

@@ -23,6 +23,7 @@ globalThis.getAuthForm = getAuthForm;
 globalThis.submitAuthForm = submitAuthForm;
 globalThis.extractSessionCookie = extractSessionCookie;
 globalThis.signInAs = signInAs;
+globalThis.env = env;
 
 /**
  * Auth schema migration, inlined to avoid Node.js file-system access from the Workers runtime.
