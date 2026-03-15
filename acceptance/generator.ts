@@ -137,6 +137,10 @@ export function generateTests(feature: Feature, existingSource: string): string 
   lines.push('import { SELF } from "cloudflare:test";');
   lines.push('import { describe, it, expect } from "vitest";');
   lines.push('');
+  lines.push(
+    'import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";'
+  );
+  lines.push('');
 
   // Describe block opening
   lines.push(`describe("${specName.replace(/"/g, '\\"')}", () => {`);
