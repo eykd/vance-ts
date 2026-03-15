@@ -86,7 +86,13 @@ it("An unregistered email shows the same generic error.", async () => {
 
 // Sign-in is blocked after too many failed attempts.
 // Source: specs/acceptance-specs/US04-sign-in.txt:25
-it.todo("Sign-in is blocked after too many failed attempts.");
+it("Sign-in is blocked after too many failed attempts.", async () => {
+  // GIVEN a visitor has exceeded the allowed number of sign-in attempts.
+  // WHEN they attempt to sign in again.
+  // THEN they are told to wait before trying again.
+
+  throw new Error("acceptance test not yet bound");
+});
 
 // The original destination is preserved through sign-in.
 // Source: specs/acceptance-specs/US04-sign-in.txt:32
