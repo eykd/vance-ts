@@ -4,7 +4,7 @@
 import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 
-import { getAuthForm, signInAs, submitAuthForm } from './helpers';
+import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
 
 describe("US15-dashboard-auth-guard", () => {
 

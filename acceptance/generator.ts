@@ -93,6 +93,35 @@ export function extractBoundFunctions(source: string): Map<string, string> {
   return result;
 }
 
+/** Standard import specifiers that are always emitted by the generator. */
+const STANDARD_IMPORT_SOURCES = new Set(['"cloudflare:test"', '"vitest"', '"./helpers"']);
+
+/**
+ * Extracts non-standard import lines from an existing generated test file.
+ *
+ * Standard imports (cloudflare:test, vitest, ./helpers) are always emitted by
+ * the generator and are therefore excluded. Any other `import` line is
+ * considered custom and will be preserved across regeneration.
+ *
+ * @param source - The full text of the existing generated test file.
+ * @returns An array of custom import lines.
+ */
+export function extractCustomImports(source: string): string[] {
+  if (source === '') {
+    return [];
+  }
+  const importLines = source.split('\n').filter((line) => /^import\s/.test(line));
+  return importLines.filter((line) => {
+    const fromMatch = /from\s+("[^"]+"|'[^']+')/.exec(line);
+    if (fromMatch === null) {
+      return true; // side-effect import — always custom
+    }
+    /* c8 ignore next */
+    const specifier = (fromMatch[1] ?? '').replace(/'/g, '"');
+    return !STANDARD_IMPORT_SOURCES.has(specifier);
+  });
+}
+
 /**
  * Converts a string to a safe JavaScript identifier by replacing
  * non-alphanumeric sequences with underscores and lowercasing.
@@ -122,6 +151,7 @@ export function sanitizeFuncName(desc: string): string {
  */
 export function generateTests(feature: Feature, existingSource: string): string {
   const boundFunctions = extractBoundFunctions(existingSource);
+  const customImports = extractCustomImports(existingSource);
   const specName = basename(feature.sourceFile, extname(feature.sourceFile));
 
   const lines: string[] = [];
@@ -140,6 +170,9 @@ export function generateTests(feature: Feature, existingSource: string): string 
   lines.push(
     'import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";'
   );
+  for (const customImport of customImports) {
+    lines.push(customImport);
+  }
   lines.push('');
 
   // Describe block opening

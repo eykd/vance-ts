@@ -4,6 +4,8 @@
 import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 
+import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
+
 describe("US02-api-not-found", () => {
 
 // API returns structured error for unknown routes.

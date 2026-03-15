@@ -4,36 +4,76 @@
 import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 
+import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
+
 describe("US13-client-side-auth-status-check", () => {
 
 // An unauthenticated visitor has no client-side auth status.
 // Source: specs/acceptance-specs/US13-client-side-auth-status-check.txt:2
 it("An unauthenticated visitor has no client-side auth status.", async () => {
   // GIVEN a visitor who has not signed in.
-  // WHEN they load any page on the site.
-  // THEN the client-side auth status indicates they are not authenticated.
+  // (No setup — visitor has no cookies.)
 
-  throw new Error("acceptance test not yet bound");
+  // WHEN they load any page on the site.
+  const res = await SELF.fetch(
+    new Request('https://example.com/'),
+  );
+
+  // THEN the client-side auth status indicates they are not authenticated.
+  // No auth_status cookie should be set in the response.
+  const setCookie = res.headers.get('Set-Cookie') ?? '';
+  expect(setCookie).not.toContain('auth_status=1');
 });
 
 // An authenticated user has client-side auth status.
 // Source: specs/acceptance-specs/US13-client-side-auth-status-check.txt:9
 it("An authenticated user has client-side auth status.", async () => {
   // GIVEN a user who has signed in.
-  // WHEN they load any page on the site.
-  // THEN the client-side auth status indicates they are authenticated.
+  const { csrfToken: regCsrf } = await getAuthForm('/auth/sign-up');
+  await submitAuthForm(
+    '/auth/sign-up',
+    { email: 'charlie@example.com', password: 'SuperSecure#Pass789' },
+    regCsrf,
+    undefined,
+    '198.51.100.10',
+  );
+  const { csrfToken: signInCsrf } = await getAuthForm('/auth/sign-in');
+  const signInRes = await submitAuthForm(
+    '/auth/sign-in',
+    { email: 'charlie@example.com', password: 'SuperSecure#Pass789' },
+    signInCsrf,
+    undefined,
+    '198.51.100.10',
+  );
 
-  throw new Error("acceptance test not yet bound");
+  // WHEN they load any page on the site.
+  // The sign-in response includes the auth_status indicator cookie.
+  const setCookie = signInRes.headers.get('Set-Cookie') ?? '';
+
+  // THEN the client-side auth status indicates they are authenticated.
+  expect(setCookie).toContain('auth_status=1');
 });
 
 // The server is the authority on authentication, not the client.
 // Source: specs/acceptance-specs/US13-client-side-auth-status-check.txt:16
 it("The server is the authority on authentication, not the client.", async () => {
   // GIVEN a user whose session has expired but the auth indicator has not been cleared.
-  // WHEN the user attempts a protected action.
-  // THEN the server rejects the request.
+  // Simulate by sending only the auth_status indicator cookie without a valid session.
 
-  throw new Error("acceptance test not yet bound");
+  // WHEN the user attempts a protected action.
+  const res = await SELF.fetch(
+    new Request('https://example.com/dashboard/', {
+      headers: { Cookie: 'auth_status=1' },
+      redirect: 'manual',
+    }),
+  );
+
+  // THEN the server rejects the request.
+  // The auth guard checks the session cookie, not the indicator —
+  // so the user is redirected to sign-in.
+  expect(res.status).toBe(302);
+  const location = res.headers.get('Location') ?? '';
+  expect(location).toMatch(/^\/auth\/sign-in/);
 });
 
 }); // end describe

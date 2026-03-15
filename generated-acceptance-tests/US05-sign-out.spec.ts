@@ -4,6 +4,8 @@
 import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 
+import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
+
 describe("US05-sign-out", () => {
 
 // A signed-in user can sign out.

@@ -4,6 +4,8 @@
 import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 
+import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
+
 describe("US06-access-protected-pages", () => {
 
 // An unauthenticated visitor is redirected from a protected page.

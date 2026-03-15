@@ -4,6 +4,8 @@
 import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 
+import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
+
 describe("US04-sign-in", () => {
 
 // A registered user can sign in.
