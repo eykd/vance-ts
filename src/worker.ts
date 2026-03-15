@@ -37,6 +37,11 @@ app.use('/app/*', async (c, next): Promise<Response | void> => {
   return getServiceFactory(c.env).requireAuthMiddleware(c as Context<AppEnv>, next);
 });
 
+/** Middleware: require authentication for all dashboard routes. */
+app.use('/dashboard/*', async (c, next): Promise<Response | void> => {
+  return getServiceFactory(c.env).requireAuthMiddleware(c as Context<AppEnv>, next);
+});
+
 /** Health check endpoint. */
 app.get('/api/health', healthCheck);
 

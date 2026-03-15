@@ -500,6 +500,17 @@ describe('Worker', () => {
     });
   });
 
+  describe('/dashboard/* requireAuth middleware', () => {
+    it('invokes requireAuthMiddleware for /dashboard/ requests', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/dashboard/');
+      await app.fetch(req, env);
+
+      expect(mocks.requireAuthMiddlewareFn).toHaveBeenCalled();
+    });
+  });
+
   describe('/app/* requireAuth middleware', () => {
     it('redirects unauthenticated requests to /auth/sign-in', async () => {
       const env = mockEnv();
