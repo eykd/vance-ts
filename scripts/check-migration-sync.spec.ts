@@ -1,3 +1,7 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -6,6 +10,8 @@ import {
   verifyMigrationSync,
 } from './check-migration-sync.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 describe('check-migration-sync', () => {
   describe('parseMigrationSql', () => {
     it('splits SQL file content into individual statements', () => {
@@ -13,10 +19,7 @@ describe('check-migration-sync', () => {
 
 CREATE TABLE bar (name text);`;
       const result = parseMigrationSql(sql);
-      expect(result).toEqual([
-        'CREATE TABLE foo (id text)',
-        'CREATE TABLE bar (name text)',
-      ]);
+      expect(result).toEqual(['CREATE TABLE foo (id text)', 'CREATE TABLE bar (name text)']);
     });
 
     it('normalizes multi-line statements to single lines', () => {
@@ -55,10 +58,7 @@ CREATE TABLE bar (name text);`;
   },
 ];`;
       const result = extractInlinedQueries(content);
-      expect(result).toEqual([
-        'CREATE TABLE foo (id text)',
-        'CREATE TABLE bar (name text)',
-      ]);
+      expect(result).toEqual(['CREATE TABLE foo (id text)', 'CREATE TABLE bar (name text)']);
     });
 
     it('handles single-quoted and double-quoted strings', () => {
@@ -72,17 +72,12 @@ CREATE TABLE bar (name text);`;
   },
 ];`;
       const result = extractInlinedQueries(content);
-      expect(result).toEqual([
-        'CREATE TABLE a (id text)',
-        'CREATE TABLE b (id text)',
-      ]);
+      expect(result).toEqual(['CREATE TABLE a (id text)', 'CREATE TABLE b (id text)']);
     });
 
     it('throws if queries array is not found', () => {
       const content = 'const x = 1;';
-      expect(() => extractInlinedQueries(content)).toThrow(
-        /queries array not found/i,
-      );
+      expect(() => extractInlinedQueries(content)).toThrow(/queries array not found/i);
     });
   });
 
@@ -137,21 +132,13 @@ CREATE TABLE bar (name text);`;
 
   describe('integration: actual files', () => {
     it('migration file and setup.ts inlined SQL are in sync', () => {
-      const fs = require('node:fs');
-      const path = require('node:path');
-
       const migrationPath = path.resolve(
         __dirname,
         '..',
         'migrations',
-        '0001_better_auth_schema.sql',
+        '0001_better_auth_schema.sql'
       );
-      const setupPath = path.resolve(
-        __dirname,
-        '..',
-        'generated-acceptance-tests',
-        'setup.ts',
-      );
+      const setupPath = path.resolve(__dirname, '..', 'generated-acceptance-tests', 'setup.ts');
 
       const migrationSql = fs.readFileSync(migrationPath, 'utf-8');
       const setupContent = fs.readFileSync(setupPath, 'utf-8');
