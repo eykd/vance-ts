@@ -202,6 +202,25 @@ describe('BetterAuthService', () => {
       }
     });
 
+    it('returns ok: false kind: service_error when extracted session token is empty', async () => {
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response(null, {
+          status: 200,
+          headers: { 'set-cookie': '__Host-better-auth.session_token=; Path=/' },
+        })
+      );
+
+      const result = await service.signIn({
+        email: 'user@example.com',
+        password: 'correcthorse12',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
     it('returns ok: false kind: service_error when Set-Cookie header is absent on 200', async () => {
       authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 200 }));
 

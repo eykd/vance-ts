@@ -132,6 +132,9 @@ export class BetterAuthService implements AuthService {
         const eqIdx = setCookieHeader.indexOf('=');
         const semiIdx = setCookieHeader.indexOf(';');
         const sessionToken = setCookieHeader.slice(eqIdx + 1, semiIdx === -1 ? undefined : semiIdx);
+        if (sessionToken === '') {
+          return { ok: false, kind: 'service_error' };
+        }
         return { ok: true, sessionToken };
       }
 
