@@ -24,7 +24,11 @@ import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLim
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createApiAuthRateLimit } from '../presentation/middleware/apiAuthRateLimit';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
-import { getSessionCookieName } from '../shared/authCookieNames';
+import {
+  getAuthIndicatorCookieName,
+  getCsrfCookieName,
+  getSessionCookieName,
+} from '../shared/authCookieNames';
 import type { Env } from '../shared/env';
 
 /**
@@ -46,6 +50,12 @@ export class ServiceFactory {
 
   /** Session cookie name derived from BETTER_AUTH_URL. */
   private readonly _sessionCookieName: string;
+
+  /** CSRF cookie name derived from BETTER_AUTH_URL. */
+  private readonly _csrfCookieName: string;
+
+  /** Auth indicator cookie name derived from BETTER_AUTH_URL. */
+  private readonly _authIndicatorCookieName: string;
 
   /** Cached AuthService adapter. */
   private _authService: AuthService | null = null;
@@ -85,6 +95,8 @@ export class ServiceFactory {
     this._authInstance = getAuth(env); // validates BETTER_AUTH_SECRET, throws if invalid
     this._validatedSecret = env.BETTER_AUTH_SECRET;
     this._sessionCookieName = getSessionCookieName(env.BETTER_AUTH_URL);
+    this._csrfCookieName = getCsrfCookieName(env.BETTER_AUTH_URL);
+    this._authIndicatorCookieName = getAuthIndicatorCookieName(env.BETTER_AUTH_URL);
   }
 
   /**
@@ -161,7 +173,9 @@ export class ServiceFactory {
     this._requireAuthMiddleware ??= createRequireAuth(
       this._authServiceInstance,
       this._validatedSecret,
-      this._sessionCookieName
+      this._sessionCookieName,
+      this._csrfCookieName,
+      this._authIndicatorCookieName
     );
     return this._requireAuthMiddleware;
   }
@@ -176,7 +190,9 @@ export class ServiceFactory {
       this.signInUseCase,
       this.signUpUseCase,
       this.signOutUseCase,
-      this._sessionCookieName
+      this._sessionCookieName,
+      this._csrfCookieName,
+      this._authIndicatorCookieName
     );
     return this._authPageHandlers;
   }

@@ -30,18 +30,22 @@ import {
  * `/auth/sign-in`. If the token is present but invalid/expired, clears the
  * stale cookie and redirects. On D1 error, returns 503 with `Retry-After: 30`.
  * On success, derives a session-bound CSRF token via HMAC-SHA256, sets the
- * `__Host-csrf` cookie, and populates `c.var.user`, `c.var.session`, and
+ * CSRF cookie, and populates `c.var.user`, `c.var.session`, and
  * `c.var.csrfToken` for downstream handlers.
  *
  * @param authService - The AuthService port for session validation.
  * @param secret - The BETTER_AUTH_SECRET for HMAC-SHA256 CSRF derivation.
  * @param sessionCookieName - The session cookie name matching better-auth's configured prefix.
+ * @param csrfCookieName - The CSRF cookie name (e.g. `__Host-csrf` or `csrf` on localhost).
+ * @param authIndicatorCookieName - The auth indicator cookie name (e.g. `__Host-auth_status` or `auth_status` on localhost).
  * @returns A Hono middleware function for use with `app.use()`.
  */
 export function createRequireAuth(
   authService: AuthService,
   secret: string,
-  sessionCookieName: string
+  sessionCookieName: string,
+  csrfCookieName: string,
+  authIndicatorCookieName: string
 ): (c: Context<AppEnv>, next: Next) => Promise<Response | void> {
   return async function requireAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
     const url = new URL(c.req.url);
@@ -68,8 +72,10 @@ export function createRequireAuth(
       if (hasSessionCookie(cookieHeader, sessionCookieName)) {
         c.header('Set-Cookie', clearSessionCookie(sessionCookieName));
       }
-      if (hasAuthIndicatorCookie(cookieHeader)) {
-        c.header('Set-Cookie', clearAuthIndicatorCookie(), { append: true });
+      if (hasAuthIndicatorCookie(cookieHeader, authIndicatorCookieName)) {
+        c.header('Set-Cookie', clearAuthIndicatorCookie(authIndicatorCookieName), {
+          append: true,
+        });
       }
       return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
     }
@@ -81,7 +87,7 @@ export function createRequireAuth(
     // prevents cross-protocol confusion within the CSRF domain.
     // Deterministic per session — consistent across multi-tab usage, no KV storage required.
     const csrfToken = await deriveCsrfToken(`csrf:v1:${session.session.token}`, secret);
-    c.header('Set-Cookie', buildCsrfCookie(csrfToken), { append: true });
+    c.header('Set-Cookie', buildCsrfCookie(csrfToken, csrfCookieName), { append: true });
     c.set('user', session.user);
     c.set('session', session.session);
     c.set('csrfToken', csrfToken);

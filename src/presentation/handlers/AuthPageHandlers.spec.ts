@@ -18,6 +18,12 @@ const TEST_CSRF = 'a'.repeat(64);
 /** Production session cookie name used in tests. */
 const PROD_COOKIE_NAME = '__Host-better-auth.session_token';
 
+/** Production CSRF cookie name used in tests. */
+const PROD_CSRF_NAME = '__Host-csrf';
+
+/** Production auth indicator cookie name used in tests. */
+const PROD_INDICATOR_NAME = '__Host-auth_status';
+
 /** Cookie header containing the test CSRF token. */
 const CSRF_COOKIE = `__Host-csrf=${TEST_CSRF}`;
 
@@ -174,7 +180,9 @@ describe('AuthPageHandlers', () => {
       signInUseCaseMock as unknown as SignInUseCase,
       signUpUseCaseMock as unknown as SignUpUseCase,
       signOutUseCaseMock as unknown as SignOutUseCase,
-      PROD_COOKIE_NAME
+      PROD_COOKIE_NAME,
+      PROD_CSRF_NAME,
+      PROD_INDICATOR_NAME
     );
   });
 

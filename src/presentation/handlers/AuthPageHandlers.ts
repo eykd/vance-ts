@@ -65,6 +65,12 @@ export class AuthPageHandlers {
   /** The session cookie name matching better-auth's configured cookie prefix. */
   private readonly sessionCookieName: string;
 
+  /** The CSRF cookie name (drops `__Host-` prefix on localhost). */
+  private readonly csrfCookieName: string;
+
+  /** The auth indicator cookie name (drops `__Host-` prefix on localhost). */
+  private readonly authIndicatorCookieName: string;
+
   /**
    * Creates a new AuthPageHandlers instance.
    *
@@ -72,17 +78,23 @@ export class AuthPageHandlers {
    * @param signUpUseCase - The sign-up orchestration use case.
    * @param signOutUseCase - The sign-out orchestration use case.
    * @param sessionCookieName - The session cookie name matching better-auth's configured prefix.
+   * @param csrfCookieName - The CSRF cookie name (e.g. `__Host-csrf` or `csrf` on localhost).
+   * @param authIndicatorCookieName - The auth indicator cookie name (e.g. `__Host-auth_status` or `auth_status` on localhost).
    */
   constructor(
     signInUseCase: SignInUseCase,
     signUpUseCase: SignUpUseCase,
     signOutUseCase: SignOutUseCase,
-    sessionCookieName: string
+    sessionCookieName: string,
+    csrfCookieName: string,
+    authIndicatorCookieName: string
   ) {
     this.signInUseCase = signInUseCase;
     this.signUpUseCase = signUpUseCase;
     this.signOutUseCase = signOutUseCase;
     this.sessionCookieName = sessionCookieName;
+    this.csrfCookieName = csrfCookieName;
+    this.authIndicatorCookieName = authIndicatorCookieName;
   }
 
   /**
@@ -98,7 +110,7 @@ export class AuthPageHandlers {
     const csrfToken = generateCsrfToken();
     const headers = new Headers();
     headers.set('Content-Type', 'text/html; charset=utf-8');
-    headers.set('Set-Cookie', buildCsrfCookie(csrfToken));
+    headers.set('Set-Cookie', buildCsrfCookie(csrfToken, this.csrfCookieName));
     headers.set('Cache-Control', 'no-store, no-cache');
     applySecurityHeaders(headers);
     return { headers, csrfToken };
@@ -127,7 +139,10 @@ export class AuthPageHandlers {
 
     const form = new URLSearchParams(rawBody);
     const csrfFormToken = form.get('_csrf') ?? '';
-    const csrfCookieToken = extractCsrfTokenFromCookies(request.headers.get('Cookie'));
+    const csrfCookieToken = extractCsrfTokenFromCookies(
+      request.headers.get('Cookie'),
+      this.csrfCookieName
+    );
 
     if (csrfCookieToken === null || !timingSafeStringEqual(csrfFormToken, csrfCookieToken)) {
       return new Response('Forbidden', { status: 403 });
@@ -172,7 +187,7 @@ export class AuthPageHandlers {
   /**
    * Handles GET /auth/sign-in.
    *
-   * Generates a fresh CSRF token, stores it in the `__Host-csrf` cookie,
+   * Generates a fresh CSRF token, stores it in the CSRF cookie,
    * and renders the sign-in form. Sets `Cache-Control: no-store, no-cache`
    * to prevent caching of the CSRF-bearing response.
    *
@@ -216,8 +231,8 @@ export class AuthPageHandlers {
     if (result.ok) {
       return AuthPageHandlers.buildRedirect(redirectTo, [
         buildSessionCookie(result.sessionToken, this.sessionCookieName),
-        buildAuthIndicatorCookie(),
-        clearCsrfCookie(),
+        buildAuthIndicatorCookie(this.authIndicatorCookieName),
+        clearCsrfCookie(this.csrfCookieName),
       ]);
     }
 
@@ -239,7 +254,7 @@ export class AuthPageHandlers {
   /**
    * Handles GET /auth/sign-up.
    *
-   * Generates a fresh CSRF token, stores it in the `__Host-csrf` cookie,
+   * Generates a fresh CSRF token, stores it in the CSRF cookie,
    * and renders the registration form. Sets `Cache-Control: no-store, no-cache`
    * to prevent caching of the CSRF-bearing response.
    *
@@ -328,12 +343,16 @@ export class AuthPageHandlers {
     const cookieHeader = request.headers.get('Cookie') ?? '';
     if (!hasSessionCookie(cookieHeader, this.sessionCookieName)) {
       // Clear indicator cookie even without a session — cookie may linger after expiry
-      return AuthPageHandlers.buildRedirect('/auth/sign-in', [clearAuthIndicatorCookie()]);
+      return AuthPageHandlers.buildRedirect('/auth/sign-in', [
+        clearAuthIndicatorCookie(this.authIndicatorCookieName),
+      ]);
     }
 
     const sessionToken = extractSessionToken(cookieHeader, this.sessionCookieName);
     if (sessionToken === null || sessionToken === '') {
-      return AuthPageHandlers.buildRedirect('/auth/sign-in', [clearAuthIndicatorCookie()]);
+      return AuthPageHandlers.buildRedirect('/auth/sign-in', [
+        clearAuthIndicatorCookie(this.authIndicatorCookieName),
+      ]);
     }
 
     const result = await this.signOutUseCase.execute({ sessionToken });
@@ -342,13 +361,15 @@ export class AuthPageHandlers {
       // 303 redirect + Set-Cookie headers are atomic — browser applies all cookies before navigating
       return AuthPageHandlers.buildRedirect('/auth/sign-in', [
         clearSessionCookie(this.sessionCookieName),
-        clearAuthIndicatorCookie(),
-        clearCsrfCookie(),
+        clearAuthIndicatorCookie(this.authIndicatorCookieName),
+        clearCsrfCookie(this.csrfCookieName),
       ]);
     }
 
     // service_error — redirect home gracefully; session may still be valid
     // Still clear indicator cookie so UI reflects uncertain auth state
-    return AuthPageHandlers.buildRedirect('/', [clearAuthIndicatorCookie()]);
+    return AuthPageHandlers.buildRedirect('/', [
+      clearAuthIndicatorCookie(this.authIndicatorCookieName),
+    ]);
   }
 }

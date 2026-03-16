@@ -1,6 +1,5 @@
 import { toHex } from '../../shared/hex';
 
-const CSRF_COOKIE_NAME = '__Host-csrf';
 const CSRF_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Strict; Path=/';
 
 /**
@@ -53,20 +52,22 @@ export async function deriveCsrfToken(message: string, masterSecret: string): Pr
 /**
  * Builds a Set-Cookie header value for the CSRF cookie with a 1-hour expiry.
  *
- * @param token - The CSRF token to store in the cookie
+ * @param token - The CSRF token to store in the cookie.
+ * @param csrfCookieName - The CSRF cookie name (e.g. `__Host-csrf` or `csrf` on localhost).
  * @returns A Set-Cookie header value string
  */
-export function buildCsrfCookie(token: string): string {
-  return `${CSRF_COOKIE_NAME}=${token}; ${CSRF_COOKIE_ATTRIBUTES}; Max-Age=3600`;
+export function buildCsrfCookie(token: string, csrfCookieName: string): string {
+  return `${csrfCookieName}=${token}; ${CSRF_COOKIE_ATTRIBUTES}; Max-Age=3600`;
 }
 
 /**
  * Builds a Set-Cookie header value that clears the CSRF cookie.
  *
+ * @param csrfCookieName - The CSRF cookie name (e.g. `__Host-csrf` or `csrf` on localhost).
  * @returns A Set-Cookie header value string with Max-Age=0
  */
-export function clearCsrfCookie(): string {
-  return `${CSRF_COOKIE_NAME}=; ${CSRF_COOKIE_ATTRIBUTES}; Max-Age=0`;
+export function clearCsrfCookie(csrfCookieName: string): string {
+  return `${csrfCookieName}=; ${CSRF_COOKIE_ATTRIBUTES}; Max-Age=0`;
 }
 
 /**
@@ -76,7 +77,6 @@ export function clearCsrfCookie(): string {
  */
 const THIRTY_DAY_MAX_AGE = 2_592_000;
 
-const AUTH_INDICATOR_COOKIE_NAME = '__Host-auth_status';
 const AUTH_INDICATOR_COOKIE_ATTRIBUTES = 'Secure; SameSite=Lax; Path=/';
 
 /**
@@ -86,19 +86,21 @@ const AUTH_INDICATOR_COOKIE_ATTRIBUTES = 'Secure; SameSite=Lax; Path=/';
  * (Alpine.js auth store) can read it. It carries no secret — only a flag
  * indicating that the user has an active session.
  *
+ * @param authIndicatorCookieName - The indicator cookie name (e.g. `__Host-auth_status` or `auth_status` on localhost).
  * @returns A Set-Cookie header value string
  */
-export function buildAuthIndicatorCookie(): string {
-  return `${AUTH_INDICATOR_COOKIE_NAME}=1; ${AUTH_INDICATOR_COOKIE_ATTRIBUTES}; Max-Age=${THIRTY_DAY_MAX_AGE}`;
+export function buildAuthIndicatorCookie(authIndicatorCookieName: string): string {
+  return `${authIndicatorCookieName}=1; ${AUTH_INDICATOR_COOKIE_ATTRIBUTES}; Max-Age=${THIRTY_DAY_MAX_AGE}`;
 }
 
 /**
  * Builds a Set-Cookie header value that clears the auth indicator cookie.
  *
+ * @param authIndicatorCookieName - The indicator cookie name (e.g. `__Host-auth_status` or `auth_status` on localhost).
  * @returns A Set-Cookie header value string with Max-Age=0
  */
-export function clearAuthIndicatorCookie(): string {
-  return `${AUTH_INDICATOR_COOKIE_NAME}=; ${AUTH_INDICATOR_COOKIE_ATTRIBUTES}; Max-Age=0`;
+export function clearAuthIndicatorCookie(authIndicatorCookieName: string): string {
+  return `${authIndicatorCookieName}=; ${AUTH_INDICATOR_COOKIE_ATTRIBUTES}; Max-Age=0`;
 }
 
 const SESSION_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Lax; Path=/';
@@ -177,18 +179,26 @@ export function hasSessionCookie(cookieHeader: string | null, sessionCookieName:
  * Returns true when the Cookie request header contains the auth indicator cookie.
  *
  * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @param authIndicatorCookieName - The indicator cookie name (e.g. `__Host-auth_status` or `auth_status` on localhost).
  * @returns True if the auth indicator cookie is present
  */
-export function hasAuthIndicatorCookie(cookieHeader: string | null): boolean {
-  return extractCookieValue(cookieHeader, AUTH_INDICATOR_COOKIE_NAME) !== null;
+export function hasAuthIndicatorCookie(
+  cookieHeader: string | null,
+  authIndicatorCookieName: string
+): boolean {
+  return extractCookieValue(cookieHeader, authIndicatorCookieName) !== null;
 }
 
 /**
  * Extracts the CSRF token value from a Cookie header string.
  *
  * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @param csrfCookieName - The CSRF cookie name (e.g. `__Host-csrf` or `csrf` on localhost).
  * @returns The CSRF token string, or null if the cookie is not present
  */
-export function extractCsrfTokenFromCookies(cookieHeader: string | null): string | null {
-  return extractCookieValue(cookieHeader, CSRF_COOKIE_NAME);
+export function extractCsrfTokenFromCookies(
+  cookieHeader: string | null,
+  csrfCookieName: string
+): string | null {
+  return extractCookieValue(cookieHeader, csrfCookieName);
 }

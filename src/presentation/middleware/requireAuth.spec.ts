@@ -43,6 +43,12 @@ const TEST_SECRET = 'a'.repeat(32);
 /** Production session cookie name used in tests. */
 const PROD_COOKIE_NAME = '__Host-better-auth.session_token';
 
+/** Production CSRF cookie name used in tests. */
+const PROD_CSRF_NAME = '__Host-csrf';
+
+/** Production auth indicator cookie name used in tests. */
+const PROD_INDICATOR_NAME = '__Host-auth_status';
+
 /** Session cookie header for a valid session token. */
 const SESSION_COOKIE = '__Host-better-auth.session_token=test-session-token';
 
@@ -86,7 +92,9 @@ describe('createRequireAuth', () => {
     const middleware = createRequireAuth(
       authServiceMock as unknown as AuthService,
       TEST_SECRET,
-      PROD_COOKIE_NAME
+      PROD_COOKIE_NAME,
+      PROD_CSRF_NAME,
+      PROD_INDICATOR_NAME
     );
     app.use('*', middleware);
     app.get('/protected', (c) => c.text('protected content'));
@@ -211,7 +219,9 @@ describe('createRequireAuth', () => {
     const middleware = createRequireAuth(
       authServiceMock as unknown as AuthService,
       TEST_SECRET,
-      PROD_COOKIE_NAME
+      PROD_COOKIE_NAME,
+      PROD_CSRF_NAME,
+      PROD_INDICATOR_NAME
     );
     app.use('*', middleware);
     app.get('/protected', (c) => {
