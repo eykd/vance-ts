@@ -1,9 +1,20 @@
 import { Hono } from 'hono/tiny';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthService } from '../../application/ports/AuthService.js';
+import type {
+  AuthService,
+  AuthSessionDto,
+  AuthUserDto,
+} from '../../application/ports/AuthService.js';
 
 import { createRequireAuth } from './requireAuth.js';
+
+/** Hono Variables subset for tests that read context variables set by requireAuth. */
+type TestVariables = {
+  user: AuthUserDto;
+  session: AuthSessionDto;
+  csrfToken: string;
+};
 
 /**
  * Creates a minimal AuthService mock with vi.fn() stubs.
@@ -189,13 +200,13 @@ describe('createRequireAuth', () => {
     let capturedSession: unknown;
     let capturedCsrfToken: unknown;
 
-    const app = new Hono();
+    const app = new Hono<{ Variables: TestVariables }>();
     const middleware = createRequireAuth(authServiceMock as unknown as AuthService, TEST_SECRET);
     app.use('*', middleware);
     app.get('/protected', (c) => {
-      capturedUser = c.get('user' as never);
-      capturedSession = c.get('session' as never);
-      capturedCsrfToken = c.get('csrfToken' as never);
+      capturedUser = c.get('user');
+      capturedSession = c.get('session');
+      capturedCsrfToken = c.get('csrfToken');
       return c.text('ok');
     });
 
