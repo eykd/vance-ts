@@ -44,6 +44,19 @@ CREATE TABLE bar (name text);`;
       const result = parseMigrationSql(sql);
       expect(result).toEqual(['CREATE INDEX idx_foo ON foo(bar)']);
     });
+
+    it('splits on semicolons inside string literals (known limitation)', () => {
+      // parseMigrationSql uses a naive .split(';') which cannot distinguish
+      // statement-terminating semicolons from those inside SQL string literals.
+      // This is acceptable because our migration files (DDL) never contain
+      // string literals with semicolons. If that changes, the parser must be
+      // upgraded to a state-machine approach.
+      const sql = "INSERT INTO foo (val) VALUES ('a;b');";
+      const result = parseMigrationSql(sql);
+      // A correct parser would return: ["INSERT INTO foo (val) VALUES ('a;b')"]
+      // Instead, the naive split produces two fragments:
+      expect(result).toEqual(["INSERT INTO foo (val) VALUES ('a", "b')"]);
+    });
   });
 
   describe('extractInlinedQueries', () => {

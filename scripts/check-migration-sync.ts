@@ -18,6 +18,11 @@ export interface SyncResult {
  * Parse a SQL migration file into individual normalized statements.
  * Splits on semicolons, collapses whitespace, normalizes paren spacing, and trims.
  *
+ * **Limitation:** Uses a naive `.split(';')` which will incorrectly split on
+ * semicolons inside SQL string literals (e.g. `DEFAULT 'foo;bar'`). This is
+ * acceptable for DDL-only migrations. If migrations start containing string
+ * literals with semicolons, upgrade to a state-machine parser.
+ *
  * @param sql - raw SQL file content
  *
  * @returns array of normalized SQL statement strings
