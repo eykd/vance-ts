@@ -22,7 +22,7 @@ it("An unauthenticated visitor has no client-side auth status.", async () => {
   // THEN the client-side auth status indicates they are not authenticated.
   // No auth_status cookie should be set in the response.
   const setCookie = res.headers.get('Set-Cookie') ?? '';
-  expect(setCookie).not.toContain('auth_status=1');
+  expect(setCookie).not.toContain('__Host-auth_status=1');
 });
 
 // An authenticated user has client-side auth status.
@@ -51,7 +51,7 @@ it("An authenticated user has client-side auth status.", async () => {
   const setCookie = signInRes.headers.get('Set-Cookie') ?? '';
 
   // THEN the client-side auth status indicates they are authenticated.
-  expect(setCookie).toContain('auth_status=1');
+  expect(setCookie).toContain('__Host-auth_status=1');
 });
 
 // The server is the authority on authentication, not the client.
@@ -63,7 +63,7 @@ it("The server is the authority on authentication, not the client.", async () =>
   // WHEN the user attempts a protected action.
   const res = await SELF.fetch(
     new Request('https://example.com/dashboard/', {
-      headers: { Cookie: 'auth_status=1' },
+      headers: { Cookie: '__Host-auth_status=1' },
       redirect: 'manual',
     }),
   );

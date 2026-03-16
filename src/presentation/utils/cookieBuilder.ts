@@ -77,7 +77,7 @@ export function clearCsrfCookie(): string {
  */
 const THIRTY_DAY_MAX_AGE = 2_592_000;
 
-const AUTH_INDICATOR_COOKIE_NAME = 'auth_status';
+const AUTH_INDICATOR_COOKIE_NAME = '__Host-auth_status';
 const AUTH_INDICATOR_COOKIE_ATTRIBUTES = 'Secure; SameSite=Lax; Path=/';
 
 /**

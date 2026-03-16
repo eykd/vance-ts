@@ -11,6 +11,6 @@ document.addEventListener('alpine:init', function () {
   Alpine.store('auth', {
     isAuthenticated: document.cookie
       .split(';')
-      .some(function (c) { return c.trim() === 'auth_status=1'; })
+      .some(function (c) { return c.trim() === '__Host-auth_status=1'; })
   });
 });

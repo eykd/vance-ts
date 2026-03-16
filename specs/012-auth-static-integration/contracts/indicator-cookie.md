@@ -6,7 +6,7 @@
 
 | Attribute | Value |
 |-----------|-------|
-| Name | `auth_status` |
+| Name | `__Host-auth_status` |
 | Value | `1` (present = authenticated) |
 | Secure | Yes |
 | HttpOnly | No (must be JS-readable) |
@@ -20,27 +20,27 @@
 ### On Sign-In Success
 
 ```http
-Set-Cookie: auth_status=1; Secure; SameSite=Lax; Path=/; Max-Age=2592000
+Set-Cookie: __Host-auth_status=1; Secure; SameSite=Lax; Path=/; Max-Age=2592000
 ```
 
 Appended alongside the existing session cookie:
 
 ```http
 Set-Cookie: __Host-better-auth.session_token=<token>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000
-Set-Cookie: auth_status=1; Secure; SameSite=Lax; Path=/; Max-Age=2592000
+Set-Cookie: __Host-auth_status=1; Secure; SameSite=Lax; Path=/; Max-Age=2592000
 ```
 
 ### On Sign-Out
 
 ```http
-Set-Cookie: auth_status=; Secure; SameSite=Lax; Path=/; Max-Age=0
+Set-Cookie: __Host-auth_status=; Secure; SameSite=Lax; Path=/; Max-Age=0
 ```
 
 Appended alongside the existing session cookie clear:
 
 ```http
 Set-Cookie: __Host-better-auth.session_token=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0
-Set-Cookie: auth_status=; Secure; SameSite=Lax; Path=/; Max-Age=0
+Set-Cookie: __Host-auth_status=; Secure; SameSite=Lax; Path=/; Max-Age=0
 ```
 
 ## Client-Side Contract
@@ -50,7 +50,7 @@ Set-Cookie: auth_status=; Secure; SameSite=Lax; Path=/; Max-Age=0
 ```javascript
 // Registered before Alpine.start()
 Alpine.store('auth', {
-  isAuthenticated: document.cookie.split(';').some(c => c.trim() === 'auth_status=1')
+  isAuthenticated: document.cookie.split(';').some(c => c.trim() === '__Host-auth_status=1')
 });
 ```
 

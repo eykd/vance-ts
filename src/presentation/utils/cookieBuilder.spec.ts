@@ -14,8 +14,8 @@ import {
 } from './cookieBuilder';
 
 describe('buildAuthIndicatorCookie', () => {
-  it('sets cookie value to auth_status=1', () => {
-    expect(buildAuthIndicatorCookie()).toMatch(/^auth_status=1;/);
+  it('sets cookie value to __Host-auth_status=1', () => {
+    expect(buildAuthIndicatorCookie()).toMatch(/^__Host-auth_status=1;/);
   });
 
   it('includes Secure flag', () => {
@@ -42,7 +42,7 @@ describe('buildAuthIndicatorCookie', () => {
 describe('clearAuthIndicatorCookie', () => {
   it('sets auth_status to empty with Max-Age=0', () => {
     const value = clearAuthIndicatorCookie();
-    expect(value).toContain('auth_status=');
+    expect(value).toContain('__Host-auth_status=');
     expect(value).toContain('Max-Age=0');
   });
 
@@ -222,11 +222,11 @@ describe('hasAuthIndicatorCookie', () => {
   });
 
   it('returns true when auth indicator cookie is present in the header', () => {
-    expect(hasAuthIndicatorCookie('auth_status=1')).toBe(true);
+    expect(hasAuthIndicatorCookie('__Host-auth_status=1')).toBe(true);
   });
 
   it('returns true when auth indicator cookie is present alongside other cookies', () => {
-    expect(hasAuthIndicatorCookie('other=value; auth_status=1; more=stuff')).toBe(true);
+    expect(hasAuthIndicatorCookie('other=value; __Host-auth_status=1; more=stuff')).toBe(true);
   });
 });
 

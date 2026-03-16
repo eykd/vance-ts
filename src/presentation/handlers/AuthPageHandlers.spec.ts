@@ -423,7 +423,7 @@ describe('AuthPageHandlers', () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
         const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('auth_status=1');
+        expect(setCookies).toContain('__Host-auth_status=1');
       });
 
       it('passes email, password, and IP to the sign-in use case', async () => {
@@ -1068,7 +1068,7 @@ describe('AuthPageHandlers', () => {
         const req = makeSignOutPostRequest({ sessionCookie: null });
         const res = await handlers.handlePostSignOut(req);
         const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('auth_status=');
+        expect(setCookies).toContain('__Host-auth_status=');
         expect(setCookies).toContain('Max-Age=0');
       });
     });
@@ -1110,7 +1110,7 @@ describe('AuthPageHandlers', () => {
         const req = makeSignOutPostRequest();
         const res = await handlers.handlePostSignOut(req);
         const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('auth_status=');
+        expect(setCookies).toContain('__Host-auth_status=');
       });
 
       it('passes the extracted sessionToken to the use case', async () => {
@@ -1141,7 +1141,7 @@ describe('AuthPageHandlers', () => {
         const req = makeSignOutPostRequest();
         const res = await handlers.handlePostSignOut(req);
         const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('auth_status=');
+        expect(setCookies).toContain('__Host-auth_status=');
         expect(setCookies).toContain('Max-Age=0');
       });
     });

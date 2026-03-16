@@ -181,14 +181,14 @@ describe('createRequireAuth', () => {
     const res = await app.fetch(
       new Request('https://example.com/protected', {
         headers: {
-          Cookie: '__Host-better-auth.session_token=stale-token; auth_status=1',
+          Cookie: '__Host-better-auth.session_token=stale-token; __Host-auth_status=1',
         },
       })
     );
 
     expect(res.status).toBe(302);
     const setCookieHeaders = res.headers.getSetCookie();
-    const indicatorClear = setCookieHeaders.find((h) => h.startsWith('auth_status='));
+    const indicatorClear = setCookieHeaders.find((h) => h.startsWith('__Host-auth_status='));
     expect(indicatorClear).toBeDefined();
     expect(indicatorClear).toContain('Max-Age=0');
   });

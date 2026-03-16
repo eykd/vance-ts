@@ -43,8 +43,8 @@ it("Authenticated users see a Dashboard link in the navbar.", async () => {
 
   // THEN the navbar displays a "Dashboard" link pointing to /dashboard/
   // instead of Sign In and Sign Up links.
-  // The auth_status=1 indicator cookie drives the Alpine.js swap.
-  expect(setCookie).toContain('auth_status=1');
+  // The __Host-auth_status=1 indicator cookie drives the Alpine.js swap.
+  expect(setCookie).toContain('__Host-auth_status=1');
   expect(html).toContain('Dashboard');
   expect(html).toContain('/dashboard/');
   // The authenticated menu is wired to the Alpine.js auth store.
@@ -68,7 +68,7 @@ it("Unauthenticated visitors see Sign In and Sign Up links in the navbar.", asyn
   expect(html).toContain('x-show=!$store.auth?.isAuthenticated');
   // No auth_status cookie is set for unauthenticated responses.
   const setCookie = res.headers.get('Set-Cookie') ?? '';
-  expect(setCookie).not.toContain('auth_status=1');
+  expect(setCookie).not.toContain('__Host-auth_status=1');
 });
 
 // The Dashboard link navigates to the dashboard page.
