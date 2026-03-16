@@ -45,6 +45,7 @@ describe('matchItLine', () => {
     const result = matchItLine('it("my test", async () => {');
     expect(result).not.toBeNull();
     expect(result!.description).toBe('my test');
+    expect(result!.matchLength).toBe('it("my test", async () => {'.length);
   });
 
   it('matches a simple single-quoted it() line', () => {
