@@ -13,6 +13,12 @@
 {"issue_id":"turtlebased-ts-852.3","label":"acceptance"}
 {"issue_id":"turtlebased-ts-852.3","label":"rate-limiting"}
 {"issue_id":"turtlebased-ts-852.3","label":"us04"}
+{"issue_id":"turtlebased-ts-852.4","label":"acceptance"}
+{"issue_id":"turtlebased-ts-852.4","label":"rate-limiting"}
+{"issue_id":"turtlebased-ts-852.4","label":"us04"}
+{"issue_id":"turtlebased-ts-852.5","label":"acceptance"}
+{"issue_id":"turtlebased-ts-852.5","label":"rate-limiting"}
+{"issue_id":"turtlebased-ts-852.5","label":"us04"}
 {"issue_id":"turtlebased-ts-bjd.6.1","label":"acceptance"}
 {"issue_id":"turtlebased-ts-bjd.6.1","label":"spec"}
 {"issue_id":"turtlebased-ts-bjd.6.1","label":"us1"}
