@@ -32,7 +32,7 @@ globalThis.env = env;
  *
  * This constant duplicates the SQL from that file and MUST be kept in sync manually.
  * If you update migrations/0001_better_auth_schema.sql, update the queries array below
- * to match, or acceptance tests will run against a stale schema without any warning.
+ * to match. Divergence is caught by scripts/check-migration-sync.spec.ts (runs in vitest).
  */
 const AUTH_MIGRATIONS = [
   {
