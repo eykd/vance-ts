@@ -126,6 +126,17 @@ describe('extractBoundFunctions', () => {
     expect(result.get('my test')).toBe(source);
   });
 
+  it('recognizes it() with a vitest options object before the callback', () => {
+    const source = [
+      `it("Rate-limited user.", { timeout: 30_000 }, async () => {`,
+      `  expect(1).toBe(1);`,
+      `});`,
+    ].join('\n');
+    const result = extractBoundFunctions(source);
+    expect(result.has('Rate-limited user.')).toBe(true);
+    expect(result.get('Rate-limited user.')).toBe(source);
+  });
+
   it('preserves a bound implementation with apostrophe in double-quoted description', () => {
     const source = `it("User's profile.", async () => {\n  expect(1).toBe(1);\n});`;
     const result = extractBoundFunctions(source);

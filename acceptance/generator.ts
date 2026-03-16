@@ -36,21 +36,22 @@ export function extractBoundFunctions(source: string): Map<string, string> {
     /* c8 ignore next */
     const line = lines[i] ?? '';
     const match =
-      /^it\("((?:[^"\\]|\\.)+)", async \(\) => \{/.exec(line) ??
-      /^it\('((?:[^'\\]|\\.)+)', async \(\) => \{/.exec(line);
+      /^it\("((?:[^"\\]|\\.)+)",\s+(?:\{[^}]*\},\s*)?async \(\) => \{/.exec(line) ??
+      /^it\('((?:[^'\\]|\\.)+)',\s+(?:\{[^}]*\},\s*)?async \(\) => \{/.exec(line);
 
     if (match !== null) {
       /* c8 ignore next */
       const description = (match[1] ?? '').replace(/\\(.)/g, '$1');
       const startLine = i;
-      let depth = 0;
+      let depth = 1; // regex matched through the opening `{` of the callback
       let endLine = -1;
       let inString: string | null = null;
 
       outer: for (let j = startLine; j < lines.length; j++) {
         /* c8 ignore next */
         const scanLine = lines[j] ?? '';
-        for (let k = 0; k < scanLine.length; k++) {
+        const startK = j === startLine ? match[0].length : 0;
+        for (let k = startK; k < scanLine.length; k++) {
           /* c8 ignore next */
           const ch = scanLine[k] ?? '';
           const next = scanLine[k + 1];
