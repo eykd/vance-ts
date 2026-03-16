@@ -44,19 +44,19 @@ describe('matchItLine', () => {
   it('matches a simple double-quoted it() line', () => {
     const result = matchItLine('it("my test", async () => {');
     expect(result).not.toBeNull();
-    expect(result?.description).toBe('my test');
+    expect(result!.description).toBe('my test');
   });
 
   it('matches a simple single-quoted it() line', () => {
     const result = matchItLine("it('my test', async () => {");
     expect(result).not.toBeNull();
-    expect(result?.description).toBe('my test');
+    expect(result!.description).toBe('my test');
   });
 
   it('matches it() with a flat vitest options object', () => {
     const result = matchItLine('it("test", { timeout: 30_000 }, async () => {');
     expect(result).not.toBeNull();
-    expect(result?.description).toBe('test');
+    expect(result!.description).toBe('test');
   });
 
   it('matches it() with nested braces in vitest options', () => {
@@ -64,7 +64,7 @@ describe('matchItLine', () => {
       'it("test", { timeout: 30_000, onFailure: () => {} }, async () => {'
     );
     expect(result).not.toBeNull();
-    expect(result?.description).toBe('test');
+    expect(result!.description).toBe('test');
   });
 
   it('returns null for unclosed options object', () => {
@@ -82,7 +82,7 @@ describe('matchItLine', () => {
   it('unescapes backslash sequences in description', () => {
     const result = matchItLine('it("User enters \\"hello\\".", async () => {');
     expect(result).not.toBeNull();
-    expect(result?.description).toBe('User enters "hello".');
+    expect(result!.description).toBe('User enters "hello".');
   });
 });
 
