@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   UnboundSentinel,
+  at,
   extractBoundFunctions,
   extractCustomImports,
   generateTests,
@@ -9,6 +10,24 @@ import {
   sanitizeFuncName,
 } from './generator.js';
 import type { Feature } from './types.js';
+
+describe('at', () => {
+  it('returns the element at a valid index', () => {
+    expect(at(['a', 'b', 'c'], 1)).toBe('b');
+  });
+
+  it('returns empty string for out-of-bounds index', () => {
+    expect(at(['a', 'b'], 5)).toBe('');
+  });
+
+  it('returns empty string for negative index', () => {
+    expect(at(['a', 'b'], -1)).toBe('');
+  });
+
+  it('returns empty string from an empty array', () => {
+    expect(at([], 0)).toBe('');
+  });
+});
 
 describe('sanitizeFuncName', () => {
   it('converts spaces and punctuation to underscores', () => {

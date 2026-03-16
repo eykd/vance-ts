@@ -4,6 +4,21 @@ import { basename, extname } from 'path';
 import type { Feature } from './types.js';
 
 /**
+ * Safe indexed access returning empty string for out-of-bounds positions.
+ *
+ * Consolidates the `arr[i] ?? ''` pattern required by `noUncheckedIndexedAccess`
+ * into a single location instead of scattering `c8 ignore next` comments.
+ *
+ * @param source - The array to index into.
+ * @param index - The position to access.
+ * @returns The element at `index`, or `''` if out of bounds.
+ */
+/* c8 ignore next */
+export function at(source: readonly string[], index: number): string {
+  return source[index] ?? '';
+}
+
+/**
  * Sentinel string placed in generated stub it() blocks.
  * If a block contains this string, it has not yet been bound to a real
  * implementation and will be regenerated on the next pipeline run.
@@ -31,8 +46,7 @@ export function matchItLine(line: string): { description: string; matchLength: n
   if (prefix === null) {
     return null;
   }
-  /* c8 ignore next */
-  const description = (prefix[1] ?? '').replace(/\\(.)/g, '$1');
+  const description = at(prefix, 1).replace(/\\(.)/g, '$1');
   let pos = prefix[0].length;
 
   // Optional vitest options object: { ... },\s*
@@ -89,8 +103,7 @@ export function extractBoundFunctions(source: string): Map<string, string> {
   let i = 0;
 
   while (i < lines.length) {
-    /* c8 ignore next */
-    const line = lines[i] ?? '';
+    const line = at(lines, i);
     const match = matchItLine(line);
 
     if (match !== null) {
@@ -101,12 +114,10 @@ export function extractBoundFunctions(source: string): Map<string, string> {
       let inString: string | null = null;
 
       outer: for (let j = startLine; j < lines.length; j++) {
-        /* c8 ignore next */
-        const scanLine = lines[j] ?? '';
+        const scanLine = at(lines, j);
         const startK = j === startLine ? match.matchLength : 0;
         for (let k = startK; k < scanLine.length; k++) {
-          /* c8 ignore next */
-          const ch = scanLine[k] ?? '';
+          const ch = scanLine.charAt(k);
           const next = scanLine[k + 1];
 
           if (inString !== null) {
@@ -170,8 +181,7 @@ export function extractCustomImports(source: string): string[] {
     if (fromMatch === null) {
       return true; // side-effect import — always custom
     }
-    /* c8 ignore next */
-    const specifier = (fromMatch[1] ?? '').replace(/'/g, '"');
+    const specifier = at(fromMatch, 1).replace(/'/g, '"');
     return !STANDARD_IMPORT_SOURCES.has(specifier);
   });
 }
