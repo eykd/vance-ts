@@ -62,8 +62,8 @@ fix: format lint-fix
 ci: clean install type-check lint format-check test-coverage build hugo-install hugo-test
     @echo "✅ CI pipeline completed successfully!"
 
-# Watch mode for development
-dev:
+# Watch mode for TypeScript compilation
+build-watch:
     npx tsc --watch
 
 # Run security audit
