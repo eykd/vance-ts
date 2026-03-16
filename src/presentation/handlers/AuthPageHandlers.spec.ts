@@ -191,10 +191,10 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('Content-Type')).toContain('text/html');
     });
 
-    it('sets Cache-Control: no-store, no-cache', () => {
+    it('sets Cache-Control: no-store', () => {
       const req = new Request('https://example.com/auth/sign-in');
       const res = handlers.handleGetSignIn(req);
-      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+      expect(res.headers.get('Cache-Control')).toBe('no-store');
     });
 
     it('sets __Host-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
@@ -470,10 +470,10 @@ describe('AuthPageHandlers', () => {
         expect(body).toContain('alice@example.com');
       });
 
-      it('sets Cache-Control: no-store, no-cache on the error response', async () => {
+      it('sets Cache-Control: no-store on the error response', async () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
-        expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+        expect(res.headers.get('Cache-Control')).toBe('no-store');
       });
 
       it('sets a fresh CSRF cookie on the error response', async () => {
@@ -637,10 +637,10 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('Content-Type')).toContain('text/html');
     });
 
-    it('sets Cache-Control: no-store, no-cache', () => {
+    it('sets Cache-Control: no-store', () => {
       const req = new Request('https://example.com/auth/sign-up');
       const res = handlers.handleGetSignUp(req);
-      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+      expect(res.headers.get('Cache-Control')).toBe('no-store');
     });
 
     it('sets __Host-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
@@ -880,10 +880,10 @@ describe('AuthPageHandlers', () => {
         expect(body).toContain('alice@example.com');
       });
 
-      it('sets Cache-Control: no-store, no-cache on the error response', async () => {
+      it('sets Cache-Control: no-store on the error response', async () => {
         const req = makeSignUpPostRequest();
         const res = await handlers.handlePostSignUp(req);
-        expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+        expect(res.headers.get('Cache-Control')).toBe('no-store');
       });
 
       it('sets a fresh CSRF cookie on the error response with Max-Age=3600', async () => {
