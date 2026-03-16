@@ -11,6 +11,7 @@ document.addEventListener('alpine:init', function () {
   Alpine.store('auth', {
     isAuthenticated: document.cookie
       .split(';')
+      // Cookie name must match AUTH_INDICATOR_COOKIE_NAME in src/presentation/utils/cookieBuilder.ts
       .some(function (c) { return c.trim() === '__Host-auth_status=1'; })
   });
 
