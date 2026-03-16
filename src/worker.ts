@@ -31,6 +31,7 @@ const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<
 app.use('/api/*', withSecurityHeaders);
 app.use('/app/_/*', withSecurityHeaders);
 app.use('/auth/*', withSecurityHeaders);
+app.use('/dashboard/*', withSecurityHeaders);
 
 /**
  * Middleware: require authentication before proceeding.
