@@ -25,6 +25,9 @@ const app = new Hono<AppEnv>();
  */
 const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<void> => {
   await next();
+  // Reconstruct the response so headers are always mutable —
+  // ASSETS.fetch responses have immutable headers in the Workers runtime.
+  c.res = new Response(c.res.body, c.res);
   applySecurityHeaders(c.res.headers);
 };
 
