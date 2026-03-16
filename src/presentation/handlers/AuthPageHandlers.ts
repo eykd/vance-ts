@@ -241,10 +241,14 @@ export class AuthPageHandlers {
     }
 
     const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
+    const errorMessage =
+      result.kind === 'service_error'
+        ? 'An error occurred. Please try again.'
+        : 'Invalid email or password';
     const body = loginPage({
       csrfToken,
       email,
-      error: 'Invalid email or password',
+      error: errorMessage,
       redirectTo: redirectTo !== '/' ? redirectTo : undefined,
     });
 

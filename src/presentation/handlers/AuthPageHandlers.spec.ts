@@ -552,12 +552,13 @@ describe('AuthPageHandlers', () => {
         });
       });
 
-      it('returns 200 with a generic error message', async () => {
+      it('returns 200 with a server error message instead of invalid credentials', async () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
         expect(res.status).toBe(200);
         const body = await res.text();
-        expect(body).toContain('Invalid email or password');
+        expect(body).toContain('An error occurred. Please try again.');
+        expect(body).not.toContain('Invalid email or password');
       });
     });
 
