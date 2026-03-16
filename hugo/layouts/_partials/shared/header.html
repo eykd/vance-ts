@@ -25,7 +25,7 @@
     {{/* Auth-aware navbar buttons — Alpine.js swaps between states */}}
     <div x-data class="min-w-48" aria-live="polite">
       {{/* Unauthenticated: visible by default (progressive enhancement for no-JS) */}}
-      <ul class="menu menu-horizontal" :class="{ 'hidden': $store.auth?.isAuthenticated }" aria-label="Account">
+      <ul class="menu menu-horizontal" :class="{ 'hidden': $store.auth.isAuthenticated }" aria-label="Account">
         <li class="text-center">
           <a class="link link-hover link-primary" href="/auth/sign-in">Sign In</a>
         </li>
@@ -34,7 +34,7 @@
         </li>
       </ul>
       {{/* Authenticated: hidden until Alpine confirms auth (x-cloak prevents FOUC) */}}
-      <ul class="menu menu-horizontal" x-cloak :class="{ 'hidden': !$store.auth?.isAuthenticated }" aria-label="Account">
+      <ul class="menu menu-horizontal" x-cloak :class="{ 'hidden': !$store.auth.isAuthenticated }" aria-label="Account">
         <li class="text-center">
           {{ partial "components/button/primary" (dict "label" "Dashboard" "href" "/dashboard/") }}
         </li>

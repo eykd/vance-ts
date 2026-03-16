@@ -393,3 +393,5 @@
 {"actor":"eykd","comment":null,"created_at":"2026-03-16T18:26:43Z","event_type":"closed","id":393,"issue_id":"turtlebased-ts-bjd.6.54","new_value":"Closed","old_value":""}
 {"actor":"eykd","comment":null,"created_at":"2026-03-16T18:29:42Z","event_type":"closed","id":394,"issue_id":"turtlebased-ts-bjd.6.52","new_value":"Closed","old_value":""}
 {"actor":"eykd","comment":null,"created_at":"2026-03-16T18:35:32Z","event_type":"closed","id":395,"issue_id":"turtlebased-ts-bjd.6.53","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-16T18:41:48Z","event_type":"closed","id":396,"issue_id":"turtlebased-ts-bjd.6","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-16T18:41:51Z","event_type":"closed","id":397,"issue_id":"turtlebased-ts-bjd","new_value":"all steps complete","old_value":""}

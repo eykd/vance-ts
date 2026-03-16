@@ -13,4 +13,24 @@ document.addEventListener('alpine:init', function () {
       .split(';')
       .some(function (c) { return c.trim() === '__Host-auth_status=1'; })
   });
+
+  /**
+   * Dashboard guard component — redirects unauthenticated visitors to sign-in.
+   *
+   * Usage: <div x-data="dashboardGuard" data-redirect-url="/dashboard/">
+   * The init() method runs automatically when Alpine initialises the component.
+   */
+  Alpine.data('dashboardGuard', function () {
+    return {
+      init: function () {
+        if (!this.$store.auth.isAuthenticated) {
+          var status = this.$el.querySelector('[role=status]');
+          if (status) { status.textContent = 'Redirecting to sign in...'; }
+          window.location.replace(
+            '/auth/sign-in?redirectTo=' + encodeURIComponent(this.$el.dataset.redirectUrl)
+          );
+        }
+      }
+    };
+  });
 });

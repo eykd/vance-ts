@@ -11,4 +11,4 @@ export const STYLES_CSS_PATH =
 export const HTMX_JS_PATH = '/js/htmx-2.0.8.min.js';
 
 /** Public URL path to the self-hosted Alpine.js library. */
-export const ALPINE_JS_PATH = '/js/alpine-3.15.8.min.js';
+export const ALPINE_JS_PATH = '/js/alpine-csp-3.15.8.min.js';

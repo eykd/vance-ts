@@ -48,7 +48,7 @@ it("Authenticated users see a Dashboard link in the navbar.", async () => {
   expect(html).toContain('Dashboard');
   expect(html).toContain('/dashboard/');
   // The authenticated menu is wired to the Alpine.js auth store via class binding.
-  expect(html).toContain(":class=\"{ 'hidden': !$store.auth?.isAuthenticated }\"");
+  expect(html).toContain(":class=\"{ 'hidden': !$store.auth.isAuthenticated }\"");
 });
 
 // Unauthenticated visitors see Sign In and Sign Up links in the navbar.
@@ -65,7 +65,7 @@ it("Unauthenticated visitors see Sign In and Sign Up links in the navbar.", asyn
   expect(html).toContain('Sign In');
   expect(html).toContain('Sign Up');
   // The unauthenticated menu toggles visibility via class binding (visible when no auth_status cookie).
-  expect(html).toContain(":class=\"{ 'hidden': $store.auth?.isAuthenticated }\"");
+  expect(html).toContain(":class=\"{ 'hidden': $store.auth.isAuthenticated }\"");
   // No auth_status cookie is set for unauthenticated responses.
   const setCookie = res.headers.get('Set-Cookie') ?? '';
   expect(setCookie).not.toContain('__Host-auth_status=1');
