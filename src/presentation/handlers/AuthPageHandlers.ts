@@ -176,7 +176,8 @@ export class AuthPageHandlers {
   handleGetSignIn(request: Request): Response {
     const url = new URL(request.url);
     const registeredSuccess = url.searchParams.get('registered') === 'true';
-    const redirectTo = url.searchParams.get('redirectTo') ?? undefined;
+    const validated = validateRedirectTo(url.searchParams.get('redirectTo'));
+    const redirectTo = validated !== '/' ? validated : undefined;
 
     const { headers, csrfToken } = this.makeFreshAuthHeaders();
     return new Response(loginPage({ csrfToken, redirectTo, registeredSuccess }), { headers });

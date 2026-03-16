@@ -269,6 +269,38 @@ describe('AuthPageHandlers', () => {
       const body = await res.text();
       expect(body).not.toContain('name="redirectTo"');
     });
+
+    it('sanitises external URL in redirectTo to / (no hidden field rendered)', async () => {
+      const req = new Request('https://example.com/auth/sign-in?redirectTo=https%3A%2F%2Fevil.com');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('name="redirectTo"');
+      expect(body).not.toContain('evil.com');
+    });
+
+    it('sanitises javascript: URI in redirectTo to / (no hidden field rendered)', async () => {
+      const req = new Request('https://example.com/auth/sign-in?redirectTo=javascript%3Aalert(1)');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('name="redirectTo"');
+      expect(body).not.toContain('javascript');
+    });
+
+    it('sanitises protocol-relative URL in redirectTo to / (no hidden field rendered)', async () => {
+      const req = new Request('https://example.com/auth/sign-in?redirectTo=%2F%2Fevil.com');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('name="redirectTo"');
+      expect(body).not.toContain('evil.com');
+    });
+
+    it('preserves valid redirectTo after validation', async () => {
+      const req = new Request('https://example.com/auth/sign-in?redirectTo=%2Fdashboard');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).toContain('name="redirectTo"');
+      expect(body).toContain('/dashboard');
+    });
   });
 
   describe('handlePostSignIn', () => {
