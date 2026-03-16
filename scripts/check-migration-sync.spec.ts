@@ -93,7 +93,7 @@ CREATE TABLE bar (name text);`;
     ],
   },
 ];`;
-      const result = verifyMigrationSync(migrationSql, setupContent);
+      const result = verifyMigrationSync(migrationSql, setupContent, '0001.sql');
       expect(result.ok).toBe(true);
     });
 
@@ -108,9 +108,10 @@ CREATE TABLE bar (name text);`;
     ],
   },
 ];`;
-      const result = verifyMigrationSync(migrationSql, setupContent);
+      const result = verifyMigrationSync(migrationSql, setupContent, 'my_migration.sql');
       expect(result.ok).toBe(false);
       expect(result.message).toContain('diverged');
+      expect(result.message).toContain('my_migration.sql');
     });
 
     it('returns error when statement count differs', () => {
@@ -124,7 +125,7 @@ CREATE TABLE bar (name text);`;
     ],
   },
 ];`;
-      const result = verifyMigrationSync(migrationSql, setupContent);
+      const result = verifyMigrationSync(migrationSql, setupContent, '0001.sql');
       expect(result.ok).toBe(false);
       expect(result.message).toContain('count');
     });
@@ -132,18 +133,14 @@ CREATE TABLE bar (name text);`;
 
   describe('integration: actual files', () => {
     it('migration file and setup.ts inlined SQL are in sync', () => {
-      const migrationPath = path.resolve(
-        __dirname,
-        '..',
-        'migrations',
-        '0001_better_auth_schema.sql'
-      );
+      const migrationFilename = '0001_better_auth_schema.sql';
+      const migrationPath = path.resolve(__dirname, '..', 'migrations', migrationFilename);
       const setupPath = path.resolve(__dirname, '..', 'generated-acceptance-tests', 'setup.ts');
 
       const migrationSql = fs.readFileSync(migrationPath, 'utf-8');
       const setupContent = fs.readFileSync(setupPath, 'utf-8');
 
-      const result = verifyMigrationSync(migrationSql, setupContent);
+      const result = verifyMigrationSync(migrationSql, setupContent, migrationFilename);
       expect(result.ok, result.message ?? 'migration sync failed').toBe(true);
     });
   });

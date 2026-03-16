@@ -63,10 +63,15 @@ export function extractInlinedQueries(content: string): string[] {
  *
  * @param migrationSql - raw SQL content from the migration file
  * @param setupContent - TypeScript source of the acceptance test setup file
+ * @param migrationFilename - display name of the migration file for error messages
  *
  * @returns sync result with ok flag and optional error message
  */
-export function verifyMigrationSync(migrationSql: string, setupContent: string): SyncResult {
+export function verifyMigrationSync(
+  migrationSql: string,
+  setupContent: string,
+  migrationFilename: string
+): SyncResult {
   const migrationStatements = parseMigrationSql(migrationSql);
   const inlinedQueries = extractInlinedQueries(setupContent);
 
@@ -88,7 +93,7 @@ export function verifyMigrationSync(migrationSql: string, setupContent: string):
         ok: false,
         message:
           `Inlined AUTH_MIGRATIONS has diverged from ` +
-          `migrations/0001_better_auth_schema.sql at statement ${i + 1}.\n` +
+          `${migrationFilename} at statement ${i + 1}.\n` +
           `  Migration: ${migrationStatements[i]}\n` +
           `  Inlined:   ${normalizedInlined[i]}`,
       };
