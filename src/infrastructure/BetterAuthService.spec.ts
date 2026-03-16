@@ -79,7 +79,12 @@ describe('BetterAuthService', () => {
     });
 
     it('passes email and password in the request body', async () => {
-      authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 200 }));
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response(null, {
+          status: 200,
+          headers: { 'set-cookie': '__Host-better-auth.session_token=test; Path=/' },
+        })
+      );
 
       await service.signIn({
         email: 'user@example.com',
@@ -92,7 +97,12 @@ describe('BetterAuthService', () => {
     });
 
     it('calls auth.api.signInEmail with asResponse: true', async () => {
-      authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 200 }));
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response(null, {
+          status: 200,
+          headers: { 'set-cookie': '__Host-better-auth.session_token=test; Path=/' },
+        })
+      );
 
       await service.signIn({
         email: 'user@example.com',
