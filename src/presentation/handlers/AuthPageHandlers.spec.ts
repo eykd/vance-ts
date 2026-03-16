@@ -355,15 +355,14 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(403);
       });
 
-      it('calls timingSafeStringEqual even when CSRF cookie is absent (timing oracle defence)', async () => {
+      it('rejects before calling timingSafeStringEqual when CSRF cookie is absent (null guard)', async () => {
         const req = new Request('https://example.com/auth/sign-in', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: `_csrf=${TEST_CSRF}&email=user@example.com&password=pass12`,
         });
         await handlers.handlePostSignIn(req);
-        expect(timingSafeStringEqual).toHaveBeenCalledOnce();
-        expect(timingSafeStringEqual).toHaveBeenCalledWith(TEST_CSRF, '');
+        expect(timingSafeStringEqual).not.toHaveBeenCalled();
       });
 
       it('returns 403 when form _csrf token does not match cookie token', async () => {
@@ -374,6 +373,16 @@ describe('AuthPageHandlers', () => {
 
       it('returns 403 when form _csrf token is empty', async () => {
         const req = makePostRequest({ csrfToken: '' });
+        const res = await handlers.handlePostSignIn(req);
+        expect(res.status).toBe(403);
+      });
+
+      it('returns 403 when both form _csrf and cookie are absent (empty string coercion)', async () => {
+        const req = new Request('https://example.com/auth/sign-in', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'email=user@example.com&password=pass12',
+        });
         const res = await handlers.handlePostSignIn(req);
         expect(res.status).toBe(403);
       });
@@ -749,15 +758,14 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(403);
       });
 
-      it('calls timingSafeStringEqual even when CSRF cookie is absent (timing oracle defence)', async () => {
+      it('rejects before calling timingSafeStringEqual when CSRF cookie is absent (null guard)', async () => {
         const req = new Request('https://example.com/auth/sign-up', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: `_csrf=${TEST_CSRF}&email=user@example.com&password=pass12345678`,
         });
         await handlers.handlePostSignUp(req);
-        expect(timingSafeStringEqual).toHaveBeenCalledOnce();
-        expect(timingSafeStringEqual).toHaveBeenCalledWith(TEST_CSRF, '');
+        expect(timingSafeStringEqual).not.toHaveBeenCalled();
       });
 
       it('returns 403 when form _csrf token does not match cookie token', async () => {
@@ -768,6 +776,16 @@ describe('AuthPageHandlers', () => {
 
       it('returns 403 when form _csrf token is empty', async () => {
         const req = makeSignUpPostRequest({ csrfToken: '' });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(403);
+      });
+
+      it('returns 403 when both form _csrf and cookie are absent (empty string coercion)', async () => {
+        const req = new Request('https://example.com/auth/sign-up', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'email=newuser@example.com&password=correcthorse12',
+        });
         const res = await handlers.handlePostSignUp(req);
         expect(res.status).toBe(403);
       });
@@ -1029,7 +1047,7 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(403);
       });
 
-      it('calls timingSafeStringEqual even when CSRF cookie is absent (timing oracle defence)', async () => {
+      it('rejects before calling timingSafeStringEqual when CSRF cookie is absent (null guard)', async () => {
         const req = new Request('https://example.com/auth/sign-out', {
           method: 'POST',
           headers: {
@@ -1039,12 +1057,21 @@ describe('AuthPageHandlers', () => {
           body: `_csrf=${TEST_CSRF}`,
         });
         await handlers.handlePostSignOut(req);
-        expect(timingSafeStringEqual).toHaveBeenCalledOnce();
-        expect(timingSafeStringEqual).toHaveBeenCalledWith(TEST_CSRF, '');
+        expect(timingSafeStringEqual).not.toHaveBeenCalled();
       });
 
       it('returns 403 when form _csrf token does not match cookie token', async () => {
         const req = makeSignOutPostRequest({ csrfToken: 'wrong-token', csrfCookie: TEST_CSRF });
+        const res = await handlers.handlePostSignOut(req);
+        expect(res.status).toBe(403);
+      });
+
+      it('returns 403 when both form _csrf and cookie are absent (empty string coercion)', async () => {
+        const req = new Request('https://example.com/auth/sign-out', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: '',
+        });
         const res = await handlers.handlePostSignOut(req);
         expect(res.status).toBe(403);
       });
