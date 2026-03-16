@@ -68,3 +68,6 @@
 {"author":"eykd","created_at":"2026-03-16T17:14:27Z","id":68,"issue_id":"turtlebased-ts-bjd.6.38","text":"Starting work: fixing signIn mock to include set-cookie header"}
 {"author":"eykd","created_at":"2026-03-16T17:16:50Z","id":69,"issue_id":"turtlebased-ts-bjd.6.36","text":"Starting work on empty sessionToken guard"}
 {"author":"eykd","created_at":"2026-03-16T17:21:43Z","id":70,"issue_id":"turtlebased-ts-bjd.6.42","text":"Starting work on null-coercion fix for sessionToken"}
+{"author":"eykd","created_at":"2026-03-16T17:27:03Z","id":71,"issue_id":"turtlebased-ts-bjd.6.43","text":"Starting work: fix optional chaining after not.toBeNull() assertions"}
+{"author":"eykd","created_at":"2026-03-16T17:33:23Z","id":72,"issue_id":"turtlebased-ts-bjd.6.41","text":"Starting work: fixing unsafe unknown casts in worker middleware spec"}
+{"author":"eykd","created_at":"2026-03-16T17:36:00Z","id":73,"issue_id":"turtlebased-ts-bjd.6.39","text":"Starting work: adding expect.assertions to guarded failure tests"}

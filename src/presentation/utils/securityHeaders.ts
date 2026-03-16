@@ -31,7 +31,7 @@ export function buildCspHeaderValue(): string {
  *
  * Sets Content-Security-Policy, X-Content-Type-Options, X-Frame-Options,
  * Referrer-Policy, Strict-Transport-Security, X-Permitted-Cross-Domain-Policies,
- * Permissions-Policy, and Cross-Origin-Opener-Policy.
+ * Permissions-Policy, Cross-Origin-Opener-Policy, and Cache-Control.
  * Existing headers on the object are preserved.
  *
  * @param headers - The Headers object to mutate
@@ -45,4 +45,5 @@ export function applySecurityHeaders(headers: Headers): void {
   headers.set('X-Permitted-Cross-Domain-Policies', 'none');
   headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=(), usb=()');
   headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  headers.set('Cache-Control', 'no-store');
 }

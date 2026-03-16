@@ -99,6 +99,10 @@ describe('applySecurityHeaders', () => {
     expect(headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
   });
 
+  it('sets Cache-Control to no-store to prevent caching of authenticated pages', () => {
+    expect(headers.get('Cache-Control')).toBe('no-store');
+  });
+
   it('preserves existing headers', () => {
     const existing = new Headers({ 'X-Custom': 'keep-me' });
     applySecurityHeaders(existing);
