@@ -129,7 +129,7 @@ export class AuthPageHandlers {
     const csrfFormToken = form.get('_csrf') ?? '';
     const csrfCookieToken = extractCsrfTokenFromCookies(request.headers.get('Cookie'));
 
-    if (csrfCookieToken === null || !timingSafeStringEqual(csrfFormToken, csrfCookieToken)) {
+    if (!timingSafeStringEqual(csrfFormToken, csrfCookieToken ?? '')) {
       return new Response('Forbidden', { status: 403 });
     }
 

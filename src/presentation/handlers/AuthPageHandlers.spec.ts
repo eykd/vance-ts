@@ -4,8 +4,14 @@ import type { AuthService } from '../../application/ports/AuthService.js';
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
 import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
+import { timingSafeStringEqual } from '../utils/timingSafeEqual.js';
 
 import { AuthPageHandlers } from './AuthPageHandlers.js';
+
+vi.mock('../utils/timingSafeEqual.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/timingSafeEqual.js')>();
+  return { timingSafeStringEqual: vi.fn(actual.timingSafeStringEqual) };
+});
 
 /** Fixed CSRF token used across test requests (64-char hex string). */
 const TEST_CSRF = 'a'.repeat(64);
@@ -355,6 +361,17 @@ describe('AuthPageHandlers', () => {
         });
         const res = await handlers.handlePostSignIn(req);
         expect(res.status).toBe(403);
+      });
+
+      it('calls timingSafeStringEqual even when CSRF cookie is absent (timing oracle defence)', async () => {
+        const req = new Request('https://example.com/auth/sign-in', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `_csrf=${TEST_CSRF}&email=user@example.com&password=pass12`,
+        });
+        await handlers.handlePostSignIn(req);
+        expect(timingSafeStringEqual).toHaveBeenCalledOnce();
+        expect(timingSafeStringEqual).toHaveBeenCalledWith(TEST_CSRF, '');
       });
 
       it('returns 403 when form _csrf token does not match cookie token', async () => {
@@ -740,6 +757,17 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(403);
       });
 
+      it('calls timingSafeStringEqual even when CSRF cookie is absent (timing oracle defence)', async () => {
+        const req = new Request('https://example.com/auth/sign-up', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `_csrf=${TEST_CSRF}&email=user@example.com&password=pass12345678`,
+        });
+        await handlers.handlePostSignUp(req);
+        expect(timingSafeStringEqual).toHaveBeenCalledOnce();
+        expect(timingSafeStringEqual).toHaveBeenCalledWith(TEST_CSRF, '');
+      });
+
       it('returns 403 when form _csrf token does not match cookie token', async () => {
         const req = makeSignUpPostRequest({ csrfToken: 'wrong-token', csrfCookie: TEST_CSRF });
         const res = await handlers.handlePostSignUp(req);
@@ -1007,6 +1035,20 @@ describe('AuthPageHandlers', () => {
         });
         const res = await handlers.handlePostSignOut(req);
         expect(res.status).toBe(403);
+      });
+
+      it('calls timingSafeStringEqual even when CSRF cookie is absent (timing oracle defence)', async () => {
+        const req = new Request('https://example.com/auth/sign-out', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Cookie: '__Host-better-auth.session-token=test',
+          },
+          body: `_csrf=${TEST_CSRF}`,
+        });
+        await handlers.handlePostSignOut(req);
+        expect(timingSafeStringEqual).toHaveBeenCalledOnce();
+        expect(timingSafeStringEqual).toHaveBeenCalledWith(TEST_CSRF, '');
       });
 
       it('returns 403 when form _csrf token does not match cookie token', async () => {
