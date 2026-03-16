@@ -120,6 +120,9 @@ hugo-check:
 # Worker Development Commands
 # ============================================================================
 
+# Build Hugo + start Workers dev server (production-like, single port)
+dev: hugo-build dev-worker
+
 # Start local dev server with Workers runtime + static assets
 dev-worker:
     npx wrangler dev
