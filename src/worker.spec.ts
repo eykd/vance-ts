@@ -331,6 +331,51 @@ describe('Worker', () => {
     });
   });
 
+  describe('405 Method Not Allowed on auth page routes', () => {
+    it.each([
+      { path: '/auth/sign-in', method: 'PUT', allow: 'GET, POST' },
+      { path: '/auth/sign-in', method: 'DELETE', allow: 'GET, POST' },
+      { path: '/auth/sign-in', method: 'PATCH', allow: 'GET, POST' },
+      { path: '/auth/sign-up', method: 'PUT', allow: 'GET, POST' },
+      { path: '/auth/sign-up', method: 'DELETE', allow: 'GET, POST' },
+      { path: '/auth/sign-up', method: 'PATCH', allow: 'GET, POST' },
+      { path: '/auth/sign-out', method: 'GET', allow: 'POST' },
+      { path: '/auth/sign-out', method: 'PUT', allow: 'POST' },
+      { path: '/auth/sign-out', method: 'DELETE', allow: 'POST' },
+      { path: '/auth/sign-out', method: 'PATCH', allow: 'POST' },
+    ])('returns 405 for $method $path with Allow: $allow', async ({ path, method, allow }) => {
+      const env = mockEnv();
+      const req = new Request(`https://example.com${path}`, { method });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(405);
+      expect(res.headers.get('Allow')).toBe(allow);
+    });
+
+    it('includes security headers on 405 responses', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/auth/sign-out', { method: 'PUT' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(405);
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    });
+
+    it('does not delegate to auth page handlers for unsupported methods', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/auth/sign-out', { method: 'DELETE' });
+
+      await app.fetch(req, env);
+
+      expect(mocks.handlePostSignOut).not.toHaveBeenCalled();
+      expect(mocks.handleGetSignIn).not.toHaveBeenCalled();
+      expect(mocks.handlePostSignIn).not.toHaveBeenCalled();
+    });
+  });
+
   describe('GET /api/auth/*', () => {
     it('delegates to authHandler before /api/* catch-all', async () => {
       const env = mockEnv();

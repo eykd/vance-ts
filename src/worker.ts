@@ -137,6 +137,24 @@ app.post('/auth/sign-out', async (c): Promise<Response> => {
   return getServiceFactory(c.env).authPageHandlers.handlePostSignOut(c.req.raw);
 });
 
+/**
+ * Returns 405 Method Not Allowed for unsupported methods on auth page routes.
+ *
+ * Registered after the specific GET/POST handlers so that only unhandled
+ * methods (PUT, DELETE, PATCH, etc.) reach these catch-alls.
+ */
+app.all('/auth/sign-in', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET, POST' });
+});
+
+app.all('/auth/sign-up', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET, POST' });
+});
+
+app.all('/auth/sign-out', (c): Response => {
+  return c.body(null, 405, { Allow: 'POST' });
+});
+
 /** Catch-all for unimplemented app partial routes. */
 app.all('/app/_/*', appPartialNotFound);
 

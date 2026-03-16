@@ -85,3 +85,5 @@
 {"author":"eykd","created_at":"2026-03-16T19:09:59Z","id":85,"issue_id":"turtlebased-ts-bjd.6.56","text":"Starting work: adding source-of-truth comment for hardcoded cookie name"}
 {"author":"eykd","created_at":"2026-03-16T19:12:09Z","id":86,"issue_id":"turtlebased-ts-bjd.6.55","text":"Starting work: adding documentation comment for extractInlinedQueries regex limitation"}
 {"author":"eykd","created_at":"2026-03-16T19:15:42Z","id":87,"issue_id":"turtlebased-ts-bjd.6","text":"Starting implementation. Reviewing spec, plan, and current codebase state to determine remaining work."}
+{"author":"eykd","created_at":"2026-03-16T21:44:02Z","id":88,"issue_id":"turtlebased-ts-tfc","text":"Starting work: GET handler needs validateRedirectTo call for defense-in-depth"}
+{"author":"eykd","created_at":"2026-03-16T21:51:21Z","id":89,"issue_id":"turtlebased-ts-yjz","text":"Starting work on 405 Method Not Allowed for auth routes"}
