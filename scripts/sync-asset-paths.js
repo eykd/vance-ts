@@ -52,7 +52,7 @@ function findStylesCss() {
 /** Self-hosted JS library paths (not fingerprinted, served from hugo/static/js/). */
 const JS_ASSETS = {
   HTMX_JS_PATH: '/js/htmx-2.0.8.min.js',
-  ALPINE_JS_PATH: '/js/alpine-3.15.8.min.js',
+  ALPINE_JS_PATH: '/js/alpine-csp-3.15.8.min.js',
 };
 
 /**

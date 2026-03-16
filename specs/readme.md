@@ -142,6 +142,16 @@ Spec: specs/011-better-auth/spec.md
 
 ---
 
+## Auth-Static Site Integration
+
+Keywords: auth integration, static site auth, navbar auth, sign in link, sign up button,
+dashboard, auth status, session check, authenticated navbar, HTMX swap, Alpine.js store,
+progressive enhancement, auth guard, client-side redirect, auth endpoint, hypermedia auth,
+Get Started replacement, nav auth area, auth state, fail-closed
+Spec: specs/012-auth-static-integration/spec.md
+
+---
+
 ## How to Update This File
 
 When adding a new spec via `/sp:01-specify`, the workflow updates this file automatically.

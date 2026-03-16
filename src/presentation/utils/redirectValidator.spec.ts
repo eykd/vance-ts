@@ -40,6 +40,10 @@ describe('validateRedirectTo', () => {
       expect(validateRedirectTo('/posts')).toBe('/posts');
     });
 
+    it('should accept /dashboard/ as a valid redirect destination', () => {
+      expect(validateRedirectTo('/dashboard/')).toBe('/dashboard/');
+    });
+
     it('accepts a URL-encoded allowlisted path: %2Fapp%2Fdashboard → /app/dashboard', () => {
       expect(validateRedirectTo('%2Fapp%2Fdashboard')).toBe('/app/dashboard');
     });
@@ -54,8 +58,8 @@ describe('validateRedirectTo', () => {
   });
 
   describe('paths not on allowlist — rejected with default /', () => {
-    it('returns / for an arbitrary path not on the allowlist (/dashboard)', () => {
-      expect(validateRedirectTo('/dashboard')).toBe('/');
+    it('returns / for an arbitrary path not on the allowlist (/settings)', () => {
+      expect(validateRedirectTo('/settings')).toBe('/');
     });
 
     it('returns / for /api/ paths (not on allowlist)', () => {

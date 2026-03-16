@@ -251,30 +251,15 @@ describe('SignInUseCase', () => {
       }
     });
 
-    it('does not use shared unknown bucket when IP is unknown', async () => {
+    it('uses shared sentinel key when IP is unknown so rate limiting is not bypassed', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       await useCase.execute({ ...defaultRequest, ip: 'unknown' });
 
-      expect(rateLimiterMock.checkAndIncrement).not.toHaveBeenCalledWith(
+      expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:sign-in:unknown',
-        expect.anything()
+        SIGN_IN_WINDOW_SECONDS
       );
-    });
-
-    it('uses a UUID-based key when IP is unknown', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
-
-      let capturedKey = '';
-      rateLimiterMock.checkAndIncrement.mockImplementation((key: unknown) => {
-        capturedKey = String(key);
-        return Promise.resolve({ allowed: true });
-      });
-
-      await useCase.execute({ ...defaultRequest, ip: 'unknown' });
-
-      expect(capturedKey).not.toBe('ratelimit:sign-in:unknown');
-      expect(capturedKey).toMatch(/^ratelimit:sign-in:[0-9a-f-]+$/);
     });
   });
 });

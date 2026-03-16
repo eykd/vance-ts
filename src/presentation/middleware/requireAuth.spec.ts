@@ -1,9 +1,20 @@
 import { Hono } from 'hono/tiny';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthService } from '../../application/ports/AuthService.js';
+import type {
+  AuthService,
+  AuthSessionDto,
+  AuthUserDto,
+} from '../../application/ports/AuthService.js';
 
 import { createRequireAuth } from './requireAuth.js';
+
+/** Hono Variables subset for tests that read context variables set by requireAuth. */
+type TestVariables = {
+  user: AuthUserDto;
+  session: AuthSessionDto;
+  csrfToken: string;
+};
 
 /**
  * Creates a minimal AuthService mock with vi.fn() stubs.
@@ -163,6 +174,25 @@ describe('createRequireAuth', () => {
     expect(setCookie).toContain('Max-Age=3600');
   });
 
+  it('clears the auth indicator cookie when redirecting due to an expired session', async () => {
+    authServiceMock.getSession.mockResolvedValue(null);
+
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: {
+          Cookie: '__Host-better-auth.session_token=stale-token; __Host-auth_status=1',
+        },
+      })
+    );
+
+    expect(res.status).toBe(302);
+    const setCookieHeaders = res.headers.getSetCookie();
+    const indicatorClear = setCookieHeaders.find((h) => h.startsWith('__Host-auth_status='));
+    expect(indicatorClear).toBeDefined();
+    expect(indicatorClear).toContain('Max-Age=0');
+  });
+
   it('sets user, session, and csrfToken on Hono context for valid session', async () => {
     authServiceMock.getSession.mockResolvedValue({ user: TEST_USER, session: TEST_SESSION });
 
@@ -170,13 +200,13 @@ describe('createRequireAuth', () => {
     let capturedSession: unknown;
     let capturedCsrfToken: unknown;
 
-    const app = new Hono();
+    const app = new Hono<{ Variables: TestVariables }>();
     const middleware = createRequireAuth(authServiceMock as unknown as AuthService, TEST_SECRET);
     app.use('*', middleware);
     app.get('/protected', (c) => {
-      capturedUser = c.get('user' as never);
-      capturedSession = c.get('session' as never);
-      capturedCsrfToken = c.get('csrfToken' as never);
+      capturedUser = c.get('user');
+      capturedSession = c.get('session');
+      capturedCsrfToken = c.get('csrfToken');
       return c.text('ok');
     });
 

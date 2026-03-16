@@ -7,20 +7,22 @@
  * @module
  */
 
-import type { AuthService } from '../../application/ports/AuthService.js';
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
 import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
 import { loginPage } from '../templates/pages/login.js';
 import { registerPage } from '../templates/pages/register.js';
 import {
+  buildAuthIndicatorCookie,
   buildCsrfCookie,
   buildSessionCookie,
+  clearAuthIndicatorCookie,
   clearCsrfCookie,
   clearSessionCookie,
   extractCsrfTokenFromCookies,
   extractSessionToken,
   generateCsrfToken,
+  hasSessionCookie,
 } from '../utils/cookieBuilder.js';
 import { extractClientIp } from '../utils/extractClientIp.js';
 import { validateRedirectTo } from '../utils/redirectValidator.js';
@@ -60,27 +62,21 @@ export class AuthPageHandlers {
   /** Injected sign-out use case. */
   private readonly signOutUseCase: SignOutUseCase;
 
-  /** Injected auth service port (used for session cookie detection). */
-  private readonly authService: AuthService;
-
   /**
    * Creates a new AuthPageHandlers instance.
    *
    * @param signInUseCase - The sign-in orchestration use case.
    * @param signUpUseCase - The sign-up orchestration use case.
    * @param signOutUseCase - The sign-out orchestration use case.
-   * @param authService - The auth service port (for session presence detection).
    */
   constructor(
     signInUseCase: SignInUseCase,
     signUpUseCase: SignUpUseCase,
-    signOutUseCase: SignOutUseCase,
-    authService: AuthService
+    signOutUseCase: SignOutUseCase
   ) {
     this.signInUseCase = signInUseCase;
     this.signUpUseCase = signUpUseCase;
     this.signOutUseCase = signOutUseCase;
-    this.authService = authService;
   }
 
   /**
@@ -132,6 +128,25 @@ export class AuthPageHandlers {
     }
 
     return form;
+  }
+
+  /**
+   * Builds a 303 redirect response with optional Set-Cookie headers.
+   *
+   * Centralises the redirect-with-cookies pattern used by sign-in success,
+   * sign-up success, and all three sign-out branches.
+   *
+   * @param location - The redirect target URL.
+   * @param cookies - Zero or more Set-Cookie header values to append.
+   * @returns A 303 Response with Location and Set-Cookie headers.
+   */
+  private static buildRedirect(location: string, cookies: string[] = []): Response {
+    const headers = new Headers();
+    headers.set('Location', location);
+    for (const cookie of cookies) {
+      headers.append('Set-Cookie', cookie);
+    }
+    return new Response(null, { status: 303, headers });
   }
 
   /**
@@ -192,11 +207,11 @@ export class AuthPageHandlers {
     const result = await this.signInUseCase.execute({ email, password, ip });
 
     if (result.ok) {
-      const headers = new Headers();
-      headers.set('Location', redirectTo);
-      headers.append('Set-Cookie', buildSessionCookie(result.sessionToken));
-      headers.append('Set-Cookie', clearCsrfCookie());
-      return new Response(null, { status: 303, headers });
+      return AuthPageHandlers.buildRedirect(redirectTo, [
+        buildSessionCookie(result.sessionToken),
+        buildAuthIndicatorCookie(),
+        clearCsrfCookie(),
+      ]);
     }
 
     if (result.kind === 'rate_limited') {
@@ -241,6 +256,7 @@ export class AuthPageHandlers {
    * @param request - The incoming HTTP request.
    * @returns The appropriate HTTP response.
    */
+  // No indicator cookie on sign-up: user is redirected to sign-in, which sets it on success.
   async handlePostSignUp(request: Request): Promise<Response> {
     const formOrError = await this.parseValidatedAuthForm(request);
     if (formOrError instanceof Response) {
@@ -254,10 +270,7 @@ export class AuthPageHandlers {
     const result = await this.signUpUseCase.execute({ email, password, ip });
 
     if (result.ok || result.kind === 'email_taken') {
-      return new Response(null, {
-        status: 303,
-        headers: { Location: '/auth/sign-in?registered=true' },
-      });
+      return AuthPageHandlers.buildRedirect('/auth/sign-in?registered=true');
     }
 
     if (result.kind === 'rate_limited') {
@@ -306,28 +319,29 @@ export class AuthPageHandlers {
     }
 
     const cookieHeader = request.headers.get('Cookie') ?? '';
-    if (!this.authService.hasSession(cookieHeader)) {
-      return new Response(null, {
-        status: 303,
-        headers: { Location: '/auth/sign-in' },
-      });
+    if (!hasSessionCookie(cookieHeader)) {
+      // Clear indicator cookie even without a session — cookie may linger after expiry
+      return AuthPageHandlers.buildRedirect('/auth/sign-in', [clearAuthIndicatorCookie()]);
     }
 
-    const sessionToken = extractSessionToken(cookieHeader) ?? '';
+    const sessionToken = extractSessionToken(cookieHeader);
+    if (sessionToken === null || sessionToken === '') {
+      return AuthPageHandlers.buildRedirect('/auth/sign-in', [clearAuthIndicatorCookie()]);
+    }
+
     const result = await this.signOutUseCase.execute({ sessionToken });
 
     if (result.ok) {
-      const headers = new Headers();
-      headers.set('Location', '/auth/sign-in');
-      headers.append('Set-Cookie', clearSessionCookie());
-      headers.append('Set-Cookie', clearCsrfCookie());
-      return new Response(null, { status: 303, headers });
+      // 303 redirect + Set-Cookie headers are atomic — browser applies all cookies before navigating
+      return AuthPageHandlers.buildRedirect('/auth/sign-in', [
+        clearSessionCookie(),
+        clearAuthIndicatorCookie(),
+        clearCsrfCookie(),
+      ]);
     }
 
     // service_error — redirect home gracefully; session may still be valid
-    return new Response(null, {
-      status: 303,
-      headers: { Location: '/' },
-    });
+    // Still clear indicator cookie so UI reflects uncertain auth state
+    return AuthPageHandlers.buildRedirect('/', [clearAuthIndicatorCookie()]);
   }
 }

@@ -1,5 +1,7 @@
+import type { Context, Next } from 'hono';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { AppEnv } from './presentation/types';
 import type { Env } from './shared/env';
 import app from './worker';
 
@@ -16,15 +18,15 @@ const mocks = vi.hoisted(() => {
   const handlePostSignOut = vi.fn<[Request], Promise<Response>>();
   /** Default: passes through by calling next() (authenticated). */
   const requireAuthMiddlewareFn = vi.fn(
-    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+    async (_c: Context<AppEnv>, next: Next): Promise<Response | void> => next()
   );
   /** Default: passes through by calling next() (not rate limited). */
   const signInApiRateLimitMiddlewareFn = vi.fn(
-    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+    async (_c: Context<AppEnv>, next: Next): Promise<Response | void> => next()
   );
   /** Default: passes through by calling next() (not rate limited). */
   const signUpApiRateLimitMiddlewareFn = vi.fn(
-    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+    async (_c: Context<AppEnv>, next: Next): Promise<Response | void> => next()
   );
 
   const mockFactory = {
@@ -497,6 +499,29 @@ describe('Worker', () => {
       await app.fetch(req, env);
 
       expect(mocks.signUpApiRateLimitMiddlewareFn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('/dashboard/* requireAuth middleware', () => {
+    it('invokes requireAuthMiddleware for /dashboard/ requests', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/dashboard/');
+      await app.fetch(req, env);
+
+      expect(mocks.requireAuthMiddlewareFn).toHaveBeenCalled();
+    });
+
+    it('applies security headers to /dashboard/ responses', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/dashboard/');
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
     });
   });
 

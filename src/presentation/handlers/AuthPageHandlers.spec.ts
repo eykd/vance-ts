@@ -1,11 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthService } from '../../application/ports/AuthService.js';
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
 import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
+import { timingSafeStringEqual } from '../utils/timingSafeEqual.js';
 
 import { AuthPageHandlers } from './AuthPageHandlers.js';
+
+vi.mock('../utils/timingSafeEqual.js', async (importOriginal) => {
+  const actual: { timingSafeStringEqual: typeof timingSafeStringEqual } = await importOriginal();
+  return { timingSafeStringEqual: vi.fn(actual.timingSafeStringEqual) };
+});
 
 /** Fixed CSRF token used across test requests (64-char hex string). */
 const TEST_CSRF = 'a'.repeat(64);
@@ -156,23 +161,16 @@ describe('AuthPageHandlers', () => {
   let signInUseCaseMock: ReturnType<typeof makeUseCaseMock>;
   let signUpUseCaseMock: ReturnType<typeof makeUseCaseMock>;
   let signOutUseCaseMock: ReturnType<typeof makeUseCaseMock>;
-  let authServiceMock: { hasSession: ReturnType<typeof vi.fn> };
   let handlers: AuthPageHandlers;
 
   beforeEach(() => {
     signInUseCaseMock = makeUseCaseMock();
     signUpUseCaseMock = makeUseCaseMock();
     signOutUseCaseMock = makeUseCaseMock();
-    authServiceMock = {
-      hasSession: vi
-        .fn()
-        .mockImplementation((cookieHeader: string) => cookieHeader.includes('better-auth.session')),
-    };
     handlers = new AuthPageHandlers(
       signInUseCaseMock as unknown as SignInUseCase,
       signUpUseCaseMock as unknown as SignUpUseCase,
-      signOutUseCaseMock as unknown as SignOutUseCase,
-      authServiceMock as unknown as AuthService
+      signOutUseCaseMock as unknown as SignOutUseCase
     );
   });
 
@@ -193,10 +191,10 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('Content-Type')).toContain('text/html');
     });
 
-    it('sets Cache-Control: no-store, no-cache', () => {
+    it('sets Cache-Control: no-store', () => {
       const req = new Request('https://example.com/auth/sign-in');
       const res = handlers.handleGetSignIn(req);
-      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+      expect(res.headers.get('Cache-Control')).toBe('no-store');
     });
 
     it('sets __Host-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
@@ -357,6 +355,16 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(403);
       });
 
+      it('rejects before calling timingSafeStringEqual when CSRF cookie is absent (null guard)', async () => {
+        const req = new Request('https://example.com/auth/sign-in', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `_csrf=${TEST_CSRF}&email=user@example.com&password=pass12`,
+        });
+        await handlers.handlePostSignIn(req);
+        expect(timingSafeStringEqual).not.toHaveBeenCalled();
+      });
+
       it('returns 403 when form _csrf token does not match cookie token', async () => {
         const req = makePostRequest({ csrfToken: 'wrong-token', csrfCookie: TEST_CSRF });
         const res = await handlers.handlePostSignIn(req);
@@ -365,6 +373,16 @@ describe('AuthPageHandlers', () => {
 
       it('returns 403 when form _csrf token is empty', async () => {
         const req = makePostRequest({ csrfToken: '' });
+        const res = await handlers.handlePostSignIn(req);
+        expect(res.status).toBe(403);
+      });
+
+      it('returns 403 when both form _csrf and cookie are absent (empty string coercion)', async () => {
+        const req = new Request('https://example.com/auth/sign-in', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'email=user@example.com&password=pass12',
+        });
         const res = await handlers.handlePostSignIn(req);
         expect(res.status).toBe(403);
       });
@@ -398,16 +416,24 @@ describe('AuthPageHandlers', () => {
       it('sets the session cookie from better-auth token', async () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('better-auth.session_token=sess123');
+        const setCookies = res.headers.getSetCookie();
+        expect(setCookies.some((v) => v.includes('better-auth.session_token=sess123'))).toBe(true);
       });
 
       it('clears the CSRF cookie on success', async () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('__Host-csrf=');
-        expect(setCookies).toContain('Max-Age=0');
+        const setCookies = res.headers.getSetCookie();
+        expect(setCookies.some((v) => v.includes('__Host-csrf=') && v.includes('Max-Age=0'))).toBe(
+          true
+        );
+      });
+
+      it('sets the auth indicator cookie on success', async () => {
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        const setCookies = res.headers.getSetCookie();
+        expect(setCookies.some((v) => v.includes('__Host-auth_status=1'))).toBe(true);
       });
 
       it('passes email, password, and IP to the sign-in use case', async () => {
@@ -444,10 +470,10 @@ describe('AuthPageHandlers', () => {
         expect(body).toContain('alice@example.com');
       });
 
-      it('sets Cache-Control: no-store, no-cache on the error response', async () => {
+      it('sets Cache-Control: no-store on the error response', async () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
-        expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+        expect(res.headers.get('Cache-Control')).toBe('no-store');
       });
 
       it('sets a fresh CSRF cookie on the error response', async () => {
@@ -611,10 +637,10 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('Content-Type')).toContain('text/html');
     });
 
-    it('sets Cache-Control: no-store, no-cache', () => {
+    it('sets Cache-Control: no-store', () => {
       const req = new Request('https://example.com/auth/sign-up');
       const res = handlers.handleGetSignUp(req);
-      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+      expect(res.headers.get('Cache-Control')).toBe('no-store');
     });
 
     it('sets __Host-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
@@ -733,6 +759,16 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(403);
       });
 
+      it('rejects before calling timingSafeStringEqual when CSRF cookie is absent (null guard)', async () => {
+        const req = new Request('https://example.com/auth/sign-up', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `_csrf=${TEST_CSRF}&email=user@example.com&password=pass12345678`,
+        });
+        await handlers.handlePostSignUp(req);
+        expect(timingSafeStringEqual).not.toHaveBeenCalled();
+      });
+
       it('returns 403 when form _csrf token does not match cookie token', async () => {
         const req = makeSignUpPostRequest({ csrfToken: 'wrong-token', csrfCookie: TEST_CSRF });
         const res = await handlers.handlePostSignUp(req);
@@ -741,6 +777,16 @@ describe('AuthPageHandlers', () => {
 
       it('returns 403 when form _csrf token is empty', async () => {
         const req = makeSignUpPostRequest({ csrfToken: '' });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(403);
+      });
+
+      it('returns 403 when both form _csrf and cookie are absent (empty string coercion)', async () => {
+        const req = new Request('https://example.com/auth/sign-up', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'email=newuser@example.com&password=correcthorse12',
+        });
         const res = await handlers.handlePostSignUp(req);
         expect(res.status).toBe(403);
       });
@@ -834,10 +880,10 @@ describe('AuthPageHandlers', () => {
         expect(body).toContain('alice@example.com');
       });
 
-      it('sets Cache-Control: no-store, no-cache on the error response', async () => {
+      it('sets Cache-Control: no-store on the error response', async () => {
         const req = makeSignUpPostRequest();
         const res = await handlers.handlePostSignUp(req);
-        expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+        expect(res.headers.get('Cache-Control')).toBe('no-store');
       });
 
       it('sets a fresh CSRF cookie on the error response with Max-Age=3600', async () => {
@@ -1002,8 +1048,31 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(403);
       });
 
+      it('rejects before calling timingSafeStringEqual when CSRF cookie is absent (null guard)', async () => {
+        const req = new Request('https://example.com/auth/sign-out', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Cookie: '__Host-better-auth.session-token=test',
+          },
+          body: `_csrf=${TEST_CSRF}`,
+        });
+        await handlers.handlePostSignOut(req);
+        expect(timingSafeStringEqual).not.toHaveBeenCalled();
+      });
+
       it('returns 403 when form _csrf token does not match cookie token', async () => {
         const req = makeSignOutPostRequest({ csrfToken: 'wrong-token', csrfCookie: TEST_CSRF });
+        const res = await handlers.handlePostSignOut(req);
+        expect(res.status).toBe(403);
+      });
+
+      it('returns 403 when both form _csrf and cookie are absent (empty string coercion)', async () => {
+        const req = new Request('https://example.com/auth/sign-out', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: '',
+        });
         const res = await handlers.handlePostSignOut(req);
         expect(res.status).toBe(403);
       });
@@ -1019,6 +1088,32 @@ describe('AuthPageHandlers', () => {
 
       it('does not call signOutUseCase when no session cookie is present', async () => {
         const req = makeSignOutPostRequest({ sessionCookie: null });
+        await handlers.handlePostSignOut(req);
+        expect(signOutUseCaseMock.execute).not.toHaveBeenCalled();
+      });
+
+      it('clears the auth indicator cookie even without a session', async () => {
+        const req = makeSignOutPostRequest({ sessionCookie: null });
+        const res = await handlers.handlePostSignOut(req);
+        const setCookies = res.headers.getSetCookie();
+        expect(
+          setCookies.some((v) => v.includes('__Host-auth_status=') && v.includes('Max-Age=0'))
+        ).toBe(true);
+      });
+
+      it('redirects to /auth/sign-in when session cookie has empty value', async () => {
+        const req = makeSignOutPostRequest({
+          sessionCookie: '__Host-better-auth.session_token=',
+        });
+        const res = await handlers.handlePostSignOut(req);
+        expect(res.status).toBe(303);
+        expect(res.headers.get('Location')).toBe('/auth/sign-in');
+      });
+
+      it('does not call signOutUseCase when session cookie has empty value', async () => {
+        const req = makeSignOutPostRequest({
+          sessionCookie: '__Host-better-auth.session_token=',
+        });
         await handlers.handlePostSignOut(req);
         expect(signOutUseCaseMock.execute).not.toHaveBeenCalled();
       });
@@ -1044,17 +1139,28 @@ describe('AuthPageHandlers', () => {
       it('clears the session cookie via clearSessionCookie()', async () => {
         const req = makeSignOutPostRequest();
         const res = await handlers.handlePostSignOut(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('better-auth.session_token=');
-        expect(setCookies).toContain('Max-Age=0');
+        const setCookies = res.headers.getSetCookie();
+        expect(
+          setCookies.some(
+            (v) => v.includes('better-auth.session_token=') && v.includes('Max-Age=0')
+          )
+        ).toBe(true);
       });
 
       it('clears the CSRF cookie on success', async () => {
         const req = makeSignOutPostRequest();
         const res = await handlers.handlePostSignOut(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('__Host-csrf=');
-        expect(setCookies).toContain('Max-Age=0');
+        const setCookies = res.headers.getSetCookie();
+        expect(setCookies.some((v) => v.includes('__Host-csrf=') && v.includes('Max-Age=0'))).toBe(
+          true
+        );
+      });
+
+      it('clears the auth indicator cookie on success', async () => {
+        const req = makeSignOutPostRequest();
+        const res = await handlers.handlePostSignOut(req);
+        const setCookies = res.headers.getSetCookie();
+        expect(setCookies.some((v) => v.includes('__Host-auth_status='))).toBe(true);
       });
 
       it('passes the extracted sessionToken to the use case', async () => {
@@ -1065,15 +1171,6 @@ describe('AuthPageHandlers', () => {
         expect(signOutUseCaseMock.execute).toHaveBeenCalledWith({
           sessionToken: 'sess_abc123',
         });
-      });
-
-      it('calls authService.hasSession with the raw Cookie header to detect session presence', async () => {
-        const sessionCookie = '__Host-better-auth.session_token=sess_abc123';
-        const req = makeSignOutPostRequest({ sessionCookie });
-        await handlers.handlePostSignOut(req);
-        expect(authServiceMock.hasSession).toHaveBeenCalledWith(
-          `__Host-csrf=${TEST_CSRF}; ${sessionCookie}`
-        );
       });
     });
 
@@ -1087,6 +1184,15 @@ describe('AuthPageHandlers', () => {
         const res = await handlers.handlePostSignOut(req);
         expect(res.status).toBe(303);
         expect(res.headers.get('Location')).toBe('/');
+      });
+
+      it('clears the auth indicator cookie on service error', async () => {
+        const req = makeSignOutPostRequest();
+        const res = await handlers.handlePostSignOut(req);
+        const setCookies = res.headers.getSetCookie();
+        expect(
+          setCookies.some((v) => v.includes('__Host-auth_status=') && v.includes('Max-Age=0'))
+        ).toBe(true);
       });
     });
   });

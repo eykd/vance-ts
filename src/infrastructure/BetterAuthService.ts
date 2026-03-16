@@ -13,14 +13,8 @@ import type { betterAuth } from 'better-auth';
 
 import type { AuthService, AuthSessionDto, AuthUserDto } from '../application/ports/AuthService.js';
 import { verifyPassword } from '../domain/services/passwordHasher.js';
+import { SESSION_COOKIE_NAME } from '../shared/authCookieNames.js';
 import { toHex } from '../shared/hex.js';
-
-/**
- * The better-auth session cookie name, derived from `cookiePrefix: '__Host-better-auth'`
- * and better-auth's default session token cookie name. Used internally to construct
- * Cookie headers for sign-out and getSession API calls.
- */
-const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
 
 /** Type alias for the better-auth instance returned by `getAuth(env)`. */
 type AuthInstance = ReturnType<typeof betterAuth>;
@@ -59,7 +53,7 @@ function generateDummyHash(): string {
  */
 export class BetterAuthService implements AuthService {
   /**
-   * Lazily-initialised backing field for {@link DUMMY_HASH}.
+   * Lazily-initialised backing field for {@link BetterAuthService.DUMMY_HASH}.
    *
    * `null` until the first access, then populated by {@link generateDummyHash}.
    * Deferred to avoid calling `crypto.getRandomValues` at module-evaluation
@@ -78,11 +72,11 @@ export class BetterAuthService implements AuthService {
    *
    * Generated once on first access with a fresh random salt — changes per
    * Worker cold-start so the value is never observable in source code or binaries.
+   *
+   * @returns The cached dummy Argon2id hash string.
    */
   static get DUMMY_HASH(): string {
-    if (BetterAuthService.dummyHashCache === null) {
-      BetterAuthService.dummyHashCache = generateDummyHash();
-    }
+    BetterAuthService.dummyHashCache ??= generateDummyHash();
     return BetterAuthService.dummyHashCache;
   }
 
@@ -134,10 +128,20 @@ export class BetterAuthService implements AuthService {
         if (setCookieHeader === null || setCookieHeader === '') {
           return { ok: false, kind: 'service_error' };
         }
-        // Extract token value from "Name=tokenValue; attr=val..." format
-        const eqIdx = setCookieHeader.indexOf('=');
+        // Validate the cookie belongs to the expected session cookie
+        const expectedPrefix = SESSION_COOKIE_NAME + '=';
+        if (!setCookieHeader.startsWith(expectedPrefix)) {
+          return { ok: false, kind: 'service_error' };
+        }
+        // Extract token value after "Name=" up to the first ";" (or end of string)
         const semiIdx = setCookieHeader.indexOf(';');
-        const sessionToken = setCookieHeader.slice(eqIdx + 1, semiIdx === -1 ? undefined : semiIdx);
+        const sessionToken = setCookieHeader.slice(
+          expectedPrefix.length,
+          semiIdx === -1 ? undefined : semiIdx
+        );
+        if (sessionToken === '') {
+          return { ok: false, kind: 'service_error' };
+        }
         return { ok: true, sessionToken };
       }
 
@@ -308,19 +312,5 @@ export class BetterAuthService implements AuthService {
    */
   async verifyDummyPassword(password: string): Promise<void> {
     await verifyPassword(password, BetterAuthService.DUMMY_HASH);
-  }
-
-  /**
-   * Checks whether the given cookie header contains an active better-auth session cookie.
-   *
-   * Inspects the raw cookie string for the well-known substring `better-auth.session`,
-   * which is present in all better-auth session cookie names (both the
-   * `__Host-better-auth.session_token` and `__Host-better-auth.session-token` variants).
-   *
-   * @param cookieHeader - The raw `Cookie` header value from the request.
-   * @returns `true` if a session cookie is present, `false` otherwise.
-   */
-  hasSession(cookieHeader: string): boolean {
-    return cookieHeader.includes('better-auth.session');
   }
 }

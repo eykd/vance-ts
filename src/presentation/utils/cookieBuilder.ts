@@ -1,3 +1,4 @@
+import { SESSION_COOKIE_NAME } from '../../shared/authCookieNames';
 import { toHex } from '../../shared/hex';
 
 const CSRF_COOKIE_NAME = '__Host-csrf';
@@ -69,17 +70,39 @@ export function clearCsrfCookie(): string {
   return `${CSRF_COOKIE_NAME}=; ${CSRF_COOKIE_ATTRIBUTES}; Max-Age=0`;
 }
 
-const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
-const SESSION_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Lax; Path=/';
+/**
+ * 30 days in seconds — matches better-auth `session.expiresIn`.
+ * Shared by both buildSessionCookie() and buildAuthIndicatorCookie()
+ * so that the indicator cookie expires in lockstep with the session.
+ */
+const THIRTY_DAY_MAX_AGE = 2_592_000;
+
+const AUTH_INDICATOR_COOKIE_NAME = '__Host-auth_status';
+const AUTH_INDICATOR_COOKIE_ATTRIBUTES = 'Secure; SameSite=Lax; Path=/';
 
 /**
- * Builds a Set-Cookie header value that clears the Better Auth session cookie.
+ * Builds a Set-Cookie header value for the auth indicator cookie.
+ *
+ * This cookie is intentionally NOT HttpOnly so that client-side JavaScript
+ * (Alpine.js auth store) can read it. It carries no secret — only a flag
+ * indicating that the user has an active session.
+ *
+ * @returns A Set-Cookie header value string
+ */
+export function buildAuthIndicatorCookie(): string {
+  return `${AUTH_INDICATOR_COOKIE_NAME}=1; ${AUTH_INDICATOR_COOKIE_ATTRIBUTES}; Max-Age=${THIRTY_DAY_MAX_AGE}`;
+}
+
+/**
+ * Builds a Set-Cookie header value that clears the auth indicator cookie.
  *
  * @returns A Set-Cookie header value string with Max-Age=0
  */
-export function clearSessionCookie(): string {
-  return `${SESSION_COOKIE_NAME}=; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=0`;
+export function clearAuthIndicatorCookie(): string {
+  return `${AUTH_INDICATOR_COOKIE_NAME}=; ${AUTH_INDICATOR_COOKIE_ATTRIBUTES}; Max-Age=0`;
 }
+
+const SESSION_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Lax; Path=/';
 
 /**
  * Builds a Set-Cookie header value for the Better Auth session cookie.
@@ -91,7 +114,37 @@ export function clearSessionCookie(): string {
  * @returns A Set-Cookie header value string
  */
 export function buildSessionCookie(token: string): string {
-  return `${SESSION_COOKIE_NAME}=${token}; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=2592000`;
+  return `${SESSION_COOKIE_NAME}=${token}; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=${THIRTY_DAY_MAX_AGE}`;
+}
+
+/**
+ * Builds a Set-Cookie header value that clears the Better Auth session cookie.
+ *
+ * @returns A Set-Cookie header value string with Max-Age=0
+ */
+export function clearSessionCookie(): string {
+  return `${SESSION_COOKIE_NAME}=; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=0`;
+}
+
+/**
+ * Extracts a named cookie's value from a Cookie request header string.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @param cookieName   - The name of the cookie to extract
+ * @returns The cookie value, or null if the cookie is not present
+ */
+function extractCookieValue(cookieHeader: string | null, cookieName: string): string | null {
+  if (cookieHeader === null || cookieHeader === '') {
+    return null;
+  }
+  const prefix = `${cookieName}=`;
+  for (const part of cookieHeader.split(';')) {
+    const trimmed = part.trim();
+    if (trimmed.startsWith(prefix)) {
+      return trimmed.slice(prefix.length);
+    }
+  }
+  return null;
 }
 
 /**
@@ -101,17 +154,7 @@ export function buildSessionCookie(token: string): string {
  * @returns The session token string, or null if the session cookie is not present
  */
 export function extractSessionToken(cookieHeader: string | null): string | null {
-  if (cookieHeader === null || cookieHeader === '') {
-    return null;
-  }
-  const prefix = `${SESSION_COOKIE_NAME}=`;
-  for (const part of cookieHeader.split(';')) {
-    const trimmed = part.trim();
-    if (trimmed.startsWith(prefix)) {
-      return trimmed.slice(prefix.length);
-    }
-  }
-  return null;
+  return extractCookieValue(cookieHeader, SESSION_COOKIE_NAME);
 }
 
 /**
@@ -121,10 +164,17 @@ export function extractSessionToken(cookieHeader: string | null): string | null 
  * @returns True if a session cookie is present
  */
 export function hasSessionCookie(cookieHeader: string | null): boolean {
-  if (cookieHeader === null || cookieHeader === '') {
-    return false;
-  }
-  return cookieHeader.includes(`${SESSION_COOKIE_NAME}=`);
+  return extractCookieValue(cookieHeader, SESSION_COOKIE_NAME) !== null;
+}
+
+/**
+ * Returns true when the Cookie request header contains the auth indicator cookie.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @returns True if the auth indicator cookie is present
+ */
+export function hasAuthIndicatorCookie(cookieHeader: string | null): boolean {
+  return extractCookieValue(cookieHeader, AUTH_INDICATOR_COOKIE_NAME) !== null;
 }
 
 /**
@@ -134,15 +184,5 @@ export function hasSessionCookie(cookieHeader: string | null): boolean {
  * @returns The CSRF token string, or null if the cookie is not present
  */
 export function extractCsrfTokenFromCookies(cookieHeader: string | null): string | null {
-  if (cookieHeader === null || cookieHeader === '') {
-    return null;
-  }
-  const prefix = `${CSRF_COOKIE_NAME}=`;
-  for (const part of cookieHeader.split(';')) {
-    const trimmed = part.trim();
-    if (trimmed.startsWith(prefix)) {
-      return trimmed.slice(prefix.length);
-    }
-  }
-  return null;
+  return extractCookieValue(cookieHeader, CSRF_COOKIE_NAME);
 }

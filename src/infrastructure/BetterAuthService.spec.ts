@@ -79,7 +79,12 @@ describe('BetterAuthService', () => {
     });
 
     it('passes email and password in the request body', async () => {
-      authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 200 }));
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response(null, {
+          status: 200,
+          headers: { 'set-cookie': '__Host-better-auth.session_token=test; Path=/' },
+        })
+      );
 
       await service.signIn({
         email: 'user@example.com',
@@ -92,7 +97,12 @@ describe('BetterAuthService', () => {
     });
 
     it('calls auth.api.signInEmail with asResponse: true', async () => {
-      authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 200 }));
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response(null, {
+          status: 200,
+          headers: { 'set-cookie': '__Host-better-auth.session_token=test; Path=/' },
+        })
+      );
 
       await service.signIn({
         email: 'user@example.com',
@@ -180,6 +190,44 @@ describe('BetterAuthService', () => {
 
     it('returns ok: false kind: service_error when auth.api.signInEmail throws', async () => {
       authMock.api.signInEmail.mockRejectedValue(new Error('D1 unavailable'));
+
+      const result = await service.signIn({
+        email: 'user@example.com',
+        password: 'correcthorse12',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
+    it('returns ok: false kind: service_error when extracted session token is empty', async () => {
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response(null, {
+          status: 200,
+          headers: { 'set-cookie': '__Host-better-auth.session_token=; Path=/' },
+        })
+      );
+
+      const result = await service.signIn({
+        email: 'user@example.com',
+        password: 'correcthorse12',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
+    it('returns ok: false kind: service_error when Set-Cookie header has wrong cookie name', async () => {
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response(null, {
+          status: 200,
+          headers: { 'set-cookie': 'wrong_cookie=abc123; Path=/; HttpOnly' },
+        })
+      );
 
       const result = await service.signIn({
         email: 'user@example.com',
@@ -465,30 +513,6 @@ describe('BetterAuthService', () => {
       expect(BetterAuthService.DUMMY_HASH).not.toBe(
         'argon2id$19456$2$1$00000000000000000000000000000000$0000000000000000000000000000000000000000000000000000000000000000'
       );
-    });
-  });
-
-  describe('hasSession', () => {
-    it('returns true when cookie header contains better-auth.session_token variant', () => {
-      expect(service.hasSession('__Host-better-auth.session_token=abc')).toBe(true);
-    });
-
-    it('returns true when cookie header contains better-auth.session-token variant', () => {
-      expect(service.hasSession('__Host-better-auth.session-token=abc')).toBe(true);
-    });
-
-    it('returns true when session cookie is present alongside other cookies', () => {
-      expect(service.hasSession('__Host-csrf=xyz; __Host-better-auth.session-token=abc')).toBe(
-        true
-      );
-    });
-
-    it('returns false when cookie header contains only non-session cookies', () => {
-      expect(service.hasSession('__Host-csrf=abc123')).toBe(false);
-    });
-
-    it('returns false for empty cookie header', () => {
-      expect(service.hasSession('')).toBe(false);
     });
   });
 

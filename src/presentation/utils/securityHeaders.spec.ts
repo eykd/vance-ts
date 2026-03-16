@@ -24,8 +24,12 @@ describe('buildCspHeaderValue', () => {
     expect(scriptDirective).toBe("script-src 'self'");
   });
 
-  it("includes style-src 'self' 'unsafe-inline': accepted trade-off for Alpine.js x-show (nonces/hashes cannot replace this; see securityHeaders.ts for full rationale)", () => {
-    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+  it("includes style-src 'self' without unsafe-inline (x-show replaced by x-bind:class)", () => {
+    const styleDirective = csp
+      .split(';')
+      .map((d) => d.trim())
+      .find((d) => d.startsWith('style-src'));
+    expect(styleDirective).toBe("style-src 'self'");
   });
 
   it("includes object-src 'none' to block plugin content", () => {
@@ -93,6 +97,10 @@ describe('applySecurityHeaders', () => {
 
   it('sets Cross-Origin-Opener-Policy to same-origin', () => {
     expect(headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
+  });
+
+  it('sets Cache-Control to no-store to prevent caching of authenticated pages', () => {
+    expect(headers.get('Cache-Control')).toBe('no-store');
   });
 
   it('preserves existing headers', () => {

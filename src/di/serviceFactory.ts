@@ -169,8 +169,7 @@ export class ServiceFactory {
     this._authPageHandlers ??= new AuthPageHandlers(
       this.signInUseCase,
       this.signUpUseCase,
-      this.signOutUseCase,
-      this._authServiceInstance
+      this.signOutUseCase
     );
     return this._authPageHandlers;
   }

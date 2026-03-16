@@ -3,7 +3,8 @@
 
 import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
-import { getAuthForm, submitAuthForm, extractSessionCookie } from "./helpers";
+
+import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
 
 describe("US04-sign-in", () => {
 
@@ -85,40 +86,45 @@ it("An unregistered email shows the same generic error.", async () => {
 
 // Sign-in is blocked after too many failed attempts.
 // Source: specs/acceptance-specs/US04-sign-in.txt:25
-it("Sign-in is blocked after too many failed attempts.", { timeout: 30000 }, async () => {
+it("Sign-in is blocked after too many failed attempts.", { timeout: 30_000 }, async () => {
   // GIVEN a visitor has exceeded the allowed number of sign-in attempts.
-  // Register a user first, then exhaust the rate limit with 5 failed sign-in
-  // attempts (invalid_credentials increments the Durable Object counter).
-  const rateLimitIp = '198.51.100.13';
+  // Register a user first (from a separate IP to avoid rate-limiting the registration).
   const { csrfToken: regCsrf } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
     { email: 'alice@example.com', password: 'SuperSecure#Pass789' },
     regCsrf,
     undefined,
-    rateLimitIp,
+    '198.51.100.99',
   );
+
+  const rateLimitIp = '198.51.100.13';
+  // Submit 5 failed sign-in attempts (MAX_ATTEMPTS = 5) from the same IP.
   for (let i = 0; i < 5; i++) {
-    const { csrfToken: signInCsrf } = await getAuthForm('/auth/sign-in');
+    const { csrfToken } = await getAuthForm('/auth/sign-in');
     await submitAuthForm(
       '/auth/sign-in',
       { email: 'alice@example.com', password: 'WrongPassword123!' },
-      signInCsrf,
+      csrfToken,
       undefined,
       rateLimitIp,
     );
   }
+
   // WHEN they attempt to sign in again.
-  const { csrfToken } = await getAuthForm('/auth/sign-in');
+  const { csrfToken: blockedCsrf } = await getAuthForm('/auth/sign-in');
   const res = await submitAuthForm(
     '/auth/sign-in',
     { email: 'alice@example.com', password: 'WrongPassword123!' },
-    csrfToken,
+    blockedCsrf,
     undefined,
     rateLimitIp,
   );
+
   // THEN they are told to wait before trying again.
   expect(res.status).toBe(429);
+  const body = await res.text();
+  expect(body).toContain('Too Many Requests');
 });
 
 // The original destination is preserved through sign-in.

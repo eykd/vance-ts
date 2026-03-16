@@ -13,7 +13,6 @@ function makeAuthServiceMock(): {
   signOut: ReturnType<typeof vi.fn>;
   getSession: ReturnType<typeof vi.fn>;
   verifyDummyPassword: ReturnType<typeof vi.fn>;
-  hasSession: ReturnType<typeof vi.fn>;
 } {
   return {
     signIn: vi.fn(),
@@ -21,7 +20,6 @@ function makeAuthServiceMock(): {
     signOut: vi.fn(),
     getSession: vi.fn(),
     verifyDummyPassword: vi.fn().mockResolvedValue(undefined),
-    hasSession: vi.fn().mockReturnValue(false),
   };
 }
 
@@ -50,6 +48,7 @@ describe('SignOutUseCase', () => {
     });
 
     it('returns ok: false kind: service_error when authService.signOut returns service_error', async () => {
+      expect.assertions(2);
       authServiceMock.signOut.mockResolvedValue({ ok: false, kind: 'service_error' });
 
       const result = await useCase.execute(defaultRequest);
@@ -61,6 +60,7 @@ describe('SignOutUseCase', () => {
     });
 
     it('returns ok: false kind: service_error when authService.signOut throws', async () => {
+      expect.assertions(2);
       authServiceMock.signOut.mockRejectedValue(new Error('DB unavailable'));
 
       const result = await useCase.execute(defaultRequest);

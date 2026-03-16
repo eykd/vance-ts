@@ -1,14 +1,67 @@
 import {
+  buildAuthIndicatorCookie,
   buildCsrfCookie,
   buildSessionCookie,
+  clearAuthIndicatorCookie,
   clearCsrfCookie,
   clearSessionCookie,
   deriveCsrfToken,
   extractCsrfTokenFromCookies,
   extractSessionToken,
   generateCsrfToken,
+  hasAuthIndicatorCookie,
   hasSessionCookie,
 } from './cookieBuilder';
+
+describe('buildAuthIndicatorCookie', () => {
+  it('sets cookie value to __Host-auth_status=1', () => {
+    expect(buildAuthIndicatorCookie()).toMatch(/^__Host-auth_status=1;/);
+  });
+
+  it('includes Secure flag', () => {
+    expect(buildAuthIndicatorCookie()).toContain('Secure');
+  });
+
+  it('includes SameSite=Lax', () => {
+    expect(buildAuthIndicatorCookie()).toContain('SameSite=Lax');
+  });
+
+  it('includes Path=/', () => {
+    expect(buildAuthIndicatorCookie()).toContain('Path=/');
+  });
+
+  it('includes Max-Age=2592000 (30 days, matching session cookie)', () => {
+    expect(buildAuthIndicatorCookie()).toContain('Max-Age=2592000');
+  });
+
+  it('is NOT HttpOnly so client-side JS can read it', () => {
+    expect(buildAuthIndicatorCookie()).not.toContain('HttpOnly');
+  });
+});
+
+describe('clearAuthIndicatorCookie', () => {
+  it('sets auth_status to empty with Max-Age=0', () => {
+    const value = clearAuthIndicatorCookie();
+    expect(value).toContain('__Host-auth_status=');
+    expect(value).toContain('Max-Age=0');
+  });
+
+  it('includes Secure flag', () => {
+    expect(clearAuthIndicatorCookie()).toContain('Secure');
+  });
+
+  it('includes SameSite=Lax', () => {
+    expect(clearAuthIndicatorCookie()).toContain('SameSite=Lax');
+  });
+
+  it('includes Path=/', () => {
+    expect(clearAuthIndicatorCookie()).toContain('Path=/');
+  });
+
+  it('is NOT HttpOnly so attributes match the build cookie', () => {
+    expect(clearAuthIndicatorCookie()).not.toContain('HttpOnly');
+  });
+});
 
 describe('generateCsrfToken', () => {
   it('returns a 64-character hex string', () => {
@@ -152,6 +205,28 @@ describe('hasSessionCookie', () => {
     expect(
       hasSessionCookie('other=value; __Host-better-auth.session_token=abc123; more=stuff')
     ).toBe(true);
+  });
+});
+
+describe('hasAuthIndicatorCookie', () => {
+  it('returns false when cookieHeader is null', () => {
+    expect(hasAuthIndicatorCookie(null)).toBe(false);
+  });
+
+  it('returns false when cookieHeader is empty string', () => {
+    expect(hasAuthIndicatorCookie('')).toBe(false);
+  });
+
+  it('returns false when auth indicator cookie is absent from the header', () => {
+    expect(hasAuthIndicatorCookie('other=value; __Host-csrf=token')).toBe(false);
+  });
+
+  it('returns true when auth indicator cookie is present in the header', () => {
+    expect(hasAuthIndicatorCookie('__Host-auth_status=1')).toBe(true);
+  });
+
+  it('returns true when auth indicator cookie is present alongside other cookies', () => {
+    expect(hasAuthIndicatorCookie('other=value; __Host-auth_status=1; more=stuff')).toBe(true);
   });
 });
 
