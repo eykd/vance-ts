@@ -7,7 +7,6 @@
  * @module
  */
 
-import type { AuthService } from '../../application/ports/AuthService.js';
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
 import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
@@ -23,6 +22,7 @@ import {
   extractCsrfTokenFromCookies,
   extractSessionToken,
   generateCsrfToken,
+  hasSessionCookie,
 } from '../utils/cookieBuilder.js';
 import { extractClientIp } from '../utils/extractClientIp.js';
 import { validateRedirectTo } from '../utils/redirectValidator.js';
@@ -62,27 +62,21 @@ export class AuthPageHandlers {
   /** Injected sign-out use case. */
   private readonly signOutUseCase: SignOutUseCase;
 
-  /** Injected auth service port (used for session cookie detection). */
-  private readonly authService: AuthService;
-
   /**
    * Creates a new AuthPageHandlers instance.
    *
    * @param signInUseCase - The sign-in orchestration use case.
    * @param signUpUseCase - The sign-up orchestration use case.
    * @param signOutUseCase - The sign-out orchestration use case.
-   * @param authService - The auth service port (for session presence detection).
    */
   constructor(
     signInUseCase: SignInUseCase,
     signUpUseCase: SignUpUseCase,
-    signOutUseCase: SignOutUseCase,
-    authService: AuthService
+    signOutUseCase: SignOutUseCase
   ) {
     this.signInUseCase = signInUseCase;
     this.signUpUseCase = signUpUseCase;
     this.signOutUseCase = signOutUseCase;
-    this.authService = authService;
   }
 
   /**
@@ -325,7 +319,7 @@ export class AuthPageHandlers {
     }
 
     const cookieHeader = request.headers.get('Cookie') ?? '';
-    if (!this.authService.hasSession(cookieHeader)) {
+    if (!hasSessionCookie(cookieHeader)) {
       // Clear indicator cookie even without a session — cookie may linger after expiry
       return AuthPageHandlers.buildRedirect('/auth/sign-in', [clearAuthIndicatorCookie()]);
     }

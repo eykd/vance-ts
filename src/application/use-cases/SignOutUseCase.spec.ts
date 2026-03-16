@@ -13,7 +13,6 @@ function makeAuthServiceMock(): {
   signOut: ReturnType<typeof vi.fn>;
   getSession: ReturnType<typeof vi.fn>;
   verifyDummyPassword: ReturnType<typeof vi.fn>;
-  hasSession: ReturnType<typeof vi.fn>;
 } {
   return {
     signIn: vi.fn(),
@@ -21,7 +20,6 @@ function makeAuthServiceMock(): {
     signOut: vi.fn(),
     getSession: vi.fn(),
     verifyDummyPassword: vi.fn().mockResolvedValue(undefined),
-    hasSession: vi.fn().mockReturnValue(false),
   };
 }
 

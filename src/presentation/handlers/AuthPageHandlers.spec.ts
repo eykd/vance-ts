@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthService } from '../../application/ports/AuthService.js';
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
 import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
@@ -162,23 +161,16 @@ describe('AuthPageHandlers', () => {
   let signInUseCaseMock: ReturnType<typeof makeUseCaseMock>;
   let signUpUseCaseMock: ReturnType<typeof makeUseCaseMock>;
   let signOutUseCaseMock: ReturnType<typeof makeUseCaseMock>;
-  let authServiceMock: { hasSession: ReturnType<typeof vi.fn> };
   let handlers: AuthPageHandlers;
 
   beforeEach(() => {
     signInUseCaseMock = makeUseCaseMock();
     signUpUseCaseMock = makeUseCaseMock();
     signOutUseCaseMock = makeUseCaseMock();
-    authServiceMock = {
-      hasSession: vi
-        .fn()
-        .mockImplementation((cookieHeader: string) => cookieHeader.includes('better-auth.session')),
-    };
     handlers = new AuthPageHandlers(
       signInUseCaseMock as unknown as SignInUseCase,
       signUpUseCaseMock as unknown as SignUpUseCase,
-      signOutUseCaseMock as unknown as SignOutUseCase,
-      authServiceMock as unknown as AuthService
+      signOutUseCaseMock as unknown as SignOutUseCase
     );
   });
 
@@ -1131,14 +1123,6 @@ describe('AuthPageHandlers', () => {
         });
       });
 
-      it('calls authService.hasSession with the raw Cookie header to detect session presence', async () => {
-        const sessionCookie = '__Host-better-auth.session_token=sess_abc123';
-        const req = makeSignOutPostRequest({ sessionCookie });
-        await handlers.handlePostSignOut(req);
-        expect(authServiceMock.hasSession).toHaveBeenCalledWith(
-          `__Host-csrf=${TEST_CSRF}; ${sessionCookie}`
-        );
-      });
     });
 
     describe('service error', () => {

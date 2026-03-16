@@ -304,17 +304,4 @@ export class BetterAuthService implements AuthService {
     await verifyPassword(password, BetterAuthService.DUMMY_HASH);
   }
 
-  /**
-   * Checks whether the given cookie header contains an active better-auth session cookie.
-   *
-   * Inspects the raw cookie string for the well-known substring `better-auth.session`,
-   * which is present in all better-auth session cookie names (both the
-   * `__Host-better-auth.session_token` and `__Host-better-auth.session-token` variants).
-   *
-   * @param cookieHeader - The raw `Cookie` header value from the request.
-   * @returns `true` if a session cookie is present, `false` otherwise.
-   */
-  hasSession(cookieHeader: string): boolean {
-    return cookieHeader.includes('better-auth.session');
-  }
 }
