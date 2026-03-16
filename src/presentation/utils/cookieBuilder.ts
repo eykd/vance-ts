@@ -1,3 +1,4 @@
+import { SESSION_COOKIE_NAME } from '../../shared/authCookieNames';
 import { toHex } from '../../shared/hex';
 
 const CSRF_COOKIE_NAME = '__Host-csrf';
@@ -101,7 +102,6 @@ export function clearAuthIndicatorCookie(): string {
   return `${AUTH_INDICATOR_COOKIE_NAME}=; ${AUTH_INDICATOR_COOKIE_ATTRIBUTES}; Max-Age=0`;
 }
 
-const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
 const SESSION_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Lax; Path=/';
 
 /**

@@ -13,14 +13,8 @@ import type { betterAuth } from 'better-auth';
 
 import type { AuthService, AuthSessionDto, AuthUserDto } from '../application/ports/AuthService.js';
 import { verifyPassword } from '../domain/services/passwordHasher.js';
+import { SESSION_COOKIE_NAME } from '../shared/authCookieNames.js';
 import { toHex } from '../shared/hex.js';
-
-/**
- * The better-auth session cookie name, derived from `cookiePrefix: '__Host-better-auth'`
- * and better-auth's default session token cookie name. Used internally to construct
- * Cookie headers for sign-out and getSession API calls.
- */
-const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
 
 /** Type alias for the better-auth instance returned by `getAuth(env)`. */
 type AuthInstance = ReturnType<typeof betterAuth>;

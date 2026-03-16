@@ -4,6 +4,7 @@ Cross-cutting utilities used by multiple layers. Keep this directory minimal.
 
 ## Files
 
+- `authCookieNames.ts` — Auth cookie name constants (single source of truth)
 - `env.ts` — Environment binding types and helpers
 - `hex.ts` — Hex encoding/decoding utilities
 
