@@ -3,6 +3,7 @@
 // utility class instead of x-show (which sets element.style.display inline).
 // The x-cloak attribute + [x-cloak] { display: none } CSS rule handles
 // initial hide before Alpine processes directives.
+/** CSP directive strings joined to form the Content-Security-Policy header value. */
 const CSP_DIRECTIVES: readonly string[] = [
   "default-src 'self'",
   "script-src 'self'",
