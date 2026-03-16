@@ -95,8 +95,7 @@ export class SignUpUseCase {
    */
   async execute(request: SignUpRequest): Promise<SignUpResult> {
     try {
-      const ipKey = request.ip !== 'unknown' ? request.ip : crypto.randomUUID();
-      const key = `ratelimit:register:${ipKey}`;
+      const key = `ratelimit:register:${request.ip}`;
 
       const rateCheck = await this.rateLimiter.checkAndIncrement(key, REGISTER_WINDOW_SECONDS);
       if (!rateCheck.allowed) {

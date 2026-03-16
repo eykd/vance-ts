@@ -86,8 +86,7 @@ export class SignInUseCase {
    */
   async execute(request: SignInRequest): Promise<SignInResult> {
     try {
-      const ipKey = request.ip !== 'unknown' ? request.ip : crypto.randomUUID();
-      const key = `ratelimit:sign-in:${ipKey}`;
+      const key = `ratelimit:sign-in:${request.ip}`;
 
       const rateCheck = await this.rateLimiter.checkAndIncrement(key, SIGN_IN_WINDOW_SECONDS);
       if (!rateCheck.allowed) {
