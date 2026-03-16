@@ -239,6 +239,17 @@ describe('SignInUseCase', () => {
       }
     });
 
+    it('logs the error via console.error when authService.signIn throws', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const error = new Error('DB connection failed');
+      authServiceMock.signIn.mockRejectedValue(error);
+
+      await useCase.execute(defaultRequest);
+
+      expect(spy).toHaveBeenCalledWith('SignInUseCase: unexpected error during sign-in', error);
+      spy.mockRestore();
+    });
+
     it('returns ok: false kind: service_error when authService.verifyDummyPassword throws', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
       authServiceMock.verifyDummyPassword.mockRejectedValue(new Error('crypto failure'));

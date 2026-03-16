@@ -87,3 +87,5 @@
 {"author":"eykd","created_at":"2026-03-16T19:15:42Z","id":87,"issue_id":"turtlebased-ts-bjd.6","text":"Starting implementation. Reviewing spec, plan, and current codebase state to determine remaining work."}
 {"author":"eykd","created_at":"2026-03-16T21:44:02Z","id":88,"issue_id":"turtlebased-ts-tfc","text":"Starting work: GET handler needs validateRedirectTo call for defense-in-depth"}
 {"author":"eykd","created_at":"2026-03-16T21:51:21Z","id":89,"issue_id":"turtlebased-ts-yjz","text":"Starting work on 405 Method Not Allowed for auth routes"}
+{"author":"eykd","created_at":"2026-03-16T22:01:58Z","id":90,"issue_id":"turtlebased-ts-3vh","text":"Starting investigation: sign-up returns generic error"}
+{"author":"eykd","created_at":"2026-03-16T22:21:04Z","id":91,"issue_id":"turtlebased-ts-3vh","text":"Root cause: both SignUpUseCase catch block and BetterAuthService.signUp silent catch discard all error details. Adding console.error logging to surface actual errors. Acceptance tests pass - the core flow works, but errors are invisible."}

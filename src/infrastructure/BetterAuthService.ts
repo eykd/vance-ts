@@ -156,8 +156,11 @@ export class BetterAuthService implements AuthService {
         return { ok: false, kind: 'invalid_credentials' };
       }
 
+      const body = await response.text().catch(() => '<unreadable>');
+      console.error(`BetterAuthService.signIn: unexpected status ${String(response.status)}`, body);
       return { ok: false, kind: 'service_error' };
-    } catch {
+    } catch (error: unknown) {
+      console.error('BetterAuthService.signIn: exception thrown', error);
       return { ok: false, kind: 'service_error' };
     }
   }
@@ -210,8 +213,11 @@ export class BetterAuthService implements AuthService {
         return { ok: false, kind: 'weak_password' };
       }
 
+      const body = await response.text().catch(() => '<unreadable>');
+      console.error(`BetterAuthService.signUp: unexpected status ${String(response.status)}`, body);
       return { ok: false, kind: 'service_error' };
-    } catch {
+    } catch (error: unknown) {
+      console.error('BetterAuthService.signUp: exception thrown', error);
       return { ok: false, kind: 'service_error' };
     }
   }
@@ -245,8 +251,10 @@ export class BetterAuthService implements AuthService {
         return { ok: true };
       }
 
+      console.error(`BetterAuthService.signOut: unexpected status ${String(response.status)}`);
       return { ok: false, kind: 'service_error' };
-    } catch {
+    } catch (error: unknown) {
+      console.error('BetterAuthService.signOut: exception thrown', error);
       return { ok: false, kind: 'service_error' };
     }
   }

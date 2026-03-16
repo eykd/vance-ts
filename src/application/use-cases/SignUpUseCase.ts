@@ -117,7 +117,8 @@ export class SignUpUseCase {
       });
 
       return result;
-    } catch {
+    } catch (error: unknown) {
+      console.error('SignUpUseCase: unexpected error during sign-up', error);
       return { ok: false, kind: 'service_error' };
     }
   }

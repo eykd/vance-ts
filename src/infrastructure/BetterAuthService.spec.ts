@@ -188,6 +188,27 @@ describe('BetterAuthService', () => {
       }
     });
 
+    it('logs status and body via console.error when response is not ok and not a mapped status', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response('{"message":"internal failure"}', {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      await service.signIn({
+        email: 'user@example.com',
+        password: 'correcthorse12',
+      });
+
+      expect(spy).toHaveBeenCalledWith(
+        'BetterAuthService.signIn: unexpected status 500',
+        '{"message":"internal failure"}'
+      );
+      spy.mockRestore();
+    });
+
     it('returns ok: false kind: service_error when auth.api.signInEmail throws', async () => {
       authMock.api.signInEmail.mockRejectedValue(new Error('D1 unavailable'));
 
@@ -200,6 +221,20 @@ describe('BetterAuthService', () => {
       if (!result.ok) {
         expect(result.kind).toBe('service_error');
       }
+    });
+
+    it('logs the error via console.error when auth.api.signInEmail throws', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const error = new Error('D1 unavailable');
+      authMock.api.signInEmail.mockRejectedValue(error);
+
+      await service.signIn({
+        email: 'user@example.com',
+        password: 'correcthorse12',
+      });
+
+      expect(spy).toHaveBeenCalledWith('BetterAuthService.signIn: exception thrown', error);
+      spy.mockRestore();
     });
 
     it('returns ok: false kind: service_error when extracted session token is empty', async () => {
@@ -358,6 +393,28 @@ describe('BetterAuthService', () => {
       }
     });
 
+    it('logs status and body via console.error when response is not ok and not a mapped status', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      authMock.api.signUpEmail.mockResolvedValue(
+        new Response('{"message":"DB error"}', {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      await service.signUp({
+        email: 'new@example.com',
+        password: 'correcthorse12',
+        name: 'Eve',
+      });
+
+      expect(spy).toHaveBeenCalledWith(
+        'BetterAuthService.signUp: unexpected status 500',
+        '{"message":"DB error"}'
+      );
+      spy.mockRestore();
+    });
+
     it('returns ok: false kind: service_error when auth.api.signUpEmail throws', async () => {
       authMock.api.signUpEmail.mockRejectedValue(new Error('D1 unavailable'));
 
@@ -371,6 +428,21 @@ describe('BetterAuthService', () => {
       if (!result.ok) {
         expect(result.kind).toBe('service_error');
       }
+    });
+
+    it('logs the error via console.error when auth.api.signUpEmail throws', async () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const error = new Error('D1 unavailable');
+      authMock.api.signUpEmail.mockRejectedValue(error);
+
+      await service.signUp({
+        email: 'new@example.com',
+        password: 'correcthorse12',
+        name: 'Frank',
+      });
+
+      expect(spy).toHaveBeenCalledWith('BetterAuthService.signUp: exception thrown', error);
+      spy.mockRestore();
     });
   });
 

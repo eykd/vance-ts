@@ -105,7 +105,8 @@ export class SignInUseCase {
       }
 
       return result;
-    } catch {
+    } catch (error: unknown) {
+      console.error('SignInUseCase: unexpected error during sign-in', error);
       return { ok: false, kind: 'service_error' };
     }
   }
