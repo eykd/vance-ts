@@ -38,6 +38,12 @@ export function parseMigrationSql(sql: string): string[] {
  * Extract the query strings from the AUTH_MIGRATIONS queries array
  * in the acceptance test setup file content.
  *
+ * **Limitation:** Uses `[^\]]+` to match the queries array block, which will
+ * truncate at the first `]` inside SQL content (e.g. D1 JSON operators like
+ * `json_extract(col, '$[0]')`). This is acceptable while migrations contain
+ * only DDL without bracket characters. If migrations start using `]` in SQL
+ * strings, upgrade to a balanced-bracket or state-machine parser.
+ *
  * @param content - TypeScript source of the setup file
  *
  * @returns array of query strings found in the queries array
