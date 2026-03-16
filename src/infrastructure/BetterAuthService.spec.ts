@@ -221,6 +221,25 @@ describe('BetterAuthService', () => {
       }
     });
 
+    it('returns ok: false kind: service_error when Set-Cookie header has wrong cookie name', async () => {
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response(null, {
+          status: 200,
+          headers: { 'set-cookie': 'wrong_cookie=abc123; Path=/; HttpOnly' },
+        })
+      );
+
+      const result = await service.signIn({
+        email: 'user@example.com',
+        password: 'correcthorse12',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
     it('returns ok: false kind: service_error when Set-Cookie header is absent on 200', async () => {
       authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 200 }));
 

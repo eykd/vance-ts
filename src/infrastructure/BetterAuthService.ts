@@ -128,10 +128,17 @@ export class BetterAuthService implements AuthService {
         if (setCookieHeader === null || setCookieHeader === '') {
           return { ok: false, kind: 'service_error' };
         }
-        // Extract token value from "Name=tokenValue; attr=val..." format
-        const eqIdx = setCookieHeader.indexOf('=');
+        // Validate the cookie belongs to the expected session cookie
+        const expectedPrefix = SESSION_COOKIE_NAME + '=';
+        if (!setCookieHeader.startsWith(expectedPrefix)) {
+          return { ok: false, kind: 'service_error' };
+        }
+        // Extract token value after "Name=" up to the first ";" (or end of string)
         const semiIdx = setCookieHeader.indexOf(';');
-        const sessionToken = setCookieHeader.slice(eqIdx + 1, semiIdx === -1 ? undefined : semiIdx);
+        const sessionToken = setCookieHeader.slice(
+          expectedPrefix.length,
+          semiIdx === -1 ? undefined : semiIdx
+        );
         if (sessionToken === '') {
           return { ok: false, kind: 'service_error' };
         }
