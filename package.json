@@ -95,7 +95,7 @@
     "simplex-noise": "^4.0.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4",
+    "vitest": "^4.1.0",
     "wrangler": "^4.67.0"
   },
   "dependencies": {
