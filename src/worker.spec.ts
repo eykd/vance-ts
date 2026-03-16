@@ -421,6 +421,65 @@ describe('Worker', () => {
     });
   });
 
+  describe('/api/auth/* error handling', () => {
+    it('returns 503 JSON when authHandler throws', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockRejectedValue(new Error('D1 unavailable'));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(503);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
+      expect(await res.json()).toEqual({ error: 'Service Unavailable' });
+    });
+
+    it('includes Retry-After header when authHandler throws', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockRejectedValue(new Error('D1 unavailable'));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('Retry-After')).toBe('30');
+    });
+
+    it('applies security headers when authHandler throws', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockRejectedValue(new Error('D1 unavailable'));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    });
+
+    it('returns 503 JSON when authHandler throws on GET', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockRejectedValue(new Error('connection error'));
+
+      const req = new Request('https://example.com/api/auth/session');
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ error: 'Service Unavailable' });
+    });
+
+    it('logs the underlying exception via console.error', async () => {
+      const env = mockEnv();
+      const error = new Error('D1 unavailable');
+      mocks.authHandlerFn.mockRejectedValue(error);
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      await app.fetch(req, env);
+
+      expect(consoleSpy).toHaveBeenCalledWith('auth handler error:', error);
+      consoleSpy.mockRestore();
+    });
+  });
+
   describe('OAuth callback routing (US-5 extensibility)', () => {
     it('routes GET /api/auth/callback/:provider to authHandler via the /api/auth/* wildcard (no dedicated route needed)', async () => {
       const env = mockEnv();
