@@ -468,7 +468,6 @@ describe('BetterAuthService', () => {
     });
   });
 
-
   describe('verifyDummyPassword', () => {
     it('calls verifyPassword with submitted password and DUMMY_HASH (FR-007)', async () => {
       mocks.verifyPassword.mockResolvedValue(false);

@@ -303,5 +303,4 @@ export class BetterAuthService implements AuthService {
   async verifyDummyPassword(password: string): Promise<void> {
     await verifyPassword(password, BetterAuthService.DUMMY_HASH);
   }
-
 }

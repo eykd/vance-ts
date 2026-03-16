@@ -8,7 +8,7 @@ import { timingSafeStringEqual } from '../utils/timingSafeEqual.js';
 import { AuthPageHandlers } from './AuthPageHandlers.js';
 
 vi.mock('../utils/timingSafeEqual.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../utils/timingSafeEqual.js')>();
+  const actual: { timingSafeStringEqual: typeof timingSafeStringEqual } = await importOriginal();
   return { timingSafeStringEqual: vi.fn(actual.timingSafeStringEqual) };
 });
 
@@ -1122,7 +1122,6 @@ describe('AuthPageHandlers', () => {
           sessionToken: 'sess_abc123',
         });
       });
-
     });
 
     describe('service error', () => {
