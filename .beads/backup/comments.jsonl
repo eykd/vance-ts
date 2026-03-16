@@ -52,3 +52,6 @@
 {"author":"eykd","created_at":"2026-03-16T01:02:36Z","id":52,"issue_id":"turtlebased-ts-bjd.6","text":"Starting implementation. Reading spec and plan."}
 {"author":"eykd","created_at":"2026-03-16T02:09:36Z","id":53,"issue_id":"turtlebased-ts-bjd.6.23","text":"Starting: removing acceptance tests from pre-commit hook"}
 {"author":"eykd","created_at":"2026-03-16T02:11:54Z","id":54,"issue_id":"turtlebased-ts-bjd.6.22","text":"Starting work: add build-time check for migration sync"}
+{"author":"eykd","created_at":"2026-03-16T02:21:38Z","id":55,"issue_id":"turtlebased-ts-bjd.6.21","text":"Starting work: replacing 'as never' casts with proper typed TestVariables"}
+{"author":"eykd","created_at":"2026-03-16T02:24:43Z","id":56,"issue_id":"turtlebased-ts-bjd.6.20","text":"Starting: moving SESSION_COOKIE_NAME to shared module"}
+{"author":"eykd","created_at":"2026-03-16T02:29:06Z","id":57,"issue_id":"turtlebased-ts-bjd.6.24","text":"Starting work: investigating regex for vitest options on line 39"}
