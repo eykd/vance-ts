@@ -11,6 +11,7 @@ import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js
 import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
 import { loginPage } from '../templates/pages/login.js';
+import { rateLimitPage } from '../templates/pages/rateLimit.js';
 import { registerPage } from '../templates/pages/register.js';
 import {
   buildAuthIndicatorCookie,
@@ -171,17 +172,23 @@ export class AuthPageHandlers {
   }
 
   /**
-   * Builds a 429 Too Many Requests response with an optional Retry-After header.
+   * Builds a styled 429 Too Many Requests response with an optional Retry-After header.
+   *
+   * Uses the shared auth layout for consistent branding with other auth error pages.
    *
    * @param retryAfter - Optional seconds until the client may retry.
-   * @returns A 429 Response with an optional Retry-After header.
+   * @returns A styled 429 HTML Response with security headers and optional Retry-After.
    */
   private static buildRateLimitedResponse(retryAfter?: number): Response {
     const headers = new Headers();
+    headers.set('Content-Type', 'text/html; charset=utf-8');
+    headers.set('Cache-Control', 'no-store, no-cache');
     if (retryAfter !== undefined) {
       headers.set('Retry-After', String(retryAfter));
     }
-    return new Response('Too Many Requests', { status: 429, headers });
+    applySecurityHeaders(headers);
+    const body = rateLimitPage({ retryAfter });
+    return new Response(body, { status: 429, headers });
   }
 
   /**

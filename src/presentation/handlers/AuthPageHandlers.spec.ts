@@ -590,6 +590,42 @@ describe('AuthPageHandlers', () => {
         const res = await handlers.handlePostSignIn(req);
         expect(res.headers.get('Retry-After')).toBeNull();
       });
+
+      it('returns styled HTML body with authLayout', async () => {
+        signInUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        const body = await res.text();
+        expect(body).toMatch(/^<!DOCTYPE html>/);
+        expect(body).toContain('Too Many Requests');
+        expect(body).toContain('alert-warning');
+      });
+
+      it('sets Content-Type to text/html', async () => {
+        signInUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        expect(res.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+      });
+
+      it('includes security headers', async () => {
+        signInUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      });
+
+      it('includes retry seconds in body when retryAfter is provided', async () => {
+        signInUseCaseMock.execute.mockResolvedValue({
+          ok: false,
+          kind: 'rate_limited',
+          retryAfter: 900,
+        });
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        const body = await res.text();
+        expect(body).toContain('900');
+      });
     });
 
     describe('email normalization', () => {
@@ -1054,6 +1090,30 @@ describe('AuthPageHandlers', () => {
         const req = makeSignUpPostRequest();
         const res = await handlers.handlePostSignUp(req);
         expect(res.headers.get('Retry-After')).toBeNull();
+      });
+
+      it('returns styled HTML body with authLayout', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toMatch(/^<!DOCTYPE html>/);
+        expect(body).toContain('Too Many Requests');
+        expect(body).toContain('alert-warning');
+      });
+
+      it('sets Content-Type to text/html', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+      });
+
+      it('includes security headers', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
       });
     });
   });
