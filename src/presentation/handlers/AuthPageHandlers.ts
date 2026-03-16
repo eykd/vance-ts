@@ -324,7 +324,11 @@ export class AuthPageHandlers {
       return AuthPageHandlers.buildRedirect('/auth/sign-in', [clearAuthIndicatorCookie()]);
     }
 
-    const sessionToken = extractSessionToken(cookieHeader) ?? '';
+    const sessionToken = extractSessionToken(cookieHeader);
+    if (sessionToken === null || sessionToken === '') {
+      return AuthPageHandlers.buildRedirect('/auth/sign-in', [clearAuthIndicatorCookie()]);
+    }
+
     const result = await this.signOutUseCase.execute({ sessionToken });
 
     if (result.ok) {

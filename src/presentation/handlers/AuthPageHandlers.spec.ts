@@ -1100,6 +1100,23 @@ describe('AuthPageHandlers', () => {
           setCookies.some((v) => v.includes('__Host-auth_status=') && v.includes('Max-Age=0'))
         ).toBe(true);
       });
+
+      it('redirects to /auth/sign-in when session cookie has empty value', async () => {
+        const req = makeSignOutPostRequest({
+          sessionCookie: '__Host-better-auth.session_token=',
+        });
+        const res = await handlers.handlePostSignOut(req);
+        expect(res.status).toBe(303);
+        expect(res.headers.get('Location')).toBe('/auth/sign-in');
+      });
+
+      it('does not call signOutUseCase when session cookie has empty value', async () => {
+        const req = makeSignOutPostRequest({
+          sessionCookie: '__Host-better-auth.session_token=',
+        });
+        await handlers.handlePostSignOut(req);
+        expect(signOutUseCaseMock.execute).not.toHaveBeenCalled();
+      });
     });
 
     describe('successful sign-out', () => {
