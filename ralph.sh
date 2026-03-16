@@ -2303,11 +2303,21 @@ triage_blocked_task() {
             local new_title new_description parent_id sibling_id
             new_title=$(get_signal "title" "Follow-up for $task_id")
             new_description=$(get_signal "description" "Decomposed from blocked task $task_id")
-            parent_id="${task_id%.*}"
+            # Query the actual parent from beads — string manipulation (${task_id%.*})
+            # fails for IDs without dots (e.g. turtlebased-ts-852), creating children
+            # of the blocked task instead of siblings. Children of a blocked parent
+            # are unreachable by `bd ready`.
+            parent_id=$(npx bd show "$task_id" --json 2>/dev/null | jq -r '.[0].parent // empty' 2>/dev/null)
+            if [[ -z "$parent_id" ]]; then
+                parent_id="$EPIC_ID"
+            fi
             log INFO "Triage decomposing: creating sibling task under $parent_id"
             sibling_id=$(npx bd create "$new_title" --parent "$parent_id" --description "$new_description" --silent 2>/dev/null) || true
             if [[ -n "$sibling_id" ]]; then
                 npx bd dep "$sibling_id" --blocks "$task_id" 2>/dev/null || true
+                # Reset to open so find_leaf_task's in_progress fast-path
+                # doesn't bypass the dependency check (bd ready respects deps)
+                npx bd update "$task_id" --status=open 2>/dev/null || true
                 npx bd comment "$task_id" "TRIAGE: Decomposed — $reason. Blocked by sibling $sibling_id" 2>/dev/null || true
                 log INFO "Created sibling $sibling_id blocking $task_id"
             else
