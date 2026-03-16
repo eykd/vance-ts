@@ -226,9 +226,7 @@ describe('hasAuthIndicatorCookie', () => {
   });
 
   it('returns true when auth indicator cookie is present alongside other cookies', () => {
-    expect(
-      hasAuthIndicatorCookie('other=value; auth_status=1; more=stuff')
-    ).toBe(true);
+    expect(hasAuthIndicatorCookie('other=value; auth_status=1; more=stuff')).toBe(true);
   });
 });
 
