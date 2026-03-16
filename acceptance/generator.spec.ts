@@ -5,6 +5,7 @@ import {
   extractBoundFunctions,
   extractCustomImports,
   generateTests,
+  matchItLine,
   sanitizeFuncName,
 } from './generator.js';
 import type { Feature } from './types.js';
@@ -32,6 +33,56 @@ describe('sanitizeFuncName', () => {
 
   it('handles alphanumeric only', () => {
     expect(sanitizeFuncName('hello123')).toBe('hello123');
+  });
+});
+
+describe('matchItLine', () => {
+  it('returns null for non-it lines', () => {
+    expect(matchItLine('const x = 1;')).toBeNull();
+  });
+
+  it('matches a simple double-quoted it() line', () => {
+    const result = matchItLine('it("my test", async () => {');
+    expect(result).not.toBeNull();
+    expect(result?.description).toBe('my test');
+  });
+
+  it('matches a simple single-quoted it() line', () => {
+    const result = matchItLine("it('my test', async () => {");
+    expect(result).not.toBeNull();
+    expect(result?.description).toBe('my test');
+  });
+
+  it('matches it() with a flat vitest options object', () => {
+    const result = matchItLine('it("test", { timeout: 30_000 }, async () => {');
+    expect(result).not.toBeNull();
+    expect(result?.description).toBe('test');
+  });
+
+  it('matches it() with nested braces in vitest options', () => {
+    const result = matchItLine(
+      'it("test", { timeout: 30_000, onFailure: () => {} }, async () => {'
+    );
+    expect(result).not.toBeNull();
+    expect(result?.description).toBe('test');
+  });
+
+  it('returns null for unclosed options object', () => {
+    expect(matchItLine('it("test", { timeout: 30_000, async () => {')).toBeNull();
+  });
+
+  it('returns null if options object is not followed by comma', () => {
+    expect(matchItLine('it("test", { timeout: 30_000 } async () => {')).toBeNull();
+  });
+
+  it('returns null if line does not end with async callback', () => {
+    expect(matchItLine('it("test", () => {')).toBeNull();
+  });
+
+  it('unescapes backslash sequences in description', () => {
+    const result = matchItLine('it("User enters \\"hello\\".", async () => {');
+    expect(result).not.toBeNull();
+    expect(result?.description).toBe('User enters "hello".');
   });
 });
 
@@ -137,6 +188,17 @@ describe('extractBoundFunctions', () => {
     expect(result.get('Rate-limited user.')).toBe(source);
   });
 
+  it('recognizes it() with nested braces in vitest options object', () => {
+    const source = [
+      `it("Nested options.", { timeout: 30_000, onFailure: () => {} }, async () => {`,
+      `  expect(1).toBe(1);`,
+      `});`,
+    ].join('\n');
+    const result = extractBoundFunctions(source);
+    expect(result.has('Nested options.')).toBe(true);
+    expect(result.get('Nested options.')).toBe(source);
+  });
+
   it('preserves a bound implementation with apostrophe in double-quoted description', () => {
     const source = `it("User's profile.", async () => {\n  expect(1).toBe(1);\n});`;
     const result = extractBoundFunctions(source);
@@ -182,9 +244,7 @@ describe('extractCustomImports', () => {
       'import { describe, it, expect } from "vitest";',
       'import { myHelper } from "./custom-helpers";',
     ].join('\n');
-    expect(extractCustomImports(source)).toEqual([
-      'import { myHelper } from "./custom-helpers";',
-    ]);
+    expect(extractCustomImports(source)).toEqual(['import { myHelper } from "./custom-helpers";']);
   });
 
   it('preserves side-effect imports without a from clause', () => {

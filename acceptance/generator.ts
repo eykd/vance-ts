@@ -10,6 +10,62 @@ import type { Feature } from './types.js';
  */
 export const UnboundSentinel = 'throw new Error("acceptance test not yet bound")';
 
+/** Regex matching `^it("desc",\s+` with double-quoted description. */
+const IT_PREFIX_DOUBLE = /^it\("((?:[^"\\]|\\.)+)",\s+/;
+/** Regex matching `^it('desc',\s+` with single-quoted description. */
+const IT_PREFIX_SINGLE = /^it\('((?:[^'\\]|\\.)+)',\s+/;
+/** The exact suffix that ends the it() signature before the callback body. */
+const CALLBACK_SUFFIX = 'async () => {';
+
+/**
+ * Matches an `it()` line with an optional vitest options object.
+ *
+ * Uses balanced-brace counting so options objects with nested braces
+ * (e.g. `{ onFailure: () => {} }`) are handled correctly.
+ *
+ * @param line - A single line of source code.
+ * @returns The test description (unescaped) and total match length, or null.
+ */
+export function matchItLine(line: string): { description: string; matchLength: number } | null {
+  const prefix = IT_PREFIX_DOUBLE.exec(line) ?? IT_PREFIX_SINGLE.exec(line);
+  if (prefix === null) {
+    return null;
+  }
+  /* c8 ignore next */
+  const description = (prefix[1] ?? '').replace(/\\(.)/g, '$1');
+  let pos = prefix[0].length;
+
+  // Optional vitest options object: { ... },\s*
+  if (line[pos] === '{') {
+    let depth = 1;
+    pos++;
+    while (pos < line.length && depth > 0) {
+      const ch = line[pos];
+      if (ch === '{') {
+        depth++;
+      } else if (ch === '}') {
+        depth--;
+      }
+      pos++;
+    }
+    if (depth !== 0) {
+      return null;
+    }
+    const commaAndSpace = /^,\s*/.exec(line.slice(pos));
+    if (commaAndSpace === null) {
+      return null;
+    }
+    pos += commaAndSpace[0].length;
+  }
+
+  // Must end with the callback opening
+  if (!line.slice(pos).startsWith(CALLBACK_SUFFIX)) {
+    return null;
+  }
+
+  return { description, matchLength: pos + CALLBACK_SUFFIX.length };
+}
+
 /**
  * Scans the source text of a generated test file and extracts all it() blocks
  * that have been bound to real implementations (i.e. do NOT contain the
@@ -35,22 +91,19 @@ export function extractBoundFunctions(source: string): Map<string, string> {
   while (i < lines.length) {
     /* c8 ignore next */
     const line = lines[i] ?? '';
-    const match =
-      /^it\("((?:[^"\\]|\\.)+)",\s+(?:\{[^}]*\},\s*)?async \(\) => \{/.exec(line) ??
-      /^it\('((?:[^'\\]|\\.)+)',\s+(?:\{[^}]*\},\s*)?async \(\) => \{/.exec(line);
+    const match = matchItLine(line);
 
     if (match !== null) {
-      /* c8 ignore next */
-      const description = (match[1] ?? '').replace(/\\(.)/g, '$1');
+      const { description } = match;
       const startLine = i;
-      let depth = 1; // regex matched through the opening `{` of the callback
+      let depth = 1; // matchItLine matched through the opening `{` of the callback
       let endLine = -1;
       let inString: string | null = null;
 
       outer: for (let j = startLine; j < lines.length; j++) {
         /* c8 ignore next */
         const scanLine = lines[j] ?? '';
-        const startK = j === startLine ? match[0].length : 0;
+        const startK = j === startLine ? match.matchLength : 0;
         for (let k = startK; k < scanLine.length; k++) {
           /* c8 ignore next */
           const ch = scanLine[k] ?? '';
