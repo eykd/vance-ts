@@ -416,23 +416,24 @@ describe('AuthPageHandlers', () => {
       it('sets the session cookie from better-auth token', async () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('better-auth.session_token=sess123');
+        const setCookies = res.headers.getSetCookie();
+        expect(setCookies.some((v) => v.includes('better-auth.session_token=sess123'))).toBe(true);
       });
 
       it('clears the CSRF cookie on success', async () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('__Host-csrf=');
-        expect(setCookies).toContain('Max-Age=0');
+        const setCookies = res.headers.getSetCookie();
+        expect(setCookies.some((v) => v.includes('__Host-csrf=') && v.includes('Max-Age=0'))).toBe(
+          true
+        );
       });
 
       it('sets the auth indicator cookie on success', async () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('__Host-auth_status=1');
+        const setCookies = res.headers.getSetCookie();
+        expect(setCookies.some((v) => v.includes('__Host-auth_status=1'))).toBe(true);
       });
 
       it('passes email, password, and IP to the sign-in use case', async () => {
@@ -1094,9 +1095,10 @@ describe('AuthPageHandlers', () => {
       it('clears the auth indicator cookie even without a session', async () => {
         const req = makeSignOutPostRequest({ sessionCookie: null });
         const res = await handlers.handlePostSignOut(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('__Host-auth_status=');
-        expect(setCookies).toContain('Max-Age=0');
+        const setCookies = res.headers.getSetCookie();
+        expect(
+          setCookies.some((v) => v.includes('__Host-auth_status=') && v.includes('Max-Age=0'))
+        ).toBe(true);
       });
     });
 
@@ -1120,24 +1122,28 @@ describe('AuthPageHandlers', () => {
       it('clears the session cookie via clearSessionCookie()', async () => {
         const req = makeSignOutPostRequest();
         const res = await handlers.handlePostSignOut(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('better-auth.session_token=');
-        expect(setCookies).toContain('Max-Age=0');
+        const setCookies = res.headers.getSetCookie();
+        expect(
+          setCookies.some(
+            (v) => v.includes('better-auth.session_token=') && v.includes('Max-Age=0')
+          )
+        ).toBe(true);
       });
 
       it('clears the CSRF cookie on success', async () => {
         const req = makeSignOutPostRequest();
         const res = await handlers.handlePostSignOut(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('__Host-csrf=');
-        expect(setCookies).toContain('Max-Age=0');
+        const setCookies = res.headers.getSetCookie();
+        expect(setCookies.some((v) => v.includes('__Host-csrf=') && v.includes('Max-Age=0'))).toBe(
+          true
+        );
       });
 
       it('clears the auth indicator cookie on success', async () => {
         const req = makeSignOutPostRequest();
         const res = await handlers.handlePostSignOut(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('__Host-auth_status=');
+        const setCookies = res.headers.getSetCookie();
+        expect(setCookies.some((v) => v.includes('__Host-auth_status='))).toBe(true);
       });
 
       it('passes the extracted sessionToken to the use case', async () => {
@@ -1166,9 +1172,10 @@ describe('AuthPageHandlers', () => {
       it('clears the auth indicator cookie on service error', async () => {
         const req = makeSignOutPostRequest();
         const res = await handlers.handlePostSignOut(req);
-        const setCookies = res.headers.get('Set-Cookie') ?? '';
-        expect(setCookies).toContain('__Host-auth_status=');
-        expect(setCookies).toContain('Max-Age=0');
+        const setCookies = res.headers.getSetCookie();
+        expect(
+          setCookies.some((v) => v.includes('__Host-auth_status=') && v.includes('Max-Age=0'))
+        ).toBe(true);
       });
     });
   });
