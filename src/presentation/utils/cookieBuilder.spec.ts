@@ -13,6 +13,9 @@ import {
   hasSessionCookie,
 } from './cookieBuilder';
 
+/** Production session cookie name used in tests. */
+const PROD_COOKIE_NAME = '__Host-better-auth.session_token';
+
 describe('buildAuthIndicatorCookie', () => {
   it('sets cookie value to __Host-auth_status=1', () => {
     expect(buildAuthIndicatorCookie()).toMatch(/^__Host-auth_status=1;/);
@@ -162,48 +165,53 @@ describe('clearCsrfCookie', () => {
 
 describe('clearSessionCookie', () => {
   it('returns a Set-Cookie header value that clears the session cookie', () => {
-    const value = clearSessionCookie();
+    const value = clearSessionCookie(PROD_COOKIE_NAME);
     expect(value).toContain('__Host-better-auth.session_token=');
     expect(value).toContain('Max-Age=0');
   });
 
   it('includes HttpOnly flag', () => {
-    expect(clearSessionCookie()).toContain('HttpOnly');
+    expect(clearSessionCookie(PROD_COOKIE_NAME)).toContain('HttpOnly');
   });
 
   it('includes Secure flag', () => {
-    expect(clearSessionCookie()).toContain('Secure');
+    expect(clearSessionCookie(PROD_COOKIE_NAME)).toContain('Secure');
   });
 
   it('includes SameSite=Lax', () => {
-    expect(clearSessionCookie()).toContain('SameSite=Lax');
+    expect(clearSessionCookie(PROD_COOKIE_NAME)).toContain('SameSite=Lax');
   });
 
   it('includes Path=/', () => {
-    expect(clearSessionCookie()).toContain('Path=/');
+    expect(clearSessionCookie(PROD_COOKIE_NAME)).toContain('Path=/');
   });
 });
 
 describe('hasSessionCookie', () => {
   it('returns false when cookieHeader is null', () => {
-    expect(hasSessionCookie(null)).toBe(false);
+    expect(hasSessionCookie(null, PROD_COOKIE_NAME)).toBe(false);
   });
 
   it('returns false when cookieHeader is empty string', () => {
-    expect(hasSessionCookie('')).toBe(false);
+    expect(hasSessionCookie('', PROD_COOKIE_NAME)).toBe(false);
   });
 
   it('returns false when session cookie is absent from the header', () => {
-    expect(hasSessionCookie('other=value; __Host-csrf=token')).toBe(false);
+    expect(hasSessionCookie('other=value; __Host-csrf=token', PROD_COOKIE_NAME)).toBe(false);
   });
 
   it('returns true when session cookie is present in the header', () => {
-    expect(hasSessionCookie('__Host-better-auth.session_token=abc123')).toBe(true);
+    expect(hasSessionCookie('__Host-better-auth.session_token=abc123', PROD_COOKIE_NAME)).toBe(
+      true
+    );
   });
 
   it('returns true when session cookie is present alongside other cookies', () => {
     expect(
-      hasSessionCookie('other=value; __Host-better-auth.session_token=abc123; more=stuff')
+      hasSessionCookie(
+        'other=value; __Host-better-auth.session_token=abc123; more=stuff',
+        PROD_COOKIE_NAME
+      )
     ).toBe(true);
   });
 });
@@ -260,56 +268,75 @@ describe('extractCsrfTokenFromCookies', () => {
 
 describe('buildSessionCookie', () => {
   it('returns a Set-Cookie header value with the token', () => {
-    expect(buildSessionCookie('abc123')).toContain('__Host-better-auth.session_token=abc123');
+    expect(buildSessionCookie('abc123', PROD_COOKIE_NAME)).toContain(
+      '__Host-better-auth.session_token=abc123'
+    );
   });
 
   it('includes HttpOnly flag', () => {
-    expect(buildSessionCookie('tok')).toContain('HttpOnly');
+    expect(buildSessionCookie('tok', PROD_COOKIE_NAME)).toContain('HttpOnly');
   });
 
   it('includes Secure flag', () => {
-    expect(buildSessionCookie('tok')).toContain('Secure');
+    expect(buildSessionCookie('tok', PROD_COOKIE_NAME)).toContain('Secure');
   });
 
   it('includes SameSite=Lax', () => {
-    expect(buildSessionCookie('tok')).toContain('SameSite=Lax');
+    expect(buildSessionCookie('tok', PROD_COOKIE_NAME)).toContain('SameSite=Lax');
   });
 
   it('includes Path=/', () => {
-    expect(buildSessionCookie('tok')).toContain('Path=/');
+    expect(buildSessionCookie('tok', PROD_COOKIE_NAME)).toContain('Path=/');
   });
 
   it('includes Max-Age=2592000 (30 days)', () => {
-    expect(buildSessionCookie('tok')).toContain('Max-Age=2592000');
+    expect(buildSessionCookie('tok', PROD_COOKIE_NAME)).toContain('Max-Age=2592000');
+  });
+
+  it('uses localhost cookie name when configured for localhost', () => {
+    expect(buildSessionCookie('abc123', 'better-auth.session_token')).toContain(
+      'better-auth.session_token=abc123'
+    );
   });
 });
 
 describe('extractSessionToken', () => {
   it('extracts the session token from a cookie header', () => {
-    expect(extractSessionToken('__Host-better-auth.session_token=abc123')).toBe('abc123');
+    expect(extractSessionToken('__Host-better-auth.session_token=abc123', PROD_COOKIE_NAME)).toBe(
+      'abc123'
+    );
   });
 
   it('returns null when cookieHeader is null', () => {
-    expect(extractSessionToken(null)).toBeNull();
+    expect(extractSessionToken(null, PROD_COOKIE_NAME)).toBeNull();
   });
 
   it('returns null when cookieHeader is empty string', () => {
-    expect(extractSessionToken('')).toBeNull();
+    expect(extractSessionToken('', PROD_COOKIE_NAME)).toBeNull();
   });
 
   it('returns null when session cookie is absent', () => {
-    expect(extractSessionToken('__Host-csrf=token; other=value')).toBeNull();
+    expect(extractSessionToken('__Host-csrf=token; other=value', PROD_COOKIE_NAME)).toBeNull();
   });
 
   it('extracts the token when session cookie is present alongside other cookies', () => {
     expect(
-      extractSessionToken('__Host-csrf=xyz; __Host-better-auth.session_token=tok123; more=stuff')
+      extractSessionToken(
+        '__Host-csrf=xyz; __Host-better-auth.session_token=tok123; more=stuff',
+        PROD_COOKIE_NAME
+      )
     ).toBe('tok123');
   });
 
   it('handles the session cookie at the end of a multi-cookie header', () => {
-    expect(extractSessionToken('other=abc; __Host-better-auth.session_token=endtok')).toBe(
-      'endtok'
-    );
+    expect(
+      extractSessionToken('other=abc; __Host-better-auth.session_token=endtok', PROD_COOKIE_NAME)
+    ).toBe('endtok');
+  });
+
+  it('extracts token using localhost cookie name', () => {
+    expect(
+      extractSessionToken('better-auth.session_token=local-tok', 'better-auth.session_token')
+    ).toBe('local-tok');
   });
 });

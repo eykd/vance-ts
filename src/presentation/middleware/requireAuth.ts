@@ -35,18 +35,20 @@ import {
  *
  * @param authService - The AuthService port for session validation.
  * @param secret - The BETTER_AUTH_SECRET for HMAC-SHA256 CSRF derivation.
+ * @param sessionCookieName - The session cookie name matching better-auth's configured prefix.
  * @returns A Hono middleware function for use with `app.use()`.
  */
 export function createRequireAuth(
   authService: AuthService,
-  secret: string
+  secret: string,
+  sessionCookieName: string
 ): (c: Context<AppEnv>, next: Next) => Promise<Response | void> {
   return async function requireAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
     const url = new URL(c.req.url);
     const redirectTo = encodeURIComponent(url.pathname + url.search);
     const cookieHeader = c.req.header('Cookie') ?? '';
 
-    const sessionToken = extractSessionToken(cookieHeader);
+    const sessionToken = extractSessionToken(cookieHeader, sessionCookieName);
     if (sessionToken === null) {
       return c.redirect(`/auth/sign-in?redirectTo=${redirectTo}`, 302);
     }
@@ -63,8 +65,8 @@ export function createRequireAuth(
     }
 
     if (session === null) {
-      if (hasSessionCookie(cookieHeader)) {
-        c.header('Set-Cookie', clearSessionCookie());
+      if (hasSessionCookie(cookieHeader, sessionCookieName)) {
+        c.header('Set-Cookie', clearSessionCookie(sessionCookieName));
       }
       if (hasAuthIndicatorCookie(cookieHeader)) {
         c.header('Set-Cookie', clearAuthIndicatorCookie(), { append: true });

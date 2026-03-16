@@ -40,6 +40,9 @@ function makeAuthServiceMock(): {
 /** Secret used in tests — 32-char minimum for HMAC-SHA256 derivation. */
 const TEST_SECRET = 'a'.repeat(32);
 
+/** Production session cookie name used in tests. */
+const PROD_COOKIE_NAME = '__Host-better-auth.session_token';
+
 /** Session cookie header for a valid session token. */
 const SESSION_COOKIE = '__Host-better-auth.session_token=test-session-token';
 
@@ -80,7 +83,11 @@ describe('createRequireAuth', () => {
    */
   function makeTestApp(): Hono {
     const app = new Hono();
-    const middleware = createRequireAuth(authServiceMock as unknown as AuthService, TEST_SECRET);
+    const middleware = createRequireAuth(
+      authServiceMock as unknown as AuthService,
+      TEST_SECRET,
+      PROD_COOKIE_NAME
+    );
     app.use('*', middleware);
     app.get('/protected', (c) => c.text('protected content'));
     return app;
@@ -201,7 +208,11 @@ describe('createRequireAuth', () => {
     let capturedCsrfToken: unknown;
 
     const app = new Hono<{ Variables: TestVariables }>();
-    const middleware = createRequireAuth(authServiceMock as unknown as AuthService, TEST_SECRET);
+    const middleware = createRequireAuth(
+      authServiceMock as unknown as AuthService,
+      TEST_SECRET,
+      PROD_COOKIE_NAME
+    );
     app.use('*', middleware);
     app.get('/protected', (c) => {
       capturedUser = c.get('user');

@@ -13,7 +13,6 @@ import type { betterAuth } from 'better-auth';
 
 import type { AuthService, AuthSessionDto, AuthUserDto } from '../application/ports/AuthService.js';
 import { verifyPassword } from '../domain/services/passwordHasher.js';
-import { SESSION_COOKIE_NAME } from '../shared/authCookieNames.js';
 import { toHex } from '../shared/hex.js';
 
 /** Type alias for the better-auth instance returned by `getAuth(env)`. */
@@ -83,13 +82,18 @@ export class BetterAuthService implements AuthService {
   /** The better-auth instance obtained from `getAuth(env)`. */
   private readonly auth: AuthInstance;
 
+  /** The session cookie name matching better-auth's configured cookie prefix. */
+  private readonly sessionCookieName: string;
+
   /**
    * Creates a new BetterAuthService wrapping the given better-auth instance.
    *
    * @param auth - The configured better-auth instance from `getAuth(env)`.
+   * @param sessionCookieName - The session cookie name matching better-auth's configured prefix.
    */
-  constructor(auth: AuthInstance) {
+  constructor(auth: AuthInstance, sessionCookieName: string) {
     this.auth = auth;
+    this.sessionCookieName = sessionCookieName;
   }
 
   /**
@@ -129,7 +133,7 @@ export class BetterAuthService implements AuthService {
           return { ok: false, kind: 'service_error' };
         }
         // Validate the cookie belongs to the expected session cookie
-        const expectedPrefix = SESSION_COOKIE_NAME + '=';
+        const expectedPrefix = this.sessionCookieName + '=';
         if (!setCookieHeader.startsWith(expectedPrefix)) {
           return { ok: false, kind: 'service_error' };
         }
@@ -243,7 +247,7 @@ export class BetterAuthService implements AuthService {
   }): Promise<{ ok: true } | { ok: false; kind: 'service_error' }> {
     try {
       const response = await this.auth.api.signOut({
-        headers: new Headers({ cookie: `${SESSION_COOKIE_NAME}=${params.sessionToken}` }),
+        headers: new Headers({ cookie: `${this.sessionCookieName}=${params.sessionToken}` }),
         asResponse: true,
       });
 
@@ -281,7 +285,7 @@ export class BetterAuthService implements AuthService {
   async getSession(params: {
     sessionToken: string;
   }): Promise<{ user: AuthUserDto; session: AuthSessionDto } | null> {
-    const headers = new Headers({ cookie: `${SESSION_COOKIE_NAME}=${params.sessionToken}` });
+    const headers = new Headers({ cookie: `${this.sessionCookieName}=${params.sessionToken}` });
     const data = await this.auth.api.getSession({ headers });
 
     if (data === null) {

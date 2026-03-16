@@ -15,6 +15,9 @@ vi.mock('../utils/timingSafeEqual.js', async (importOriginal) => {
 /** Fixed CSRF token used across test requests (64-char hex string). */
 const TEST_CSRF = 'a'.repeat(64);
 
+/** Production session cookie name used in tests. */
+const PROD_COOKIE_NAME = '__Host-better-auth.session_token';
+
 /** Cookie header containing the test CSRF token. */
 const CSRF_COOKIE = `__Host-csrf=${TEST_CSRF}`;
 
@@ -170,7 +173,8 @@ describe('AuthPageHandlers', () => {
     handlers = new AuthPageHandlers(
       signInUseCaseMock as unknown as SignInUseCase,
       signUpUseCaseMock as unknown as SignUpUseCase,
-      signOutUseCaseMock as unknown as SignOutUseCase
+      signOutUseCaseMock as unknown as SignOutUseCase,
+      PROD_COOKIE_NAME
     );
   });
 

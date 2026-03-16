@@ -44,13 +44,16 @@ function makeAuthMock(): {
   };
 }
 
+/** Production session cookie name used in tests. */
+const PROD_COOKIE_NAME = '__Host-better-auth.session_token';
+
 describe('BetterAuthService', () => {
   let authMock: ReturnType<typeof makeAuthMock>;
   let service: BetterAuthService;
 
   beforeEach(() => {
     authMock = makeAuthMock();
-    service = new BetterAuthService(authMock as unknown as AuthInstance);
+    service = new BetterAuthService(authMock as unknown as AuthInstance, PROD_COOKIE_NAME);
   });
 
   afterEach(() => {
@@ -571,6 +574,61 @@ describe('BetterAuthService', () => {
       await expect(service.getSession({ sessionToken: 'tok-abc' })).rejects.toThrow(
         'D1 database unavailable'
       );
+    });
+  });
+
+  describe('sessionCookieName (localhost)', () => {
+    it('extracts session token using localhost cookie name when configured for localhost', async () => {
+      const localService = new BetterAuthService(
+        authMock as unknown as AuthInstance,
+        'better-auth.session_token'
+      );
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response(null, {
+          status: 200,
+          headers: { 'set-cookie': 'better-auth.session_token=local-tok; Path=/' },
+        })
+      );
+
+      const result = await localService.signIn({
+        email: 'user@example.com',
+        password: 'correcthorse12',
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.sessionToken).toBe('local-tok');
+      }
+    });
+
+    it('constructs Cookie header with localhost cookie name for getSession', async () => {
+      const localService = new BetterAuthService(
+        authMock as unknown as AuthInstance,
+        'better-auth.session_token'
+      );
+      authMock.api.getSession.mockResolvedValue(null);
+
+      await localService.getSession({ sessionToken: 'tok-abc' });
+
+      const call = authMock.api.getSession.mock.calls[0] as [{ headers: Headers }];
+      const passedHeaders = call[0]?.headers;
+      expect(passedHeaders?.get('cookie')).toBe('better-auth.session_token=tok-abc');
+    });
+
+    it('constructs Cookie header with localhost cookie name for signOut', async () => {
+      const localService = new BetterAuthService(
+        authMock as unknown as AuthInstance,
+        'better-auth.session_token'
+      );
+      authMock.api.signOut.mockResolvedValue(new Response(null, { status: 200 }));
+
+      await localService.signOut({ sessionToken: 'abc123' });
+
+      const call = authMock.api.signOut.mock.calls[0] as [
+        { headers: Headers; asResponse: boolean },
+      ];
+      const passedHeaders = call[0]?.headers;
+      expect(passedHeaders?.get('cookie')).toBe('better-auth.session_token=abc123');
     });
   });
 

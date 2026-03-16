@@ -24,6 +24,7 @@ import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLim
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createApiAuthRateLimit } from '../presentation/middleware/apiAuthRateLimit';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
+import { getSessionCookieName } from '../shared/authCookieNames';
 import type { Env } from '../shared/env';
 
 /**
@@ -42,6 +43,9 @@ export class ServiceFactory {
 
   /** Validated secret extracted after getAuth confirms it is a non-empty string. */
   private readonly _validatedSecret: string;
+
+  /** Session cookie name derived from BETTER_AUTH_URL. */
+  private readonly _sessionCookieName: string;
 
   /** Cached AuthService adapter. */
   private _authService: AuthService | null = null;
@@ -80,6 +84,7 @@ export class ServiceFactory {
     this.env = env;
     this._authInstance = getAuth(env); // validates BETTER_AUTH_SECRET, throws if invalid
     this._validatedSecret = env.BETTER_AUTH_SECRET;
+    this._sessionCookieName = getSessionCookieName(env.BETTER_AUTH_URL);
   }
 
   /**
@@ -88,7 +93,7 @@ export class ServiceFactory {
    * @returns The lazily-initialised BetterAuthService instance.
    */
   private get _authServiceInstance(): AuthService {
-    this._authService ??= new BetterAuthService(this._authInstance);
+    this._authService ??= new BetterAuthService(this._authInstance, this._sessionCookieName);
     return this._authService;
   }
 
@@ -155,7 +160,8 @@ export class ServiceFactory {
   get requireAuthMiddleware(): ReturnType<typeof createRequireAuth> {
     this._requireAuthMiddleware ??= createRequireAuth(
       this._authServiceInstance,
-      this._validatedSecret
+      this._validatedSecret,
+      this._sessionCookieName
     );
     return this._requireAuthMiddleware;
   }
@@ -169,7 +175,8 @@ export class ServiceFactory {
     this._authPageHandlers ??= new AuthPageHandlers(
       this.signInUseCase,
       this.signUpUseCase,
-      this.signOutUseCase
+      this.signOutUseCase,
+      this._sessionCookieName
     );
     return this._authPageHandlers;
   }

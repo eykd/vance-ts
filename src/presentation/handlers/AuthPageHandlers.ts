@@ -62,21 +62,27 @@ export class AuthPageHandlers {
   /** Injected sign-out use case. */
   private readonly signOutUseCase: SignOutUseCase;
 
+  /** The session cookie name matching better-auth's configured cookie prefix. */
+  private readonly sessionCookieName: string;
+
   /**
    * Creates a new AuthPageHandlers instance.
    *
    * @param signInUseCase - The sign-in orchestration use case.
    * @param signUpUseCase - The sign-up orchestration use case.
    * @param signOutUseCase - The sign-out orchestration use case.
+   * @param sessionCookieName - The session cookie name matching better-auth's configured prefix.
    */
   constructor(
     signInUseCase: SignInUseCase,
     signUpUseCase: SignUpUseCase,
-    signOutUseCase: SignOutUseCase
+    signOutUseCase: SignOutUseCase,
+    sessionCookieName: string
   ) {
     this.signInUseCase = signInUseCase;
     this.signUpUseCase = signUpUseCase;
     this.signOutUseCase = signOutUseCase;
+    this.sessionCookieName = sessionCookieName;
   }
 
   /**
@@ -209,7 +215,7 @@ export class AuthPageHandlers {
 
     if (result.ok) {
       return AuthPageHandlers.buildRedirect(redirectTo, [
-        buildSessionCookie(result.sessionToken),
+        buildSessionCookie(result.sessionToken, this.sessionCookieName),
         buildAuthIndicatorCookie(),
         clearCsrfCookie(),
       ]);
@@ -320,12 +326,12 @@ export class AuthPageHandlers {
     }
 
     const cookieHeader = request.headers.get('Cookie') ?? '';
-    if (!hasSessionCookie(cookieHeader)) {
+    if (!hasSessionCookie(cookieHeader, this.sessionCookieName)) {
       // Clear indicator cookie even without a session — cookie may linger after expiry
       return AuthPageHandlers.buildRedirect('/auth/sign-in', [clearAuthIndicatorCookie()]);
     }
 
-    const sessionToken = extractSessionToken(cookieHeader);
+    const sessionToken = extractSessionToken(cookieHeader, this.sessionCookieName);
     if (sessionToken === null || sessionToken === '') {
       return AuthPageHandlers.buildRedirect('/auth/sign-in', [clearAuthIndicatorCookie()]);
     }
@@ -335,7 +341,7 @@ export class AuthPageHandlers {
     if (result.ok) {
       // 303 redirect + Set-Cookie headers are atomic — browser applies all cookies before navigating
       return AuthPageHandlers.buildRedirect('/auth/sign-in', [
-        clearSessionCookie(),
+        clearSessionCookie(this.sessionCookieName),
         clearAuthIndicatorCookie(),
         clearCsrfCookie(),
       ]);

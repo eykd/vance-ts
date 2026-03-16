@@ -89,3 +89,4 @@
 {"author":"eykd","created_at":"2026-03-16T21:51:21Z","id":89,"issue_id":"turtlebased-ts-yjz","text":"Starting work on 405 Method Not Allowed for auth routes"}
 {"author":"eykd","created_at":"2026-03-16T22:01:58Z","id":90,"issue_id":"turtlebased-ts-3vh","text":"Starting investigation: sign-up returns generic error"}
 {"author":"eykd","created_at":"2026-03-16T22:21:04Z","id":91,"issue_id":"turtlebased-ts-3vh","text":"Root cause: both SignUpUseCase catch block and BetterAuthService.signUp silent catch discard all error details. Adding console.error logging to surface actual errors. Acceptance tests pass - the core flow works, but errors are invisible."}
+{"author":"eykd","created_at":"2026-03-16T22:30:20Z","id":92,"issue_id":"turtlebased-ts-ec1.1","text":"All 5 child bug fixes committed and verified. 754 tests pass across 51 test files. npm run check passes. Task complete."}

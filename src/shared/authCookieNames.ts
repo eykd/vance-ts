@@ -1,7 +1,14 @@
 /**
- * The better-auth session cookie name, derived from `cookiePrefix: '__Host-better-auth'`
- * and better-auth's default session token suffix. Single source of truth consumed by
- * both the infrastructure layer (BetterAuthService) and the presentation layer
- * (cookieBuilder).
+ * Returns the better-auth session cookie name for the given auth URL.
+ *
+ * On localhost (plain HTTP), the `__Host-` prefix is dropped because it
+ * requires `Secure: true` — a constraint that cannot be satisfied on
+ * plain HTTP. This mirrors the `cookiePrefix` logic in `infrastructure/auth.ts`.
+ *
+ * @param authUrl - The BETTER_AUTH_URL value from the Workers env.
+ * @returns The session cookie name matching better-auth's configured cookie prefix.
  */
-export const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
+export function getSessionCookieName(authUrl: string): string {
+  const isLocal = authUrl.startsWith('http://localhost') || authUrl.startsWith('http://127.0.0.1');
+  return isLocal ? 'better-auth.session_token' : '__Host-better-auth.session_token';
+}

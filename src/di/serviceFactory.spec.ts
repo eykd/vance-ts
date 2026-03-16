@@ -297,7 +297,8 @@ describe('ServiceFactory', () => {
       expect(middleware).toBe(mockMiddleware);
       expect(mocks.createRequireAuth).toHaveBeenCalledWith(
         expect.anything(), // authService instance
-        (env as { BETTER_AUTH_SECRET: string }).BETTER_AUTH_SECRET
+        (env as { BETTER_AUTH_SECRET: string }).BETTER_AUTH_SECRET,
+        '__Host-better-auth.session_token' // sessionCookieName for non-localhost URL
       );
     });
 
