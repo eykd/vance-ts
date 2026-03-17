@@ -7,39 +7,29 @@ import { SIGN_IN_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 import { SignInUseCase } from './SignInUseCase.js';
 
 /**
- * Creates a minimal AuthService mock with vi.fn() stubs.
+ * Creates an AuthService mock with only the methods SignInUseCase calls.
  *
- * @returns An object with `vi.fn()` stubs for each AuthService method.
+ * @returns An object with `vi.fn()` stubs for signIn and verifyDummyPassword.
  */
 function makeAuthServiceMock(): {
   signIn: ReturnType<typeof vi.fn>;
-  signUp: ReturnType<typeof vi.fn>;
-  signOut: ReturnType<typeof vi.fn>;
-  getSession: ReturnType<typeof vi.fn>;
   verifyDummyPassword: ReturnType<typeof vi.fn>;
 } {
   return {
     signIn: vi.fn(),
-    signUp: vi.fn(),
-    signOut: vi.fn(),
-    getSession: vi.fn(),
     verifyDummyPassword: vi.fn().mockResolvedValue(undefined),
   };
 }
 
 /**
- * Creates a minimal RateLimiter mock with vi.fn() stubs.
+ * Creates a RateLimiter mock with only the method SignInUseCase calls.
  *
- * @returns An object with `vi.fn()` stubs for each RateLimiter method.
+ * @returns An object with a `vi.fn()` stub for checkAndIncrement.
  */
 function makeRateLimiterMock(): {
-  check: ReturnType<typeof vi.fn>;
-  increment: ReturnType<typeof vi.fn>;
   checkAndIncrement: ReturnType<typeof vi.fn>;
 } {
   return {
-    check: vi.fn(),
-    increment: vi.fn(),
     checkAndIncrement: vi.fn(),
   };
 }

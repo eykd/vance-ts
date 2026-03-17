@@ -1,44 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { AuthService } from '../ports/AuthService.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import { REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
 import { SignUpUseCase } from './SignUpUseCase.js';
 
 /**
- * Creates a minimal AuthService mock with vi.fn() stubs.
+ * Creates an AuthService mock with only the method SignUpUseCase calls.
  *
- * @returns An object with `vi.fn()` stubs for each AuthService method.
+ * @returns An object with a `vi.fn()` stub for signUp.
  */
 function makeAuthServiceMock(): {
-  signIn: ReturnType<typeof vi.fn>;
   signUp: ReturnType<typeof vi.fn>;
-  signOut: ReturnType<typeof vi.fn>;
-  getSession: ReturnType<typeof vi.fn>;
-  verifyDummyPassword: ReturnType<typeof vi.fn>;
 } {
   return {
-    signIn: vi.fn(),
     signUp: vi.fn(),
-    signOut: vi.fn(),
-    getSession: vi.fn(),
-    verifyDummyPassword: vi.fn().mockResolvedValue(undefined),
   };
 }
 
 /**
- * Creates a minimal RateLimiter mock with vi.fn() stubs.
+ * Creates a RateLimiter mock with only the method SignUpUseCase calls.
  *
- * @returns An object with `vi.fn()` stubs for each RateLimiter method.
+ * @returns An object with a `vi.fn()` stub for checkAndIncrement.
  */
 function makeRateLimiterMock(): {
-  check: ReturnType<typeof vi.fn>;
-  increment: ReturnType<typeof vi.fn>;
   checkAndIncrement: ReturnType<typeof vi.fn>;
 } {
   return {
-    check: vi.fn(),
-    increment: vi.fn(),
     checkAndIncrement: vi.fn(),
   };
 }
@@ -59,7 +48,10 @@ describe('SignUpUseCase', () => {
     rateLimiterMock = makeRateLimiterMock();
     rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: true });
     authServiceMock.signUp.mockResolvedValue({ ok: true });
-    useCase = new SignUpUseCase(authServiceMock, rateLimiterMock as unknown as RateLimiter);
+    useCase = new SignUpUseCase(
+      authServiceMock as unknown as AuthService,
+      rateLimiterMock as unknown as RateLimiter
+    );
   });
 
   afterEach(() => {
