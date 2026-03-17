@@ -7,7 +7,7 @@ import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
 import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
 import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandler';
 import type { AppEnv } from './presentation/types';
-import { applySecurityHeaders } from './presentation/utils/securityHeaders';
+import { SECURITY_HEADERS } from './presentation/utils/securityHeaders';
 
 // Durable Object class must be exported from the worker entry point so
 // the Workers runtime can register it as a named DO binding.
@@ -18,6 +18,16 @@ const app = new Hono<AppEnv>();
 /**
  * Middleware: apply security headers after the downstream handler runs.
  *
+ * Uses `c.header()` instead of `c.res = new Response(c.res.body, c.res)` to
+ * avoid Hono's Context `res` setter header-merging logic that can duplicate
+ * headers on HEAD requests (the setter copies headers from both the old and
+ * new response, and Hono's HEAD dispatch wraps the result in yet another
+ * `new Response(null, result)`).
+ *
+ * `c.header()` bypasses the setter by writing directly to the internal
+ * response field, and handles immutable-header responses (e.g. from
+ * ASSETS.fetch) by creating a mutable copy internally.
+ *
  * Static assets served via the [assets] config use the _headers file instead.
  *
  * @param c - The Hono context.
@@ -25,10 +35,9 @@ const app = new Hono<AppEnv>();
  */
 const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<void> => {
   await next();
-  // Reconstruct the response so headers are always mutable —
-  // ASSETS.fetch responses have immutable headers in the Workers runtime.
-  c.res = new Response(c.res.body, c.res);
-  applySecurityHeaders(c.res.headers);
+  for (const [name, value] of SECURITY_HEADERS) {
+    c.header(name, value);
+  }
 };
 
 app.use('/api/*', withSecurityHeaders);

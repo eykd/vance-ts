@@ -1,4 +1,4 @@
-import { applySecurityHeaders, buildCspHeaderValue } from './securityHeaders';
+import { SECURITY_HEADERS, applySecurityHeaders, buildCspHeaderValue } from './securityHeaders';
 
 describe('buildCspHeaderValue', () => {
   let csp: string;
@@ -52,6 +52,21 @@ describe('buildCspHeaderValue', () => {
     expect(csp).not.toContain('cdn.tailwindcss.com');
     expect(csp).not.toContain('unpkg.com');
     expect(csp).not.toContain('cdn.jsdelivr.net');
+  });
+});
+
+describe('SECURITY_HEADERS', () => {
+  it('contains the same headers that applySecurityHeaders sets', () => {
+    const headers = new Headers();
+    applySecurityHeaders(headers);
+
+    for (const [name, value] of SECURITY_HEADERS) {
+      expect(headers.get(name)).toBe(value);
+    }
+  });
+
+  it('has 9 entries', () => {
+    expect(SECURITY_HEADERS).toHaveLength(9);
   });
 });
 

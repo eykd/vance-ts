@@ -106,6 +106,46 @@ describe('Worker', () => {
     });
   });
 
+  describe('HEAD /api/health', () => {
+    it('does not duplicate response headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/health', { method: 'HEAD' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(200);
+      // Count occurrences of each header name — duplicates would appear as multiple entries
+      const headerCounts = new Map<string, number>();
+      res.headers.forEach((_value, name) => {
+        headerCounts.set(name, (headerCounts.get(name) ?? 0) + 1);
+      });
+      for (const [name, count] of headerCounts) {
+        expect(count, `header "${name}" appeared ${count} times`).toBe(1);
+      }
+    });
+
+    it('includes security headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/health', { method: 'HEAD' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+
+    it('returns an empty body', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/health', { method: 'HEAD' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.body).toBeNull();
+    });
+  });
+
   describe('GET /api/nonexistent', () => {
     it('returns 404 JSON', async () => {
       const env = mockEnv();
