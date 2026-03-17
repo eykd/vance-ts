@@ -332,9 +332,8 @@ export class AuthPageHandlers {
       return new Response(body, { headers: errorHeaders });
     }
 
-    // service_error or unrecognised future kind — show as general error banner
-    const errorMessage =
-      SIGN_UP_ERROR_MESSAGES[result.kind] ?? 'An error occurred. Please try again.';
+    // service_error — show as general error banner
+    const errorMessage = SIGN_UP_ERROR_MESSAGES[result.kind];
     const body = registerPage({ csrfToken, email, error: errorMessage });
 
     return new Response(body, { headers: errorHeaders });
