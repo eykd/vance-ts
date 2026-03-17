@@ -6,6 +6,7 @@ import { getServiceFactory } from './di/serviceFactory';
 import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
 import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
 import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandler';
+import { authErrorPage } from './presentation/templates/pages/authError';
 import type { AppEnv } from './presentation/types';
 import { SECURITY_HEADERS } from './presentation/utils/securityHeaders';
 
@@ -90,6 +91,24 @@ app.use('/api/auth/sign-in/*', async (c, next): Promise<Response | void> => {
 app.use('/api/auth/sign-up/*', async (c, next): Promise<Response | void> => {
   if (c.req.method !== 'POST') return next();
   return getServiceFactory(c.env).signUpApiRateLimitMiddleware(c as Context<AppEnv>, next);
+});
+
+/**
+ * Intercepts better-auth's default error page at `/api/auth/error`.
+ *
+ * better-auth renders a styled HTML page with external links (to better-auth.com)
+ * and an "Ask AI" button, revealing the auth framework in use. This route
+ * replaces it with the application's auth layout for consistent branding and
+ * to avoid leaking implementation details.
+ *
+ * Must be registered before the `/api/auth/*` catch-all so that this specific
+ * path is handled here instead of being forwarded to better-auth.
+ */
+app.get('/api/auth/error', (): Response => {
+  return new Response(authErrorPage(), {
+    status: 400,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
 });
 
 /**

@@ -416,6 +416,73 @@ describe('Worker', () => {
     });
   });
 
+  describe('GET /api/auth/error', () => {
+    it('returns a styled HTML error page instead of better-auth default', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(400);
+      expect(res.headers.get('Content-Type')).toContain('text/html');
+      const body = await res.text();
+      expect(body).toMatch(/^<!DOCTYPE html>/);
+      expect(body).toContain('Authentication Error');
+    });
+
+    it('does not delegate to authHandler', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      await app.fetch(req, env);
+
+      expect(mocks.authHandlerFn).not.toHaveBeenCalled();
+    });
+
+    it('does not reveal the auth framework name', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+      const body = await res.text();
+
+      expect(body.toLowerCase()).not.toContain('better-auth');
+    });
+
+    it('does not contain external links', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+      const body = await res.text();
+
+      expect(body).not.toMatch(/href="https?:\/\//);
+    });
+
+    it('includes security headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+
+    it('renders the page with query parameters (e.g. ?error=state_not_found)', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error?error=state_not_found');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(400);
+      const body = await res.text();
+      expect(body).toContain('Authentication Error');
+    });
+  });
+
   describe('GET /api/auth/*', () => {
     it('delegates to authHandler before /api/* catch-all', async () => {
       const env = mockEnv();
