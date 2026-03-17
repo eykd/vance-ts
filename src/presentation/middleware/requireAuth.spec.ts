@@ -115,6 +115,19 @@ describe('createRequireAuth', () => {
     expect(res.headers.get('Retry-After')).toBe('30');
   });
 
+  it('redirects to /auth/sign-in when session cookie value is empty string', async () => {
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: '__Host-better-auth.session_token=; Path=/' },
+      })
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toContain('/auth/sign-in');
+    expect(authServiceMock.getSession).not.toHaveBeenCalled();
+  });
+
   it('redirects to /auth/sign-in with redirectTo when no session cookie is present', async () => {
     const app = makeTestApp();
     const res = await app.fetch(new Request('https://example.com/protected?q=1'));

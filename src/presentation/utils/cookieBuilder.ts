@@ -155,13 +155,17 @@ function extractCookieValue(cookieHeader: string | null, cookieName: string): st
  *
  * @param cookieHeader - The value of the Cookie request header, or null if absent.
  * @param sessionCookieName - The session cookie name matching better-auth's configured prefix.
- * @returns The session token string, or null if the session cookie is not present
+ * @returns The session token string, or null if the session cookie is absent or empty
  */
 export function extractSessionToken(
   cookieHeader: string | null,
   sessionCookieName: string
 ): string | null {
-  return extractCookieValue(cookieHeader, sessionCookieName);
+  const value = extractCookieValue(cookieHeader, sessionCookieName);
+  if (value === '') {
+    return null;
+  }
+  return value;
 }
 
 /**

@@ -385,4 +385,14 @@ describe('extractSessionToken', () => {
       extractSessionToken('better-auth.session_token=local-tok', 'better-auth.session_token')
     ).toBe('local-tok');
   });
+
+  it('returns null when session cookie value is empty (e.g. session_token=; Path=/)', () => {
+    expect(
+      extractSessionToken('__Host-better-auth.session_token=; Path=/', PROD_COOKIE_NAME)
+    ).toBeNull();
+  });
+
+  it('returns null when session cookie value is empty with no trailing attributes', () => {
+    expect(extractSessionToken('__Host-better-auth.session_token=', PROD_COOKIE_NAME)).toBeNull();
+  });
 });
