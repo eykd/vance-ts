@@ -4,60 +4,83 @@ Workflow guide for creating, querying, updating, and closing beads tasks with `b
 
 ## Gotchas — Read First
 
-| Trap | Wrong | Correct |
-|------|-------|---------|
-| JSON output flag | `--format json` | `--json` (global flag, before or after subcommand) |
-| Start/claim a task | `bd start <id>` | `bd update <id> --claim` (atomic assign + in_progress) |
-| Priority values | `"high"`, `"medium"`, `"low"` | `0-4` or `P0-P4` (integers, 0 = highest; default 2) |
-| JSON field names | camelCase (`createdAt`, `blockedBy`) | snake_case (`created_at`, `dependency_count`) |
-| Issue type field | `type` | `issue_type` in JSON output |
-| Ready vs list --ready | `bd list --ready` = `bd ready` | **NOT equivalent** — `bd ready` uses blocker-aware semantics; `bd list --ready` only filters status=open |
-| Close reason | `--close-reason` | `bd close <id> --reason "..."` |
+| Trap                  | Wrong                                | Correct                                                                                                  |
+| --------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| JSON output flag      | `--format json`                      | `--json` (global flag, before or after subcommand)                                                       |
+| Start/claim a task    | `bd start <id>`                      | `bd update <id> --claim` (atomic assign + in_progress)                                                   |
+| Priority values       | `"high"`, `"medium"`, `"low"`        | `0-4` or `P0-P4` (integers, 0 = highest; default 2)                                                      |
+| JSON field names      | camelCase (`createdAt`, `blockedBy`) | snake_case (`created_at`, `dependency_count`)                                                            |
+| Issue type field      | `type`                               | `issue_type` in JSON output                                                                              |
+| Ready vs list --ready | `bd list --ready` = `bd ready`       | **NOT equivalent** — `bd ready` uses blocker-aware semantics; `bd list --ready` only filters status=open |
+| Close reason          | `--close-reason`                     | `bd close <id> --reason "..."`                                                                           |
 
 ## Task Parenting (ralph automation)
 
-Ad-hoc tasks created during planning, reviews, or mid-implementation **must** be parented to the active `[sp:07-implement]` task — otherwise ralph's leaf-finder ignores them.
+Ad-hoc tasks created during planning, reviews, or mid-implementation **must** be parented to the current branch's `[sp:07-implement]` task — otherwise ralph's leaf-finder ignores them.
 
-**90% pattern:**
+**Branch-aware pattern (preferred):**
 
 ```bash
-# 1. Find the active implement task
-implement_id=$(npx bd list --status=in_progress --json | \
+# 1. Derive feature name from current branch (strip leading digits)
+feature=$(git branch --show-current | sed 's/^[0-9]*-//')
+
+# 2. Find the epic whose title contains the feature name
+#    (ralph uses: ascii_downcase, hyphens→spaces, substring match)
+epic_id=$(npx bd list --type epic --status open --json | \
+  jq -r --arg f "$feature" \
+  '.[] | select(.title | ascii_downcase | gsub("-";" ") | contains($f | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
+
+# 3. Find the [sp:07-implement] child of that epic
+implement_id=$(npx bd children "$epic_id" --json | \
   jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
 
-# 2. Create with parent
+# 4. Create with parent
 npx bd create --title "Fix edge case in auth" \
   --description "Handle expired tokens gracefully" \
   --parent "$implement_id" --priority 1
 
-# 3. (Optional) Add dependency
+# 5. (Optional) Add dependency
 npx bd dep add <new-task> <prerequisite>
 ```
 
-If no active epic exists, create the task normally and consider starting one with `/sp:01-specify`.
+**Filing bugs during testing:**
+
+```bash
+feature=$(git branch --show-current | sed 's/^[0-9]*-//')
+epic_id=$(npx bd list --type epic --status open --json | \
+  jq -r --arg f "$feature" \
+  '.[] | select(.title | ascii_downcase | gsub("-";" ") | contains($f | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
+impl_id=$(npx bd children "$epic_id" --json | \
+  jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
+npx bd create --title "Bug: describe the issue" \
+  --description "Steps to reproduce and expected behavior" \
+  --parent "$impl_id" --priority 1 --add-label "bug"
+```
+
+If no matching epic exists, create the task normally and consider starting one with `/sp:01-specify`.
 
 ## Quick Command Reference
 
-| Action | Command |
-|--------|---------|
-| Create task | `bd create --title "..." --description "..." [--parent ID] [--priority 0-4] [--type task]` |
-| Create (script) | `bd create --title "..." --description "..." --silent` (outputs only ID) |
-| List open | `bd list` (default: open, limit 50) |
-| List filtered | `bd list --status=in_progress --type=task --assignee=me` |
-| Show ready work | `bd ready` (blocker-aware, not same as `list --ready`) |
-| Show details | `bd show <id> [--children] [--refs] [--json]` |
-| Query (DSL) | `bd query "status=open AND priority<=1 AND type=task"` |
-| Text search | `bd search "keyword" [--status open] [--limit 20]` |
-| Claim task | `bd update <id> --claim` |
-| Update fields | `bd update <id> --status open --priority 1 --add-label "bug"` |
-| Close | `bd close <id> [--reason "..."] [--suggest-next]` |
-| Close multiple | `bd close id1 id2 id3` |
-| Add dependency | `bd dep add <blocked> <blocker>` |
-| Dep tree | `bd dep tree <id> [--direction=up\|down\|both]` |
-| Epic status | `bd epic status [--eligible-only]` |
-| Children | `bd children <parent-id>` |
-| Blocked | `bd blocked [--parent <epic-id>]` |
-| Count | `bd count [--status=open] [--type=task]` |
+| Action          | Command                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| Create task     | `bd create --title "..." --description "..." [--parent ID] [--priority 0-4] [--type task]` |
+| Create (script) | `bd create --title "..." --description "..." --silent` (outputs only ID)                   |
+| List open       | `bd list` (default: open, limit 50)                                                        |
+| List filtered   | `bd list --status=in_progress --type=task --assignee=me`                                   |
+| Show ready work | `bd ready` (blocker-aware, not same as `list --ready`)                                     |
+| Show details    | `bd show <id> [--children] [--refs] [--json]`                                              |
+| Query (DSL)     | `bd query "status=open AND priority<=1 AND type=task"`                                     |
+| Text search     | `bd search "keyword" [--status open] [--limit 20]`                                         |
+| Claim task      | `bd update <id> --claim`                                                                   |
+| Update fields   | `bd update <id> --status open --priority 1 --add-label "bug"`                              |
+| Close           | `bd close <id> [--reason "..."] [--suggest-next]`                                          |
+| Close multiple  | `bd close id1 id2 id3`                                                                     |
+| Add dependency  | `bd dep add <blocked> <blocker>`                                                           |
+| Dep tree        | `bd dep tree <id> [--direction=up\|down\|both]`                                            |
+| Epic status     | `bd epic status [--eligible-only]`                                                         |
+| Children        | `bd children <parent-id>`                                                                  |
+| Blocked         | `bd blocked [--parent <epic-id>]`                                                          |
+| Count           | `bd count [--status=open] [--type=task]`                                                   |
 
 ## Batch Operations
 
@@ -162,8 +185,8 @@ npx bd ready --json | jq -r '.[] | "- [ ] \(.title) (`\(.id)`)"'
 
 ## References
 
-| File | Contents |
-|------|----------|
-| [cli-reference.md](./references/cli-reference.md) | Complete command reference from actual `--help` output |
-| [batch-patterns.md](./references/batch-patterns.md) | Detailed batch scripting patterns with 5 recipes |
-| [jq-cookbook.md](./references/jq-cookbook.md) | jq extraction, filtering, aggregation, and debugging patterns |
+| File                                                | Contents                                                      |
+| --------------------------------------------------- | ------------------------------------------------------------- |
+| [cli-reference.md](./references/cli-reference.md)   | Complete command reference from actual `--help` output        |
+| [batch-patterns.md](./references/batch-patterns.md) | Detailed batch scripting patterns with 5 recipes              |
+| [jq-cookbook.md](./references/jq-cookbook.md)       | jq extraction, filtering, aggregation, and debugging patterns |

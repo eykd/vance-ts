@@ -96,3 +96,5 @@
 {"author":"eykd","created_at":"2026-03-16T23:59:28Z","id":96,"issue_id":"turtlebased-ts-ijg","text":"Starting work on HEAD request duplicate headers bug"}
 {"author":"eykd","created_at":"2026-03-17T00:10:36Z","id":97,"issue_id":"turtlebased-ts-ijg","text":"Fix implemented and tests passing. Closing bead."}
 {"author":"eykd","created_at":"2026-03-17T15:34:23Z","id":98,"issue_id":"turtlebased-ts-bjd.6.58","text":"Starting work on bug: better-auth default error page exposed at /api/auth/error"}
+{"author":"eykd","created_at":"2026-03-17T15:42:15Z","id":99,"issue_id":"turtlebased-ts-bjd.6.60","text":"Starting work on OAuth callback handler for unconfigured providers"}
+{"author":"eykd","created_at":"2026-03-17T15:49:32Z","id":100,"issue_id":"turtlebased-ts-bjd.6.59","text":"Starting work: investigating auth page handlers for sign-in/sign-up redirect logic"}
