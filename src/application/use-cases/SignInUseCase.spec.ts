@@ -71,6 +71,7 @@ describe('SignInUseCase', () => {
 
   describe('execute', () => {
     it('returns ok: true with sessionToken when sign-in succeeds', async () => {
+      expect.assertions(2);
       authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc123' });
 
       const result = await useCase.execute(defaultRequest);
@@ -82,6 +83,7 @@ describe('SignInUseCase', () => {
     });
 
     it('returns ok: false kind: rate_limited with retryAfter when rate limit is exceeded', async () => {
+      expect.assertions(3);
       rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false, retryAfter: 900 });
 
       const result = await useCase.execute(defaultRequest);
@@ -94,6 +96,7 @@ describe('SignInUseCase', () => {
     });
 
     it('returns ok: false kind: rate_limited without retryAfter when checkAndIncrement omits retryAfter', async () => {
+      expect.assertions(3);
       rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false });
 
       const result = await useCase.execute(defaultRequest);
@@ -114,6 +117,7 @@ describe('SignInUseCase', () => {
     });
 
     it('returns ok: false kind: invalid_credentials when auth returns invalid_credentials', async () => {
+      expect.assertions(2);
       authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
 
       const result = await useCase.execute(defaultRequest);
@@ -125,6 +129,7 @@ describe('SignInUseCase', () => {
     });
 
     it('returns ok: false kind: rate_limited with retryAfter when auth service returns rate_limited', async () => {
+      expect.assertions(3);
       authServiceMock.signIn.mockResolvedValue({
         ok: false,
         kind: 'rate_limited',
@@ -141,6 +146,7 @@ describe('SignInUseCase', () => {
     });
 
     it('returns ok: false kind: service_error when auth returns service_error', async () => {
+      expect.assertions(2);
       authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'service_error' });
 
       const result = await useCase.execute(defaultRequest);
@@ -218,6 +224,7 @@ describe('SignInUseCase', () => {
     });
 
     it('returns ok: false kind: service_error when rateLimiter.checkAndIncrement throws', async () => {
+      expect.assertions(2);
       rateLimiterMock.checkAndIncrement.mockRejectedValue(new Error('DO unavailable'));
 
       const result = await useCase.execute(defaultRequest);
@@ -229,6 +236,7 @@ describe('SignInUseCase', () => {
     });
 
     it('returns ok: false kind: service_error when authService.signIn throws', async () => {
+      expect.assertions(2);
       authServiceMock.signIn.mockRejectedValue(new Error('DB connection failed'));
 
       const result = await useCase.execute(defaultRequest);
@@ -251,6 +259,7 @@ describe('SignInUseCase', () => {
     });
 
     it('returns ok: false kind: service_error when authService.verifyDummyPassword throws', async () => {
+      expect.assertions(2);
       authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
       authServiceMock.verifyDummyPassword.mockRejectedValue(new Error('crypto failure'));
 
