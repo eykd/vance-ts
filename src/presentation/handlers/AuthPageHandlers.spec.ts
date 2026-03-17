@@ -313,6 +313,31 @@ describe('AuthPageHandlers', () => {
       expect(body).toContain('name="redirectTo"');
       expect(body).toContain('/dashboard');
     });
+
+    it('redirects to / with 303 when session cookie is present', () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignIn(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/');
+    });
+
+    it('does not render the sign-in form when session cookie is present', () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignIn(req);
+      expect(res.body).toBeNull();
+    });
+
+    it('does not set a CSRF cookie when redirecting authenticated user', () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignIn(req);
+      expect(res.headers.get('Set-Cookie')).toBeNull();
+    });
   });
 
   describe('handlePostSignIn', () => {
@@ -759,6 +784,31 @@ describe('AuthPageHandlers', () => {
       expect(csrfToken).toBeDefined();
       const body = await res.text();
       expect(body).toContain(`name="_csrf" value="${csrfToken ?? ''}"`);
+    });
+
+    it('redirects to / with 303 when session cookie is present', () => {
+      const req = new Request('https://example.com/auth/sign-up', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignUp(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/');
+    });
+
+    it('does not render the sign-up form when session cookie is present', () => {
+      const req = new Request('https://example.com/auth/sign-up', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignUp(req);
+      expect(res.body).toBeNull();
+    });
+
+    it('does not set a CSRF cookie when redirecting authenticated user', () => {
+      const req = new Request('https://example.com/auth/sign-up', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignUp(req);
+      expect(res.headers.get('Set-Cookie')).toBeNull();
     });
   });
 

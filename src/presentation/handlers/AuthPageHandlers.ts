@@ -194,14 +194,19 @@ export class AuthPageHandlers {
   /**
    * Handles GET /auth/sign-in.
    *
-   * Generates a fresh CSRF token, stores it in the CSRF cookie,
-   * and renders the sign-in form. Sets `Cache-Control: no-store, no-cache`
-   * to prevent caching of the CSRF-bearing response.
+   * Redirects already-authenticated users to `/` (303). Otherwise generates a
+   * fresh CSRF token, stores it in the CSRF cookie, and renders the sign-in
+   * form. Sets `Cache-Control: no-store, no-cache` to prevent caching of the
+   * CSRF-bearing response.
    *
    * @param request - The incoming HTTP request.
-   * @returns A 200 HTML response with Set-Cookie and Cache-Control headers.
+   * @returns A 303 redirect if already authenticated, or a 200 HTML response with Set-Cookie and Cache-Control headers.
    */
   handleGetSignIn(request: Request): Response {
+    if (hasSessionCookie(request.headers.get('Cookie'), this.sessionCookieName)) {
+      return AuthPageHandlers.buildRedirect('/');
+    }
+
     const url = new URL(request.url);
     const registeredSuccess = url.searchParams.get('registered') === 'true';
     const validated = validateRedirectTo(url.searchParams.get('redirectTo'));
@@ -265,14 +270,19 @@ export class AuthPageHandlers {
   /**
    * Handles GET /auth/sign-up.
    *
-   * Generates a fresh CSRF token, stores it in the CSRF cookie,
-   * and renders the registration form. Sets `Cache-Control: no-store, no-cache`
-   * to prevent caching of the CSRF-bearing response.
+   * Redirects already-authenticated users to `/` (303). Otherwise generates a
+   * fresh CSRF token, stores it in the CSRF cookie, and renders the registration
+   * form. Sets `Cache-Control: no-store, no-cache` to prevent caching of the
+   * CSRF-bearing response.
    *
-   * @param _request - The incoming HTTP request (unused; reserved for future use).
-   * @returns A 200 HTML response with Set-Cookie and Cache-Control headers.
+   * @param request - The incoming HTTP request.
+   * @returns A 303 redirect if already authenticated, or a 200 HTML response with Set-Cookie and Cache-Control headers.
    */
-  handleGetSignUp(_request: Request): Response {
+  handleGetSignUp(request: Request): Response {
+    if (hasSessionCookie(request.headers.get('Cookie'), this.sessionCookieName)) {
+      return AuthPageHandlers.buildRedirect('/');
+    }
+
     const { headers, csrfToken } = this.makeFreshAuthHeaders();
     return new Response(registerPage({ csrfToken }), { headers });
   }
