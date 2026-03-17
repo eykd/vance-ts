@@ -587,20 +587,47 @@ describe('Worker', () => {
     });
   });
 
-  describe('OAuth callback routing (US-5 extensibility)', () => {
-    it('routes GET /api/auth/callback/:provider to authHandler via the /api/auth/* wildcard (no dedicated route needed)', async () => {
+  describe('GET /api/auth/callback/* (unconfigured providers)', () => {
+    it('returns 404 JSON for an unconfigured provider', async () => {
       const env = mockEnv();
-      const callbackRedirect = new Response(null, {
-        status: 302,
-        headers: { Location: '/app' },
-      });
-      mocks.authHandlerFn.mockResolvedValue(callbackRedirect);
 
       const req = new Request('https://example.com/api/auth/callback/google');
       const res = await app.fetch(req, env);
 
-      expect(mocks.authHandlerFn).toHaveBeenCalledWith(req);
-      expect(res.status).toBe(302);
+      expect(res.status).toBe(404);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
+      expect(await res.json()).toEqual({ error: 'Not found' });
+    });
+
+    it('does not delegate to authHandler', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/callback/google');
+      await app.fetch(req, env);
+
+      expect(mocks.authHandlerFn).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for any provider name', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/callback/github');
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: 'Not found' });
+    });
+
+    it('includes security headers', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/callback/google');
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
     });
   });
 

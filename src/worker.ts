@@ -112,6 +112,18 @@ app.get('/api/auth/error', (): Response => {
 });
 
 /**
+ * Blocks OAuth callback requests for unconfigured providers.
+ *
+ * No OAuth/social providers are currently configured in better-auth. Without
+ * this guard, better-auth's catch-all would process the callback URL and
+ * redirect to `/api/auth/error?state=state_not_found`, leaking information
+ * about the auth infrastructure. Returns a clean 404 instead.
+ *
+ * When OAuth providers are added, replace this with provider-aware routing.
+ */
+app.get('/api/auth/callback/*', apiNotFound);
+
+/**
  * better-auth API pass-through.
  *
  * Delegates all GET/POST requests under `/api/auth/*` to the better-auth
