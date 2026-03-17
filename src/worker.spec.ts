@@ -481,6 +481,17 @@ describe('Worker', () => {
       const body = await res.text();
       expect(body).toContain('Authentication Error');
     });
+
+    it('returns 500 for internal_server_error', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error?error=internal_server_error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(500);
+      const body = await res.text();
+      expect(body).toContain('Authentication Error');
+    });
   });
 
   describe('GET /api/auth/*', () => {

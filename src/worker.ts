@@ -8,6 +8,7 @@ import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
 import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandler';
 import { authErrorPage } from './presentation/templates/pages/authError';
 import type { AppEnv } from './presentation/types';
+import { authErrorStatusCode } from './presentation/utils/authErrorStatus';
 import { SECURITY_HEADERS } from './presentation/utils/securityHeaders';
 
 // Durable Object class must be exported from the worker entry point so
@@ -104,9 +105,10 @@ app.use('/api/auth/sign-up/*', async (c, next): Promise<Response | void> => {
  * Must be registered before the `/api/auth/*` catch-all so that this specific
  * path is handled here instead of being forwarded to better-auth.
  */
-app.get('/api/auth/error', (): Response => {
+app.get('/api/auth/error', (c): Response => {
+  const errorCode = c.req.query('error') ?? null;
   return new Response(authErrorPage(), {
-    status: 400,
+    status: authErrorStatusCode(errorCode),
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   });
 });
