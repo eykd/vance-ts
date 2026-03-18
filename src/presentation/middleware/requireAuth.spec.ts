@@ -115,6 +115,24 @@ describe('createRequireAuth', () => {
     expect(res.headers.get('Retry-After')).toBe('30');
   });
 
+  it('includes security headers on 503 response', async () => {
+    authServiceMock.getSession.mockRejectedValue(new Error('D1 unavailable'));
+
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: SESSION_COOKIE },
+      })
+    );
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    expect(res.headers.get('Strict-Transport-Security')).toContain('max-age=');
+    expect(res.headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
+  });
+
   it('redirects to /auth/sign-in when session cookie value is empty string', async () => {
     const app = makeTestApp();
     const res = await app.fetch(

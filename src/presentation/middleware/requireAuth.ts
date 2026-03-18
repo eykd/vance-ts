@@ -21,6 +21,7 @@ import {
   hasAuthIndicatorCookie,
   hasSessionCookie,
 } from '../utils/cookieBuilder.js';
+import { applySecurityHeaders } from '../utils/securityHeaders.js';
 
 /**
  * Creates a Hono middleware that guards routes behind session authentication.
@@ -63,10 +64,9 @@ export function createRequireAuth(
       session = await authService.getSession({ sessionToken });
     } catch {
       // D1 or infrastructure error: signal temporary unavailability
-      return new Response('Service Unavailable', {
-        status: 503,
-        headers: { 'Retry-After': '30' },
-      });
+      const headers = new Headers({ 'Retry-After': '30' });
+      applySecurityHeaders(headers);
+      return new Response('Service Unavailable', { status: 503, headers });
     }
 
     if (session === null) {
