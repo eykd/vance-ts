@@ -29,6 +29,8 @@ const mocks = vi.hoisted(() => {
     async (_c: Context<AppEnv>, next: Next): Promise<Response | void> => next()
   );
 
+  const loggerError = vi.fn();
+
   const mockFactory = {
     authHandler: authHandlerFn,
     authPageHandlers: {
@@ -38,6 +40,7 @@ const mocks = vi.hoisted(() => {
       handlePostSignUp,
       handlePostSignOut,
     },
+    logger: { error: loggerError },
     requireAuthMiddleware: requireAuthMiddlewareFn,
     signInApiRateLimitMiddleware: signInApiRateLimitMiddlewareFn,
     signUpApiRateLimitMiddleware: signUpApiRateLimitMiddlewareFn,
@@ -50,6 +53,7 @@ const mocks = vi.hoisted(() => {
     handleGetSignUp,
     handlePostSignUp,
     handlePostSignOut,
+    loggerError,
     requireAuthMiddlewareFn,
     signInApiRateLimitMiddlewareFn,
     signUpApiRateLimitMiddlewareFn,
@@ -614,17 +618,15 @@ describe('Worker', () => {
       expect(await res.json()).toEqual({ error: 'Service Unavailable' });
     });
 
-    it('logs the underlying exception via console.error', async () => {
+    it('logs the underlying exception via the Logger port', async () => {
       const env = mockEnv();
       const error = new Error('D1 unavailable');
       mocks.authHandlerFn.mockRejectedValue(error);
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
       await app.fetch(req, env);
 
-      expect(consoleSpy).toHaveBeenCalledWith('auth handler error:', error);
-      consoleSpy.mockRestore();
+      expect(mocks.loggerError).toHaveBeenCalledWith('auth handler error', error);
     });
   });
 

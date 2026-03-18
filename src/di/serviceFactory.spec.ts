@@ -325,6 +325,31 @@ describe('ServiceFactory', () => {
     });
   });
 
+  describe('logger', () => {
+    it('returns a ConsoleLogger instance', () => {
+      const mockLogger = { error: vi.fn() };
+      mocks.ConsoleLogger.mockReturnValue(mockLogger);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      expect(factory.logger).toBe(mockLogger);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockLogger = { error: vi.fn() };
+      mocks.ConsoleLogger.mockReturnValue(mockLogger);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      const first = factory.logger;
+      const second = factory.logger;
+      expect(first).toBe(second);
+      expect(mocks.ConsoleLogger).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('signInApiRateLimitMiddleware', () => {
     it('returns the result of createApiAuthRateLimit with sign-in endpoint config', () => {
       const mockMiddleware = vi.fn();

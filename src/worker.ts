@@ -139,7 +139,7 @@ app.on(['GET', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
     const authResponse = await getServiceFactory(c.env).authHandler(c.req.raw);
     return new Response(authResponse.body, authResponse);
   } catch (error: unknown) {
-    console.error('auth handler error:', error);
+    getServiceFactory(c.env).logger.error('auth handler error', error);
     return c.json({ error: 'Service Unavailable' }, 503, { 'Retry-After': '30' });
   }
 });

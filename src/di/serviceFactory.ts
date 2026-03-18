@@ -144,6 +144,15 @@ export class ServiceFactory {
   }
 
   /**
+   * The Logger port adapter (ConsoleLogger).
+   *
+   * @returns The lazily-initialised Logger instance.
+   */
+  get logger(): Logger {
+    return this._loggerInstance;
+  }
+
+  /**
    * The sign-in use case orchestrator.
    *
    * @returns The lazily-initialised SignInUseCase instance.
