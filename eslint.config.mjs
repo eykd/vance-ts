@@ -6,6 +6,108 @@ import importPlugin from 'eslint-plugin-import';
 import jsdocPlugin from 'eslint-plugin-jsdoc';
 import prettierConfig from 'eslint-config-prettier';
 
+/** Node.js module bans — Cloudflare Workers runtime constraint. */
+const NODE_JS_BAN_PATHS = [
+  {
+    name: 'fs',
+    message: 'Node.js fs module not available in Cloudflare Workers. Use R2 for object storage.',
+  },
+  {
+    name: 'path',
+    message:
+      'Node.js path module not available in Cloudflare Workers. Use URL API for path manipulation.',
+  },
+  {
+    name: 'os',
+    message: 'Node.js os module not available in Cloudflare Workers.',
+  },
+  {
+    name: 'crypto',
+    message:
+      'Node.js crypto module not available in Cloudflare Workers. Use Web Crypto API (crypto.subtle).',
+  },
+  {
+    name: 'child_process',
+    message: 'Node.js child_process module not available in Cloudflare Workers.',
+  },
+  {
+    name: 'http',
+    message: 'Node.js http module not available in Cloudflare Workers. Use fetch API.',
+  },
+  {
+    name: 'https',
+    message: 'Node.js https module not available in Cloudflare Workers. Use fetch API.',
+  },
+  {
+    name: 'net',
+    message:
+      'Node.js net module not available in Cloudflare Workers. Use TCP Sockets API or connect().',
+  },
+  {
+    name: 'dns',
+    message: 'Node.js dns module not available in Cloudflare Workers.',
+  },
+  {
+    name: 'stream',
+    message: 'Node.js stream module not available in Cloudflare Workers. Use Web Streams API.',
+  },
+  {
+    name: 'buffer',
+    message:
+      'Node.js buffer module not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
+  },
+  {
+    name: 'util',
+    message: 'Node.js util module not available in Cloudflare Workers.',
+  },
+  {
+    name: 'events',
+    message: 'Node.js events module not available in Cloudflare Workers. Use EventTarget.',
+  },
+  {
+    name: 'process',
+    message:
+      'Node.js process module not available in Cloudflare Workers. Use env parameter in fetch handler.',
+  },
+];
+
+/** Library containment — keyed by library name. */
+const CONTAINED_LIBS = {
+  'better-auth': {
+    group: ['better-auth', 'better-auth/**'],
+    message:
+      'Import better-auth only in src/infrastructure/. Use the AuthService port to access auth from other layers.',
+  },
+  'drizzle-orm': {
+    group: ['drizzle-orm', 'drizzle-orm/**'],
+    message:
+      'Import drizzle-orm only in src/infrastructure/. Use repository interfaces from domain/ to access data.',
+  },
+  hono: {
+    group: ['hono', 'hono/**'],
+    message:
+      'Import hono only in src/presentation/ or src/worker.ts. Use domain/application interfaces for business logic.',
+  },
+  '@cloudflare/workers-types': {
+    group: ['@cloudflare/workers-types'],
+    message:
+      'Import @cloudflare/workers-types only in src/shared/env.ts or src/infrastructure/. Use AppEnv from shared/env.ts.',
+  },
+};
+
+/**
+ * Builds a no-restricted-imports rule combining Node.js bans with
+ * library containment bans, excluding libraries listed in allowedKeys.
+ */
+function restrictedImports(...allowedKeys) {
+  const patterns = Object.entries(CONTAINED_LIBS)
+    .filter(([key]) => !allowedKeys.includes(key))
+    .map(([, value]) => value);
+  return patterns.length > 0
+    ? ['error', { paths: NODE_JS_BAN_PATHS, patterns }]
+    : ['error', { paths: NODE_JS_BAN_PATHS }];
+}
+
 export default [
   // Ignore patterns
   {
@@ -130,11 +232,7 @@ export default [
             esm: true,
             window: true,
           },
-          contexts: [
-            'TSInterfaceDeclaration',
-            'TSTypeAliasDeclaration',
-            'TSEnumDeclaration',
-          ],
+          contexts: ['TSInterfaceDeclaration', 'TSTypeAliasDeclaration', 'TSEnumDeclaration'],
         },
       ],
       'jsdoc/require-description': [
@@ -181,14 +279,7 @@ export default [
       'import/order': [
         'error',
         {
-          groups: [
-            'builtin',
-            'external',
-            'internal',
-            'parent',
-            'sibling',
-            'index',
-          ],
+          groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
           'newlines-between': 'always',
           alphabetize: {
             order: 'asc',
@@ -206,82 +297,7 @@ export default [
       'no-var': 'error',
 
       // Cloudflare Workers runtime constraints - ban Node.js imports
-      'no-restricted-imports': [
-        'error',
-        {
-          paths: [
-            {
-              name: 'fs',
-              message:
-                'Node.js fs module not available in Cloudflare Workers. Use R2 for object storage.',
-            },
-            {
-              name: 'path',
-              message:
-                'Node.js path module not available in Cloudflare Workers. Use URL API for path manipulation.',
-            },
-            {
-              name: 'os',
-              message: 'Node.js os module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'crypto',
-              message:
-                'Node.js crypto module not available in Cloudflare Workers. Use Web Crypto API (crypto.subtle).',
-            },
-            {
-              name: 'child_process',
-              message:
-                'Node.js child_process module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'http',
-              message:
-                'Node.js http module not available in Cloudflare Workers. Use fetch API.',
-            },
-            {
-              name: 'https',
-              message:
-                'Node.js https module not available in Cloudflare Workers. Use fetch API.',
-            },
-            {
-              name: 'net',
-              message:
-                'Node.js net module not available in Cloudflare Workers. Use TCP Sockets API or connect().',
-            },
-            {
-              name: 'dns',
-              message:
-                'Node.js dns module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'stream',
-              message:
-                'Node.js stream module not available in Cloudflare Workers. Use Web Streams API.',
-            },
-            {
-              name: 'buffer',
-              message:
-                'Node.js buffer module not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
-            },
-            {
-              name: 'util',
-              message:
-                'Node.js util module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'events',
-              message:
-                'Node.js events module not available in Cloudflare Workers. Use EventTarget.',
-            },
-            {
-              name: 'process',
-              message:
-                'Node.js process module not available in Cloudflare Workers. Use env parameter in fetch handler.',
-            },
-          ],
-        },
-      ],
+      'no-restricted-imports': ['error', { paths: NODE_JS_BAN_PATHS }],
 
       // Ban Node.js globals
       'no-restricted-globals': [
@@ -293,23 +309,19 @@ export default [
         },
         {
           name: '__dirname',
-          message:
-            '__dirname not available in Cloudflare Workers (no file system).',
+          message: '__dirname not available in Cloudflare Workers (no file system).',
         },
         {
           name: '__filename',
-          message:
-            '__filename not available in Cloudflare Workers (no file system).',
+          message: '__filename not available in Cloudflare Workers (no file system).',
         },
         {
           name: 'Buffer',
-          message:
-            'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
+          message: 'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
         },
         {
           name: 'require',
-          message:
-            'require() not available in Cloudflare Workers. Use ES modules (import/export).',
+          message: 'require() not available in Cloudflare Workers. Use ES modules (import/export).',
         },
       ],
 
@@ -437,11 +449,7 @@ export default [
             esm: true,
             window: true,
           },
-          contexts: [
-            'TSInterfaceDeclaration',
-            'TSTypeAliasDeclaration',
-            'TSEnumDeclaration',
-          ],
+          contexts: ['TSInterfaceDeclaration', 'TSTypeAliasDeclaration', 'TSEnumDeclaration'],
         },
       ],
       'jsdoc/require-description': [
@@ -488,14 +496,7 @@ export default [
       'import/order': [
         'error',
         {
-          groups: [
-            'builtin',
-            'external',
-            'internal',
-            'parent',
-            'sibling',
-            'index',
-          ],
+          groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
           'newlines-between': 'always',
           alphabetize: {
             order: 'asc',
@@ -513,82 +514,7 @@ export default [
       'no-var': 'error',
 
       // Cloudflare Workers runtime constraints - ban Node.js imports
-      'no-restricted-imports': [
-        'error',
-        {
-          paths: [
-            {
-              name: 'fs',
-              message:
-                'Node.js fs module not available in Cloudflare Workers. Use R2 for object storage.',
-            },
-            {
-              name: 'path',
-              message:
-                'Node.js path module not available in Cloudflare Workers. Use URL API for path manipulation.',
-            },
-            {
-              name: 'os',
-              message: 'Node.js os module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'crypto',
-              message:
-                'Node.js crypto module not available in Cloudflare Workers. Use Web Crypto API (crypto.subtle).',
-            },
-            {
-              name: 'child_process',
-              message:
-                'Node.js child_process module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'http',
-              message:
-                'Node.js http module not available in Cloudflare Workers. Use fetch API.',
-            },
-            {
-              name: 'https',
-              message:
-                'Node.js https module not available in Cloudflare Workers. Use fetch API.',
-            },
-            {
-              name: 'net',
-              message:
-                'Node.js net module not available in Cloudflare Workers. Use TCP Sockets API or connect().',
-            },
-            {
-              name: 'dns',
-              message:
-                'Node.js dns module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'stream',
-              message:
-                'Node.js stream module not available in Cloudflare Workers. Use Web Streams API.',
-            },
-            {
-              name: 'buffer',
-              message:
-                'Node.js buffer module not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
-            },
-            {
-              name: 'util',
-              message:
-                'Node.js util module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'events',
-              message:
-                'Node.js events module not available in Cloudflare Workers. Use EventTarget.',
-            },
-            {
-              name: 'process',
-              message:
-                'Node.js process module not available in Cloudflare Workers. Use env parameter in fetch handler.',
-            },
-          ],
-        },
-      ],
+      'no-restricted-imports': ['error', { paths: NODE_JS_BAN_PATHS }],
 
       // Ban Node.js globals
       'no-restricted-globals': [
@@ -600,23 +526,19 @@ export default [
         },
         {
           name: '__dirname',
-          message:
-            '__dirname not available in Cloudflare Workers (no file system).',
+          message: '__dirname not available in Cloudflare Workers (no file system).',
         },
         {
           name: '__filename',
-          message:
-            '__filename not available in Cloudflare Workers (no file system).',
+          message: '__filename not available in Cloudflare Workers (no file system).',
         },
         {
           name: 'Buffer',
-          message:
-            'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
+          message: 'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
         },
         {
           name: 'require',
-          message:
-            'require() not available in Cloudflare Workers. Use ES modules (import/export).',
+          message: 'require() not available in Cloudflare Workers. Use ES modules (import/export).',
         },
       ],
 
@@ -680,12 +602,7 @@ export default [
               from: { type: 'infrastructure' },
               allow: {
                 to: {
-                  type: [
-                    'domain',
-                    'application',
-                    'shared',
-                    'infrastructure',
-                  ],
+                  type: ['domain', 'application', 'shared', 'infrastructure'],
                 },
               },
             },
@@ -693,12 +610,7 @@ export default [
               from: { type: 'presentation' },
               allow: {
                 to: {
-                  type: [
-                    'domain',
-                    'application',
-                    'shared',
-                    'presentation',
-                  ],
+                  type: ['domain', 'application', 'shared', 'presentation'],
                 },
               },
             },
@@ -706,14 +618,7 @@ export default [
               from: { type: 'di' },
               allow: {
                 to: {
-                  type: [
-                    'domain',
-                    'application',
-                    'shared',
-                    'infrastructure',
-                    'presentation',
-                    'di',
-                  ],
+                  type: ['domain', 'application', 'shared', 'infrastructure', 'presentation', 'di'],
                 },
               },
             },
@@ -736,6 +641,54 @@ export default [
           ],
         },
       ],
+    },
+  },
+
+  // ─── Library Containment ────────────────────────────────────────────
+  // Restricts third-party library imports to their intended architectural
+  // layers. See docs/library-containment.md for the full policy.
+
+  // Default: ban all contained libraries across src/
+  {
+    files: ['src/**/*.ts'],
+    rules: {
+      'no-restricted-imports': restrictedImports(),
+    },
+  },
+
+  // Infrastructure may import: better-auth, drizzle-orm, @cloudflare/workers-types
+  {
+    files: ['src/infrastructure/**/*.ts'],
+    rules: {
+      'no-restricted-imports': restrictedImports(
+        'better-auth',
+        'drizzle-orm',
+        '@cloudflare/workers-types'
+      ),
+    },
+  },
+
+  // Presentation may import: hono
+  {
+    files: ['src/presentation/**/*.ts'],
+    rules: {
+      'no-restricted-imports': restrictedImports('hono'),
+    },
+  },
+
+  // Worker entry point may import: hono
+  {
+    files: ['src/worker.ts', 'src/worker.spec.ts'],
+    rules: {
+      'no-restricted-imports': restrictedImports('hono'),
+    },
+  },
+
+  // shared/env.ts may import: @cloudflare/workers-types
+  {
+    files: ['src/shared/env.ts'],
+    rules: {
+      'no-restricted-imports': restrictedImports('@cloudflare/workers-types'),
     },
   },
 
