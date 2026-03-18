@@ -87,13 +87,13 @@ export interface AuthService {
    * @param params.name - The user's display name.
    * @returns `{ ok: true }` on success, or a typed failure.
    */
-  signUp(params: {
-    email: string;
-    password: string;
-    name: string;
-  }): Promise<
+  signUp(params: { email: string; password: string; name: string }): Promise<
     | { ok: true }
-    | { ok: false; kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error' }
+    | {
+        ok: false;
+        kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error';
+        retryAfter?: number;
+      }
   >;
 
   /**

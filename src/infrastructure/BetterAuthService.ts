@@ -177,7 +177,7 @@ export class BetterAuthService implements AuthService {
    * - 200: success
    * - 422: email already in use
    * - 400: weak password (too short or too long per better-auth config)
-   * - 429: rate limited
+   * - 429: rate limited (optional `Retry-After` header parsed to seconds)
    * - other: service error
    * - throws: service error
    *
@@ -187,13 +187,13 @@ export class BetterAuthService implements AuthService {
    * @param params.name - The user's display name.
    * @returns Typed result indicating success or failure kind.
    */
-  async signUp(params: {
-    email: string;
-    password: string;
-    name: string;
-  }): Promise<
+  async signUp(params: { email: string; password: string; name: string }): Promise<
     | { ok: true }
-    | { ok: false; kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error' }
+    | {
+        ok: false;
+        kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error';
+        retryAfter?: number;
+      }
   > {
     try {
       const response = await this.auth.api.signUpEmail({
@@ -206,7 +206,10 @@ export class BetterAuthService implements AuthService {
       }
 
       if (response.status === 429) {
-        return { ok: false, kind: 'rate_limited' };
+        const retryAfterHeader = response.headers.get('retry-after');
+        const parsed = retryAfterHeader !== null ? parseInt(retryAfterHeader, 10) : Number.NaN;
+        const retryAfter = !Number.isNaN(parsed) ? parsed : undefined;
+        return { ok: false, kind: 'rate_limited', retryAfter };
       }
 
       if (response.status === 422) {

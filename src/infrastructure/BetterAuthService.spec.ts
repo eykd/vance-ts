@@ -378,8 +378,27 @@ describe('BetterAuthService', () => {
       }
     });
 
-    it('returns ok: false kind: rate_limited when response is 429', async () => {
-      expect.assertions(2);
+    it('returns ok: false kind: rate_limited with retryAfter when response is 429 with Retry-After header', async () => {
+      expect.assertions(3);
+      authMock.api.signUpEmail.mockResolvedValue(
+        new Response(null, { status: 429, headers: { 'retry-after': '600' } })
+      );
+
+      const result = await service.signUp({
+        email: 'new@example.com',
+        password: 'correcthorse12',
+        name: 'Dave',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('rate_limited');
+        expect(result.retryAfter).toBe(600);
+      }
+    });
+
+    it('returns ok: false kind: rate_limited without retryAfter when 429 has no Retry-After header', async () => {
+      expect.assertions(3);
       authMock.api.signUpEmail.mockResolvedValue(new Response(null, { status: 429 }));
 
       const result = await service.signUp({
@@ -391,6 +410,7 @@ describe('BetterAuthService', () => {
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.kind).toBe('rate_limited');
+        expect(result.retryAfter).toBeUndefined();
       }
     });
 
