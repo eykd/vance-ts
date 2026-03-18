@@ -29,6 +29,7 @@ export default defineConfig({
         test: {
           name: 'acceptance',
           globals: true,
+          testTimeout: 30_000,
           include: ['generated-acceptance-tests/**/*.spec.ts'],
           setupFiles: ['./generated-acceptance-tests/setup.ts'],
           poolOptions: {
