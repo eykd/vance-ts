@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
+import boundaries from 'eslint-plugin-boundaries';
 import importPlugin from 'eslint-plugin-import';
 import jsdocPlugin from 'eslint-plugin-jsdoc';
 import prettierConfig from 'eslint-config-prettier';
@@ -624,58 +625,113 @@ export default [
     },
   },
 
-  // Clean Architecture layer boundary enforcement
-  //
-  // Domain layer cannot import from outer layers
+  // Clean Architecture boundary enforcement via eslint-plugin-boundaries
   {
-    files: ['src/domain/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
+    files: ['src/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    plugins: {
+      boundaries,
+    },
+    settings: {
+      'import/resolver': {
+        typescript: {
+          alwaysTryTypes: true,
+        },
+      },
+      'boundaries/include': ['src/**/*.ts'],
+      'boundaries/ignore': ['**/*.spec.ts', '**/*.test.ts'],
+      'boundaries/elements': [
+        { type: 'shared', pattern: 'src/shared', mode: 'folder' },
+        { type: 'domain', pattern: 'src/domain', mode: 'folder' },
+        { type: 'application', pattern: 'src/application', mode: 'folder' },
         {
-          patterns: [
-            {
-              group: ['**/infrastructure/**', '**/presentation/**', '**/application/**'],
-              message:
-                'Domain layer must not import from outer layers (application, infrastructure, presentation). Domain should only depend on other domain code.',
-            },
-          ],
+          type: 'infrastructure',
+          pattern: 'src/infrastructure',
+          mode: 'folder',
+        },
+        { type: 'presentation', pattern: 'src/presentation', mode: 'folder' },
+        { type: 'di', pattern: 'src/di', mode: 'folder' },
+        {
+          type: 'entry',
+          pattern: ['src/worker.ts', 'src/index.ts'],
+          mode: 'file',
         },
       ],
     },
-  },
-
-  // Application layer cannot import from infrastructure or presentation
-  {
-    files: ['src/application/**/*.ts'],
     rules: {
-      'no-restricted-imports': [
+      'boundaries/dependencies': [
         'error',
         {
-          patterns: [
+          default: 'disallow',
+          rules: [
             {
-              group: ['**/infrastructure/**', '**/presentation/**'],
-              message:
-                'Application layer must not import from outer layers (infrastructure, presentation). Application should depend on domain interfaces, not concrete implementations.',
+              from: { type: 'shared' },
+              allow: { to: { type: 'shared' } },
             },
-          ],
-        },
-      ],
-    },
-  },
-
-  // Infrastructure layer cannot import from presentation
-  {
-    files: ['src/infrastructure/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
             {
-              group: ['**/presentation/**'],
-              message:
-                'Infrastructure layer must not import from presentation layer. Infrastructure implements domain interfaces and can be used by presentation.',
+              from: { type: 'domain' },
+              allow: { to: { type: ['domain', 'shared'] } },
+            },
+            {
+              from: { type: 'application' },
+              allow: { to: { type: ['domain', 'application', 'shared'] } },
+            },
+            {
+              from: { type: 'infrastructure' },
+              allow: {
+                to: {
+                  type: [
+                    'domain',
+                    'application',
+                    'shared',
+                    'infrastructure',
+                  ],
+                },
+              },
+            },
+            {
+              from: { type: 'presentation' },
+              allow: {
+                to: {
+                  type: [
+                    'domain',
+                    'application',
+                    'shared',
+                    'presentation',
+                  ],
+                },
+              },
+            },
+            {
+              from: { type: 'di' },
+              allow: {
+                to: {
+                  type: [
+                    'domain',
+                    'application',
+                    'shared',
+                    'infrastructure',
+                    'presentation',
+                    'di',
+                  ],
+                },
+              },
+            },
+            {
+              from: { type: 'entry' },
+              allow: {
+                to: {
+                  type: [
+                    'domain',
+                    'application',
+                    'shared',
+                    'infrastructure',
+                    'presentation',
+                    'di',
+                    'entry',
+                  ],
+                },
+              },
             },
           ],
         },
