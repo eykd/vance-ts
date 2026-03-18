@@ -30,7 +30,8 @@ const app = new Hono<AppEnv>();
  * response field, and handles immutable-header responses (e.g. from
  * ASSETS.fetch) by creating a mutable copy internally.
  *
- * Static assets served via the [assets] config use the _headers file instead.
+ * Registered globally via `app.use('*', …)` so every new route automatically
+ * receives security headers — no per-prefix registration required.
  *
  * @param c - The Hono context.
  * @param next - The next middleware function in the chain.
@@ -42,10 +43,7 @@ const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<
   }
 };
 
-app.use('/api/*', withSecurityHeaders);
-app.use('/app/_/*', withSecurityHeaders);
-app.use('/auth/*', withSecurityHeaders);
-app.use('/dashboard/*', withSecurityHeaders);
+app.use('*', withSecurityHeaders);
 
 /**
  * Middleware: require authentication before proceeding.

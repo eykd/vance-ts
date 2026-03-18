@@ -211,7 +211,28 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
 
       expect(fetchSpy).toHaveBeenCalledWith(req);
-      expect(res).toBe(assetResponse);
+      expect(await res.text()).toBe('<html>homepage</html>');
+    });
+
+    it('applies security headers to static asset responses', async () => {
+      const assetResponse = new Response('<html>page</html>', {
+        headers: { 'Content-Type': 'text/html' },
+      });
+      const fetchSpy = vi.fn().mockResolvedValue(assetResponse);
+      const env: Env = {
+        ASSETS: {
+          fetch: fetchSpy,
+          connect: vi.fn(),
+        } as unknown as Fetcher,
+      } as unknown as Env;
+      const req = new Request('https://example.com/about');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
     });
   });
 

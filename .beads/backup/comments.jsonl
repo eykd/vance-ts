@@ -104,3 +104,7 @@
 {"author":"eykd","created_at":"2026-03-17T23:55:06Z","id":104,"issue_id":"turtlebased-ts-ec1.1.8","text":"Starting work: mapping auth error query-param to appropriate HTTP status codes"}
 {"author":"eykd","created_at":"2026-03-18T00:00:36Z","id":105,"issue_id":"turtlebased-ts-ec1.1.7","text":"Starting work: type makeEnv to return Env instead of unknown"}
 {"author":"eykd","created_at":"2026-03-18T00:03:00Z","id":106,"issue_id":"turtlebased-ts-ec1.1.6","text":"Starting work: removing Cache-Control from SECURITY_HEADERS to avoid silent overwrite"}
+{"author":"eykd","created_at":"2026-03-18T00:09:57Z","id":107,"issue_id":"turtlebased-ts-ec1.1.4","text":"Starting TDD: RED phase - writing failing tests for signUp retryAfter parsing"}
+{"author":"eykd","created_at":"2026-03-18T00:13:15Z","id":108,"issue_id":"turtlebased-ts-ec1.1.3","text":"Starting: removing dead code setCookieHeader === '' condition on line 132"}
+{"author":"eykd","created_at":"2026-03-18T00:14:54Z","id":109,"issue_id":"turtlebased-ts-ec1.1.15","text":"Starting: deduplicate isPlainHttpLocalhost logic"}
+{"author":"eykd","created_at":"2026-03-18T00:18:56Z","id":110,"issue_id":"turtlebased-ts-ec1.1.14","text":"Starting: reading worker.ts and test files"}
