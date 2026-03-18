@@ -20,17 +20,17 @@ import { SignInUseCase } from '../application/use-cases/SignInUseCase';
 import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
 import { getAuth, resetAuth } from '../infrastructure/auth';
+import {
+  getAuthIndicatorCookieName,
+  getCsrfCookieName,
+  getSessionCookieName,
+} from '../infrastructure/authCookieNames';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
 import { ConsoleLogger } from '../infrastructure/ConsoleLogger';
 import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createApiAuthRateLimit } from '../presentation/middleware/apiAuthRateLimit';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
-import {
-  getAuthIndicatorCookieName,
-  getCsrfCookieName,
-  getSessionCookieName,
-} from '../shared/authCookieNames';
 import type { Env } from '../shared/env';
 
 /**
