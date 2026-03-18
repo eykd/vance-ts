@@ -47,6 +47,7 @@ export function createRequireAuth(
   csrfCookieName: string,
   authIndicatorCookieName: string
 ): (c: Context<AppEnv>, next: Next) => Promise<Response | void> {
+  // Named function so stack traces show "requireAuth" instead of "<anonymous>".
   return async function requireAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
     const url = new URL(c.req.url);
     const redirectTo = encodeURIComponent(url.pathname + url.search);
