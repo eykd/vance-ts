@@ -35,6 +35,11 @@ export default defineConfig({
           poolOptions: {
             workers: {
               wrangler: { configPath: './wrangler.toml' },
+              // Run all acceptance test files in a single workerd process to
+              // avoid "Isolated storage failed" / "Network connection lost"
+              // errors caused by concurrent workerd processes competing with
+              // Durable Object storage operations in CI.
+              singleWorker: true,
               miniflare: {
                 bindings: {
                   BETTER_AUTH_SECRET: 'test-acceptance-suite-secret-minimum-32-chars',
