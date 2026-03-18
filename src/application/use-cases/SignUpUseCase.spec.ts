@@ -68,27 +68,25 @@ describe('SignUpUseCase', () => {
     });
 
     it('returns ok: false kind: rate_limited with retryAfter when rate limit is exceeded', async () => {
-      expect.assertions(3);
+      expect.assertions(2);
       rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false, retryAfter: 300 });
 
       const result = await useCase.execute(defaultRequest);
 
       expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('rate_limited');
+      if (!result.ok && result.kind === 'rate_limited') {
         expect(result.retryAfter).toBe(300);
       }
     });
 
     it('returns ok: false kind: rate_limited without retryAfter when checkAndIncrement omits retryAfter', async () => {
-      expect.assertions(3);
+      expect.assertions(2);
       rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false });
 
       const result = await useCase.execute(defaultRequest);
 
       expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('rate_limited');
+      if (!result.ok && result.kind === 'rate_limited') {
         expect(result.retryAfter).toBeUndefined();
       }
     });

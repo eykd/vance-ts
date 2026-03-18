@@ -492,3 +492,8 @@
 {"actor":"eykd","comment":null,"created_at":"2026-03-18T00:13:39Z","event_type":"closed","id":492,"issue_id":"turtlebased-ts-ec1.1.3","new_value":"Closed","old_value":""}
 {"actor":"eykd","comment":null,"created_at":"2026-03-18T00:17:33Z","event_type":"closed","id":493,"issue_id":"turtlebased-ts-ec1.1.15","new_value":"Closed","old_value":""}
 {"actor":"eykd","comment":null,"created_at":"2026-03-18T00:27:01Z","event_type":"closed","id":494,"issue_id":"turtlebased-ts-ec1.1.14","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-18T00:28:50Z","event_type":"closed","id":495,"issue_id":"turtlebased-ts-ec1.1.13","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-18T00:31:47Z","event_type":"closed","id":496,"issue_id":"turtlebased-ts-ec1.1.12","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-18T00:33:27Z","event_type":"closed","id":497,"issue_id":"turtlebased-ts-ec1.1.11","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-18T00:34:08Z","event_type":"closed","id":498,"issue_id":"turtlebased-ts-ec1.1","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-18T00:34:09Z","event_type":"closed","id":499,"issue_id":"turtlebased-ts-ec1","new_value":"all steps complete","old_value":""}

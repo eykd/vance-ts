@@ -187,13 +187,14 @@ export class BetterAuthService implements AuthService {
    * @param params.name - The user's display name.
    * @returns Typed result indicating success or failure kind.
    */
-  async signUp(params: { email: string; password: string; name: string }): Promise<
+  async signUp(params: {
+    email: string;
+    password: string;
+    name: string;
+  }): Promise<
     | { ok: true }
-    | {
-        ok: false;
-        kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error';
-        retryAfter?: number;
-      }
+    | { ok: false; kind: 'email_taken' | 'weak_password' | 'service_error' }
+    | { ok: false; kind: 'rate_limited'; retryAfter?: number }
   > {
     try {
       const response = await this.auth.api.signUpEmail({

@@ -40,14 +40,9 @@ export type SignUpResult =
   | { ok: true }
   | {
       ok: false;
-      kind:
-        | 'email_taken'
-        | 'weak_password'
-        | 'password_too_common'
-        | 'rate_limited'
-        | 'service_error';
-      retryAfter?: number;
-    };
+      kind: 'email_taken' | 'weak_password' | 'password_too_common' | 'service_error';
+    }
+  | { ok: false; kind: 'rate_limited'; retryAfter?: number };
 
 /**
  * Orchestrates email/password registration with IP rate limiting.
