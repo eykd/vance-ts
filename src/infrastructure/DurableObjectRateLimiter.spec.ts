@@ -206,7 +206,8 @@ describe('DurableObjectRateLimiter', () => {
 
       const result = await limiter.checkAndIncrement(
         'ratelimit:sign-in:1.2.3.4',
-        SIGN_IN_WINDOW_SECONDS
+        SIGN_IN_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
 
       expect(result).toEqual({ allowed: true });
@@ -217,7 +218,8 @@ describe('DurableObjectRateLimiter', () => {
 
       const result = await limiter.checkAndIncrement(
         'ratelimit:sign-in:1.2.3.4',
-        SIGN_IN_WINDOW_SECONDS
+        SIGN_IN_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
 
       expect(result).toEqual({ allowed: false, retryAfter: 60 });
@@ -228,7 +230,8 @@ describe('DurableObjectRateLimiter', () => {
 
       const result = await limiter.checkAndIncrement(
         'ratelimit:sign-in:1.2.3.4',
-        SIGN_IN_WINDOW_SECONDS
+        SIGN_IN_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
 
       expect(result.allowed).toBe(false);
@@ -239,7 +242,7 @@ describe('DurableObjectRateLimiter', () => {
       stub.fetch.mockResolvedValue(Response.json({ allowed: true }));
       const key = 'ratelimit:sign-in:5.5.5.5';
 
-      await limiter.checkAndIncrement(key, SIGN_IN_WINDOW_SECONDS);
+      await limiter.checkAndIncrement(key, SIGN_IN_WINDOW_SECONDS, MAX_ATTEMPTS);
 
       expect(namespace.idFromName).toHaveBeenCalledWith(key);
       expect(namespace.get).toHaveBeenCalled();
@@ -248,13 +251,32 @@ describe('DurableObjectRateLimiter', () => {
     it('sends POST /check-and-increment with ttlSeconds and maxAttempts in the request body', async () => {
       stub.fetch.mockResolvedValue(Response.json({ allowed: true }));
 
-      await limiter.checkAndIncrement('ratelimit:sign-in:1.2.3.4', SIGN_IN_WINDOW_SECONDS);
+      await limiter.checkAndIncrement(
+        'ratelimit:sign-in:1.2.3.4',
+        SIGN_IN_WINDOW_SECONDS,
+        MAX_ATTEMPTS
+      );
 
       expect(stub.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/check-and-increment'),
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ ttlSeconds: SIGN_IN_WINDOW_SECONDS, maxAttempts: MAX_ATTEMPTS }),
+        })
+      );
+    });
+
+    it('passes custom maxAttempts to DO instead of hardcoded constant', async () => {
+      stub.fetch.mockResolvedValue(Response.json({ allowed: true }));
+      const customMax = 10;
+
+      await limiter.checkAndIncrement('ratelimit:sign-in-email:user@example.com', 3600, customMax);
+
+      expect(stub.fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/check-and-increment'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ ttlSeconds: 3600, maxAttempts: customMax }),
         })
       );
     });

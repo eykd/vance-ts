@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthService } from '../ports/AuthService.js';
 import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
-import { REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
+import { MAX_ATTEMPTS, REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
 import { SignUpUseCase } from './SignUpUseCase.js';
 
@@ -234,7 +234,8 @@ describe('SignUpUseCase', () => {
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:register:9.8.7.6',
-        REGISTER_WINDOW_SECONDS
+        REGISTER_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
 
@@ -243,7 +244,8 @@ describe('SignUpUseCase', () => {
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:register:unknown',
-        REGISTER_WINDOW_SECONDS
+        REGISTER_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
 

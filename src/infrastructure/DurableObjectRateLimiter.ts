@@ -13,7 +13,6 @@
  */
 
 import type { RateLimiter } from '../application/ports/RateLimiter';
-import { MAX_ATTEMPTS } from '../application/ports/RateLimiter';
 
 /** Base URL used for Durable Object internal fetch calls. */
 const DO_BASE_URL = 'https://rate-limit-do';
@@ -133,17 +132,19 @@ export class DurableObjectRateLimiter implements RateLimiter {
    *
    * @param key - Rate limit key (e.g., `ratelimit:sign-in:1.2.3.4`).
    * @param ttlSeconds - Window duration in seconds, used only when creating a new entry.
+   * @param maxAttempts - Maximum attempts allowed within the current window.
    * @returns `{ allowed: true }` when the request may proceed (counter incremented), or
    * `{ allowed: false, retryAfter }` (seconds until reset) when the limit is exceeded.
    */
   async checkAndIncrement(
     key: string,
-    ttlSeconds: number
+    ttlSeconds: number,
+    maxAttempts: number
   ): Promise<{ allowed: boolean; retryAfter?: number }> {
     const stub = this.getStub(key);
     const response = await stub.fetch(`${DO_BASE_URL}/check-and-increment`, {
       method: 'POST',
-      body: JSON.stringify({ ttlSeconds, maxAttempts: MAX_ATTEMPTS }),
+      body: JSON.stringify({ ttlSeconds, maxAttempts }),
       headers: { 'Content-Type': 'application/json' },
     });
     const body = await response.json<CheckAndIncrementResponseBody>();

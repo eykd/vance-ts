@@ -65,12 +65,14 @@ export interface RateLimiter {
    *
    * @param key - The rate limit key (e.g., `ratelimit:sign-in:1.2.3.4`).
    * @param ttlSeconds - Window duration in seconds used only when creating a new counter.
+   * @param maxAttempts - Maximum attempts allowed within the current window.
    * @returns `{ allowed: true }` when the request may proceed (counter incremented), or
    * `{ allowed: false, retryAfter }` (seconds until reset) when the limit is exceeded
    * (counter unchanged).
    */
   checkAndIncrement(
     key: string,
-    ttlSeconds: number
+    ttlSeconds: number,
+    maxAttempts: number
   ): Promise<{ allowed: boolean; retryAfter?: number }>;
 }

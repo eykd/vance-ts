@@ -13,6 +13,7 @@ import type { AuthService } from '../ports/AuthService.js';
 import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import {
+  MAX_ATTEMPTS,
   SIGN_IN_EMAIL_MAX_ATTEMPTS,
   SIGN_IN_EMAIL_WINDOW_SECONDS,
   SIGN_IN_WINDOW_SECONDS,
@@ -52,13 +53,13 @@ export type SignInResult =
  * Orchestrates email/password sign-in with per-email and per-IP rate limiting.
  *
  * Flow:
- * 1. Check the per-email failure counter (FR-006); reject with `rate_limited` if ≥ 10
- * failed attempts within 60 minutes.
+ * 1. Atomically check-and-increment the per-email counter (FR-006); reject with
+ * `rate_limited` if ≥ 10 attempts within 60 minutes. The atomic operation eliminates the
+ * TOCTOU race between a separate check and increment during the Argon2id window.
  * 2. Atomically check-and-increment the rate limiter for the client IP in a single DO call;
  * reject with `rate_limited` if the limit is exceeded (counter unchanged on rejection).
  * 3. Delegate to {@link AuthService.signIn}; adapter maps better-auth responses to types.
- * 4. On `invalid_credentials`, increment the per-email failure counter.
- * 5. Run timing-oracle defence on non-rate-limited failures (FR-007).
+ * 4. Run timing-oracle defence on non-rate-limited failures (FR-007).
  *
  * @example
  * ```typescript
@@ -100,16 +101,26 @@ export class SignInUseCase {
    */
   async execute(request: SignInRequest): Promise<SignInResult> {
     try {
-      // Per-email rate limit check (FR-006): block distributed brute-force across many IPs
+      // Per-email rate limit (FR-006): atomic check-and-increment eliminates the
+      // TOCTOU race between a separate check and increment. Successful logins also
+      // consume one attempt slot; max overshoot is min(concurrentRequests, windowCapacity).
       const emailKey = `ratelimit:sign-in-email:${request.email.toLowerCase()}`;
-      const emailCheck = await this.rateLimiter.check(emailKey, SIGN_IN_EMAIL_MAX_ATTEMPTS);
+      const emailCheck = await this.rateLimiter.checkAndIncrement(
+        emailKey,
+        SIGN_IN_EMAIL_WINDOW_SECONDS,
+        SIGN_IN_EMAIL_MAX_ATTEMPTS
+      );
       if (!emailCheck.allowed) {
         return { ok: false, kind: 'rate_limited', retryAfter: emailCheck.retryAfter };
       }
 
       // Per-IP rate limit (atomic check-and-increment)
       const ipKey = `ratelimit:sign-in:${request.ip}`;
-      const rateCheck = await this.rateLimiter.checkAndIncrement(ipKey, SIGN_IN_WINDOW_SECONDS);
+      const rateCheck = await this.rateLimiter.checkAndIncrement(
+        ipKey,
+        SIGN_IN_WINDOW_SECONDS,
+        MAX_ATTEMPTS
+      );
       if (!rateCheck.allowed) {
         return { ok: false, kind: 'rate_limited', retryAfter: rateCheck.retryAfter };
       }
@@ -118,11 +129,6 @@ export class SignInUseCase {
         email: request.email,
         password: request.password,
       });
-
-      // Increment email failure counter only on invalid credentials (wrong password/email)
-      if (!result.ok && result.kind === 'invalid_credentials') {
-        await this.rateLimiter.increment(emailKey, SIGN_IN_EMAIL_WINDOW_SECONDS);
-      }
 
       // Timing oracle defence — run Argon2id on every non-rate-limited failure (FR-007)
       if (!result.ok && result.kind !== 'rate_limited') {

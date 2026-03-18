@@ -12,7 +12,7 @@ import { COMMON_PASSWORDS } from '../../domain/value-objects/common-passwords.js
 import type { AuthService } from '../ports/AuthService.js';
 import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
-import { REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
+import { MAX_ATTEMPTS, REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
 /**
  * Input DTO for the sign-up use case.
@@ -98,7 +98,11 @@ export class SignUpUseCase {
     try {
       const key = `ratelimit:register:${request.ip}`;
 
-      const rateCheck = await this.rateLimiter.checkAndIncrement(key, REGISTER_WINDOW_SECONDS);
+      const rateCheck = await this.rateLimiter.checkAndIncrement(
+        key,
+        REGISTER_WINDOW_SECONDS,
+        MAX_ATTEMPTS
+      );
       if (!rateCheck.allowed) {
         return { ok: false, kind: 'rate_limited', retryAfter: rateCheck.retryAfter };
       }

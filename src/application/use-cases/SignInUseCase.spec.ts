@@ -4,6 +4,7 @@ import type { AuthService } from '../ports/AuthService.js';
 import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import {
+  MAX_ATTEMPTS,
   SIGN_IN_EMAIL_MAX_ATTEMPTS,
   SIGN_IN_EMAIL_WINDOW_SECONDS,
   SIGN_IN_WINDOW_SECONDS,
@@ -174,14 +175,15 @@ describe('SignInUseCase', () => {
       }
     });
 
-    it('calls checkAndIncrement with key ratelimit:sign-in:{ip} and SIGN_IN_WINDOW_SECONDS', async () => {
+    it('calls checkAndIncrement with key ratelimit:sign-in:{ip} and SIGN_IN_WINDOW_SECONDS and MAX_ATTEMPTS', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       await useCase.execute({ email: 'user@example.com', password: 'password12', ip: '9.8.7.6' });
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:sign-in:9.8.7.6',
-        SIGN_IN_WINDOW_SECONDS
+        SIGN_IN_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
 
@@ -296,26 +298,32 @@ describe('SignInUseCase', () => {
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:sign-in:unknown',
-        SIGN_IN_WINDOW_SECONDS
+        SIGN_IN_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
 
     // --- Per-email rate limiting (FR-006) ---
 
-    it('checks email rate limit before IP rate limit using lowercase email key', async () => {
+    it('atomically checks and increments email rate limit using lowercase email key', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       await useCase.execute({ ...defaultRequest, email: 'User@Example.COM' });
 
-      expect(rateLimiterMock.check).toHaveBeenCalledWith(
+      expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:sign-in-email:user@example.com',
+        SIGN_IN_EMAIL_WINDOW_SECONDS,
         SIGN_IN_EMAIL_MAX_ATTEMPTS
       );
     });
 
     it('returns rate_limited when email rate limit is exceeded', async () => {
       expect.assertions(3);
-      rateLimiterMock.check.mockResolvedValue({ allowed: false, retryAfter: 1800 });
+      // First call (email) rejects; second call (IP) should not happen
+      rateLimiterMock.checkAndIncrement.mockResolvedValueOnce({
+        allowed: false,
+        retryAfter: 1800,
+      });
 
       const result = await useCase.execute(defaultRequest);
 
@@ -327,101 +335,58 @@ describe('SignInUseCase', () => {
     });
 
     it('does not call IP checkAndIncrement when email rate limit is exceeded', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: false, retryAfter: 1800 });
+      // First call (email) rejects
+      rateLimiterMock.checkAndIncrement.mockResolvedValueOnce({
+        allowed: false,
+        retryAfter: 1800,
+      });
 
       await useCase.execute(defaultRequest);
 
-      expect(rateLimiterMock.checkAndIncrement).not.toHaveBeenCalled();
+      // Only one call — the email check; no IP check
+      expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledTimes(1);
     });
 
     it('does not call authService.signIn when email rate limit is exceeded', async () => {
-      rateLimiterMock.check.mockResolvedValue({ allowed: false, retryAfter: 1800 });
+      rateLimiterMock.checkAndIncrement.mockResolvedValueOnce({
+        allowed: false,
+        retryAfter: 1800,
+      });
 
       await useCase.execute(defaultRequest);
 
       expect(authServiceMock.signIn).not.toHaveBeenCalled();
     });
 
-    it('increments email counter on invalid_credentials', async () => {
+    it('does not separately increment email counter on invalid_credentials (already incremented atomically)', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
 
       await useCase.execute(defaultRequest);
 
-      expect(rateLimiterMock.increment).toHaveBeenCalledWith(
-        'ratelimit:sign-in-email:user@example.com',
-        SIGN_IN_EMAIL_WINDOW_SECONDS
-      );
+      expect(rateLimiterMock.increment).not.toHaveBeenCalled();
     });
 
-    it('does not increment email counter on successful sign-in', async () => {
+    it('does not call increment on successful sign-in', async () => {
       authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       await useCase.execute(defaultRequest);
 
       expect(rateLimiterMock.increment).not.toHaveBeenCalled();
-    });
-
-    it('does not increment email counter on service_error', async () => {
-      authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'service_error' });
-
-      await useCase.execute(defaultRequest);
-
-      expect(rateLimiterMock.increment).not.toHaveBeenCalled();
-    });
-
-    it('does not increment email counter on rate_limited from auth service', async () => {
-      authServiceMock.signIn.mockResolvedValue({
-        ok: false,
-        kind: 'rate_limited',
-        retryAfter: 300,
-      });
-
-      await useCase.execute(defaultRequest);
-
-      expect(rateLimiterMock.increment).not.toHaveBeenCalled();
-    });
-
-    it('returns service_error when rateLimiter.check throws', async () => {
-      expect.assertions(2);
-      rateLimiterMock.check.mockRejectedValue(new Error('DO unavailable'));
-
-      const result = await useCase.execute(defaultRequest);
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('service_error');
-      }
-    });
-
-    it('returns the sign-in result even when rateLimiter.increment throws after invalid_credentials', async () => {
-      expect.assertions(2);
-      authServiceMock.signIn.mockResolvedValue({ ok: false, kind: 'invalid_credentials' });
-      rateLimiterMock.increment.mockRejectedValue(new Error('DO unavailable'));
-
-      const result = await useCase.execute(defaultRequest);
-
-      // The increment failure is logged but does not change the result
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('service_error');
-      }
     });
 
     it('checks email rate limit before IP rate limit (ordering)', async () => {
       const callOrder: string[] = [];
-      rateLimiterMock.check.mockImplementation(() => {
-        callOrder.push('check');
-        return Promise.resolve({ allowed: true });
-      });
-      rateLimiterMock.checkAndIncrement.mockImplementation(() => {
-        callOrder.push('checkAndIncrement');
-        return Promise.resolve({ allowed: true });
-      });
+      rateLimiterMock.checkAndIncrement.mockImplementation(
+        (key: string, _ttl: number, _max: number) => {
+          callOrder.push(key.includes('email') ? 'email' : 'ip');
+          return Promise.resolve({ allowed: true });
+        }
+      );
       authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       await useCase.execute(defaultRequest);
 
-      expect(callOrder).toEqual(['check', 'checkAndIncrement']);
+      expect(callOrder).toEqual(['email', 'ip']);
     });
   });
 });

@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RateLimiter } from '../../application/ports/RateLimiter';
 import {
+  MAX_ATTEMPTS,
   REGISTER_WINDOW_SECONDS,
   SIGN_IN_WINDOW_SECONDS,
 } from '../../application/ports/RateLimiter';
@@ -149,7 +150,8 @@ describe('createApiAuthRateLimit', () => {
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:sign-in:1.2.3.4',
-        SIGN_IN_WINDOW_SECONDS
+        SIGN_IN_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
 
@@ -164,7 +166,8 @@ describe('createApiAuthRateLimit', () => {
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:register:5.6.7.8',
-        REGISTER_WINDOW_SECONDS
+        REGISTER_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
 
@@ -176,7 +179,8 @@ describe('createApiAuthRateLimit', () => {
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:sign-in:unknown',
-        SIGN_IN_WINDOW_SECONDS
+        SIGN_IN_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
   });
