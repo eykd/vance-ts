@@ -107,7 +107,7 @@ app.get('/api/auth/error', (c): Response => {
   const errorCode = c.req.query('error') ?? null;
   return new Response(authErrorPage(), {
     status: authErrorStatusCode(errorCode),
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-cache' },
   });
 });
 

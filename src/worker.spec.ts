@@ -492,6 +492,15 @@ describe('Worker', () => {
       expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
     });
 
+    it('includes Cache-Control: no-store, no-cache to prevent caching error pages', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+    });
+
     it('renders the page with query parameters (e.g. ?error=state_not_found)', async () => {
       const env = mockEnv();
       const req = new Request('https://example.com/api/auth/error?error=state_not_found');
