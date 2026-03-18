@@ -45,8 +45,7 @@ export function createApiAuthRateLimit(
 ): (c: Context<AppEnv>, next: Next) => Promise<Response | void> {
   return async function apiAuthRateLimit(c: Context<AppEnv>, next: Next): Promise<Response | void> {
     const ip = extractClientIp(c.req.raw);
-    const ipKey = ip !== 'unknown' ? ip : crypto.randomUUID();
-    const key = `ratelimit:${endpoint}:${ipKey}`;
+    const key = `ratelimit:${endpoint}:${ip}`;
 
     const check = await rateLimiter.checkAndIncrement(key, windowSeconds);
     if (!check.allowed) {

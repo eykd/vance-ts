@@ -168,15 +168,15 @@ describe('createApiAuthRateLimit', () => {
       );
     });
 
-    it('uses a UUID as ip key when CF-Connecting-IP is absent (unknown IP)', async () => {
+    it('uses a fixed sentinel key when CF-Connecting-IP is absent (unknown IP)', async () => {
       const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS);
       await app.fetch(
         new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' })
       );
 
-      const [calledKey] = rateLimiterMock.checkAndIncrement.mock.calls[0] as [string, number];
-      expect(calledKey).toMatch(
-        /^ratelimit:sign-in:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+      expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
+        'ratelimit:sign-in:unknown',
+        SIGN_IN_WINDOW_SECONDS
       );
     });
   });
