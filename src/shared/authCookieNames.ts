@@ -8,7 +8,7 @@
  * @param authUrl - The BETTER_AUTH_URL value from the Workers env.
  * @returns True when the URL starts with `http://localhost` or `http://127.0.0.1`.
  */
-function isPlainHttpLocalhost(authUrl: string): boolean {
+export function isPlainHttpLocalhost(authUrl: string): boolean {
   return authUrl.startsWith('http://localhost') || authUrl.startsWith('http://127.0.0.1');
 }
 
