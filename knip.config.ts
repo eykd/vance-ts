@@ -35,8 +35,6 @@ const config: KnipConfig = {
     // Loaded by prettier at runtime
     'prettier-plugin-go-template',
     'prettier-plugin-tailwindcss',
-    // Runtime executor, not imported
-    'tsx',
     // CLI tool invoked via npx
     '@tktco/node-actionlint',
     // Virtual module provided by @cloudflare/vitest-pool-workers

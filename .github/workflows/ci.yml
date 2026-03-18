@@ -67,9 +67,64 @@ jobs:
         if: steps.check-hugo-quality.outputs.exists == 'true'
         run: cd hugo && npm test
 
-      - name: Test (Workers runtime)
+      - name: Test (Workers runtime, with retry)
+        id: test-workers
         if: steps.check-hugo-quality.outputs.exists == 'true'
-        run: npm run test:workers
+        run: npm run test:ci
+
+      - name: Detect flaky tests
+        id: flaky-check
+        if: "!cancelled() && steps.check-hugo-quality.outputs.exists == 'true'"
+        run: |
+          if [ -f test-results.json ]; then
+            npx tsx scripts/detect-flaky-tests.ts test-results.json > flaky-report.json
+            echo "has_report=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_report=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload test results
+        if: '!cancelled()'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            test-results.json
+            flaky-report.json
+          if-no-files-found: ignore
+
+      - name: Comment on PR with flaky tests
+        if: github.event_name == 'pull_request' && steps.flaky-check.outputs.has_report == 'true' && !cancelled()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('flaky-report.json')) return;
+            const report = JSON.parse(fs.readFileSync('flaky-report.json', 'utf-8'));
+            if (report.totalFlaky === 0) return;
+
+            let body = '## Flaky Tests Detected\n\n';
+            body += 'The following tests passed only after being retried:\n\n';
+            body += '| Test | File | Passed on retry |\n';
+            body += '|------|------|----------------|\n';
+            for (const test of report.flakyTests) {
+              body += `| ${test.testName} | \`${test.filePath}\` | ${test.passedOnRetry} |\n`;
+            }
+            body += '\nThese tests are unreliable and should be investigated.\n';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body,
+            });
+
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['flaky-tests'],
+            });
 
   deploy:
     # Deploy on push (production) and PRs (preview URLs)

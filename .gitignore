@@ -12,6 +12,10 @@ __pycache__/
 # Test coverage
 coverage/
 
+# Test results (CI-generated)
+test-results.json
+flaky-report.json
+
 # Environment files
 .env
 .env.local

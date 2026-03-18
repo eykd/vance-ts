@@ -12,6 +12,7 @@
     "format": "prettier --write \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\"",
     "test": "vitest run",
+    "test:ci": "vitest run --retry=2 --reporter=default --reporter=json --outputFile=test-results.json",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --project=node",
     "test:acceptance": "vitest run --project=acceptance",
