@@ -197,10 +197,10 @@ describe('BetterAuthService', () => {
       }
     });
 
-    it('logs status and body via console.error when response is not ok and not a mapped status', async () => {
+    it('logs only status via console.error when response is not ok and not a mapped status (no PII)', async () => {
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
       authMock.api.signInEmail.mockResolvedValue(
-        new Response('{"message":"internal failure"}', {
+        new Response('{"email":"user@example.com"}', {
           status: 500,
           headers: { 'Content-Type': 'application/json' },
         })
@@ -211,10 +211,7 @@ describe('BetterAuthService', () => {
         password: 'correcthorse12',
       });
 
-      expect(spy).toHaveBeenCalledWith(
-        'BetterAuthService.signIn: unexpected status 500',
-        '{"message":"internal failure"}'
-      );
+      expect(spy).toHaveBeenCalledWith('BetterAuthService.signIn: unexpected status 500');
       spy.mockRestore();
     });
 
@@ -428,10 +425,10 @@ describe('BetterAuthService', () => {
       }
     });
 
-    it('logs status and body via console.error when response is not ok and not a mapped status', async () => {
+    it('logs only status via console.error when response is not ok and not a mapped status (no PII)', async () => {
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
       authMock.api.signUpEmail.mockResolvedValue(
-        new Response('{"message":"DB error"}', {
+        new Response('{"email":"new@example.com"}', {
           status: 500,
           headers: { 'Content-Type': 'application/json' },
         })
@@ -443,10 +440,7 @@ describe('BetterAuthService', () => {
         name: 'Eve',
       });
 
-      expect(spy).toHaveBeenCalledWith(
-        'BetterAuthService.signUp: unexpected status 500',
-        '{"message":"DB error"}'
-      );
+      expect(spy).toHaveBeenCalledWith('BetterAuthService.signUp: unexpected status 500');
       spy.mockRestore();
     });
 
