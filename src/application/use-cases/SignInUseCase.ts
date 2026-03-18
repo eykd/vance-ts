@@ -1,9 +1,10 @@
 /**
  * SignInUseCase — orchestrates email/password sign-in.
  *
- * Enforces KV-backed IP rate limiting before delegating credential
- * verification to the {@link AuthService} port. Returns a typed result
- * that callers use to construct HTTP responses; never throws.
+ * Enforces both per-email (FR-006) and per-IP rate limiting before
+ * delegating credential verification to the {@link AuthService} port.
+ * Returns a typed result that callers use to construct HTTP responses;
+ * never throws.
  *
  * @module
  */
@@ -11,7 +12,11 @@
 import type { AuthService } from '../ports/AuthService.js';
 import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
-import { SIGN_IN_WINDOW_SECONDS } from '../ports/RateLimiter.js';
+import {
+  SIGN_IN_EMAIL_MAX_ATTEMPTS,
+  SIGN_IN_EMAIL_WINDOW_SECONDS,
+  SIGN_IN_WINDOW_SECONDS,
+} from '../ports/RateLimiter.js';
 
 /**
  * Input DTO for the sign-in use case.
@@ -32,7 +37,7 @@ export type SignInRequest = {
  * layer uses to construct a `Set-Cookie` header via `buildSessionCookie`. On
  * failure, `kind` identifies the error category:
  * - `invalid_credentials` — wrong email or password
- * - `rate_limited` — IP has exceeded the allowed attempt window
+ * - `rate_limited` — IP or email has exceeded the allowed attempt window
  * - `service_error` — infrastructure failure (DB unavailable, etc.)
  */
 export type SignInResult =
@@ -44,13 +49,16 @@ export type SignInResult =
     };
 
 /**
- * Orchestrates email/password sign-in with IP rate limiting.
+ * Orchestrates email/password sign-in with per-email and per-IP rate limiting.
  *
  * Flow:
- * 1. Atomically check-and-increment the rate limiter for the client IP in a single DO call;
+ * 1. Check the per-email failure counter (FR-006); reject with `rate_limited` if ≥ 10
+ * failed attempts within 60 minutes.
+ * 2. Atomically check-and-increment the rate limiter for the client IP in a single DO call;
  * reject with `rate_limited` if the limit is exceeded (counter unchanged on rejection).
- * 2. Delegate to {@link AuthService.signIn}; adapter maps better-auth responses to types.
- * 3. Run timing-oracle defence on non-rate-limited failures (FR-007).
+ * 3. Delegate to {@link AuthService.signIn}; adapter maps better-auth responses to types.
+ * 4. On `invalid_credentials`, increment the per-email failure counter.
+ * 5. Run timing-oracle defence on non-rate-limited failures (FR-007).
  *
  * @example
  * ```typescript
@@ -92,9 +100,16 @@ export class SignInUseCase {
    */
   async execute(request: SignInRequest): Promise<SignInResult> {
     try {
-      const key = `ratelimit:sign-in:${request.ip}`;
+      // Per-email rate limit check (FR-006): block distributed brute-force across many IPs
+      const emailKey = `ratelimit:sign-in-email:${request.email.toLowerCase()}`;
+      const emailCheck = await this.rateLimiter.check(emailKey, SIGN_IN_EMAIL_MAX_ATTEMPTS);
+      if (!emailCheck.allowed) {
+        return { ok: false, kind: 'rate_limited', retryAfter: emailCheck.retryAfter };
+      }
 
-      const rateCheck = await this.rateLimiter.checkAndIncrement(key, SIGN_IN_WINDOW_SECONDS);
+      // Per-IP rate limit (atomic check-and-increment)
+      const ipKey = `ratelimit:sign-in:${request.ip}`;
+      const rateCheck = await this.rateLimiter.checkAndIncrement(ipKey, SIGN_IN_WINDOW_SECONDS);
       if (!rateCheck.allowed) {
         return { ok: false, kind: 'rate_limited', retryAfter: rateCheck.retryAfter };
       }
@@ -103,6 +118,11 @@ export class SignInUseCase {
         email: request.email,
         password: request.password,
       });
+
+      // Increment email failure counter only on invalid credentials (wrong password/email)
+      if (!result.ok && result.kind === 'invalid_credentials') {
+        await this.rateLimiter.increment(emailKey, SIGN_IN_EMAIL_WINDOW_SECONDS);
+      }
 
       // Timing oracle defence — run Argon2id on every non-rate-limited failure (FR-007)
       if (!result.ok && result.kind !== 'rate_limited') {

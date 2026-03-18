@@ -62,32 +62,32 @@ describe('DurableObjectRateLimiter', () => {
     it('returns allowed: true when DO returns null (no active window)', async () => {
       stub.fetch.mockResolvedValue(Response.json(null));
 
-      const result = await limiter.check('ratelimit:sign-in:1.2.3.4');
+      const result = await limiter.check('ratelimit:sign-in:1.2.3.4', MAX_ATTEMPTS);
 
       expect(result).toEqual({ allowed: true });
     });
 
-    it('returns allowed: true when count is below MAX_ATTEMPTS', async () => {
+    it('returns allowed: true when count is below maxAttempts', async () => {
       stub.fetch.mockResolvedValue(makeCheckResponse(MAX_ATTEMPTS - 1, FIXED_NOW + 60_000));
 
-      const result = await limiter.check('ratelimit:sign-in:1.2.3.4');
+      const result = await limiter.check('ratelimit:sign-in:1.2.3.4', MAX_ATTEMPTS);
 
       expect(result).toEqual({ allowed: true });
     });
 
-    it('returns allowed: false with retryAfter when count equals MAX_ATTEMPTS', async () => {
+    it('returns allowed: false with retryAfter when count equals maxAttempts', async () => {
       stub.fetch.mockResolvedValue(makeCheckResponse(MAX_ATTEMPTS, FIXED_NOW + 60_000));
 
-      const result = await limiter.check('ratelimit:sign-in:1.2.3.4');
+      const result = await limiter.check('ratelimit:sign-in:1.2.3.4', MAX_ATTEMPTS);
 
       expect(result.allowed).toBe(false);
       expect(result.retryAfter).toBe(60);
     });
 
-    it('returns allowed: false with retryAfter when count exceeds MAX_ATTEMPTS', async () => {
+    it('returns allowed: false with retryAfter when count exceeds maxAttempts', async () => {
       stub.fetch.mockResolvedValue(makeCheckResponse(MAX_ATTEMPTS + 2, FIXED_NOW + 60_000));
 
-      const result = await limiter.check('ratelimit:sign-in:1.2.3.4');
+      const result = await limiter.check('ratelimit:sign-in:1.2.3.4', MAX_ATTEMPTS);
 
       expect(result.allowed).toBe(false);
       expect(result.retryAfter).toBe(60);
@@ -97,7 +97,7 @@ describe('DurableObjectRateLimiter', () => {
       // 500 ms remaining → Math.ceil(0.5) = 1
       stub.fetch.mockResolvedValue(makeCheckResponse(MAX_ATTEMPTS, FIXED_NOW + 500));
 
-      const result = await limiter.check('ratelimit:sign-in:1.2.3.4');
+      const result = await limiter.check('ratelimit:sign-in:1.2.3.4', MAX_ATTEMPTS);
 
       expect(result.allowed).toBe(false);
       expect(result.retryAfter).toBe(1);
@@ -106,14 +106,14 @@ describe('DurableObjectRateLimiter', () => {
     it('routes to the DO stub identified by the given key', async () => {
       const key = 'ratelimit:sign-in:1.2.3.4';
 
-      await limiter.check(key);
+      await limiter.check(key, MAX_ATTEMPTS);
 
       expect(namespace.idFromName).toHaveBeenCalledWith(key);
       expect(namespace.get).toHaveBeenCalled();
     });
 
     it('fetches GET /check on the DO stub', async () => {
-      await limiter.check('ratelimit:sign-in:1.2.3.4');
+      await limiter.check('ratelimit:sign-in:1.2.3.4', MAX_ATTEMPTS);
 
       expect(stub.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/check'),
@@ -128,7 +128,7 @@ describe('DurableObjectRateLimiter', () => {
         json: vi.fn().mockResolvedValue({ count: NaN, resetAt: FIXED_NOW + 60_000 }),
       });
 
-      const result = await limiter.check('ratelimit:sign-in:1.2.3.4');
+      const result = await limiter.check('ratelimit:sign-in:1.2.3.4', MAX_ATTEMPTS);
 
       expect(result).toEqual({ allowed: true });
     });
@@ -140,9 +140,29 @@ describe('DurableObjectRateLimiter', () => {
         json: vi.fn().mockResolvedValue({ count: MAX_ATTEMPTS, resetAt: NaN }),
       });
 
-      const result = await limiter.check('ratelimit:sign-in:1.2.3.4');
+      const result = await limiter.check('ratelimit:sign-in:1.2.3.4', MAX_ATTEMPTS);
 
       expect(result).toEqual({ allowed: true });
+    });
+
+    it('uses provided maxAttempts instead of hardcoded constant', async () => {
+      const customMax = 10;
+      // count is 7 — below customMax (10) but above MAX_ATTEMPTS (5)
+      stub.fetch.mockResolvedValue(makeCheckResponse(7, FIXED_NOW + 60_000));
+
+      const result = await limiter.check('ratelimit:sign-in-email:user@example.com', customMax);
+
+      expect(result).toEqual({ allowed: true });
+    });
+
+    it('rejects when count reaches custom maxAttempts', async () => {
+      const customMax = 10;
+      stub.fetch.mockResolvedValue(makeCheckResponse(10, FIXED_NOW + 60_000));
+
+      const result = await limiter.check('ratelimit:sign-in-email:user@example.com', customMax);
+
+      expect(result.allowed).toBe(false);
+      expect(result.retryAfter).toBe(60);
     });
   });
 

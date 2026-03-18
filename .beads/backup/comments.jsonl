@@ -115,3 +115,6 @@
 {"author":"eykd","created_at":"2026-03-18T00:50:01Z","id":115,"issue_id":"turtlebased-ts-ec1.1.22","text":"Starting: split retryAfter onto rate_limited-only union members in SignUpResult and AuthService.signUp"}
 {"author":"eykd","created_at":"2026-03-18T00:57:34Z","id":116,"issue_id":"turtlebased-ts-ec1.1.19","text":"Starting work: removing PII from console.error calls"}
 {"author":"eykd","created_at":"2026-03-18T00:59:57Z","id":117,"issue_id":"turtlebased-ts-ec1.1.18","text":"Starting work: Define Logger port, inject into SignInUseCase and SignUpUseCase, wire console implementation"}
+{"author":"eykd","created_at":"2026-03-18T01:07:35Z","id":118,"issue_id":"turtlebased-ts-ec1.1.17","text":"Starting work: moving framework-specific cookie name functions from shared to infrastructure layer"}
+{"author":"eykd","created_at":"2026-03-18T01:12:49Z","id":119,"issue_id":"turtlebased-ts-ec1.1.20","text":"Starting work: fix UUID fallback in rate limiter"}
+{"author":"eykd","created_at":"2026-03-18T01:15:20Z","id":120,"issue_id":"turtlebased-ts-ec1.1.16","text":"Starting work on per-email rate limiting"}

@@ -8,7 +8,7 @@
  * @module
  */
 
-/** Maximum number of allowed attempts per window before a request is rejected. */
+/** Maximum number of allowed IP-based attempts per window before a request is rejected. */
 export const MAX_ATTEMPTS = 5;
 
 /** Rate limit window for sign-in attempts (seconds). 15 minutes. */
@@ -16,6 +16,12 @@ export const SIGN_IN_WINDOW_SECONDS = 900;
 
 /** Rate limit window for registration attempts (seconds). 5 minutes. */
 export const REGISTER_WINDOW_SECONDS = 300;
+
+/** Maximum number of failed sign-in attempts per email before the account is locked (FR-006). */
+export const SIGN_IN_EMAIL_MAX_ATTEMPTS = 10;
+
+/** Rate limit window for per-email sign-in failures (seconds). 60 minutes (FR-006). */
+export const SIGN_IN_EMAIL_WINDOW_SECONDS = 3600;
 
 /**
  * Port interface for distributed rate limiting across Cloudflare Workers isolates.
@@ -31,10 +37,11 @@ export interface RateLimiter {
    * Does not modify the counter — call `increment` separately after a check.
    *
    * @param key - The rate limit key (e.g., `ratelimit:sign-in:1.2.3.4`).
+   * @param maxAttempts - Maximum attempts allowed within the current window.
    * @returns `{ allowed: true }` when the request may proceed, or `{ allowed: false,
    * retryAfter }` (seconds until reset) when the limit is exceeded.
    */
-  check(key: string): Promise<{ allowed: boolean; retryAfter?: number }>;
+  check(key: string, maxAttempts: number): Promise<{ allowed: boolean; retryAfter?: number }>;
 
   /**
    * Increments the attempt counter for the given key.
