@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthService } from '../ports/AuthService.js';
+import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import { SIGN_IN_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
@@ -34,9 +35,23 @@ function makeRateLimiterMock(): {
   };
 }
 
+/**
+ * Creates a Logger mock with only the method SignInUseCase calls.
+ *
+ * @returns An object with a `vi.fn()` stub for error.
+ */
+function makeLoggerMock(): {
+  error: ReturnType<typeof vi.fn>;
+} {
+  return {
+    error: vi.fn(),
+  };
+}
+
 describe('SignInUseCase', () => {
   let authServiceMock: ReturnType<typeof makeAuthServiceMock>;
   let rateLimiterMock: ReturnType<typeof makeRateLimiterMock>;
+  let loggerMock: ReturnType<typeof makeLoggerMock>;
   let useCase: SignInUseCase;
 
   const defaultRequest = Object.freeze({
@@ -48,10 +63,12 @@ describe('SignInUseCase', () => {
   beforeEach(() => {
     authServiceMock = makeAuthServiceMock();
     rateLimiterMock = makeRateLimiterMock();
+    loggerMock = makeLoggerMock();
     rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: true });
     useCase = new SignInUseCase(
       authServiceMock as unknown as AuthService,
-      rateLimiterMock as unknown as RateLimiter
+      rateLimiterMock as unknown as RateLimiter,
+      loggerMock as Logger
     );
   });
 
@@ -237,15 +254,16 @@ describe('SignInUseCase', () => {
       }
     });
 
-    it('logs the error via console.error when authService.signIn throws', async () => {
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    it('logs the error via Logger.error when authService.signIn throws', async () => {
       const error = new Error('DB connection failed');
       authServiceMock.signIn.mockRejectedValue(error);
 
       await useCase.execute(defaultRequest);
 
-      expect(spy).toHaveBeenCalledWith('SignInUseCase: unexpected error during sign-in', error);
-      spy.mockRestore();
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'SignInUseCase: unexpected error during sign-in',
+        error
+      );
     });
 
     it('returns ok: false kind: service_error when authService.verifyDummyPassword throws', async () => {

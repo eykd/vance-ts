@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   getAuth: vi.fn(),
   resetAuth: vi.fn(),
   BetterAuthService: vi.fn(),
+  ConsoleLogger: vi.fn(),
   DurableObjectRateLimiter: vi.fn(),
   SignInUseCase: vi.fn(),
   SignUpUseCase: vi.fn(),
@@ -29,6 +30,10 @@ vi.mock('../infrastructure/auth', () => ({
 
 vi.mock('../infrastructure/BetterAuthService', () => ({
   BetterAuthService: mocks.BetterAuthService,
+}));
+
+vi.mock('../infrastructure/ConsoleLogger', () => ({
+  ConsoleLogger: mocks.ConsoleLogger,
 }));
 
 vi.mock('../infrastructure/DurableObjectRateLimiter', () => ({

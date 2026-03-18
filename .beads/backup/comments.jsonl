@@ -112,3 +112,6 @@
 {"author":"eykd","created_at":"2026-03-18T00:29:53Z","id":112,"issue_id":"turtlebased-ts-ec1.1.12","text":"Starting: refactor mock.calls[0] to toHaveBeenCalledWith in signOut/getSession tests"}
 {"author":"eykd","created_at":"2026-03-18T00:32:52Z","id":113,"issue_id":"turtlebased-ts-ec1.1.11","text":"Starting: fix import order violation"}
 {"author":"eykd","created_at":"2026-03-18T00:33:23Z","id":114,"issue_id":"turtlebased-ts-ec1.1.11","text":"No violation found. ESLint import/order rule uses ascending alphabetical order (asc, caseInsensitive). 'better-auth' (b) correctly comes before 'vitest' (v). Running eslint on the file confirms zero errors."}
+{"author":"eykd","created_at":"2026-03-18T00:50:01Z","id":115,"issue_id":"turtlebased-ts-ec1.1.22","text":"Starting: split retryAfter onto rate_limited-only union members in SignUpResult and AuthService.signUp"}
+{"author":"eykd","created_at":"2026-03-18T00:57:34Z","id":116,"issue_id":"turtlebased-ts-ec1.1.19","text":"Starting work: removing PII from console.error calls"}
+{"author":"eykd","created_at":"2026-03-18T00:59:57Z","id":117,"issue_id":"turtlebased-ts-ec1.1.18","text":"Starting work: Define Logger port, inject into SignInUseCase and SignUpUseCase, wire console implementation"}

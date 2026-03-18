@@ -13,6 +13,7 @@
  */
 
 import type { AuthService } from '../application/ports/AuthService';
+import type { Logger } from '../application/ports/Logger';
 import type { RateLimiter } from '../application/ports/RateLimiter';
 import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../application/ports/RateLimiter';
 import { SignInUseCase } from '../application/use-cases/SignInUseCase';
@@ -20,6 +21,7 @@ import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
 import { getAuth, resetAuth } from '../infrastructure/auth';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
+import { ConsoleLogger } from '../infrastructure/ConsoleLogger';
 import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createApiAuthRateLimit } from '../presentation/middleware/apiAuthRateLimit';
@@ -59,6 +61,9 @@ export class ServiceFactory {
 
   /** Cached AuthService adapter. */
   private _authService: AuthService | null = null;
+
+  /** Cached Logger adapter. */
+  private _logger: Logger | null = null;
 
   /** Cached RateLimiter adapter. */
   private _rateLimiter: RateLimiter | null = null;
@@ -110,6 +115,16 @@ export class ServiceFactory {
   }
 
   /**
+   * Lazily initialises and returns the Logger implementation.
+   *
+   * @returns The lazily-initialised ConsoleLogger instance.
+   */
+  private get _loggerInstance(): Logger {
+    this._logger ??= new ConsoleLogger();
+    return this._logger;
+  }
+
+  /**
    * Lazily initialises and returns the RateLimiter implementation.
    *
    * @returns The lazily-initialised DurableObjectRateLimiter instance.
@@ -134,7 +149,11 @@ export class ServiceFactory {
    * @returns The lazily-initialised SignInUseCase instance.
    */
   get signInUseCase(): SignInUseCase {
-    this._signInUseCase ??= new SignInUseCase(this._authServiceInstance, this._rateLimiterInstance);
+    this._signInUseCase ??= new SignInUseCase(
+      this._authServiceInstance,
+      this._rateLimiterInstance,
+      this._loggerInstance
+    );
     return this._signInUseCase;
   }
 
@@ -144,7 +163,11 @@ export class ServiceFactory {
    * @returns The lazily-initialised SignUpUseCase instance.
    */
   get signUpUseCase(): SignUpUseCase {
-    this._signUpUseCase ??= new SignUpUseCase(this._authServiceInstance, this._rateLimiterInstance);
+    this._signUpUseCase ??= new SignUpUseCase(
+      this._authServiceInstance,
+      this._rateLimiterInstance,
+      this._loggerInstance
+    );
     return this._signUpUseCase;
   }
 

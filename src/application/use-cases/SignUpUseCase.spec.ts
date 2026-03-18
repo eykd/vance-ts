@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthService } from '../ports/AuthService.js';
+import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import { REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
@@ -32,9 +33,23 @@ function makeRateLimiterMock(): {
   };
 }
 
+/**
+ * Creates a Logger mock with only the method SignUpUseCase calls.
+ *
+ * @returns An object with a `vi.fn()` stub for error.
+ */
+function makeLoggerMock(): {
+  error: ReturnType<typeof vi.fn>;
+} {
+  return {
+    error: vi.fn(),
+  };
+}
+
 describe('SignUpUseCase', () => {
   let authServiceMock: ReturnType<typeof makeAuthServiceMock>;
   let rateLimiterMock: ReturnType<typeof makeRateLimiterMock>;
+  let loggerMock: ReturnType<typeof makeLoggerMock>;
   let useCase: SignUpUseCase;
 
   const defaultRequest = Object.freeze({
@@ -46,11 +61,13 @@ describe('SignUpUseCase', () => {
   beforeEach(() => {
     authServiceMock = makeAuthServiceMock();
     rateLimiterMock = makeRateLimiterMock();
+    loggerMock = makeLoggerMock();
     rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: true });
     authServiceMock.signUp.mockResolvedValue({ ok: true });
     useCase = new SignUpUseCase(
       authServiceMock as unknown as AuthService,
-      rateLimiterMock as unknown as RateLimiter
+      rateLimiterMock as unknown as RateLimiter,
+      loggerMock as Logger
     );
   });
 
@@ -172,15 +189,16 @@ describe('SignUpUseCase', () => {
       }
     });
 
-    it('logs the error via console.error when authService.signUp throws', async () => {
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    it('logs the error via Logger.error when authService.signUp throws', async () => {
       const error = new Error('DB unavailable');
       authServiceMock.signUp.mockRejectedValue(error);
 
       await useCase.execute(defaultRequest);
 
-      expect(spy).toHaveBeenCalledWith('SignUpUseCase: unexpected error during sign-up', error);
-      spy.mockRestore();
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'SignUpUseCase: unexpected error during sign-up',
+        error
+      );
     });
 
     it('returns ok: false kind: service_error when rateLimiter.checkAndIncrement throws', async () => {
@@ -195,15 +213,16 @@ describe('SignUpUseCase', () => {
       }
     });
 
-    it('logs the error via console.error when rateLimiter.checkAndIncrement throws', async () => {
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    it('logs the error via Logger.error when rateLimiter.checkAndIncrement throws', async () => {
       const error = new Error('DO unavailable');
       rateLimiterMock.checkAndIncrement.mockRejectedValue(error);
 
       await useCase.execute(defaultRequest);
 
-      expect(spy).toHaveBeenCalledWith('SignUpUseCase: unexpected error during sign-up', error);
-      spy.mockRestore();
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'SignUpUseCase: unexpected error during sign-up',
+        error
+      );
     });
 
     it('calls checkAndIncrement with key ratelimit:register:{ip} and REGISTER_WINDOW_SECONDS', async () => {

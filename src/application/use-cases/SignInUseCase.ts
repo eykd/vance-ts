@@ -9,6 +9,7 @@
  */
 
 import type { AuthService } from '../ports/AuthService.js';
+import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import { SIGN_IN_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
@@ -53,7 +54,7 @@ export type SignInResult =
  *
  * @example
  * ```typescript
- * const useCase = new SignInUseCase(authService, rateLimiter);
+ * const useCase = new SignInUseCase(authService, rateLimiter, logger);
  * const result = await useCase.execute({ email, password, ip });
  * if (result.ok) {
  *   response.headers.set('Set-Cookie', buildSessionCookie(result.sessionToken));
@@ -67,15 +68,20 @@ export class SignInUseCase {
   /** Rate limiter port interface, injected at construction time. */
   private readonly rateLimiter: RateLimiter;
 
+  /** Logger port interface, injected at construction time. */
+  private readonly logger: Logger;
+
   /**
    * Creates a new SignInUseCase.
    *
    * @param authService - Auth service port; implemented by BetterAuthService.
    * @param rateLimiter - Rate limiter port; implemented by KvRateLimiter.
+   * @param logger - Logger port; implemented by ConsoleLogger.
    */
-  constructor(authService: AuthService, rateLimiter: RateLimiter) {
+  constructor(authService: AuthService, rateLimiter: RateLimiter, logger: Logger) {
     this.authService = authService;
     this.rateLimiter = rateLimiter;
+    this.logger = logger;
   }
 
   /**
@@ -106,7 +112,7 @@ export class SignInUseCase {
 
       return result;
     } catch (error: unknown) {
-      console.error('SignInUseCase: unexpected error during sign-in', error);
+      this.logger.error('SignInUseCase: unexpected error during sign-in', error);
       return { ok: false, kind: 'service_error' };
     }
   }

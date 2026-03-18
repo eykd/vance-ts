@@ -10,6 +10,7 @@
 
 import { COMMON_PASSWORDS } from '../../domain/value-objects/common-passwords.js';
 import type { AuthService } from '../ports/AuthService.js';
+import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
 import { REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
@@ -57,7 +58,7 @@ export type SignUpResult =
  *
  * @example
  * ```typescript
- * const useCase = new SignUpUseCase(authService, rateLimiter);
+ * const useCase = new SignUpUseCase(authService, rateLimiter, logger);
  * const result = await useCase.execute({ email, password, ip });
  * if (result.ok) {
  *   return redirect('/auth/sign-in?registered=true');
@@ -71,15 +72,20 @@ export class SignUpUseCase {
   /** Rate limiter port interface, injected at construction time. */
   private readonly rateLimiter: RateLimiter;
 
+  /** Logger port interface, injected at construction time. */
+  private readonly logger: Logger;
+
   /**
    * Creates a new SignUpUseCase.
    *
    * @param authService - Auth service port; implemented by BetterAuthService.
    * @param rateLimiter - Rate limiter port; implemented by KvRateLimiter.
+   * @param logger - Logger port; implemented by ConsoleLogger.
    */
-  constructor(authService: AuthService, rateLimiter: RateLimiter) {
+  constructor(authService: AuthService, rateLimiter: RateLimiter, logger: Logger) {
     this.authService = authService;
     this.rateLimiter = rateLimiter;
+    this.logger = logger;
   }
 
   /**
@@ -113,7 +119,7 @@ export class SignUpUseCase {
 
       return result;
     } catch (error: unknown) {
-      console.error('SignUpUseCase: unexpected error during sign-up', error);
+      this.logger.error('SignUpUseCase: unexpected error during sign-up', error);
       return { ok: false, kind: 'service_error' };
     }
   }
