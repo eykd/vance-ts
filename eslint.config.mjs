@@ -71,6 +71,31 @@ const NODE_JS_BAN_PATHS = [
   },
 ];
 
+/** Node.js global bans — Cloudflare Workers runtime constraint. */
+const NODE_JS_BAN_GLOBALS = [
+  {
+    name: 'process',
+    message:
+      'process not available in Cloudflare Workers. Use env parameter in fetch(request, env, ctx).',
+  },
+  {
+    name: '__dirname',
+    message: '__dirname not available in Cloudflare Workers (no file system).',
+  },
+  {
+    name: '__filename',
+    message: '__filename not available in Cloudflare Workers (no file system).',
+  },
+  {
+    name: 'Buffer',
+    message: 'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
+  },
+  {
+    name: 'require',
+    message: 'require() not available in Cloudflare Workers. Use ES modules (import/export).',
+  },
+];
+
 /** Library containment — keyed by library name. */
 const CONTAINED_LIBS = {
   'better-auth': {
@@ -300,30 +325,7 @@ export default [
       'no-restricted-imports': ['error', { paths: NODE_JS_BAN_PATHS }],
 
       // Ban Node.js globals
-      'no-restricted-globals': [
-        'error',
-        {
-          name: 'process',
-          message:
-            'process not available in Cloudflare Workers. Use env parameter in fetch(request, env, ctx).',
-        },
-        {
-          name: '__dirname',
-          message: '__dirname not available in Cloudflare Workers (no file system).',
-        },
-        {
-          name: '__filename',
-          message: '__filename not available in Cloudflare Workers (no file system).',
-        },
-        {
-          name: 'Buffer',
-          message: 'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
-        },
-        {
-          name: 'require',
-          message: 'require() not available in Cloudflare Workers. Use ES modules (import/export).',
-        },
-      ],
+      'no-restricted-globals': ['error', ...NODE_JS_BAN_GLOBALS],
 
       // Prettier config (disable conflicting rules)
       ...prettierConfig.rules,
@@ -517,30 +519,7 @@ export default [
       'no-restricted-imports': ['error', { paths: NODE_JS_BAN_PATHS }],
 
       // Ban Node.js globals
-      'no-restricted-globals': [
-        'error',
-        {
-          name: 'process',
-          message:
-            'process not available in Cloudflare Workers. Use env parameter in fetch(request, env, ctx).',
-        },
-        {
-          name: '__dirname',
-          message: '__dirname not available in Cloudflare Workers (no file system).',
-        },
-        {
-          name: '__filename',
-          message: '__filename not available in Cloudflare Workers (no file system).',
-        },
-        {
-          name: 'Buffer',
-          message: 'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
-        },
-        {
-          name: 'require',
-          message: 'require() not available in Cloudflare Workers. Use ES modules (import/export).',
-        },
-      ],
+      'no-restricted-globals': ['error', ...NODE_JS_BAN_GLOBALS],
 
       // Prettier config (disable conflicting rules)
       ...prettierConfig.rules,
@@ -689,6 +668,130 @@ export default [
     files: ['src/shared/env.ts'],
     rules: {
       'no-restricted-imports': restrictedImports('@cloudflare/workers-types'),
+    },
+  },
+
+  // ─── DDD Convention Enforcement ──────────────────────────────────────
+  // Intra-layer quality rules that codify DDD conventions into lint rules.
+  // Complements eslint-plugin-boundaries (inter-layer) and library
+  // containment (third-party imports) with domain purity checks.
+
+  // Domain layer: errors as values, no console side effects
+  {
+    files: ['src/domain/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ThrowStatement',
+          message: 'Use Result.failure() to represent errors as values.',
+        },
+        {
+          selector: 'CallExpression[callee.object.name="console"]',
+          message: 'Use structured logging via the Logger port.',
+        },
+      ],
+    },
+  },
+
+  // Domain entities/value objects: must also be synchronous and pure
+  {
+    files: ['src/domain/entities/**/*.ts', 'src/domain/value-objects/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ThrowStatement',
+          message: 'Use Result.failure() to represent errors as values.',
+        },
+        {
+          selector: 'CallExpression[callee.object.name="console"]',
+          message: 'Use structured logging via the Logger port.',
+        },
+        {
+          selector: 'FunctionDeclaration[async=true]',
+          message:
+            'Entities and value objects must be synchronous. Move async operations to domain services or infrastructure.',
+        },
+        {
+          selector: 'FunctionExpression[async=true]',
+          message:
+            'Entities and value objects must be synchronous. Move async operations to domain services or infrastructure.',
+        },
+        {
+          selector: 'ArrowFunctionExpression[async=true]',
+          message:
+            'Entities and value objects must be synchronous. Move async operations to domain services or infrastructure.',
+        },
+      ],
+    },
+  },
+
+  // Application layer: errors as values, no HTTP types
+  {
+    files: ['src/application/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ThrowStatement',
+          message:
+            'Use Result types to represent errors as values. Let presentation layer handle HTTP error responses.',
+        },
+      ],
+      'no-restricted-globals': [
+        'error',
+        ...NODE_JS_BAN_GLOBALS,
+        {
+          name: 'Response',
+          message:
+            'Application layer must not use HTTP types. Return DTOs and let the presentation layer build HTTP responses.',
+        },
+        {
+          name: 'Request',
+          message:
+            'Application layer must not use HTTP types. Accept DTOs and let the presentation layer parse HTTP requests.',
+        },
+        {
+          name: 'Headers',
+          message:
+            'Application layer must not use HTTP types. Return DTOs and let the presentation layer build HTTP responses.',
+        },
+      ],
+    },
+  },
+
+  // Presentation layer: no direct D1 or Durable Object access
+  {
+    files: ['src/presentation/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.property.name="prepare"]',
+          message:
+            'Direct D1 queries belong in repositories. Inject a use case or repository instead.',
+        },
+        {
+          selector: 'CallExpression[callee.property.name="idFromName"]',
+          message:
+            'Direct DO access belongs in infrastructure. Use a port/repository interface.',
+        },
+        {
+          selector: 'CallExpression[callee.property.name="idFromString"]',
+          message:
+            'Direct DO access belongs in infrastructure. Use a port/repository interface.',
+        },
+        {
+          selector: 'CallExpression[callee.property.name="newUniqueId"]',
+          message:
+            'Direct DO access belongs in infrastructure. Use a port/repository interface.',
+        },
+      ],
     },
   },
 
