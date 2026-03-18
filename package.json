@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --project=node",
     "test:acceptance": "vitest run --project=acceptance",
+    "test:leak-detect": "DETECT_STATE_LEAKS=true vitest run --project=acceptance",
     "test:workers": "vitest run --project=workers --project=acceptance",
     "type-check": "tsc --noEmit",
     "check": "npm run type-check && npm run lint && npm run test",

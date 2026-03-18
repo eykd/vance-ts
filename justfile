@@ -177,6 +177,14 @@ acceptance-regen:
     rm -rf acceptance-pipeline/ir/ generated-acceptance-tests/*.spec.ts
     npx tsx acceptance/pipeline.ts --action=run
 
+# Run acceptance tests with state leak detection enabled
+test-leak-detect:
+    DETECT_STATE_LEAKS=true npx vitest run --project=acceptance
+
+# Run acceptance tests 10 times to verify no flakiness
+test-stability:
+    bash scripts/verify-test-stability.sh
+
 # Run both unit tests and acceptance tests
 test-all: test acceptance-run
 

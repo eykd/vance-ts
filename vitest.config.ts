@@ -12,6 +12,7 @@ export default defineConfig({
           poolOptions: {
             workers: {
               wrangler: { configPath: './wrangler.toml' },
+              isolatedStorage: true, // Explicit; prevents regression if default changes
             },
           },
         },
@@ -35,15 +36,13 @@ export default defineConfig({
           poolOptions: {
             workers: {
               wrangler: { configPath: './wrangler.toml' },
-              // Run all acceptance test files in a single workerd process to
-              // avoid "Isolated storage failed" / "Network connection lost"
-              // errors caused by concurrent workerd processes competing with
-              // Durable Object storage operations in CI.
-              singleWorker: true,
+              isolatedStorage: true, // Per-test D1+DO storage rollback (explicit; default is true)
               miniflare: {
                 bindings: {
                   BETTER_AUTH_SECRET: 'test-acceptance-suite-secret-minimum-32-chars',
                   BETTER_AUTH_URL: 'https://example.com',
+                  // eslint-disable-next-line no-restricted-globals -- vitest config runs in Node, not Workers
+                  DETECT_STATE_LEAKS: process.env['DETECT_STATE_LEAKS'] ?? '',
                 },
               },
             },

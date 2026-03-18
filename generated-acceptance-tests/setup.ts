@@ -4,7 +4,9 @@
  */
 
 import { applyD1Migrations, env } from 'cloudflare:test';
-import { beforeAll, beforeEach } from 'vitest';
+import { beforeAll } from 'vitest';
+
+import { registerLeakDetection } from './leak-detection.js';
 
 import {
   extractSessionCookie,
@@ -53,11 +55,5 @@ beforeAll(async () => {
   await applyD1Migrations(env.DB, AUTH_MIGRATIONS);
 });
 
-beforeEach(async () => {
-  // Clear auth tables before each test to ensure isolation.
-  // Delete order respects FK constraints (children before parent).
-  await env.DB.exec('DELETE FROM session');
-  await env.DB.exec('DELETE FROM account');
-  await env.DB.exec('DELETE FROM verification');
-  await env.DB.exec('DELETE FROM user');
-});
+// Opt-in leak detection: set DETECT_STATE_LEAKS=true to verify isolatedStorage rollback.
+registerLeakDetection();
