@@ -2,7 +2,7 @@ import { ALPINE_JS_PATH, HTMX_JS_PATH, STYLES_CSS_PATH } from '../../generated/a
 import { html, safe } from '../../utils/html';
 
 /** Props for the auth layout template. */
-export interface AuthLayoutProps {
+interface AuthLayoutProps {
   /** Page title (auto-escaped for XSS safety). */
   readonly title: string;
   /**

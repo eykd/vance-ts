@@ -2,7 +2,7 @@ import { escapeHtml, html, safe } from '../../utils/html';
 import { authLayout } from '../layouts/authLayout';
 
 /** Props for the register page template. */
-export interface RegisterPageProps {
+interface RegisterPageProps {
   /** CSRF token rendered in a hidden form field. */
   readonly csrfToken: string;
   /** Optional general error message displayed above all form inputs. */

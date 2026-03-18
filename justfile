@@ -18,6 +18,10 @@ lint:
 lint-fix:
     npx eslint src --ext .ts --fix
 
+# Check for unused code, exports, and dependencies
+lint-unused:
+    npx knip
+
 # Check code formatting
 format-check:
     npx prettier --check "src/**/*.ts"
@@ -63,7 +67,7 @@ test-workers:
     npm run test:workers
 
 # Run the full CI pipeline locally
-ci: clean install type-check lint format-check test-coverage build hugo-install hugo-test test-workers
+ci: clean install type-check lint lint-unused format-check test-coverage build hugo-install hugo-test test-workers
     @echo "✅ CI pipeline completed successfully!"
 
 # Watch mode for TypeScript compilation

@@ -2,7 +2,7 @@ import { html, safe } from '../../utils/html';
 import { authLayout } from '../layouts/authLayout';
 
 /** Props for the rate limit page template. */
-export interface RateLimitPageProps {
+interface RateLimitPageProps {
   /** Optional seconds until the client may retry, shown in the user message. */
   readonly retryAfter?: number;
 }

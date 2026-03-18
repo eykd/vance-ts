@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src/**/*", ".claude/**/*", "acceptance/**/*", "scripts/**/*", "vitest.config.ts"],
+  "include": ["src/**/*", ".claude/**/*", "acceptance/**/*", "scripts/**/*", "vitest.config.ts", "knip.config.ts"],
   "compilerOptions": {
     "types": ["node", "vitest/globals"]
   },

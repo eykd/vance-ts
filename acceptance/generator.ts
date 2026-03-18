@@ -1,4 +1,3 @@
-import { writeFile } from 'fs/promises';
 import { basename, extname } from 'path';
 
 import type { Feature } from './types.js';
@@ -13,9 +12,8 @@ import type { Feature } from './types.js';
  * @param index - The position to access.
  * @returns The element at `index`, or `''` if out of bounds.
  */
-/* c8 ignore next */
 export function at(source: readonly string[], index: number): string {
-  return source[index] ?? '';
+  return source[index] ?? ''; /* c8 ignore next */
 }
 
 /**
@@ -287,18 +285,3 @@ export function generateTests(feature: Feature, existingSource: string): string 
 
   return lines.join('\n') + '\n';
 }
-
-/* c8 ignore start */
-/**
- * Writes the generated test file content to disk.
- *
- * This function is the I/O boundary for the generator and is exempt from
- * coverage requirements.
- *
- * @param path - The file path to write.
- * @param content - The content to write.
- */
-export async function writeTestFileImpl(path: string, content: string): Promise<void> {
-  await writeFile(path, content, 'utf-8');
-}
-/* c8 ignore stop */

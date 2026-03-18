@@ -22,7 +22,7 @@ import {
 /**
  * Input DTO for the sign-in use case.
  */
-export type SignInRequest = {
+type SignInRequest = {
   /** The user's email address. */
   email: string;
   /** The user's plaintext password. */
@@ -41,7 +41,7 @@ export type SignInRequest = {
  * - `rate_limited` — IP or email has exceeded the allowed attempt window
  * - `service_error` — infrastructure failure (DB unavailable, etc.)
  */
-export type SignInResult =
+type SignInResult =
   | { ok: true; sessionToken: string }
   | {
       ok: false;
