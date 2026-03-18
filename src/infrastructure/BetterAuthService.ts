@@ -129,7 +129,7 @@ export class BetterAuthService implements AuthService {
 
       if (response.ok) {
         const setCookieHeader = response.headers.get('set-cookie');
-        if (setCookieHeader === null || setCookieHeader === '') {
+        if (setCookieHeader === null) {
           return { ok: false, kind: 'service_error' };
         }
         // Validate the cookie belongs to the expected session cookie
