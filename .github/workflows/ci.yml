@@ -64,6 +64,10 @@ jobs:
         if: steps.check-hugo-quality.outputs.exists == 'true'
         run: cd hugo && npm test
 
+      - name: Test (Workers runtime)
+        if: steps.check-hugo-quality.outputs.exists == 'true'
+        run: npm run test:workers
+
   deploy:
     # Deploy on push (production) and PRs (preview URLs)
     needs: quality

@@ -58,8 +58,12 @@ validate: check build
 fix: format lint-fix
     @echo "✅ Auto-fixes applied!"
 
+# Run Workers and acceptance tests (requires hugo/public from a prior build)
+test-workers:
+    npm run test:workers
+
 # Run the full CI pipeline locally
-ci: clean install type-check lint format-check test-coverage build hugo-install hugo-test
+ci: clean install type-check lint format-check test-coverage build hugo-install hugo-test test-workers
     @echo "✅ CI pipeline completed successfully!"
 
 # Watch mode for TypeScript compilation
