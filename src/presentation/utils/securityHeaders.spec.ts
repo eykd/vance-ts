@@ -65,8 +65,8 @@ describe('SECURITY_HEADERS', () => {
     }
   });
 
-  it('has 9 entries', () => {
-    expect(SECURITY_HEADERS).toHaveLength(9);
+  it('has 8 entries', () => {
+    expect(SECURITY_HEADERS).toHaveLength(8);
   });
 });
 
@@ -114,8 +114,14 @@ describe('applySecurityHeaders', () => {
     expect(headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
   });
 
-  it('sets Cache-Control to no-store to prevent caching of authenticated pages', () => {
-    expect(headers.get('Cache-Control')).toBe('no-store');
+  it('does not set Cache-Control (handlers own their own caching policy)', () => {
+    expect(headers.has('Cache-Control')).toBe(false);
+  });
+
+  it('preserves existing Cache-Control set by the handler', () => {
+    const existing = new Headers({ 'Cache-Control': 'no-store, no-cache' });
+    applySecurityHeaders(existing);
+    expect(existing.get('Cache-Control')).toBe('no-store, no-cache');
   });
 
   it('preserves existing headers', () => {

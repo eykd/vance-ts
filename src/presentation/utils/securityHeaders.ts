@@ -44,7 +44,6 @@ export const SECURITY_HEADERS: ReadonlyArray<readonly [string, string]> = [
   ['X-Permitted-Cross-Domain-Policies', 'none'],
   ['Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=(), usb=()'],
   ['Cross-Origin-Opener-Policy', 'same-origin'],
-  ['Cache-Control', 'no-store'],
 ];
 
 /**
@@ -52,8 +51,9 @@ export const SECURITY_HEADERS: ReadonlyArray<readonly [string, string]> = [
  *
  * Sets Content-Security-Policy, X-Content-Type-Options, X-Frame-Options,
  * Referrer-Policy, Strict-Transport-Security, X-Permitted-Cross-Domain-Policies,
- * Permissions-Policy, Cross-Origin-Opener-Policy, and Cache-Control.
- * Existing headers on the object are preserved.
+ * Permissions-Policy, and Cross-Origin-Opener-Policy.
+ * Existing headers on the object are preserved; Cache-Control is intentionally
+ * omitted so each handler can set its own caching policy.
  *
  * @param headers - The Headers object to mutate
  */
