@@ -101,3 +101,6 @@
 {"author":"eykd","created_at":"2026-03-17T23:43:45Z","id":101,"issue_id":"turtlebased-ts-ec1.1.2","text":"Starting work: removing dead nullish fallback"}
 {"author":"eykd","created_at":"2026-03-17T23:46:00Z","id":102,"issue_id":"turtlebased-ts-ec1.1.1","text":"Starting work on empty-string session token bypass fix"}
 {"author":"eykd","created_at":"2026-03-17T23:49:42Z","id":103,"issue_id":"turtlebased-ts-ec1.1.10","text":"Identified 27 tests across BetterAuthService.spec.ts (18) and SignInUseCase.spec.ts (9) missing expect.assertions on guarded discriminated-union branches. Applying fixes now."}
+{"author":"eykd","created_at":"2026-03-17T23:55:06Z","id":104,"issue_id":"turtlebased-ts-ec1.1.8","text":"Starting work: mapping auth error query-param to appropriate HTTP status codes"}
+{"author":"eykd","created_at":"2026-03-18T00:00:36Z","id":105,"issue_id":"turtlebased-ts-ec1.1.7","text":"Starting work: type makeEnv to return Env instead of unknown"}
+{"author":"eykd","created_at":"2026-03-18T00:03:00Z","id":106,"issue_id":"turtlebased-ts-ec1.1.6","text":"Starting work: removing Cache-Control from SECURITY_HEADERS to avoid silent overwrite"}
