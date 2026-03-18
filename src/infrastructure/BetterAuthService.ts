@@ -12,6 +12,7 @@
 import type { betterAuth } from 'better-auth';
 
 import type { AuthService, AuthSessionDto, AuthUserDto } from '../application/ports/AuthService.js';
+import type { Logger } from '../application/ports/Logger.js';
 import { verifyPassword } from '../domain/services/passwordHasher.js';
 import { toHex } from '../shared/hex.js';
 
@@ -46,7 +47,7 @@ function generateDummyHash(): string {
  *
  * @example
  * ```typescript
- * const service = new BetterAuthService(getAuth(env));
+ * const service = new BetterAuthService(getAuth(env), cookieName, logger);
  * const result = await service.signIn({ email, password });
  * ```
  */
@@ -85,15 +86,20 @@ export class BetterAuthService implements AuthService {
   /** The session cookie name matching better-auth's configured cookie prefix. */
   private readonly sessionCookieName: string;
 
+  /** Logger port for structured error logging. */
+  private readonly logger: Logger;
+
   /**
    * Creates a new BetterAuthService wrapping the given better-auth instance.
    *
    * @param auth - The configured better-auth instance from `getAuth(env)`.
    * @param sessionCookieName - The session cookie name matching better-auth's configured prefix.
+   * @param logger - Logger port for error logging.
    */
-  constructor(auth: AuthInstance, sessionCookieName: string) {
+  constructor(auth: AuthInstance, sessionCookieName: string, logger: Logger) {
     this.auth = auth;
     this.sessionCookieName = sessionCookieName;
+    this.logger = logger;
   }
 
   /**
@@ -160,10 +166,10 @@ export class BetterAuthService implements AuthService {
         return { ok: false, kind: 'invalid_credentials' };
       }
 
-      console.error(`BetterAuthService.signIn: unexpected status ${String(response.status)}`);
+      this.logger.error(`BetterAuthService.signIn: unexpected status ${String(response.status)}`);
       return { ok: false, kind: 'service_error' };
     } catch (error: unknown) {
-      console.error('BetterAuthService.signIn: exception thrown', error);
+      this.logger.error('BetterAuthService.signIn: exception thrown', error);
       return { ok: false, kind: 'service_error' };
     }
   }
@@ -220,10 +226,10 @@ export class BetterAuthService implements AuthService {
         return { ok: false, kind: 'weak_password' };
       }
 
-      console.error(`BetterAuthService.signUp: unexpected status ${String(response.status)}`);
+      this.logger.error(`BetterAuthService.signUp: unexpected status ${String(response.status)}`);
       return { ok: false, kind: 'service_error' };
     } catch (error: unknown) {
-      console.error('BetterAuthService.signUp: exception thrown', error);
+      this.logger.error('BetterAuthService.signUp: exception thrown', error);
       return { ok: false, kind: 'service_error' };
     }
   }
@@ -257,10 +263,10 @@ export class BetterAuthService implements AuthService {
         return { ok: true };
       }
 
-      console.error(`BetterAuthService.signOut: unexpected status ${String(response.status)}`);
+      this.logger.error(`BetterAuthService.signOut: unexpected status ${String(response.status)}`);
       return { ok: false, kind: 'service_error' };
     } catch (error: unknown) {
-      console.error('BetterAuthService.signOut: exception thrown', error);
+      this.logger.error('BetterAuthService.signOut: exception thrown', error);
       return { ok: false, kind: 'service_error' };
     }
   }

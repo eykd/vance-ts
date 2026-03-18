@@ -44,16 +44,31 @@ function makeAuthMock(): {
   };
 }
 
+/**
+ * Creates a mock Logger satisfying the Logger port interface.
+ *
+ * @returns An object with `error` as a `vi.fn()` stub.
+ */
+function makeLoggerMock(): { error: ReturnType<typeof vi.fn> } {
+  return { error: vi.fn() };
+}
+
 /** Production session cookie name used in tests. */
 const PROD_COOKIE_NAME = '__Host-better-auth.session_token';
 
 describe('BetterAuthService', () => {
   let authMock: ReturnType<typeof makeAuthMock>;
+  let loggerMock: ReturnType<typeof makeLoggerMock>;
   let service: BetterAuthService;
 
   beforeEach(() => {
     authMock = makeAuthMock();
-    service = new BetterAuthService(authMock as unknown as AuthInstance, PROD_COOKIE_NAME);
+    loggerMock = makeLoggerMock();
+    service = new BetterAuthService(
+      authMock as unknown as AuthInstance,
+      PROD_COOKIE_NAME,
+      loggerMock
+    );
   });
 
   afterEach(() => {
@@ -197,8 +212,7 @@ describe('BetterAuthService', () => {
       }
     });
 
-    it('logs only status via console.error when response is not ok and not a mapped status (no PII)', async () => {
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    it('logs only status via logger.error when response is not ok and not a mapped status (no PII)', async () => {
       authMock.api.signInEmail.mockResolvedValue(
         new Response('{"email":"user@example.com"}', {
           status: 500,
@@ -211,8 +225,9 @@ describe('BetterAuthService', () => {
         password: 'correcthorse12',
       });
 
-      expect(spy).toHaveBeenCalledWith('BetterAuthService.signIn: unexpected status 500');
-      spy.mockRestore();
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.signIn: unexpected status 500'
+      );
     });
 
     it('returns ok: false kind: service_error when auth.api.signInEmail throws', async () => {
@@ -230,8 +245,7 @@ describe('BetterAuthService', () => {
       }
     });
 
-    it('logs the error via console.error when auth.api.signInEmail throws', async () => {
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    it('logs the error via logger.error when auth.api.signInEmail throws', async () => {
       const error = new Error('D1 unavailable');
       authMock.api.signInEmail.mockRejectedValue(error);
 
@@ -240,8 +254,10 @@ describe('BetterAuthService', () => {
         password: 'correcthorse12',
       });
 
-      expect(spy).toHaveBeenCalledWith('BetterAuthService.signIn: exception thrown', error);
-      spy.mockRestore();
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.signIn: exception thrown',
+        error
+      );
     });
 
     it('returns ok: false kind: service_error when extracted session token is empty', async () => {
@@ -425,8 +441,7 @@ describe('BetterAuthService', () => {
       }
     });
 
-    it('logs only status via console.error when response is not ok and not a mapped status (no PII)', async () => {
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    it('logs only status via logger.error when response is not ok and not a mapped status (no PII)', async () => {
       authMock.api.signUpEmail.mockResolvedValue(
         new Response('{"email":"new@example.com"}', {
           status: 500,
@@ -440,8 +455,9 @@ describe('BetterAuthService', () => {
         name: 'Eve',
       });
 
-      expect(spy).toHaveBeenCalledWith('BetterAuthService.signUp: unexpected status 500');
-      spy.mockRestore();
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.signUp: unexpected status 500'
+      );
     });
 
     it('returns ok: false kind: service_error when auth.api.signUpEmail throws', async () => {
@@ -460,8 +476,7 @@ describe('BetterAuthService', () => {
       }
     });
 
-    it('logs the error via console.error when auth.api.signUpEmail throws', async () => {
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    it('logs the error via logger.error when auth.api.signUpEmail throws', async () => {
       const error = new Error('D1 unavailable');
       authMock.api.signUpEmail.mockRejectedValue(error);
 
@@ -471,8 +486,10 @@ describe('BetterAuthService', () => {
         name: 'Frank',
       });
 
-      expect(spy).toHaveBeenCalledWith('BetterAuthService.signUp: exception thrown', error);
-      spy.mockRestore();
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.signUp: exception thrown',
+        error
+      );
     });
   });
 
@@ -611,7 +628,8 @@ describe('BetterAuthService', () => {
       expect.assertions(2);
       const localService = new BetterAuthService(
         authMock as unknown as AuthInstance,
-        'better-auth.session_token'
+        'better-auth.session_token',
+        loggerMock
       );
       authMock.api.signInEmail.mockResolvedValue(
         new Response(null, {
@@ -634,7 +652,8 @@ describe('BetterAuthService', () => {
     it('constructs Cookie header with localhost cookie name for getSession', async () => {
       const localService = new BetterAuthService(
         authMock as unknown as AuthInstance,
-        'better-auth.session_token'
+        'better-auth.session_token',
+        loggerMock
       );
       authMock.api.getSession.mockResolvedValue(null);
 
@@ -650,7 +669,8 @@ describe('BetterAuthService', () => {
     it('constructs Cookie header with localhost cookie name for signOut', async () => {
       const localService = new BetterAuthService(
         authMock as unknown as AuthInstance,
-        'better-auth.session_token'
+        'better-auth.session_token',
+        loggerMock
       );
       authMock.api.signOut.mockResolvedValue(new Response(null, { status: 200 }));
 

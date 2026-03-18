@@ -110,7 +110,11 @@ export class ServiceFactory {
    * @returns The lazily-initialised BetterAuthService instance.
    */
   private get _authServiceInstance(): AuthService {
-    this._authService ??= new BetterAuthService(this._authInstance, this._sessionCookieName);
+    this._authService ??= new BetterAuthService(
+      this._authInstance,
+      this._sessionCookieName,
+      this._loggerInstance
+    );
     return this._authService;
   }
 
