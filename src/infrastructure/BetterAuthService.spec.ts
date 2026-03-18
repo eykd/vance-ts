@@ -503,12 +503,11 @@ describe('BetterAuthService', () => {
 
       await service.signOut({ sessionToken: 'abc123' });
 
-      const call = authMock.api.signOut.mock.calls[0] as [
-        { headers: Headers; asResponse: boolean },
-      ];
-      const passedHeaders = call[0]?.headers;
-      expect(passedHeaders).toBeInstanceOf(Headers);
-      expect(passedHeaders?.get('cookie')).toBe('__Host-better-auth.session_token=abc123');
+      expect(authMock.api.signOut).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: new Headers({ cookie: '__Host-better-auth.session_token=abc123' }),
+        })
+      );
     });
 
     it('calls auth.api.signOut with asResponse: true', async () => {
@@ -598,10 +597,11 @@ describe('BetterAuthService', () => {
 
       await service.getSession({ sessionToken: 'tok-abc' });
 
-      const call = authMock.api.getSession.mock.calls[0] as [{ headers: Headers }];
-      const passedHeaders = call[0]?.headers;
-      expect(passedHeaders).toBeInstanceOf(Headers);
-      expect(passedHeaders?.get('cookie')).toBe('__Host-better-auth.session_token=tok-abc');
+      expect(authMock.api.getSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: new Headers({ cookie: '__Host-better-auth.session_token=tok-abc' }),
+        })
+      );
     });
 
     it('propagates errors thrown by auth.api.getSession', async () => {
@@ -648,9 +648,11 @@ describe('BetterAuthService', () => {
 
       await localService.getSession({ sessionToken: 'tok-abc' });
 
-      const call = authMock.api.getSession.mock.calls[0] as [{ headers: Headers }];
-      const passedHeaders = call[0]?.headers;
-      expect(passedHeaders?.get('cookie')).toBe('better-auth.session_token=tok-abc');
+      expect(authMock.api.getSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: new Headers({ cookie: 'better-auth.session_token=tok-abc' }),
+        })
+      );
     });
 
     it('constructs Cookie header with localhost cookie name for signOut', async () => {
@@ -662,11 +664,11 @@ describe('BetterAuthService', () => {
 
       await localService.signOut({ sessionToken: 'abc123' });
 
-      const call = authMock.api.signOut.mock.calls[0] as [
-        { headers: Headers; asResponse: boolean },
-      ];
-      const passedHeaders = call[0]?.headers;
-      expect(passedHeaders?.get('cookie')).toBe('better-auth.session_token=abc123');
+      expect(authMock.api.signOut).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: new Headers({ cookie: 'better-auth.session_token=abc123' }),
+        })
+      );
     });
   });
 
