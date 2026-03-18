@@ -44,13 +44,31 @@ function makeAuthMock(): {
   };
 }
 
+/**
+ * Creates a mock Logger satisfying the Logger port interface.
+ *
+ * @returns An object with `error` as a `vi.fn()` stub.
+ */
+function makeLoggerMock(): { error: ReturnType<typeof vi.fn> } {
+  return { error: vi.fn() };
+}
+
+/** Production session cookie name used in tests. */
+const PROD_COOKIE_NAME = '__Host-better-auth.session_token';
+
 describe('BetterAuthService', () => {
   let authMock: ReturnType<typeof makeAuthMock>;
+  let loggerMock: ReturnType<typeof makeLoggerMock>;
   let service: BetterAuthService;
 
   beforeEach(() => {
     authMock = makeAuthMock();
-    service = new BetterAuthService(authMock as unknown as AuthInstance);
+    loggerMock = makeLoggerMock();
+    service = new BetterAuthService(
+      authMock as unknown as AuthInstance,
+      PROD_COOKIE_NAME,
+      loggerMock
+    );
   });
 
   afterEach(() => {
@@ -59,6 +77,7 @@ describe('BetterAuthService', () => {
 
   describe('signIn', () => {
     it('returns ok: true with sessionToken extracted from Set-Cookie header on 200', async () => {
+      expect.assertions(2);
       const setCookieValue = '__Host-better-auth.session_token=abc123; Path=/; HttpOnly';
       authMock.api.signInEmail.mockResolvedValue(
         new Response(null, {
@@ -115,6 +134,7 @@ describe('BetterAuthService', () => {
     });
 
     it('returns ok: false kind: invalid_credentials when response is 401', async () => {
+      expect.assertions(2);
       authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 401 }));
 
       const result = await service.signIn({
@@ -129,6 +149,7 @@ describe('BetterAuthService', () => {
     });
 
     it('returns ok: false kind: invalid_credentials when response is 400 (invalid email)', async () => {
+      expect.assertions(2);
       authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 400 }));
 
       const result = await service.signIn({
@@ -143,6 +164,7 @@ describe('BetterAuthService', () => {
     });
 
     it('returns ok: false kind: rate_limited with retryAfter when response is 429 with Retry-After header', async () => {
+      expect.assertions(3);
       authMock.api.signInEmail.mockResolvedValue(
         new Response(null, { status: 429, headers: { 'retry-after': '900' } })
       );
@@ -160,6 +182,7 @@ describe('BetterAuthService', () => {
     });
 
     it('returns ok: false kind: rate_limited without retryAfter when 429 has no Retry-After header', async () => {
+      expect.assertions(3);
       authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 429 }));
 
       const result = await service.signIn({
@@ -175,6 +198,7 @@ describe('BetterAuthService', () => {
     });
 
     it('returns ok: false kind: service_error when response is 500', async () => {
+      expect.assertions(2);
       authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 500 }));
 
       const result = await service.signIn({
@@ -188,7 +212,26 @@ describe('BetterAuthService', () => {
       }
     });
 
+    it('logs only status via logger.error when response is not ok and not a mapped status (no PII)', async () => {
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response('{"email":"user@example.com"}', {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      await service.signIn({
+        email: 'user@example.com',
+        password: 'correcthorse12',
+      });
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.signIn: unexpected status 500'
+      );
+    });
+
     it('returns ok: false kind: service_error when auth.api.signInEmail throws', async () => {
+      expect.assertions(2);
       authMock.api.signInEmail.mockRejectedValue(new Error('D1 unavailable'));
 
       const result = await service.signIn({
@@ -202,7 +245,23 @@ describe('BetterAuthService', () => {
       }
     });
 
+    it('logs the error via logger.error when auth.api.signInEmail throws', async () => {
+      const error = new Error('D1 unavailable');
+      authMock.api.signInEmail.mockRejectedValue(error);
+
+      await service.signIn({
+        email: 'user@example.com',
+        password: 'correcthorse12',
+      });
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.signIn: exception thrown',
+        error
+      );
+    });
+
     it('returns ok: false kind: service_error when extracted session token is empty', async () => {
+      expect.assertions(2);
       authMock.api.signInEmail.mockResolvedValue(
         new Response(null, {
           status: 200,
@@ -222,6 +281,7 @@ describe('BetterAuthService', () => {
     });
 
     it('returns ok: false kind: service_error when Set-Cookie header has wrong cookie name', async () => {
+      expect.assertions(2);
       authMock.api.signInEmail.mockResolvedValue(
         new Response(null, {
           status: 200,
@@ -241,6 +301,7 @@ describe('BetterAuthService', () => {
     });
 
     it('returns ok: false kind: service_error when Set-Cookie header is absent on 200', async () => {
+      expect.assertions(2);
       authMock.api.signInEmail.mockResolvedValue(new Response(null, { status: 200 }));
 
       const result = await service.signIn({
@@ -299,6 +360,7 @@ describe('BetterAuthService', () => {
     });
 
     it('returns ok: false kind: email_taken when response is 422', async () => {
+      expect.assertions(2);
       authMock.api.signUpEmail.mockResolvedValue(new Response(null, { status: 422 }));
 
       const result = await service.signUp({
@@ -314,6 +376,7 @@ describe('BetterAuthService', () => {
     });
 
     it('returns ok: false kind: weak_password when response is 400', async () => {
+      expect.assertions(2);
       authMock.api.signUpEmail.mockResolvedValue(new Response(null, { status: 400 }));
 
       const result = await service.signUp({
@@ -328,7 +391,26 @@ describe('BetterAuthService', () => {
       }
     });
 
-    it('returns ok: false kind: rate_limited when response is 429', async () => {
+    it('returns ok: false kind: rate_limited with retryAfter when response is 429 with Retry-After header', async () => {
+      expect.assertions(2);
+      authMock.api.signUpEmail.mockResolvedValue(
+        new Response(null, { status: 429, headers: { 'retry-after': '600' } })
+      );
+
+      const result = await service.signUp({
+        email: 'new@example.com',
+        password: 'correcthorse12',
+        name: 'Dave',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok && result.kind === 'rate_limited') {
+        expect(result.retryAfter).toBe(600);
+      }
+    });
+
+    it('returns ok: false kind: rate_limited without retryAfter when 429 has no Retry-After header', async () => {
+      expect.assertions(2);
       authMock.api.signUpEmail.mockResolvedValue(new Response(null, { status: 429 }));
 
       const result = await service.signUp({
@@ -338,12 +420,13 @@ describe('BetterAuthService', () => {
       });
 
       expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('rate_limited');
+      if (!result.ok && result.kind === 'rate_limited') {
+        expect(result.retryAfter).toBeUndefined();
       }
     });
 
     it('returns ok: false kind: service_error when response is 500', async () => {
+      expect.assertions(2);
       authMock.api.signUpEmail.mockResolvedValue(new Response(null, { status: 500 }));
 
       const result = await service.signUp({
@@ -358,7 +441,27 @@ describe('BetterAuthService', () => {
       }
     });
 
+    it('logs only status via logger.error when response is not ok and not a mapped status (no PII)', async () => {
+      authMock.api.signUpEmail.mockResolvedValue(
+        new Response('{"email":"new@example.com"}', {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      await service.signUp({
+        email: 'new@example.com',
+        password: 'correcthorse12',
+        name: 'Eve',
+      });
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.signUp: unexpected status 500'
+      );
+    });
+
     it('returns ok: false kind: service_error when auth.api.signUpEmail throws', async () => {
+      expect.assertions(2);
       authMock.api.signUpEmail.mockRejectedValue(new Error('D1 unavailable'));
 
       const result = await service.signUp({
@@ -371,6 +474,22 @@ describe('BetterAuthService', () => {
       if (!result.ok) {
         expect(result.kind).toBe('service_error');
       }
+    });
+
+    it('logs the error via logger.error when auth.api.signUpEmail throws', async () => {
+      const error = new Error('D1 unavailable');
+      authMock.api.signUpEmail.mockRejectedValue(error);
+
+      await service.signUp({
+        email: 'new@example.com',
+        password: 'correcthorse12',
+        name: 'Frank',
+      });
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.signUp: exception thrown',
+        error
+      );
     });
   });
 
@@ -393,12 +512,11 @@ describe('BetterAuthService', () => {
 
       await service.signOut({ sessionToken: 'abc123' });
 
-      const call = authMock.api.signOut.mock.calls[0] as [
-        { headers: Headers; asResponse: boolean },
-      ];
-      const passedHeaders = call[0]?.headers;
-      expect(passedHeaders).toBeInstanceOf(Headers);
-      expect(passedHeaders?.get('cookie')).toBe('__Host-better-auth.session_token=abc123');
+      expect(authMock.api.signOut).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: new Headers({ cookie: '__Host-better-auth.session_token=abc123' }),
+        })
+      );
     });
 
     it('calls auth.api.signOut with asResponse: true', async () => {
@@ -412,6 +530,7 @@ describe('BetterAuthService', () => {
     });
 
     it('returns ok: false kind: service_error when response is not ok (500)', async () => {
+      expect.assertions(2);
       authMock.api.signOut.mockResolvedValue(new Response(null, { status: 500 }));
 
       const result = await service.signOut({ sessionToken: 'abc123' });
@@ -423,6 +542,7 @@ describe('BetterAuthService', () => {
     });
 
     it('returns ok: false kind: service_error when auth.api.signOut throws', async () => {
+      expect.assertions(2);
       authMock.api.signOut.mockRejectedValue(new Error('network error'));
 
       const result = await service.signOut({ sessionToken: 'abc123' });
@@ -486,10 +606,11 @@ describe('BetterAuthService', () => {
 
       await service.getSession({ sessionToken: 'tok-abc' });
 
-      const call = authMock.api.getSession.mock.calls[0] as [{ headers: Headers }];
-      const passedHeaders = call[0]?.headers;
-      expect(passedHeaders).toBeInstanceOf(Headers);
-      expect(passedHeaders?.get('cookie')).toBe('__Host-better-auth.session_token=tok-abc');
+      expect(authMock.api.getSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: new Headers({ cookie: '__Host-better-auth.session_token=tok-abc' }),
+        })
+      );
     });
 
     it('propagates errors thrown by auth.api.getSession', async () => {
@@ -498,6 +619,67 @@ describe('BetterAuthService', () => {
 
       await expect(service.getSession({ sessionToken: 'tok-abc' })).rejects.toThrow(
         'D1 database unavailable'
+      );
+    });
+  });
+
+  describe('sessionCookieName (localhost)', () => {
+    it('extracts session token using localhost cookie name when configured for localhost', async () => {
+      expect.assertions(2);
+      const localService = new BetterAuthService(
+        authMock as unknown as AuthInstance,
+        'better-auth.session_token',
+        loggerMock
+      );
+      authMock.api.signInEmail.mockResolvedValue(
+        new Response(null, {
+          status: 200,
+          headers: { 'set-cookie': 'better-auth.session_token=local-tok; Path=/' },
+        })
+      );
+
+      const result = await localService.signIn({
+        email: 'user@example.com',
+        password: 'correcthorse12',
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.sessionToken).toBe('local-tok');
+      }
+    });
+
+    it('constructs Cookie header with localhost cookie name for getSession', async () => {
+      const localService = new BetterAuthService(
+        authMock as unknown as AuthInstance,
+        'better-auth.session_token',
+        loggerMock
+      );
+      authMock.api.getSession.mockResolvedValue(null);
+
+      await localService.getSession({ sessionToken: 'tok-abc' });
+
+      expect(authMock.api.getSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: new Headers({ cookie: 'better-auth.session_token=tok-abc' }),
+        })
+      );
+    });
+
+    it('constructs Cookie header with localhost cookie name for signOut', async () => {
+      const localService = new BetterAuthService(
+        authMock as unknown as AuthInstance,
+        'better-auth.session_token',
+        loggerMock
+      );
+      authMock.api.signOut.mockResolvedValue(new Response(null, { status: 200 }));
+
+      await localService.signOut({ sessionToken: 'abc123' });
+
+      expect(authMock.api.signOut).toHaveBeenCalledWith(
+        expect.objectContaining({
+          headers: new Headers({ cookie: 'better-auth.session_token=abc123' }),
+        })
       );
     });
   });

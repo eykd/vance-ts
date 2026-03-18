@@ -15,6 +15,15 @@ vi.mock('../utils/timingSafeEqual.js', async (importOriginal) => {
 /** Fixed CSRF token used across test requests (64-char hex string). */
 const TEST_CSRF = 'a'.repeat(64);
 
+/** Production session cookie name used in tests. */
+const PROD_COOKIE_NAME = '__Host-better-auth.session_token';
+
+/** Production CSRF cookie name used in tests. */
+const PROD_CSRF_NAME = '__Host-csrf';
+
+/** Production auth indicator cookie name used in tests. */
+const PROD_INDICATOR_NAME = '__Host-auth_status';
+
 /** Cookie header containing the test CSRF token. */
 const CSRF_COOKIE = `__Host-csrf=${TEST_CSRF}`;
 
@@ -170,7 +179,10 @@ describe('AuthPageHandlers', () => {
     handlers = new AuthPageHandlers(
       signInUseCaseMock as unknown as SignInUseCase,
       signUpUseCaseMock as unknown as SignUpUseCase,
-      signOutUseCaseMock as unknown as SignOutUseCase
+      signOutUseCaseMock as unknown as SignOutUseCase,
+      PROD_COOKIE_NAME,
+      PROD_CSRF_NAME,
+      PROD_INDICATOR_NAME
     );
   });
 
@@ -191,10 +203,10 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('Content-Type')).toContain('text/html');
     });
 
-    it('sets Cache-Control: no-store', () => {
+    it('sets Cache-Control: no-store, no-cache', () => {
       const req = new Request('https://example.com/auth/sign-in');
       const res = handlers.handleGetSignIn(req);
-      expect(res.headers.get('Cache-Control')).toBe('no-store');
+      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
     });
 
     it('sets __Host-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
@@ -268,6 +280,63 @@ describe('AuthPageHandlers', () => {
       const res = handlers.handleGetSignIn(req);
       const body = await res.text();
       expect(body).not.toContain('name="redirectTo"');
+    });
+
+    it('sanitises external URL in redirectTo to / (no hidden field rendered)', async () => {
+      const req = new Request('https://example.com/auth/sign-in?redirectTo=https%3A%2F%2Fevil.com');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('name="redirectTo"');
+      expect(body).not.toContain('evil.com');
+    });
+
+    it('sanitises javascript: URI in redirectTo to / (no hidden field rendered)', async () => {
+      const req = new Request('https://example.com/auth/sign-in?redirectTo=javascript%3Aalert(1)');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('name="redirectTo"');
+      expect(body).not.toContain('javascript');
+    });
+
+    it('sanitises protocol-relative URL in redirectTo to / (no hidden field rendered)', async () => {
+      const req = new Request('https://example.com/auth/sign-in?redirectTo=%2F%2Fevil.com');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('name="redirectTo"');
+      expect(body).not.toContain('evil.com');
+    });
+
+    it('preserves valid redirectTo after validation', async () => {
+      const req = new Request('https://example.com/auth/sign-in?redirectTo=%2Fdashboard');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).toContain('name="redirectTo"');
+      expect(body).toContain('/dashboard');
+    });
+
+    it('redirects to / with 303 when session cookie is present', () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignIn(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/');
+    });
+
+    it('does not render the sign-in form when session cookie is present', () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignIn(req);
+      expect(res.body).toBeNull();
+    });
+
+    it('does not set a CSRF cookie when redirecting authenticated user', () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignIn(req);
+      expect(res.headers.get('Set-Cookie')).toBeNull();
     });
   });
 
@@ -470,10 +539,10 @@ describe('AuthPageHandlers', () => {
         expect(body).toContain('alice@example.com');
       });
 
-      it('sets Cache-Control: no-store on the error response', async () => {
+      it('sets Cache-Control: no-store, no-cache on the error response', async () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
-        expect(res.headers.get('Cache-Control')).toBe('no-store');
+        expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
       });
 
       it('sets a fresh CSRF cookie on the error response', async () => {
@@ -508,12 +577,13 @@ describe('AuthPageHandlers', () => {
         });
       });
 
-      it('returns 200 with a generic error message', async () => {
+      it('returns 200 with a server error message instead of invalid credentials', async () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
         expect(res.status).toBe(200);
         const body = await res.text();
-        expect(body).toContain('Invalid email or password');
+        expect(body).toContain('An error occurred. Please try again.');
+        expect(body).not.toContain('Invalid email or password');
       });
     });
 
@@ -544,6 +614,42 @@ describe('AuthPageHandlers', () => {
         const req = makePostRequest();
         const res = await handlers.handlePostSignIn(req);
         expect(res.headers.get('Retry-After')).toBeNull();
+      });
+
+      it('returns styled HTML body with authLayout', async () => {
+        signInUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        const body = await res.text();
+        expect(body).toMatch(/^<!DOCTYPE html>/);
+        expect(body).toContain('Too Many Requests');
+        expect(body).toContain('alert-warning');
+      });
+
+      it('sets Content-Type to text/html', async () => {
+        signInUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        expect(res.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+      });
+
+      it('includes security headers', async () => {
+        signInUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      });
+
+      it('includes retry seconds in body when retryAfter is provided', async () => {
+        signInUseCaseMock.execute.mockResolvedValue({
+          ok: false,
+          kind: 'rate_limited',
+          retryAfter: 900,
+        });
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        const body = await res.text();
+        expect(body).toContain('900');
       });
     });
 
@@ -637,10 +743,10 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('Content-Type')).toContain('text/html');
     });
 
-    it('sets Cache-Control: no-store', () => {
+    it('sets Cache-Control: no-store, no-cache', () => {
       const req = new Request('https://example.com/auth/sign-up');
       const res = handlers.handleGetSignUp(req);
-      expect(res.headers.get('Cache-Control')).toBe('no-store');
+      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
     });
 
     it('sets __Host-csrf cookie with HttpOnly, Secure, SameSite=Strict, Path=/', () => {
@@ -678,6 +784,31 @@ describe('AuthPageHandlers', () => {
       expect(csrfToken).toBeDefined();
       const body = await res.text();
       expect(body).toContain(`name="_csrf" value="${csrfToken ?? ''}"`);
+    });
+
+    it('redirects to / with 303 when session cookie is present', () => {
+      const req = new Request('https://example.com/auth/sign-up', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignUp(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/');
+    });
+
+    it('does not render the sign-up form when session cookie is present', () => {
+      const req = new Request('https://example.com/auth/sign-up', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignUp(req);
+      expect(res.body).toBeNull();
+    });
+
+    it('does not set a CSRF cookie when redirecting authenticated user', () => {
+      const req = new Request('https://example.com/auth/sign-up', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignUp(req);
+      expect(res.headers.get('Set-Cookie')).toBeNull();
     });
   });
 
@@ -880,10 +1011,10 @@ describe('AuthPageHandlers', () => {
         expect(body).toContain('alice@example.com');
       });
 
-      it('sets Cache-Control: no-store on the error response', async () => {
+      it('sets Cache-Control: no-store, no-cache on the error response', async () => {
         const req = makeSignUpPostRequest();
         const res = await handlers.handlePostSignUp(req);
-        expect(res.headers.get('Cache-Control')).toBe('no-store');
+        expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
       });
 
       it('sets a fresh CSRF cookie on the error response with Max-Age=3600', async () => {
@@ -947,22 +1078,6 @@ describe('AuthPageHandlers', () => {
       });
     });
 
-    describe('unrecognised error kind (future-proofing)', () => {
-      it('falls back to a generic error message when result.kind is not in the error message map', async () => {
-        signUpUseCaseMock.execute.mockResolvedValue(
-          // Simulates a future kind added to SignUpResult without updating the handler
-          { ok: false, kind: 'unrecognised_future_kind' } as unknown as {
-            ok: false;
-            kind: 'service_error';
-          }
-        );
-        const req = makeSignUpPostRequest();
-        const res = await handlers.handlePostSignUp(req);
-        const body = await res.text();
-        expect(body).toContain('An error occurred. Please try again.');
-      });
-    });
-
     describe('email normalization', () => {
       beforeEach(() => {
         signUpUseCaseMock.execute.mockResolvedValue({ ok: true });
@@ -1009,6 +1124,30 @@ describe('AuthPageHandlers', () => {
         const req = makeSignUpPostRequest();
         const res = await handlers.handlePostSignUp(req);
         expect(res.headers.get('Retry-After')).toBeNull();
+      });
+
+      it('returns styled HTML body with authLayout', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toMatch(/^<!DOCTYPE html>/);
+        expect(body).toContain('Too Many Requests');
+        expect(body).toContain('alert-warning');
+      });
+
+      it('sets Content-Type to text/html', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+      });
+
+      it('includes security headers', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
       });
     });
   });

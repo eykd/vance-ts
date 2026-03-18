@@ -84,3 +84,39 @@
 {"author":"eykd","created_at":"2026-03-16T19:01:16Z","id":84,"issue_id":"turtlebased-ts-bjd.6.57","text":"Starting: replacing Alpine.js standard build with CSP build"}
 {"author":"eykd","created_at":"2026-03-16T19:09:59Z","id":85,"issue_id":"turtlebased-ts-bjd.6.56","text":"Starting work: adding source-of-truth comment for hardcoded cookie name"}
 {"author":"eykd","created_at":"2026-03-16T19:12:09Z","id":86,"issue_id":"turtlebased-ts-bjd.6.55","text":"Starting work: adding documentation comment for extractInlinedQueries regex limitation"}
+{"author":"eykd","created_at":"2026-03-16T19:15:42Z","id":87,"issue_id":"turtlebased-ts-bjd.6","text":"Starting implementation. Reviewing spec, plan, and current codebase state to determine remaining work."}
+{"author":"eykd","created_at":"2026-03-16T21:44:02Z","id":88,"issue_id":"turtlebased-ts-tfc","text":"Starting work: GET handler needs validateRedirectTo call for defense-in-depth"}
+{"author":"eykd","created_at":"2026-03-16T21:51:21Z","id":89,"issue_id":"turtlebased-ts-yjz","text":"Starting work on 405 Method Not Allowed for auth routes"}
+{"author":"eykd","created_at":"2026-03-16T22:01:58Z","id":90,"issue_id":"turtlebased-ts-3vh","text":"Starting investigation: sign-up returns generic error"}
+{"author":"eykd","created_at":"2026-03-16T22:21:04Z","id":91,"issue_id":"turtlebased-ts-3vh","text":"Root cause: both SignUpUseCase catch block and BetterAuthService.signUp silent catch discard all error details. Adding console.error logging to surface actual errors. Acceptance tests pass - the core flow works, but errors are invisible."}
+{"author":"eykd","created_at":"2026-03-16T22:30:20Z","id":92,"issue_id":"turtlebased-ts-ec1.1","text":"All 5 child bug fixes committed and verified. 754 tests pass across 51 test files. npm run check passes. Task complete."}
+{"author":"eykd","created_at":"2026-03-16T23:24:43Z","id":93,"issue_id":"turtlebased-ts-00b","text":"Starting work: investigating SESSION_COOKIE_NAME mismatch between shared constant and better-auth cookiePrefix on localhost"}
+{"author":"eykd","created_at":"2026-03-16T23:36:26Z","id":94,"issue_id":"turtlebased-ts-ova","text":"Starting work: reading codebase to understand cookie naming patterns"}
+{"author":"eykd","created_at":"2026-03-16T23:48:38Z","id":95,"issue_id":"turtlebased-ts-nrh","text":"Starting work: fixing service_error handling in handlePostSignIn"}
+{"author":"eykd","created_at":"2026-03-16T23:59:28Z","id":96,"issue_id":"turtlebased-ts-ijg","text":"Starting work on HEAD request duplicate headers bug"}
+{"author":"eykd","created_at":"2026-03-17T00:10:36Z","id":97,"issue_id":"turtlebased-ts-ijg","text":"Fix implemented and tests passing. Closing bead."}
+{"author":"eykd","created_at":"2026-03-17T15:34:23Z","id":98,"issue_id":"turtlebased-ts-bjd.6.58","text":"Starting work on bug: better-auth default error page exposed at /api/auth/error"}
+{"author":"eykd","created_at":"2026-03-17T15:42:15Z","id":99,"issue_id":"turtlebased-ts-bjd.6.60","text":"Starting work on OAuth callback handler for unconfigured providers"}
+{"author":"eykd","created_at":"2026-03-17T15:49:32Z","id":100,"issue_id":"turtlebased-ts-bjd.6.59","text":"Starting work: investigating auth page handlers for sign-in/sign-up redirect logic"}
+{"author":"eykd","created_at":"2026-03-17T23:43:45Z","id":101,"issue_id":"turtlebased-ts-ec1.1.2","text":"Starting work: removing dead nullish fallback"}
+{"author":"eykd","created_at":"2026-03-17T23:46:00Z","id":102,"issue_id":"turtlebased-ts-ec1.1.1","text":"Starting work on empty-string session token bypass fix"}
+{"author":"eykd","created_at":"2026-03-17T23:49:42Z","id":103,"issue_id":"turtlebased-ts-ec1.1.10","text":"Identified 27 tests across BetterAuthService.spec.ts (18) and SignInUseCase.spec.ts (9) missing expect.assertions on guarded discriminated-union branches. Applying fixes now."}
+{"author":"eykd","created_at":"2026-03-17T23:55:06Z","id":104,"issue_id":"turtlebased-ts-ec1.1.8","text":"Starting work: mapping auth error query-param to appropriate HTTP status codes"}
+{"author":"eykd","created_at":"2026-03-18T00:00:36Z","id":105,"issue_id":"turtlebased-ts-ec1.1.7","text":"Starting work: type makeEnv to return Env instead of unknown"}
+{"author":"eykd","created_at":"2026-03-18T00:03:00Z","id":106,"issue_id":"turtlebased-ts-ec1.1.6","text":"Starting work: removing Cache-Control from SECURITY_HEADERS to avoid silent overwrite"}
+{"author":"eykd","created_at":"2026-03-18T00:09:57Z","id":107,"issue_id":"turtlebased-ts-ec1.1.4","text":"Starting TDD: RED phase - writing failing tests for signUp retryAfter parsing"}
+{"author":"eykd","created_at":"2026-03-18T00:13:15Z","id":108,"issue_id":"turtlebased-ts-ec1.1.3","text":"Starting: removing dead code setCookieHeader === '' condition on line 132"}
+{"author":"eykd","created_at":"2026-03-18T00:14:54Z","id":109,"issue_id":"turtlebased-ts-ec1.1.15","text":"Starting: deduplicate isPlainHttpLocalhost logic"}
+{"author":"eykd","created_at":"2026-03-18T00:18:56Z","id":110,"issue_id":"turtlebased-ts-ec1.1.14","text":"Starting: reading worker.ts and test files"}
+{"author":"eykd","created_at":"2026-03-18T00:28:34Z","id":111,"issue_id":"turtlebased-ts-ec1.1.13","text":"Starting work: adding comment to explain named inner function pattern"}
+{"author":"eykd","created_at":"2026-03-18T00:29:53Z","id":112,"issue_id":"turtlebased-ts-ec1.1.12","text":"Starting: refactor mock.calls[0] to toHaveBeenCalledWith in signOut/getSession tests"}
+{"author":"eykd","created_at":"2026-03-18T00:32:52Z","id":113,"issue_id":"turtlebased-ts-ec1.1.11","text":"Starting: fix import order violation"}
+{"author":"eykd","created_at":"2026-03-18T00:33:23Z","id":114,"issue_id":"turtlebased-ts-ec1.1.11","text":"No violation found. ESLint import/order rule uses ascending alphabetical order (asc, caseInsensitive). 'better-auth' (b) correctly comes before 'vitest' (v). Running eslint on the file confirms zero errors."}
+{"author":"eykd","created_at":"2026-03-18T00:50:01Z","id":115,"issue_id":"turtlebased-ts-ec1.1.22","text":"Starting: split retryAfter onto rate_limited-only union members in SignUpResult and AuthService.signUp"}
+{"author":"eykd","created_at":"2026-03-18T00:57:34Z","id":116,"issue_id":"turtlebased-ts-ec1.1.19","text":"Starting work: removing PII from console.error calls"}
+{"author":"eykd","created_at":"2026-03-18T00:59:57Z","id":117,"issue_id":"turtlebased-ts-ec1.1.18","text":"Starting work: Define Logger port, inject into SignInUseCase and SignUpUseCase, wire console implementation"}
+{"author":"eykd","created_at":"2026-03-18T01:07:35Z","id":118,"issue_id":"turtlebased-ts-ec1.1.17","text":"Starting work: moving framework-specific cookie name functions from shared to infrastructure layer"}
+{"author":"eykd","created_at":"2026-03-18T01:12:49Z","id":119,"issue_id":"turtlebased-ts-ec1.1.20","text":"Starting work: fix UUID fallback in rate limiter"}
+{"author":"eykd","created_at":"2026-03-18T01:15:20Z","id":120,"issue_id":"turtlebased-ts-ec1.1.16","text":"Starting work on per-email rate limiting"}
+{"author":"eykd","created_at":"2026-03-18T19:14:07Z","id":121,"issue_id":"turtlebased-ts-ec1.1.26","text":"Starting work: expose logger getter on ServiceFactory, replace console.error in worker.ts"}
+{"author":"eykd","created_at":"2026-03-18T19:17:57Z","id":122,"issue_id":"turtlebased-ts-ec1.1.25","text":"Starting work: replacing console.error with Logger port"}

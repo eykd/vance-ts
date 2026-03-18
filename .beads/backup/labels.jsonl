@@ -81,9 +81,14 @@
 {"issue_id":"turtlebased-ts-bjd.6.55","label":"progress:in_progress"}
 {"issue_id":"turtlebased-ts-bjd.6.56","label":"progress:in_progress"}
 {"issue_id":"turtlebased-ts-bjd.6.57","label":"progress:in_progress"}
+{"issue_id":"turtlebased-ts-bjd.6.58","label":"progress:in_progress"}
+{"issue_id":"turtlebased-ts-bjd.6.58","label":"security"}
+{"issue_id":"turtlebased-ts-bjd.6.59","label":"progress:in_progress"}
 {"issue_id":"turtlebased-ts-bjd.6.6","label":"tdd"}
 {"issue_id":"turtlebased-ts-bjd.6.6","label":"typescript"}
 {"issue_id":"turtlebased-ts-bjd.6.6","label":"us2"}
+{"issue_id":"turtlebased-ts-bjd.6.60","label":"progress:in_progress"}
+{"issue_id":"turtlebased-ts-bjd.6.60","label":"security"}
 {"issue_id":"turtlebased-ts-bjd.6.7","label":"alpine"}
 {"issue_id":"turtlebased-ts-bjd.6.7","label":"hugo"}
 {"issue_id":"turtlebased-ts-bjd.6.7","label":"us2"}
@@ -93,6 +98,8 @@
 {"issue_id":"turtlebased-ts-bjd.6.9","label":"acceptance"}
 {"issue_id":"turtlebased-ts-bjd.6.9","label":"spec"}
 {"issue_id":"turtlebased-ts-bjd.6.9","label":"us4"}
+{"issue_id":"turtlebased-ts-ijg","label":"lifecycle:in_progress"}
+{"issue_id":"turtlebased-ts-l6r","label":"lifecycle:in_progress"}
 {"issue_id":"turtlebased-ts-oiy","label":"pre-commit"}
 {"issue_id":"turtlebased-ts-oiy","label":"testing"}
 {"issue_id":"workspace-9z7","label":"progress:in_progress"}

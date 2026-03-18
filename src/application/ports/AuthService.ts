@@ -93,7 +93,8 @@ export interface AuthService {
     name: string;
   }): Promise<
     | { ok: true }
-    | { ok: false; kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error' }
+    | { ok: false; kind: 'email_taken' | 'weak_password' | 'service_error' }
+    | { ok: false; kind: 'rate_limited'; retryAfter?: number }
   >;
 
   /**

@@ -12,8 +12,8 @@
 import type { betterAuth } from 'better-auth';
 
 import type { AuthService, AuthSessionDto, AuthUserDto } from '../application/ports/AuthService.js';
+import type { Logger } from '../application/ports/Logger.js';
 import { verifyPassword } from '../domain/services/passwordHasher.js';
-import { SESSION_COOKIE_NAME } from '../shared/authCookieNames.js';
 import { toHex } from '../shared/hex.js';
 
 /** Type alias for the better-auth instance returned by `getAuth(env)`. */
@@ -47,7 +47,7 @@ function generateDummyHash(): string {
  *
  * @example
  * ```typescript
- * const service = new BetterAuthService(getAuth(env));
+ * const service = new BetterAuthService(getAuth(env), cookieName, logger);
  * const result = await service.signIn({ email, password });
  * ```
  */
@@ -83,13 +83,23 @@ export class BetterAuthService implements AuthService {
   /** The better-auth instance obtained from `getAuth(env)`. */
   private readonly auth: AuthInstance;
 
+  /** The session cookie name matching better-auth's configured cookie prefix. */
+  private readonly sessionCookieName: string;
+
+  /** Logger port for structured error logging. */
+  private readonly logger: Logger;
+
   /**
    * Creates a new BetterAuthService wrapping the given better-auth instance.
    *
    * @param auth - The configured better-auth instance from `getAuth(env)`.
+   * @param sessionCookieName - The session cookie name matching better-auth's configured prefix.
+   * @param logger - Logger port for error logging.
    */
-  constructor(auth: AuthInstance) {
+  constructor(auth: AuthInstance, sessionCookieName: string, logger: Logger) {
     this.auth = auth;
+    this.sessionCookieName = sessionCookieName;
+    this.logger = logger;
   }
 
   /**
@@ -125,11 +135,11 @@ export class BetterAuthService implements AuthService {
 
       if (response.ok) {
         const setCookieHeader = response.headers.get('set-cookie');
-        if (setCookieHeader === null || setCookieHeader === '') {
+        if (setCookieHeader === null) {
           return { ok: false, kind: 'service_error' };
         }
         // Validate the cookie belongs to the expected session cookie
-        const expectedPrefix = SESSION_COOKIE_NAME + '=';
+        const expectedPrefix = this.sessionCookieName + '=';
         if (!setCookieHeader.startsWith(expectedPrefix)) {
           return { ok: false, kind: 'service_error' };
         }
@@ -156,8 +166,10 @@ export class BetterAuthService implements AuthService {
         return { ok: false, kind: 'invalid_credentials' };
       }
 
+      this.logger.error(`BetterAuthService.signIn: unexpected status ${String(response.status)}`);
       return { ok: false, kind: 'service_error' };
-    } catch {
+    } catch (error: unknown) {
+      this.logger.error('BetterAuthService.signIn: exception thrown', error);
       return { ok: false, kind: 'service_error' };
     }
   }
@@ -170,7 +182,7 @@ export class BetterAuthService implements AuthService {
    * - 200: success
    * - 422: email already in use
    * - 400: weak password (too short or too long per better-auth config)
-   * - 429: rate limited
+   * - 429: rate limited (optional `Retry-After` header parsed to seconds)
    * - other: service error
    * - throws: service error
    *
@@ -186,7 +198,8 @@ export class BetterAuthService implements AuthService {
     name: string;
   }): Promise<
     | { ok: true }
-    | { ok: false; kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error' }
+    | { ok: false; kind: 'email_taken' | 'weak_password' | 'service_error' }
+    | { ok: false; kind: 'rate_limited'; retryAfter?: number }
   > {
     try {
       const response = await this.auth.api.signUpEmail({
@@ -199,7 +212,10 @@ export class BetterAuthService implements AuthService {
       }
 
       if (response.status === 429) {
-        return { ok: false, kind: 'rate_limited' };
+        const retryAfterHeader = response.headers.get('retry-after');
+        const parsed = retryAfterHeader !== null ? parseInt(retryAfterHeader, 10) : Number.NaN;
+        const retryAfter = !Number.isNaN(parsed) ? parsed : undefined;
+        return { ok: false, kind: 'rate_limited', retryAfter };
       }
 
       if (response.status === 422) {
@@ -210,8 +226,10 @@ export class BetterAuthService implements AuthService {
         return { ok: false, kind: 'weak_password' };
       }
 
+      this.logger.error(`BetterAuthService.signUp: unexpected status ${String(response.status)}`);
       return { ok: false, kind: 'service_error' };
-    } catch {
+    } catch (error: unknown) {
+      this.logger.error('BetterAuthService.signUp: exception thrown', error);
       return { ok: false, kind: 'service_error' };
     }
   }
@@ -237,7 +255,7 @@ export class BetterAuthService implements AuthService {
   }): Promise<{ ok: true } | { ok: false; kind: 'service_error' }> {
     try {
       const response = await this.auth.api.signOut({
-        headers: new Headers({ cookie: `${SESSION_COOKIE_NAME}=${params.sessionToken}` }),
+        headers: new Headers({ cookie: `${this.sessionCookieName}=${params.sessionToken}` }),
         asResponse: true,
       });
 
@@ -245,8 +263,10 @@ export class BetterAuthService implements AuthService {
         return { ok: true };
       }
 
+      this.logger.error(`BetterAuthService.signOut: unexpected status ${String(response.status)}`);
       return { ok: false, kind: 'service_error' };
-    } catch {
+    } catch (error: unknown) {
+      this.logger.error('BetterAuthService.signOut: exception thrown', error);
       return { ok: false, kind: 'service_error' };
     }
   }
@@ -273,7 +293,7 @@ export class BetterAuthService implements AuthService {
   async getSession(params: {
     sessionToken: string;
   }): Promise<{ user: AuthUserDto; session: AuthSessionDto } | null> {
-    const headers = new Headers({ cookie: `${SESSION_COOKIE_NAME}=${params.sessionToken}` });
+    const headers = new Headers({ cookie: `${this.sessionCookieName}=${params.sessionToken}` });
     const data = await this.auth.api.getSession({ headers });
 
     if (data === null) {

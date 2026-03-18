@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { Env } from '../shared/env';
+
 import { getServiceFactory, resetServiceFactory, ServiceFactory } from './serviceFactory';
 
 /**
@@ -10,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   getAuth: vi.fn(),
   resetAuth: vi.fn(),
   BetterAuthService: vi.fn(),
+  ConsoleLogger: vi.fn(),
   DurableObjectRateLimiter: vi.fn(),
   SignInUseCase: vi.fn(),
   SignUpUseCase: vi.fn(),
@@ -27,6 +30,10 @@ vi.mock('../infrastructure/auth', () => ({
 
 vi.mock('../infrastructure/BetterAuthService', () => ({
   BetterAuthService: mocks.BetterAuthService,
+}));
+
+vi.mock('../infrastructure/ConsoleLogger', () => ({
+  ConsoleLogger: mocks.ConsoleLogger,
 }));
 
 vi.mock('../infrastructure/DurableObjectRateLimiter', () => ({
@@ -63,7 +70,7 @@ vi.mock('../presentation/middleware/apiAuthRateLimit', () => ({
  * @param overrides - Partial Env fields to override defaults.
  * @returns A complete Env with test defaults.
  */
-function makeEnv(overrides?: Record<string, unknown>): unknown {
+function makeEnv(overrides?: Partial<Env>): Env {
   return {
     ASSETS: {} as Fetcher,
     DB: {} as D1Database,
@@ -89,22 +96,22 @@ describe('getServiceFactory', () => {
 
   it('returns a ServiceFactory instance', () => {
     const env = makeEnv();
-    const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+    const factory = getServiceFactory(env);
     expect(factory).toBeInstanceOf(ServiceFactory);
   });
 
   it('returns the same instance on successive calls (singleton)', () => {
     const env = makeEnv();
-    const first = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
-    const second = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+    const first = getServiceFactory(env);
+    const second = getServiceFactory(env);
     expect(first).toBe(second);
   });
 
   it('reuses cached instance even with a different env object', () => {
     const env1 = makeEnv();
     const env2 = makeEnv({ BETTER_AUTH_URL: 'https://other.example.com' });
-    const first = getServiceFactory(env1 as Parameters<typeof getServiceFactory>[0]);
-    const second = getServiceFactory(env2 as Parameters<typeof getServiceFactory>[0]);
+    const first = getServiceFactory(env1);
+    const second = getServiceFactory(env2);
     expect(first).toBe(second);
   });
 });
@@ -122,9 +129,9 @@ describe('resetServiceFactory', () => {
 
   it('clears the cached factory so the next call creates a fresh one', () => {
     const env = makeEnv();
-    const first = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+    const first = getServiceFactory(env);
     resetServiceFactory();
-    const second = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+    const second = getServiceFactory(env);
     expect(first).not.toBe(second);
   });
 
@@ -151,7 +158,7 @@ describe('ServiceFactory', () => {
       const fakeResponse = new Response('auth api response');
       mocks.authInstanceHandler.mockResolvedValue(fakeResponse);
 
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
       const req = new Request('https://example.com/api/auth/session');
       const result = await factory.authHandler(req);
 
@@ -166,7 +173,7 @@ describe('ServiceFactory', () => {
       mocks.AuthPageHandlers.mockReturnValue(mockHandlers);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       expect(factory.authPageHandlers).toBe(mockHandlers);
     });
@@ -176,7 +183,7 @@ describe('ServiceFactory', () => {
       mocks.AuthPageHandlers.mockReturnValue(mockHandlers);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       const first = factory.authPageHandlers;
       const second = factory.authPageHandlers;
@@ -191,7 +198,7 @@ describe('ServiceFactory', () => {
       mocks.BetterAuthService.mockReturnValue(mockService);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       expect(factory.authService).toBe(mockService);
     });
@@ -201,7 +208,7 @@ describe('ServiceFactory', () => {
       mocks.BetterAuthService.mockReturnValue(mockService);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       const first = factory.authService;
       const second = factory.authService;
@@ -216,7 +223,7 @@ describe('ServiceFactory', () => {
       mocks.SignInUseCase.mockReturnValue(mockUseCase);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       expect(factory.signInUseCase).toBe(mockUseCase);
     });
@@ -226,7 +233,7 @@ describe('ServiceFactory', () => {
       mocks.SignInUseCase.mockReturnValue(mockUseCase);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       const first = factory.signInUseCase;
       const second = factory.signInUseCase;
@@ -241,7 +248,7 @@ describe('ServiceFactory', () => {
       mocks.SignUpUseCase.mockReturnValue(mockUseCase);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       expect(factory.signUpUseCase).toBe(mockUseCase);
     });
@@ -251,7 +258,7 @@ describe('ServiceFactory', () => {
       mocks.SignUpUseCase.mockReturnValue(mockUseCase);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       const first = factory.signUpUseCase;
       const second = factory.signUpUseCase;
@@ -266,7 +273,7 @@ describe('ServiceFactory', () => {
       mocks.SignOutUseCase.mockReturnValue(mockUseCase);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       expect(factory.signOutUseCase).toBe(mockUseCase);
     });
@@ -276,7 +283,7 @@ describe('ServiceFactory', () => {
       mocks.SignOutUseCase.mockReturnValue(mockUseCase);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       const first = factory.signOutUseCase;
       const second = factory.signOutUseCase;
@@ -291,13 +298,16 @@ describe('ServiceFactory', () => {
       mocks.createRequireAuth.mockReturnValue(mockMiddleware);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       const middleware = factory.requireAuthMiddleware;
       expect(middleware).toBe(mockMiddleware);
       expect(mocks.createRequireAuth).toHaveBeenCalledWith(
         expect.anything(), // authService instance
-        (env as { BETTER_AUTH_SECRET: string }).BETTER_AUTH_SECRET
+        env.BETTER_AUTH_SECRET,
+        '__Host-better-auth.session_token', // sessionCookieName for non-localhost URL
+        '__Host-csrf', // csrfCookieName for non-localhost URL
+        '__Host-auth_status' // authIndicatorCookieName for non-localhost URL
       );
     });
 
@@ -306,12 +316,37 @@ describe('ServiceFactory', () => {
       mocks.createRequireAuth.mockReturnValue(mockMiddleware);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       const first = factory.requireAuthMiddleware;
       const second = factory.requireAuthMiddleware;
       expect(first).toBe(second);
       expect(mocks.createRequireAuth).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('logger', () => {
+    it('returns a ConsoleLogger instance', () => {
+      const mockLogger = { error: vi.fn() };
+      mocks.ConsoleLogger.mockReturnValue(mockLogger);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      expect(factory.logger).toBe(mockLogger);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockLogger = { error: vi.fn() };
+      mocks.ConsoleLogger.mockReturnValue(mockLogger);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      const first = factory.logger;
+      const second = factory.logger;
+      expect(first).toBe(second);
+      expect(mocks.ConsoleLogger).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -321,7 +356,7 @@ describe('ServiceFactory', () => {
       mocks.createApiAuthRateLimit.mockReturnValue(mockMiddleware);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       const middleware = factory.signInApiRateLimitMiddleware;
       expect(middleware).toBe(mockMiddleware);
@@ -337,7 +372,7 @@ describe('ServiceFactory', () => {
       mocks.createApiAuthRateLimit.mockReturnValue(mockMiddleware);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       const first = factory.signInApiRateLimitMiddleware;
       const second = factory.signInApiRateLimitMiddleware;
@@ -352,7 +387,7 @@ describe('ServiceFactory', () => {
       mocks.createApiAuthRateLimit.mockReturnValue(mockMiddleware);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       const middleware = factory.signUpApiRateLimitMiddleware;
       expect(middleware).toBe(mockMiddleware);
@@ -368,7 +403,7 @@ describe('ServiceFactory', () => {
       mocks.createApiAuthRateLimit.mockReturnValue(mockMiddleware);
 
       const env = makeEnv();
-      const factory = getServiceFactory(env as Parameters<typeof getServiceFactory>[0]);
+      const factory = getServiceFactory(env);
 
       const first = factory.signUpApiRateLimitMiddleware;
       const second = factory.signUpApiRateLimitMiddleware;

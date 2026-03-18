@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { RateLimiter } from '../../application/ports/RateLimiter';
 import {
+  MAX_ATTEMPTS,
   REGISTER_WINDOW_SECONDS,
   SIGN_IN_WINDOW_SECONDS,
 } from '../../application/ports/RateLimiter';
@@ -149,7 +150,8 @@ describe('createApiAuthRateLimit', () => {
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:sign-in:1.2.3.4',
-        SIGN_IN_WINDOW_SECONDS
+        SIGN_IN_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
 
@@ -164,19 +166,21 @@ describe('createApiAuthRateLimit', () => {
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:register:5.6.7.8',
-        REGISTER_WINDOW_SECONDS
+        REGISTER_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
 
-    it('uses a UUID as ip key when CF-Connecting-IP is absent (unknown IP)', async () => {
+    it('uses a fixed sentinel key when CF-Connecting-IP is absent (unknown IP)', async () => {
       const app = makeTestApp('sign-in', SIGN_IN_WINDOW_SECONDS);
       await app.fetch(
         new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' })
       );
 
-      const [calledKey] = rateLimiterMock.checkAndIncrement.mock.calls[0] as [string, number];
-      expect(calledKey).toMatch(
-        /^ratelimit:sign-in:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+      expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
+        'ratelimit:sign-in:unknown',
+        SIGN_IN_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
   });

@@ -1,51 +1,55 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { AuthService } from '../ports/AuthService.js';
+import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
-import { REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
+import { MAX_ATTEMPTS, REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
 import { SignUpUseCase } from './SignUpUseCase.js';
 
 /**
- * Creates a minimal AuthService mock with vi.fn() stubs.
+ * Creates an AuthService mock with only the method SignUpUseCase calls.
  *
- * @returns An object with `vi.fn()` stubs for each AuthService method.
+ * @returns An object with a `vi.fn()` stub for signUp.
  */
 function makeAuthServiceMock(): {
-  signIn: ReturnType<typeof vi.fn>;
   signUp: ReturnType<typeof vi.fn>;
-  signOut: ReturnType<typeof vi.fn>;
-  getSession: ReturnType<typeof vi.fn>;
-  verifyDummyPassword: ReturnType<typeof vi.fn>;
 } {
   return {
-    signIn: vi.fn(),
     signUp: vi.fn(),
-    signOut: vi.fn(),
-    getSession: vi.fn(),
-    verifyDummyPassword: vi.fn().mockResolvedValue(undefined),
   };
 }
 
 /**
- * Creates a minimal RateLimiter mock with vi.fn() stubs.
+ * Creates a RateLimiter mock with only the method SignUpUseCase calls.
  *
- * @returns An object with `vi.fn()` stubs for each RateLimiter method.
+ * @returns An object with a `vi.fn()` stub for checkAndIncrement.
  */
 function makeRateLimiterMock(): {
-  check: ReturnType<typeof vi.fn>;
-  increment: ReturnType<typeof vi.fn>;
   checkAndIncrement: ReturnType<typeof vi.fn>;
 } {
   return {
-    check: vi.fn(),
-    increment: vi.fn(),
     checkAndIncrement: vi.fn(),
+  };
+}
+
+/**
+ * Creates a Logger mock with only the method SignUpUseCase calls.
+ *
+ * @returns An object with a `vi.fn()` stub for error.
+ */
+function makeLoggerMock(): {
+  error: ReturnType<typeof vi.fn>;
+} {
+  return {
+    error: vi.fn(),
   };
 }
 
 describe('SignUpUseCase', () => {
   let authServiceMock: ReturnType<typeof makeAuthServiceMock>;
   let rateLimiterMock: ReturnType<typeof makeRateLimiterMock>;
+  let loggerMock: ReturnType<typeof makeLoggerMock>;
   let useCase: SignUpUseCase;
 
   const defaultRequest = Object.freeze({
@@ -57,9 +61,14 @@ describe('SignUpUseCase', () => {
   beforeEach(() => {
     authServiceMock = makeAuthServiceMock();
     rateLimiterMock = makeRateLimiterMock();
+    loggerMock = makeLoggerMock();
     rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: true });
     authServiceMock.signUp.mockResolvedValue({ ok: true });
-    useCase = new SignUpUseCase(authServiceMock, rateLimiterMock as unknown as RateLimiter);
+    useCase = new SignUpUseCase(
+      authServiceMock as unknown as AuthService,
+      rateLimiterMock as unknown as RateLimiter,
+      loggerMock as Logger
+    );
   });
 
   afterEach(() => {
@@ -76,27 +85,25 @@ describe('SignUpUseCase', () => {
     });
 
     it('returns ok: false kind: rate_limited with retryAfter when rate limit is exceeded', async () => {
-      expect.assertions(3);
+      expect.assertions(2);
       rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false, retryAfter: 300 });
 
       const result = await useCase.execute(defaultRequest);
 
       expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('rate_limited');
+      if (!result.ok && result.kind === 'rate_limited') {
         expect(result.retryAfter).toBe(300);
       }
     });
 
     it('returns ok: false kind: rate_limited without retryAfter when checkAndIncrement omits retryAfter', async () => {
-      expect.assertions(3);
+      expect.assertions(2);
       rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false });
 
       const result = await useCase.execute(defaultRequest);
 
       expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('rate_limited');
+      if (!result.ok && result.kind === 'rate_limited') {
         expect(result.retryAfter).toBeUndefined();
       }
     });
@@ -182,6 +189,18 @@ describe('SignUpUseCase', () => {
       }
     });
 
+    it('logs the error via Logger.error when authService.signUp throws', async () => {
+      const error = new Error('DB unavailable');
+      authServiceMock.signUp.mockRejectedValue(error);
+
+      await useCase.execute(defaultRequest);
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'SignUpUseCase: unexpected error during sign-up',
+        error
+      );
+    });
+
     it('returns ok: false kind: service_error when rateLimiter.checkAndIncrement throws', async () => {
       expect.assertions(2);
       rateLimiterMock.checkAndIncrement.mockRejectedValue(new Error('DO unavailable'));
@@ -194,6 +213,18 @@ describe('SignUpUseCase', () => {
       }
     });
 
+    it('logs the error via Logger.error when rateLimiter.checkAndIncrement throws', async () => {
+      const error = new Error('DO unavailable');
+      rateLimiterMock.checkAndIncrement.mockRejectedValue(error);
+
+      await useCase.execute(defaultRequest);
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'SignUpUseCase: unexpected error during sign-up',
+        error
+      );
+    });
+
     it('calls checkAndIncrement with key ratelimit:register:{ip} and REGISTER_WINDOW_SECONDS', async () => {
       await useCase.execute({
         email: 'user@example.com',
@@ -203,7 +234,8 @@ describe('SignUpUseCase', () => {
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:register:9.8.7.6',
-        REGISTER_WINDOW_SECONDS
+        REGISTER_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
 
@@ -212,7 +244,8 @@ describe('SignUpUseCase', () => {
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:register:unknown',
-        REGISTER_WINDOW_SECONDS
+        REGISTER_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
 

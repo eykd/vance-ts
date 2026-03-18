@@ -1,4 +1,4 @@
-import { applySecurityHeaders, buildCspHeaderValue } from './securityHeaders';
+import { SECURITY_HEADERS, applySecurityHeaders, buildCspHeaderValue } from './securityHeaders';
 
 describe('buildCspHeaderValue', () => {
   let csp: string;
@@ -55,6 +55,21 @@ describe('buildCspHeaderValue', () => {
   });
 });
 
+describe('SECURITY_HEADERS', () => {
+  it('contains the same headers that applySecurityHeaders sets', () => {
+    const headers = new Headers();
+    applySecurityHeaders(headers);
+
+    for (const [name, value] of SECURITY_HEADERS) {
+      expect(headers.get(name)).toBe(value);
+    }
+  });
+
+  it('has 8 entries', () => {
+    expect(SECURITY_HEADERS).toHaveLength(8);
+  });
+});
+
 describe('applySecurityHeaders', () => {
   let headers: Headers;
 
@@ -99,8 +114,14 @@ describe('applySecurityHeaders', () => {
     expect(headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
   });
 
-  it('sets Cache-Control to no-store to prevent caching of authenticated pages', () => {
-    expect(headers.get('Cache-Control')).toBe('no-store');
+  it('does not set Cache-Control (handlers own their own caching policy)', () => {
+    expect(headers.has('Cache-Control')).toBe(false);
+  });
+
+  it('preserves existing Cache-Control set by the handler', () => {
+    const existing = new Headers({ 'Cache-Control': 'no-store, no-cache' });
+    applySecurityHeaders(existing);
+    expect(existing.get('Cache-Control')).toBe('no-store, no-cache');
   });
 
   it('preserves existing headers', () => {

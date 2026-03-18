@@ -10,7 +10,7 @@ port = 8787
 [assets]
 directory = "./hugo/public"
 binding = "ASSETS"
-run_worker_first = ["/api/*", "/app/*", "/auth/*", "/dashboard/*"]
+run_worker_first = ["/api/*", "/app/*", "/auth/*", "/dashboard", "/dashboard/*"]
 
 [[d1_databases]]
 binding = "DB"

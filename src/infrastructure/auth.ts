@@ -48,6 +48,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 
 import { hashPassword, verifyPassword } from '../domain/services/passwordHasher';
+import { isPlainHttpLocalhost } from '../shared/authCookieNames';
 import type { Env } from '../shared/env';
 
 import * as authSchema from './authSchema.js';
@@ -64,20 +65,6 @@ interface AuthEnvIdentity {
   secret: string;
   /** The D1Database binding reference active when the singleton was created. */
   db: D1Database;
-}
-
-/**
- * Returns true when the given URL is a localhost origin (http://localhost or http://127.0.0.1).
- *
- * Used to choose between the `__Host-` cookie prefix (production) and a plain prefix
- * (localhost), because the `__Host-` spec invariant requires `Secure: true` on all
- * origins — a requirement that cannot be satisfied on plain HTTP localhost.
- *
- * @param url - The BETTER_AUTH_URL value from the Workers env.
- * @returns `true` when the URL starts with `http://localhost` or `http://127.0.0.1`.
- */
-function isLocalhost(url: string): boolean {
-  return url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
 }
 
 /** Module-level singleton, lives for the lifetime of the Workers isolate. */
@@ -168,9 +155,11 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
         //
         // Production: "__Host-better-auth.session_token" — enforces Secure + Path=/ + no Domain.
         // Localhost:  "better-auth.session_token" — no special prefix; Secure=false is valid.
-        cookiePrefix: isLocalhost(env.BETTER_AUTH_URL) ? 'better-auth' : '__Host-better-auth',
+        cookiePrefix: isPlainHttpLocalhost(env.BETTER_AUTH_URL)
+          ? 'better-auth'
+          : '__Host-better-auth',
         defaultCookieAttributes: {
-          secure: !isLocalhost(env.BETTER_AUTH_URL),
+          secure: !isPlainHttpLocalhost(env.BETTER_AUTH_URL),
         },
         ipAddress: { ipAddressHeaders: ['CF-Connecting-IP'] },
       },

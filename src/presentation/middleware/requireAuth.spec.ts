@@ -40,6 +40,15 @@ function makeAuthServiceMock(): {
 /** Secret used in tests — 32-char minimum for HMAC-SHA256 derivation. */
 const TEST_SECRET = 'a'.repeat(32);
 
+/** Production session cookie name used in tests. */
+const PROD_COOKIE_NAME = '__Host-better-auth.session_token';
+
+/** Production CSRF cookie name used in tests. */
+const PROD_CSRF_NAME = '__Host-csrf';
+
+/** Production auth indicator cookie name used in tests. */
+const PROD_INDICATOR_NAME = '__Host-auth_status';
+
 /** Session cookie header for a valid session token. */
 const SESSION_COOKIE = '__Host-better-auth.session_token=test-session-token';
 
@@ -80,7 +89,13 @@ describe('createRequireAuth', () => {
    */
   function makeTestApp(): Hono {
     const app = new Hono();
-    const middleware = createRequireAuth(authServiceMock as unknown as AuthService, TEST_SECRET);
+    const middleware = createRequireAuth(
+      authServiceMock as unknown as AuthService,
+      TEST_SECRET,
+      PROD_COOKIE_NAME,
+      PROD_CSRF_NAME,
+      PROD_INDICATOR_NAME
+    );
     app.use('*', middleware);
     app.get('/protected', (c) => c.text('protected content'));
     return app;
@@ -98,6 +113,37 @@ describe('createRequireAuth', () => {
 
     expect(res.status).toBe(503);
     expect(res.headers.get('Retry-After')).toBe('30');
+  });
+
+  it('includes security headers on 503 response', async () => {
+    authServiceMock.getSession.mockRejectedValue(new Error('D1 unavailable'));
+
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: SESSION_COOKIE },
+      })
+    );
+
+    expect(res.status).toBe(503);
+    expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    expect(res.headers.get('Strict-Transport-Security')).toContain('max-age=');
+    expect(res.headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
+  });
+
+  it('redirects to /auth/sign-in when session cookie value is empty string', async () => {
+    const app = makeTestApp();
+    const res = await app.fetch(
+      new Request('https://example.com/protected', {
+        headers: { Cookie: '__Host-better-auth.session_token=; Path=/' },
+      })
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('Location')).toContain('/auth/sign-in');
+    expect(authServiceMock.getSession).not.toHaveBeenCalled();
   });
 
   it('redirects to /auth/sign-in with redirectTo when no session cookie is present', async () => {
@@ -201,7 +247,13 @@ describe('createRequireAuth', () => {
     let capturedCsrfToken: unknown;
 
     const app = new Hono<{ Variables: TestVariables }>();
-    const middleware = createRequireAuth(authServiceMock as unknown as AuthService, TEST_SECRET);
+    const middleware = createRequireAuth(
+      authServiceMock as unknown as AuthService,
+      TEST_SECRET,
+      PROD_COOKIE_NAME,
+      PROD_CSRF_NAME,
+      PROD_INDICATOR_NAME
+    );
     app.use('*', middleware);
     app.get('/protected', (c) => {
       capturedUser = c.get('user');
