@@ -362,7 +362,9 @@ describe('getAuth', () => {
 
     it('documents the OAuth callback route: auth.handler serves /api/auth/callback/:provider', () => {
       const callbackResponse = new Response(null, { status: 302, headers: { location: '/app' } });
-      const handlerFn = vi.fn<[Request], Promise<Response>>().mockResolvedValue(callbackResponse);
+      const handlerFn = vi
+        .fn<(req: Request) => Promise<Response>>()
+        .mockResolvedValue(callbackResponse);
       mocks.betterAuth.mockReturnValue({ handler: handlerFn });
       const env = makeEnv();
       const auth = getAuth(env);

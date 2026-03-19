@@ -170,7 +170,9 @@ describe('ServiceFactory', () => {
   describe('authPageHandlers', () => {
     it('returns an AuthPageHandlers instance', () => {
       const mockHandlers = { handleGetSignIn: vi.fn(), handlePostSignIn: vi.fn() };
-      mocks.AuthPageHandlers.mockReturnValue(mockHandlers);
+      mocks.AuthPageHandlers.mockImplementation(function () {
+        return mockHandlers;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);
@@ -180,7 +182,9 @@ describe('ServiceFactory', () => {
 
     it('returns the same instance on successive calls (lazy singleton)', () => {
       const mockHandlers = { handleGetSignIn: vi.fn(), handlePostSignIn: vi.fn() };
-      mocks.AuthPageHandlers.mockReturnValue(mockHandlers);
+      mocks.AuthPageHandlers.mockImplementation(function () {
+        return mockHandlers;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);
@@ -195,7 +199,9 @@ describe('ServiceFactory', () => {
   describe('authService', () => {
     it('returns a BetterAuthService instance', () => {
       const mockService = { signIn: vi.fn() };
-      mocks.BetterAuthService.mockReturnValue(mockService);
+      mocks.BetterAuthService.mockImplementation(function () {
+        return mockService;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);
@@ -205,7 +211,9 @@ describe('ServiceFactory', () => {
 
     it('returns the same instance on successive calls (lazy singleton)', () => {
       const mockService = { signIn: vi.fn() };
-      mocks.BetterAuthService.mockReturnValue(mockService);
+      mocks.BetterAuthService.mockImplementation(function () {
+        return mockService;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);
@@ -220,7 +228,9 @@ describe('ServiceFactory', () => {
   describe('signInUseCase', () => {
     it('returns a SignInUseCase instance', () => {
       const mockUseCase = { execute: vi.fn() };
-      mocks.SignInUseCase.mockReturnValue(mockUseCase);
+      mocks.SignInUseCase.mockImplementation(function () {
+        return mockUseCase;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);
@@ -230,7 +240,9 @@ describe('ServiceFactory', () => {
 
     it('returns the same instance on successive calls (lazy singleton)', () => {
       const mockUseCase = { execute: vi.fn() };
-      mocks.SignInUseCase.mockReturnValue(mockUseCase);
+      mocks.SignInUseCase.mockImplementation(function () {
+        return mockUseCase;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);
@@ -245,7 +257,9 @@ describe('ServiceFactory', () => {
   describe('signUpUseCase', () => {
     it('returns a SignUpUseCase instance', () => {
       const mockUseCase = { execute: vi.fn() };
-      mocks.SignUpUseCase.mockReturnValue(mockUseCase);
+      mocks.SignUpUseCase.mockImplementation(function () {
+        return mockUseCase;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);
@@ -255,7 +269,9 @@ describe('ServiceFactory', () => {
 
     it('returns the same instance on successive calls (lazy singleton)', () => {
       const mockUseCase = { execute: vi.fn() };
-      mocks.SignUpUseCase.mockReturnValue(mockUseCase);
+      mocks.SignUpUseCase.mockImplementation(function () {
+        return mockUseCase;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);
@@ -270,7 +286,9 @@ describe('ServiceFactory', () => {
   describe('signOutUseCase', () => {
     it('returns a SignOutUseCase instance', () => {
       const mockUseCase = { execute: vi.fn() };
-      mocks.SignOutUseCase.mockReturnValue(mockUseCase);
+      mocks.SignOutUseCase.mockImplementation(function () {
+        return mockUseCase;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);
@@ -280,7 +298,9 @@ describe('ServiceFactory', () => {
 
     it('returns the same instance on successive calls (lazy singleton)', () => {
       const mockUseCase = { execute: vi.fn() };
-      mocks.SignOutUseCase.mockReturnValue(mockUseCase);
+      mocks.SignOutUseCase.mockImplementation(function () {
+        return mockUseCase;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);
@@ -328,7 +348,9 @@ describe('ServiceFactory', () => {
   describe('logger', () => {
     it('returns a ConsoleLogger instance', () => {
       const mockLogger = { error: vi.fn() };
-      mocks.ConsoleLogger.mockReturnValue(mockLogger);
+      mocks.ConsoleLogger.mockImplementation(function () {
+        return mockLogger;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);
@@ -338,7 +360,9 @@ describe('ServiceFactory', () => {
 
     it('returns the same instance on successive calls (lazy singleton)', () => {
       const mockLogger = { error: vi.fn() };
-      mocks.ConsoleLogger.mockReturnValue(mockLogger);
+      mocks.ConsoleLogger.mockImplementation(function () {
+        return mockLogger;
+      });
 
       const env = makeEnv();
       const factory = getServiceFactory(env);

@@ -10,12 +10,12 @@ import app from './worker';
  * factory functions, which run before module imports.
  */
 const mocks = vi.hoisted(() => {
-  const authHandlerFn = vi.fn<[Request], Promise<Response>>();
-  const handleGetSignIn = vi.fn<[Request], Response>();
-  const handlePostSignIn = vi.fn<[Request], Promise<Response>>();
-  const handleGetSignUp = vi.fn<[Request], Response>();
-  const handlePostSignUp = vi.fn<[Request], Promise<Response>>();
-  const handlePostSignOut = vi.fn<[Request], Promise<Response>>();
+  const authHandlerFn = vi.fn<(req: Request) => Promise<Response>>();
+  const handleGetSignIn = vi.fn<(req: Request) => Response>();
+  const handlePostSignIn = vi.fn<(req: Request) => Promise<Response>>();
+  const handleGetSignUp = vi.fn<(req: Request) => Response>();
+  const handlePostSignUp = vi.fn<(req: Request) => Promise<Response>>();
+  const handlePostSignOut = vi.fn<(req: Request) => Promise<Response>>();
   /** Default: passes through by calling next() (authenticated). */
   const requireAuthMiddlewareFn = vi.fn(
     async (_c: Context<AppEnv>, next: Next): Promise<Response | void> => next()
