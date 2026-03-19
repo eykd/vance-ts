@@ -72,9 +72,9 @@ export function parseSpec(content: string, sourcePath: string): Feature {
 
     const stepMatch = /^(GIVEN|WHEN|THEN) (.+)$/.exec(line);
     if (stepMatch !== null) {
-      /* c8 ignore next 2 */
-      const keyword = stepMatch[1] ?? '';
-      const text = stepMatch[2] ?? '';
+      // Regex capture groups are guaranteed non-null after a successful match
+      const keyword = stepMatch[1] as string;
+      const text = stepMatch[2] as string;
       currentSteps.push({ keyword, text, line: lineNum });
     }
   }

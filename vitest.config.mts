@@ -1,22 +1,22 @@
-import { defineWorkersProject } from '@cloudflare/vitest-pool-workers/config';
+import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
     projects: [
-      defineWorkersProject({
+      {
+        plugins: [
+          cloudflareTest({
+            wrangler: { configPath: './wrangler.toml' },
+            isolatedStorage: true, // Explicit; prevents regression if default changes
+          }),
+        ],
         test: {
           name: 'workers',
           globals: true,
           include: ['src/**/*.spec.ts'],
-          poolOptions: {
-            workers: {
-              wrangler: { configPath: './wrangler.toml' },
-              isolatedStorage: true, // Explicit; prevents regression if default changes
-            },
-          },
         },
-      }),
+      },
       {
         test: {
           name: 'node',
@@ -26,29 +26,29 @@ export default defineConfig({
           environment: 'node',
         },
       },
-      defineWorkersProject({
+      {
+        plugins: [
+          cloudflareTest({
+            wrangler: { configPath: './wrangler.toml' },
+            isolatedStorage: true, // Per-test D1+DO storage rollback (explicit; default is true)
+            miniflare: {
+              bindings: {
+                BETTER_AUTH_SECRET: 'test-acceptance-suite-secret-minimum-32-chars',
+                BETTER_AUTH_URL: 'https://example.com',
+                // eslint-disable-next-line no-restricted-globals -- vitest config runs in Node, not Workers
+                DETECT_STATE_LEAKS: process.env['DETECT_STATE_LEAKS'] ?? '',
+              },
+            },
+          }),
+        ],
         test: {
           name: 'acceptance',
           globals: true,
           testTimeout: 30_000,
           include: ['generated-acceptance-tests/**/*.spec.ts'],
           setupFiles: ['./generated-acceptance-tests/setup.ts'],
-          poolOptions: {
-            workers: {
-              wrangler: { configPath: './wrangler.toml' },
-              isolatedStorage: true, // Per-test D1+DO storage rollback (explicit; default is true)
-              miniflare: {
-                bindings: {
-                  BETTER_AUTH_SECRET: 'test-acceptance-suite-secret-minimum-32-chars',
-                  BETTER_AUTH_URL: 'https://example.com',
-                  // eslint-disable-next-line no-restricted-globals -- vitest config runs in Node, not Workers
-                  DETECT_STATE_LEAKS: process.env['DETECT_STATE_LEAKS'] ?? '',
-                },
-              },
-            },
-          },
         },
-      }),
+      },
     ],
     coverage: {
       provider: 'v8',

@@ -140,6 +140,7 @@ export function extractBoundFunctions(source: string): Map<string, string> {
         }
       }
 
+      /* v8 ignore next -- endLine always >= 0 for well-formed generated test files */
       if (endLine >= 0) {
         const block = lines.slice(startLine, endLine + 1).join('\n');
         if (!block.includes(UnboundSentinel)) {

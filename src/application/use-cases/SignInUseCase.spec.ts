@@ -391,18 +391,14 @@ describe('SignInUseCase', () => {
     });
 
     it('checks email rate limit before IP rate limit (ordering)', async () => {
-      const callOrder: string[] = [];
-      rateLimiterMock.checkAndIncrement.mockImplementation(
-        (key: string, _ttl: number, _max: number) => {
-          callOrder.push(key.includes('email') ? 'email' : 'ip');
-          return Promise.resolve({ allowed: true });
-        }
-      );
+      rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: true });
       authServiceMock.signIn.mockResolvedValue({ ok: true, sessionToken: 'abc' });
 
       await useCase.execute(defaultRequest);
 
-      expect(callOrder).toEqual(['email', 'ip']);
+      const calls = rateLimiterMock.checkAndIncrement.mock.calls as string[][];
+      expect(calls[0]?.[0]).toContain('email');
+      expect(calls[1]?.[0]).not.toContain('email');
     });
   });
 });
