@@ -185,6 +185,10 @@ test-leak-detect:
 test-stability:
     bash scripts/verify-test-stability.sh
 
+# Run mutation testing on domain and application layers (slow — CI only)
+test-mutants:
+    npx stryker run
+
 # Run both unit tests and acceptance tests
 test-all: test acceptance-run
 

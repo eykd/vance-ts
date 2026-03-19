@@ -126,6 +126,22 @@ describe('SignInUseCase', () => {
       }
     });
 
+    it('returns rate_limited when IP rate limit is exceeded but email rate limit passes', async () => {
+      expect.assertions(3);
+      // First call (email): allowed
+      rateLimiterMock.checkAndIncrement.mockResolvedValueOnce({ allowed: true });
+      // Second call (IP): blocked
+      rateLimiterMock.checkAndIncrement.mockResolvedValueOnce({ allowed: false, retryAfter: 600 });
+
+      const result = await useCase.execute(defaultRequest);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('rate_limited');
+        expect(result.retryAfter).toBe(600);
+      }
+    });
+
     it('does not call authService.signIn when rate limit is exceeded', async () => {
       rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false, retryAfter: 900 });
 

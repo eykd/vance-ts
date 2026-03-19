@@ -12,6 +12,9 @@ const config: KnipConfig = {
     'generated-acceptance-tests/helpers.ts',
     'generated-acceptance-tests/globals.d.ts',
 
+    // Stryker vitest config (non-standard name, not auto-discovered)
+    'vitest.config.stryker.ts',
+
     // Claude Code hooks/memory
     '.claude/hooks/*.ts',
     '.claude/memory/*.ts',
@@ -41,6 +44,8 @@ const config: KnipConfig = {
     'cloudflare',
     // Transitive dep of eslint, imported in eslint.config.mjs
     '@eslint/js',
+    // JSDoc type reference in stryker.config.mjs (transitive of @stryker-mutator/core)
+    '@stryker-mutator/api',
   ],
 
   ignoreBinaries: [

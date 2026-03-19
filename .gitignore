@@ -60,6 +60,10 @@ tmp/
 acceptance-pipeline/ir/
 .claude/worktrees/
 
+# Stryker mutation reports
+reports/
+.stryker-tmp/
+
 # Dolt database files (added by bd init)
 .dolt/
 *.db
