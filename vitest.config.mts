@@ -15,6 +15,7 @@ export default defineConfig({
           name: 'workers',
           globals: true,
           include: ['src/**/*.spec.ts'],
+          setupFiles: ['./tests/suppress-better-auth-rejections.ts'],
         },
       },
       {
@@ -46,7 +47,10 @@ export default defineConfig({
           globals: true,
           testTimeout: 30_000,
           include: ['generated-acceptance-tests/**/*.spec.ts'],
-          setupFiles: ['./generated-acceptance-tests/setup.ts'],
+          setupFiles: [
+            './generated-acceptance-tests/setup.ts',
+            './tests/suppress-better-auth-rejections.ts',
+          ],
         },
       },
     ],
