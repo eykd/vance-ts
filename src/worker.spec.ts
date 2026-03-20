@@ -699,10 +699,11 @@ describe('Worker', () => {
       const req = new Request('https://example.com/api/auth/sign-out', { method: 'POST' });
       await app.fetch(req, env);
 
-      expect(mocks.loggerError).toHaveBeenCalledWith(
-        'auth handler error',
-        expect.objectContaining({ message: expect.stringContaining('500') })
-      );
+      expect(mocks.loggerError).toHaveBeenCalledOnce();
+      const [label, error] = mocks.loggerError.mock.calls[0] as [string, Error];
+      expect(label).toBe('auth handler error');
+      expect(error).toBeInstanceOf(Error);
+      expect(error.message).toContain('500');
     });
 
     it('applies security headers when authHandler returns a 5xx response', async () => {
