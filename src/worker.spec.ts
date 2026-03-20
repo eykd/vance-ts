@@ -1115,6 +1115,62 @@ describe('Worker', () => {
     });
   });
 
+  describe('405 Method Not Allowed on /api/v1/* routes', () => {
+    it.each([
+      { path: '/api/v1/inbox', method: 'PUT', allow: 'GET, POST' },
+      { path: '/api/v1/inbox', method: 'DELETE', allow: 'GET, POST' },
+      { path: '/api/v1/inbox', method: 'PATCH', allow: 'GET, POST' },
+      { path: '/api/v1/areas', method: 'PUT', allow: 'GET' },
+      { path: '/api/v1/areas', method: 'POST', allow: 'GET' },
+      { path: '/api/v1/areas', method: 'DELETE', allow: 'GET' },
+      { path: '/api/v1/areas', method: 'PATCH', allow: 'GET' },
+      { path: '/api/v1/contexts', method: 'PUT', allow: 'GET' },
+      { path: '/api/v1/contexts', method: 'POST', allow: 'GET' },
+      { path: '/api/v1/contexts', method: 'DELETE', allow: 'GET' },
+      { path: '/api/v1/contexts', method: 'PATCH', allow: 'GET' },
+      { path: '/api/v1/inbox/inbox-1/clarify', method: 'GET', allow: 'POST' },
+      { path: '/api/v1/inbox/inbox-1/clarify', method: 'PUT', allow: 'POST' },
+      { path: '/api/v1/inbox/inbox-1/clarify', method: 'DELETE', allow: 'POST' },
+      { path: '/api/v1/actions', method: 'PUT', allow: 'GET' },
+      { path: '/api/v1/actions', method: 'POST', allow: 'GET' },
+      { path: '/api/v1/actions', method: 'DELETE', allow: 'GET' },
+      { path: '/api/v1/actions/action-1/activate', method: 'GET', allow: 'POST' },
+      { path: '/api/v1/actions/action-1/activate', method: 'PUT', allow: 'POST' },
+      { path: '/api/v1/actions/action-1/activate', method: 'DELETE', allow: 'POST' },
+      { path: '/api/v1/actions/action-1/complete', method: 'GET', allow: 'POST' },
+      { path: '/api/v1/actions/action-1/complete', method: 'PUT', allow: 'POST' },
+      { path: '/api/v1/actions/action-1/complete', method: 'DELETE', allow: 'POST' },
+    ])('returns 405 for $method $path with Allow: $allow', async ({ path, method, allow }) => {
+      const env = mockEnv();
+      const req = new Request(`https://example.com${path}`, { method });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(405);
+      expect(res.headers.get('Allow')).toBe(allow);
+    });
+
+    it('includes security headers on 405 API responses', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/inbox', { method: 'PUT' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(405);
+      expectSecurityHeaders(res);
+    });
+
+    it('does not delegate to API handlers for unsupported methods', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/v1/inbox', { method: 'DELETE' });
+
+      await app.fetch(req, env);
+
+      expect(mocks.handleCaptureInboxItem).not.toHaveBeenCalled();
+      expect(mocks.handleListInboxItems).not.toHaveBeenCalled();
+    });
+  });
+
   describe('/api/v1/* requireWorkspaceMiddleware', () => {
     it('returns 503 when requireWorkspaceMiddleware short-circuits a /api/v1/* request (workspace not provisioned)', async () => {
       // Constraint workspace-35c: requireWorkspaceMiddleware must guard all /api/v1/* routes

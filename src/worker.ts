@@ -240,6 +240,40 @@ app.post('/api/v1/actions/:id/complete', async (c): Promise<Response> => {
   return getServiceFactory(c.env).actionApiHandlers.handleComplete(c as Context<AppEnv>);
 });
 
+/**
+ * Returns 405 Method Not Allowed for unsupported methods on API v1 routes.
+ *
+ * Registered after the specific method handlers so that only unhandled
+ * methods (PUT, DELETE, PATCH, etc.) reach these catch-alls.
+ */
+app.all('/api/v1/inbox', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET, POST' });
+});
+
+app.all('/api/v1/areas', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET' });
+});
+
+app.all('/api/v1/contexts', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET' });
+});
+
+app.all('/api/v1/inbox/:id/clarify', (c): Response => {
+  return c.body(null, 405, { Allow: 'POST' });
+});
+
+app.all('/api/v1/actions', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET' });
+});
+
+app.all('/api/v1/actions/:id/activate', (c): Response => {
+  return c.body(null, 405, { Allow: 'POST' });
+});
+
+app.all('/api/v1/actions/:id/complete', (c): Response => {
+  return c.body(null, 405, { Allow: 'POST' });
+});
+
 /** Catch-all for unimplemented API routes. */
 app.all('/api/*', apiNotFound);
 
