@@ -73,4 +73,8 @@ describe('authLayout', () => {
   it('uses html lang attribute', () => {
     expect(result).toContain('<html lang="en"');
   });
+
+  it('includes robots noindex nofollow meta tag', () => {
+    expect(result).toContain('<meta name="robots" content="noindex, nofollow"');
+  });
 });
