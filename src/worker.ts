@@ -6,6 +6,7 @@ import { getServiceFactory } from './di/serviceFactory';
 import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
 import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
 import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandler';
+import { createBodyLimitMiddleware } from './presentation/middleware/bodyLimit';
 import { authErrorPage } from './presentation/templates/pages/authError';
 import type { AppEnv } from './presentation/types';
 import { authErrorStatusCode } from './presentation/utils/authErrorStatus';
@@ -61,6 +62,7 @@ app.onError((_err, c): Response => {
 });
 
 app.use('*', withSecurityHeaders);
+app.use('*', createBodyLimitMiddleware());
 
 /**
  * Middleware: require authentication before proceeding.
