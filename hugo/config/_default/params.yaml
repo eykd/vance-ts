@@ -17,10 +17,11 @@ imageHeight: 630
 # STARTUPFIXME: Add your logo file to hugo/assets/
 logo: "logo.svg"
 
-social:
-  twitter: "eykd"
-  github: "eykd"
-  linkedin: "https://www.linkedin.com/in/david-eyk/"
+# STARTUPFIXME: Add your social media accounts
+# social:
+#   twitter: "your-twitter-handle"
+#   github: "your-github-org"
+#   linkedin: "your-linkedin-slug"
 
 location:
   - "Made in the Pacific Northwest"
