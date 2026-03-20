@@ -5,10 +5,10 @@
 */}}
 <div class="navbar bg-base-100 shadow-sm">
   <div class="flex-1">
-    <a href="{{ .Site.BaseURL }}" class="btn btn-ghost">
+    <a href="{{ "/" | relURL }}" class="btn btn-ghost">
       {{- with .Site.Params.logo }}
         {{- with resources.Get . }}
-          <img src="{{ .Permalink }}" class="size-6 xl:size-12" alt="{{ $.Site.Title }} logo" />
+          <img src="{{ .RelPermalink }}" class="size-6 xl:size-12" alt="{{ $.Site.Title }} logo" />
         {{- end }}
       {{- end }}
       <span class="hidden lg:block text-success-content text-balance font-semibold text-sm md:text-xl lg:text-2xl">{{ .Site.Title }}</span>
