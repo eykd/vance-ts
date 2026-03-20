@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => {
   const handlePostSignIn = vi.fn<(req: Request) => Promise<Response>>();
   const handleGetSignUp = vi.fn<(req: Request) => Response>();
   const handlePostSignUp = vi.fn<(req: Request) => Promise<Response>>();
+  const handleGetSignOut = vi.fn<(req: Request) => Response>();
   const handlePostSignOut = vi.fn<(req: Request) => Promise<Response>>();
   /** Default: passes through by calling next() (authenticated). */
   const requireAuthMiddlewareFn = vi.fn(
@@ -109,6 +110,7 @@ const mocks = vi.hoisted(() => {
       handlePostSignIn,
       handleGetSignUp,
       handlePostSignUp,
+      handleGetSignOut,
       handlePostSignOut,
     },
     logger: { error: loggerError },
@@ -136,6 +138,7 @@ const mocks = vi.hoisted(() => {
     handlePostSignIn,
     handleGetSignUp,
     handlePostSignUp,
+    handleGetSignOut,
     handlePostSignOut,
     loggerError,
     requireAuthMiddlewareFn,
@@ -513,6 +516,32 @@ describe('Worker', () => {
     });
   });
 
+  describe('GET /auth/sign-out', () => {
+    it('delegates to authPageHandlers.handleGetSignOut and returns the response', async () => {
+      const env = mockEnv();
+      const handlerResponse = new Response('<html>sign-out</html>', { status: 200 });
+      mocks.handleGetSignOut.mockReturnValue(handlerResponse);
+
+      const req = new Request('https://example.com/auth/sign-out', { method: 'GET' });
+      const res = await app.fetch(req, env);
+
+      expect(mocks.handleGetSignOut).toHaveBeenCalledWith(req);
+      expect(res.status).toBe(200);
+    });
+
+    it('applies security headers to the response', async () => {
+      const env = mockEnv();
+      mocks.handleGetSignOut.mockReturnValue(
+        new Response('<html>sign-out</html>', { status: 200 })
+      );
+
+      const req = new Request('https://example.com/auth/sign-out', { method: 'GET' });
+      const res = await app.fetch(req, env);
+
+      expectSecurityHeaders(res);
+    });
+  });
+
   describe('405 Method Not Allowed on auth page routes', () => {
     it.each([
       { path: '/auth/sign-in', method: 'PUT', allow: 'GET, POST' },
@@ -521,10 +550,9 @@ describe('Worker', () => {
       { path: '/auth/sign-up', method: 'PUT', allow: 'GET, POST' },
       { path: '/auth/sign-up', method: 'DELETE', allow: 'GET, POST' },
       { path: '/auth/sign-up', method: 'PATCH', allow: 'GET, POST' },
-      { path: '/auth/sign-out', method: 'GET', allow: 'POST' },
-      { path: '/auth/sign-out', method: 'PUT', allow: 'POST' },
-      { path: '/auth/sign-out', method: 'DELETE', allow: 'POST' },
-      { path: '/auth/sign-out', method: 'PATCH', allow: 'POST' },
+      { path: '/auth/sign-out', method: 'PUT', allow: 'GET, POST' },
+      { path: '/auth/sign-out', method: 'DELETE', allow: 'GET, POST' },
+      { path: '/auth/sign-out', method: 'PATCH', allow: 'GET, POST' },
     ])('returns 405 for $method $path with Allow: $allow', async ({ path, method, allow }) => {
       const env = mockEnv();
       const req = new Request(`https://example.com${path}`, { method });

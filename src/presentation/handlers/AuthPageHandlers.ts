@@ -13,6 +13,7 @@ import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js
 import { loginPage } from '../templates/pages/login.js';
 import { rateLimitPage } from '../templates/pages/rateLimit.js';
 import { registerPage } from '../templates/pages/register.js';
+import { signOutPage } from '../templates/pages/signOut.js';
 import {
   buildAuthIndicatorCookie,
   buildCsrfCookie,
@@ -350,6 +351,21 @@ export class AuthPageHandlers {
     const body = registerPage({ csrfToken, email, error: errorMessage });
 
     return new Response(body, { headers: errorHeaders });
+  }
+
+  /**
+   * Handles GET /auth/sign-out.
+   *
+   * Renders a sign-out confirmation page with a CSRF-protected form that
+   * submits a POST to `/auth/sign-out`. Generates a fresh CSRF token and
+   * sets appropriate cache and security headers.
+   *
+   * @param _request - The incoming HTTP request (unused, kept for handler signature consistency).
+   * @returns A 200 HTML response with the sign-out confirmation form.
+   */
+  handleGetSignOut(_request: Request): Response {
+    const { headers, csrfToken } = this.makeFreshAuthHeaders();
+    return new Response(signOutPage({ csrfToken }), { headers });
   }
 
   /**

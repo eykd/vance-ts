@@ -1211,6 +1211,68 @@ describe('AuthPageHandlers', () => {
     });
   });
 
+  describe('handleGetSignOut', () => {
+    it('returns 200 status', () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      expect(res.status).toBe(200);
+    });
+
+    it('sets Content-Type to text/html', () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      expect(res.headers.get('Content-Type')).toContain('text/html');
+    });
+
+    it('sets Cache-Control: no-store, no-cache', () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+    });
+
+    it('sets __Host-csrf cookie', () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      const setCookie = res.headers.get('Set-Cookie') ?? '';
+      expect(setCookie).toContain('__Host-csrf=');
+    });
+
+    it('applies security headers', () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    });
+
+    it('renders a sign-out confirmation form with POST action', async () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      const body = await res.text();
+      expect(body).toContain('method="POST"');
+      expect(body).toContain('action="/auth/sign-out"');
+    });
+
+    it('embeds the CSRF token in the form as a hidden _csrf field', async () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      const setCookie = res.headers.get('Set-Cookie') ?? '';
+      const match = /__Host-csrf=([^;]+)/.exec(setCookie);
+      const csrfToken = match?.[1];
+      expect(csrfToken).toBeDefined();
+      const body = await res.text();
+      expect(body).toContain(`name="_csrf" value="${csrfToken ?? ''}"`);
+    });
+
+    it('redirects to home when user already has a session cookie', () => {
+      const req = new Request('https://example.com/auth/sign-out', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session` },
+      });
+      const res = handlers.handleGetSignOut(req);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Content-Type')).toContain('text/html');
+    });
+  });
+
   describe('handlePostSignOut', () => {
     describe('Content-Type validation', () => {
       it('returns 415 when Content-Type is application/json', async () => {

@@ -313,6 +313,11 @@ app.post('/auth/sign-up', async (c): Promise<Response> => {
   return getServiceFactory(c.env).authPageHandlers.handlePostSignUp(c.req.raw);
 });
 
+/** Renders the sign-out confirmation page. */
+app.get('/auth/sign-out', (c): Response => {
+  return getServiceFactory(c.env).authPageHandlers.handleGetSignOut(c.req.raw);
+});
+
 /** Terminates the authenticated user's session. */
 app.post('/auth/sign-out', async (c): Promise<Response> => {
   return getServiceFactory(c.env).authPageHandlers.handlePostSignOut(c.req.raw);
@@ -333,7 +338,7 @@ app.all('/auth/sign-up', (c): Response => {
 });
 
 app.all('/auth/sign-out', (c): Response => {
-  return c.body(null, 405, { Allow: 'POST' });
+  return c.body(null, 405, { Allow: 'GET, POST' });
 });
 
 /** Renders the dashboard page. */
