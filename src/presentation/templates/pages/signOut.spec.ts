@@ -36,6 +36,21 @@ describe('signOutPage', () => {
     expect(result).toContain('href="/"');
   });
 
+  it('adds x-data with submitting state to the form', () => {
+    const result = signOutPage({ csrfToken: 'csrf' });
+    expect(result).toContain('x-data="{ submitting: false }"');
+  });
+
+  it('sets submitting to true on form submit', () => {
+    const result = signOutPage({ csrfToken: 'csrf' });
+    expect(result).toContain('@submit="submitting = true"');
+  });
+
+  it('disables the submit button when submitting', () => {
+    const result = signOutPage({ csrfToken: 'csrf' });
+    expect(result).toContain(':disabled="submitting"');
+  });
+
   it('escapes the CSRF token to prevent XSS', () => {
     const result = signOutPage({ csrfToken: '<script>alert("xss")</script>' });
     expect(result).not.toContain('<script>alert("xss")</script>');

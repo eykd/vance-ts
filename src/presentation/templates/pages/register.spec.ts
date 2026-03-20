@@ -204,6 +204,26 @@ describe('registerPage', () => {
     });
   });
 
+  describe('double-submit prevention', () => {
+    let result: string;
+
+    beforeEach(() => {
+      result = registerPage({ csrfToken: 'csrf' });
+    });
+
+    it('adds x-data with submitting state to the form', () => {
+      expect(result).toContain('x-data="{ submitting: false }"');
+    });
+
+    it('sets submitting to true on form submit', () => {
+      expect(result).toContain('@submit="submitting = true"');
+    });
+
+    it('disables the submit button when submitting', () => {
+      expect(result).toContain(':disabled="submitting"');
+    });
+  });
+
   describe('XSS protection for csrfToken', () => {
     it('escapes the CSRF token value', () => {
       const result = registerPage({ csrfToken: '"><script>alert(1)</script>' });

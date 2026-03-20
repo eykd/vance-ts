@@ -75,7 +75,12 @@ export function registerPage(props: RegisterPageProps): string {
   const content = html`
     <h1 class="card-title text-2xl font-bold mb-6">Create an Account</h1>
     ${generalErrorBanner}
-    <form method="POST" action="/auth/sign-up">
+    <form
+      method="POST"
+      action="/auth/sign-up"
+      x-data="{ submitting: false }"
+      @submit="submitting = true"
+    >
       <input type="hidden" name="_csrf" value="${props.csrfToken}" />
       <div class="form-control mb-4">
         <label for="email" class="label">
@@ -109,7 +114,7 @@ export function registerPage(props: RegisterPageProps): string {
         ${passwordErrorEl}
       </div>
       <div class="form-control mt-2">
-        <button type="submit" class="btn btn-primary">Create Account</button>
+        <button type="submit" class="btn btn-primary" :disabled="submitting">Create Account</button>
       </div>
     </form>
     <div class="mt-4 text-center">

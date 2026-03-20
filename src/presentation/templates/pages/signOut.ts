@@ -20,10 +20,15 @@ export function signOutPage(props: SignOutPageProps): string {
   const content = html`
     <h1 class="card-title text-2xl font-bold mb-6">Sign Out</h1>
     <p class="mb-6">Are you sure you want to sign out?</p>
-    <form method="POST" action="/auth/sign-out">
+    <form
+      method="POST"
+      action="/auth/sign-out"
+      x-data="{ submitting: false }"
+      @submit="submitting = true"
+    >
       <input type="hidden" name="_csrf" value="${props.csrfToken}" />
       <div class="form-control mt-2">
-        <button type="submit" class="btn btn-primary">Sign Out</button>
+        <button type="submit" class="btn btn-primary" :disabled="submitting">Sign Out</button>
       </div>
     </form>
     <div class="mt-4 text-center">

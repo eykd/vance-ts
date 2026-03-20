@@ -54,7 +54,12 @@ export function loginPage(props: LoginPageProps): string {
   const content = html`
     <h1 class="card-title text-2xl font-bold mb-6">Sign In</h1>
     ${successBanner} ${errorBanner}
-    <form method="POST" action="/auth/sign-in">
+    <form
+      method="POST"
+      action="/auth/sign-in"
+      x-data="{ submitting: false }"
+      @submit="submitting = true"
+    >
       <input type="hidden" name="_csrf" value="${props.csrfToken}" />
       ${redirectToField}
       <div class="form-control mb-4">
@@ -87,7 +92,7 @@ export function loginPage(props: LoginPageProps): string {
         />
       </div>
       <div class="form-control mt-2">
-        <button type="submit" class="btn btn-primary">Sign In</button>
+        <button type="submit" class="btn btn-primary" :disabled="submitting">Sign In</button>
       </div>
     </form>
     <div class="mt-4 text-center">
