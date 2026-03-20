@@ -25,8 +25,10 @@ export function rateLimitPage(props: RateLimitPageProps): string {
   const content = html`
     <h1 class="card-title text-2xl font-bold mb-6">Too Many Requests</h1>
     <div role="alert" class="alert alert-warning mb-4">
-      <span>You have made too many requests. Please wait before trying again.</span>
-      ${retryMessage}
+      <div>
+        <span>You have made too many requests. Please wait before trying again.</span>
+        ${retryMessage}
+      </div>
     </div>
     <div class="mt-4 text-center">
       <a href="/auth/sign-in" class="link link-primary">Back to Sign In</a>
