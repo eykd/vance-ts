@@ -69,6 +69,37 @@ const mocks = vi.hoisted(() => {
     (): Promise<Response> => Promise.resolve(new Response(null, { status: 200 }))
   );
 
+  /** Default: returns 200 OK HTML. */
+  const handleGetDashboard = vi.fn(
+    (): Promise<Response> =>
+      Promise.resolve(new Response('<html>dashboard</html>', { status: 200 }))
+  );
+  /** Default: returns 200 OK HTML. */
+  const handleGetInbox = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response('<html>inbox</html>', { status: 200 }))
+  );
+  /** Default: returns 200 OK HTML. */
+  const handleGetActions = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response('<html>actions</html>', { status: 200 }))
+  );
+
+  /** Default: returns 200 OK HTML. */
+  const handleCaptureInbox = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response('<li>captured</li>', { status: 200 }))
+  );
+  /** Default: returns 200 OK HTML. */
+  const handleClarifyInbox = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response('<li>clarified</li>', { status: 200 }))
+  );
+  /** Default: returns 200 OK HTML. */
+  const handleActivateAction = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response('<li>activated</li>', { status: 200 }))
+  );
+  /** Default: returns 200 OK HTML. */
+  const handleCompleteAction = vi.fn(
+    (): Promise<Response> => Promise.resolve(new Response('<li>completed</li>', { status: 200 }))
+  );
+
   const loggerError = vi.fn();
 
   const mockFactory = {
@@ -90,6 +121,13 @@ const mocks = vi.hoisted(() => {
     contextApiHandlers: { handleListContexts },
     inboxItemApiHandlers: { handleCaptureInboxItem, handleListInboxItems },
     actionApiHandlers: { handleClarify, handleActivate, handleComplete, handleListActions },
+    appPageHandlers: { handleGetDashboard, handleGetInbox, handleGetActions },
+    appPartialHandlers: {
+      handleCaptureInbox,
+      handleClarifyInbox,
+      handleActivateAction,
+      handleCompleteAction,
+    },
   };
 
   return {
@@ -113,6 +151,13 @@ const mocks = vi.hoisted(() => {
     handleActivate,
     handleComplete,
     handleListActions,
+    handleGetDashboard,
+    handleGetInbox,
+    handleGetActions,
+    handleCaptureInbox,
+    handleClarifyInbox,
+    handleActivateAction,
+    handleCompleteAction,
     mockFactory,
   };
 });
@@ -1065,6 +1110,142 @@ describe('Worker', () => {
       expect(res.headers.get('X-Frame-Options')).toBe('DENY');
       expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
       expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+  });
+
+  describe('GET /app (dashboard page)', () => {
+    it('delegates to appPageHandlers.handleGetDashboard', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/app');
+      const res = await app.fetch(req, env);
+
+      expect(mocks.handleGetDashboard).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+    });
+
+    it('applies security headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/app');
+      const res = await app.fetch(req, env);
+
+      expectSecurityHeaders(res);
+    });
+  });
+
+  describe('GET /app/inbox', () => {
+    it('delegates to appPageHandlers.handleGetInbox', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/app/inbox');
+      const res = await app.fetch(req, env);
+
+      expect(mocks.handleGetInbox).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+    });
+
+    it('applies security headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/app/inbox');
+      const res = await app.fetch(req, env);
+
+      expectSecurityHeaders(res);
+    });
+  });
+
+  describe('GET /app/actions', () => {
+    it('delegates to appPageHandlers.handleGetActions', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/app/actions');
+      const res = await app.fetch(req, env);
+
+      expect(mocks.handleGetActions).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+    });
+
+    it('applies security headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/app/actions');
+      const res = await app.fetch(req, env);
+
+      expectSecurityHeaders(res);
+    });
+  });
+
+  describe('POST /app/_/inbox/capture', () => {
+    it('delegates to appPartialHandlers.handleCaptureInbox', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/app/_/inbox/capture', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(mocks.handleCaptureInbox).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('POST /app/_/inbox/:id/clarify', () => {
+    it('delegates to appPartialHandlers.handleClarifyInbox', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/app/_/inbox/item-1/clarify', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(mocks.handleClarifyInbox).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('POST /app/_/actions/:id/activate', () => {
+    it('delegates to appPartialHandlers.handleActivateAction', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/app/_/actions/action-1/activate', {
+        method: 'POST',
+      });
+      const res = await app.fetch(req, env);
+
+      expect(mocks.handleActivateAction).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('POST /app/_/actions/:id/complete', () => {
+    it('delegates to appPartialHandlers.handleCompleteAction', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/app/_/actions/action-1/complete', {
+        method: 'POST',
+      });
+      const res = await app.fetch(req, env);
+
+      expect(mocks.handleCompleteAction).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('/app/* workspace middleware', () => {
+    it('applies requireWorkspaceMiddleware to /app page routes', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/app');
+      await app.fetch(req, env);
+
+      expect(mocks.requireWorkspaceMiddlewareFn).toHaveBeenCalled();
+    });
+
+    it('returns 503 when workspace middleware short-circuits', async () => {
+      mocks.requireWorkspaceMiddlewareFn.mockImplementationOnce(
+        (): Promise<Response> =>
+          Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: { code: 'workspace_not_found', message: 'Workspace not provisioned.' },
+              }),
+              { status: 503, headers: { 'Content-Type': 'application/json' } }
+            )
+          )
+      );
+
+      const env = mockEnv();
+      const req = new Request('https://example.com/app');
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(503);
+      expect(mocks.handleGetDashboard).not.toHaveBeenCalled();
     });
   });
 

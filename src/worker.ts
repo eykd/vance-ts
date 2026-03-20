@@ -77,6 +77,9 @@ const withRequireAuth: MiddlewareHandler<AppEnv> = async (c, next): Promise<Resp
 };
 
 app.use('/app/*', withRequireAuth);
+app.use('/app/*', async (c, next): Promise<Response | void> => {
+  return getServiceFactory(c.env).requireWorkspaceMiddleware(c as Context<AppEnv>, next);
+});
 app.use('/dashboard/*', withRequireAuth);
 
 /** Health check endpoint. */
@@ -275,6 +278,41 @@ app.all('/auth/sign-up', (c): Response => {
 
 app.all('/auth/sign-out', (c): Response => {
   return c.body(null, 405, { Allow: 'POST' });
+});
+
+/** Renders the dashboard page. */
+app.get('/app', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPageHandlers.handleGetDashboard(c as Context<AppEnv>);
+});
+
+/** Renders the inbox page. */
+app.get('/app/inbox', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPageHandlers.handleGetInbox(c as Context<AppEnv>);
+});
+
+/** Renders the actions page. */
+app.get('/app/actions', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPageHandlers.handleGetActions(c as Context<AppEnv>);
+});
+
+/** Captures a new inbox item (HTMX partial). */
+app.post('/app/_/inbox/capture', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPartialHandlers.handleCaptureInbox(c as Context<AppEnv>);
+});
+
+/** Clarifies an inbox item into an action (HTMX partial). */
+app.post('/app/_/inbox/:id/clarify', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPartialHandlers.handleClarifyInbox(c as Context<AppEnv>);
+});
+
+/** Activates an action (HTMX partial). */
+app.post('/app/_/actions/:id/activate', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPartialHandlers.handleActivateAction(c as Context<AppEnv>);
+});
+
+/** Completes an action (HTMX partial). */
+app.post('/app/_/actions/:id/complete', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPartialHandlers.handleCompleteAction(c as Context<AppEnv>);
 });
 
 /** Catch-all for unimplemented app partial routes. */
