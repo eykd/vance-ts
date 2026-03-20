@@ -314,10 +314,29 @@ describe('AuthPageHandlers', () => {
       expect(body).toContain('/dashboard');
     });
 
-    it('redirects to / with 303 when session cookie is present', () => {
+    it('redirects to / with 303 when session cookie is present and no redirectTo', () => {
       const req = new Request('https://example.com/auth/sign-in', {
         headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
       });
+      const res = handlers.handleGetSignIn(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/');
+    });
+
+    it('redirects to validated redirectTo with 303 when session cookie is present', () => {
+      const req = new Request('https://example.com/auth/sign-in?redirectTo=%2Fdashboard%2F', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignIn(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/dashboard/');
+    });
+
+    it('sanitises redirectTo to / for authenticated user when redirectTo is external', () => {
+      const req = new Request(
+        'https://example.com/auth/sign-in?redirectTo=https%3A%2F%2Fevil.com',
+        { headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` } }
+      );
       const res = handlers.handleGetSignIn(req);
       expect(res.status).toBe(303);
       expect(res.headers.get('Location')).toBe('/');

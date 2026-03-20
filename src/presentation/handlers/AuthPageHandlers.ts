@@ -194,7 +194,8 @@ export class AuthPageHandlers {
   /**
    * Handles GET /auth/sign-in.
    *
-   * Redirects already-authenticated users to `/` (303). Otherwise generates a
+   * Redirects already-authenticated users to the validated `redirectTo`
+   * destination (or `/` when absent) with a 303. Otherwise generates a
    * fresh CSRF token, stores it in the CSRF cookie, and renders the sign-in
    * form. Sets `Cache-Control: no-store, no-cache` to prevent caching of the
    * CSRF-bearing response.
@@ -203,13 +204,14 @@ export class AuthPageHandlers {
    * @returns A 303 redirect if already authenticated, or a 200 HTML response with Set-Cookie and Cache-Control headers.
    */
   handleGetSignIn(request: Request): Response {
+    const url = new URL(request.url);
+    const validated = validateRedirectTo(url.searchParams.get('redirectTo'));
+
     if (hasSessionCookie(request.headers.get('Cookie'), this.sessionCookieName)) {
-      return AuthPageHandlers.buildRedirect('/');
+      return AuthPageHandlers.buildRedirect(validated);
     }
 
-    const url = new URL(request.url);
     const registeredSuccess = url.searchParams.get('registered') === 'true';
-    const validated = validateRedirectTo(url.searchParams.get('redirectTo'));
     const redirectTo = validated !== '/' ? validated : undefined;
 
     const { headers, csrfToken } = this.makeFreshAuthHeaders();
