@@ -3,6 +3,8 @@
 
 baseURL: "https://meetclawtask.com/"
 
+title: "ClawTask"
+
 languageCode: "en-us"
 
 build:
