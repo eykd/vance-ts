@@ -156,6 +156,20 @@ app.get('/api/auth/callback/*', apiNotFound);
  */
 app.on(['GET', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
   try {
+    if (
+      c.req.method === 'POST' &&
+      c.req.header('content-type')?.includes('application/json') === true
+    ) {
+      try {
+        await c.req.raw.clone().json();
+      } catch {
+        return c.json(
+          { error: { code: 'invalid_json', message: 'Request body must be valid JSON' } },
+          400
+        );
+      }
+    }
+
     const authResponse = await getServiceFactory(c.env).authHandler(c.req.raw);
     if (authResponse.status >= 500) {
       getServiceFactory(c.env).logger.error(

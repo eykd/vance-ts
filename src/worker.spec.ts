@@ -822,6 +822,79 @@ describe('Worker', () => {
     });
   });
 
+  describe('POST /api/auth/* malformed JSON', () => {
+    it('returns 400 when sign-in body is malformed JSON', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{not valid json',
+      });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        error: { code: 'invalid_json', message: 'Request body must be valid JSON' },
+      });
+    });
+
+    it('returns 400 when sign-up body is malformed JSON', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/sign-up/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{not valid json',
+      });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        error: { code: 'invalid_json', message: 'Request body must be valid JSON' },
+      });
+    });
+
+    it('does not call authHandler when body is malformed JSON', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{not valid json',
+      });
+      await app.fetch(req, env);
+
+      expect(mocks.authHandlerFn).not.toHaveBeenCalled();
+    });
+
+    it('applies security headers when body is malformed JSON', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{not valid json',
+      });
+      const res = await app.fetch(req, env);
+
+      expectSecurityHeaders(res);
+    });
+
+    it('does not validate JSON for POST without application/json content-type', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
+
+      const req = new Request('https://example.com/api/auth/sign-out', {
+        method: 'POST',
+      });
+      const res = await app.fetch(req, env);
+
+      expect(mocks.authHandlerFn).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+    });
+  });
+
   describe('POST /api/auth/*', () => {
     it('delegates POST /api/auth/sign-in/email to authHandler', async () => {
       const env = mockEnv();
