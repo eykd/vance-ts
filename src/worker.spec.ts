@@ -669,6 +669,67 @@ describe('Worker', () => {
 
       expect(mocks.loggerError).toHaveBeenCalledWith('auth handler error', error);
     });
+
+    it('returns 503 JSON when authHandler returns a 5xx response', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 500 }));
+
+      const req = new Request('https://example.com/api/auth/sign-out', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(503);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
+      expect(await res.json()).toEqual({ error: 'Service Unavailable' });
+    });
+
+    it('includes Retry-After header when authHandler returns a 5xx response', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 502 }));
+
+      const req = new Request('https://example.com/api/auth/sign-out', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('Retry-After')).toBe('30');
+    });
+
+    it('logs the 5xx status when authHandler returns a server error response', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 500 }));
+
+      const req = new Request('https://example.com/api/auth/sign-out', { method: 'POST' });
+      await app.fetch(req, env);
+
+      expect(mocks.loggerError).toHaveBeenCalledWith(
+        'auth handler error',
+        expect.objectContaining({ message: expect.stringContaining('500') })
+      );
+    });
+
+    it('applies security headers when authHandler returns a 5xx response', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 500 }));
+
+      const req = new Request('https://example.com/api/auth/sign-out', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expectSecurityHeaders(res);
+    });
+
+    it('passes through 4xx responses from authHandler unchanged', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      const req = new Request('https://example.com/api/auth/session');
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: 'Unauthorized' });
+    });
   });
 
   describe('GET /api/auth/callback/* (unconfigured providers)', () => {

@@ -3,5 +3,6 @@
   "backend": "dolt",
   "dolt_mode": "server",
   "dolt_server_port": 14080,
-  "dolt_database": "beads_workspace"
+  "dolt_database": "clawtask_workspace",
+  "project_id": "1b20b36c-e41f-40f8-8f6e-f4e1b4df08ea"
 }

@@ -154,6 +154,13 @@ app.get('/api/auth/callback/*', apiNotFound);
 app.on(['GET', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
   try {
     const authResponse = await getServiceFactory(c.env).authHandler(c.req.raw);
+    if (authResponse.status >= 500) {
+      getServiceFactory(c.env).logger.error(
+        'auth handler error',
+        new Error(`auth handler returned HTTP ${String(authResponse.status)}`)
+      );
+      return c.json({ error: 'Service Unavailable' }, 503, { 'Retry-After': '30' });
+    }
     return new Response(authResponse.body, authResponse);
   } catch (error: unknown) {
     getServiceFactory(c.env).logger.error('auth handler error', error);
