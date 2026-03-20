@@ -20,18 +20,21 @@
 <meta property="og:description" content="{{ $description }}" />
 <meta property="og:url" content="{{ $url }}" />
 <meta property="og:type" content="{{ $type }}" />
-<meta property="og:site_name" content="{{ .Site.Title }}" />
+<meta property="og:site_name" content="{{ .Site.Title | default .Site.Params.title }}" />
 <meta property="og:locale" content="{{ .Site.LanguageCode | default "en_US" | replaceRE "-" "_" }}" />
 
 {{- with $image }}
-  {{- $imageURL := . -}}
+  {{- $imageURL := "" -}}
   {{- $imageResource := "" -}}
-  {{- if not (strings.HasPrefix . "http") -}}
+  {{- if strings.HasPrefix . "http" -}}
+    {{- $imageURL = . -}}
+  {{- else -}}
     {{- with resources.Get . -}}
       {{- $imageURL = .Permalink -}}
       {{- $imageResource = . -}}
     {{- end -}}
   {{- end -}}
+  {{- if $imageURL }}
   <meta property="og:image" content="{{ $imageURL }}" />
   {{- /* Use configured dimensions or introspect from resource */ -}}
   {{- $width := $.Site.Params.imageWidth | default 1200 -}}
@@ -44,6 +47,7 @@
   <meta property="og:image:height" content="{{ $height }}" />
   {{- with $.Params.imageAlt | default $.Site.Params.imageAlt | default $title }}
     <meta property="og:image:alt" content="{{ . }}" />
+  {{- end }}
   {{- end }}
 {{- end }}
 
