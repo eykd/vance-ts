@@ -178,12 +178,18 @@ app.on(['GET', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
         'auth handler error',
         new Error(`auth handler returned HTTP ${String(authResponse.status)}`)
       );
-      return c.json({ error: 'Service Unavailable' }, 503, { 'Retry-After': '30' });
+      return c.json(
+        { error: { code: 'service_unavailable', message: 'Service unavailable' } },
+        503,
+        { 'Retry-After': '30' }
+      );
     }
     return new Response(authResponse.body, authResponse);
   } catch (error: unknown) {
     getServiceFactory(c.env).logger.error('auth handler error', error);
-    return c.json({ error: 'Service Unavailable' }, 503, { 'Retry-After': '30' });
+    return c.json({ error: { code: 'service_unavailable', message: 'Service unavailable' } }, 503, {
+      'Retry-After': '30',
+    });
   }
 });
 

@@ -268,7 +268,7 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(404);
-      expect(await res.json()).toEqual({ error: 'Not found' });
+      expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } });
     });
 
     it('includes security headers on 404', async () => {
@@ -289,7 +289,7 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(404);
-      expect(await res.json()).toEqual({ error: 'Not found' });
+      expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } });
     });
 
     it('includes security headers on 404', async () => {
@@ -697,7 +697,9 @@ describe('Worker', () => {
 
       expect(res.status).toBe(503);
       expect(res.headers.get('Content-Type')).toContain('application/json');
-      expect(await res.json()).toEqual({ error: 'Service Unavailable' });
+      expect(await res.json()).toEqual({
+        error: { code: 'service_unavailable', message: 'Service unavailable' },
+      });
     });
 
     it('includes Retry-After header when authHandler throws', async () => {
@@ -729,7 +731,9 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(503);
-      expect(await res.json()).toEqual({ error: 'Service Unavailable' });
+      expect(await res.json()).toEqual({
+        error: { code: 'service_unavailable', message: 'Service unavailable' },
+      });
     });
 
     it('logs the underlying exception via the Logger port', async () => {
@@ -752,7 +756,9 @@ describe('Worker', () => {
 
       expect(res.status).toBe(503);
       expect(res.headers.get('Content-Type')).toContain('application/json');
-      expect(await res.json()).toEqual({ error: 'Service Unavailable' });
+      expect(await res.json()).toEqual({
+        error: { code: 'service_unavailable', message: 'Service unavailable' },
+      });
     });
 
     it('includes Retry-After header when authHandler returns a 5xx response', async () => {
@@ -815,7 +821,7 @@ describe('Worker', () => {
 
       expect(res.status).toBe(404);
       expect(res.headers.get('Content-Type')).toContain('application/json');
-      expect(await res.json()).toEqual({ error: 'Not found' });
+      expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } });
     });
 
     it('does not delegate to authHandler', async () => {
@@ -834,7 +840,7 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(404);
-      expect(await res.json()).toEqual({ error: 'Not found' });
+      expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } });
     });
 
     it('includes security headers', async () => {

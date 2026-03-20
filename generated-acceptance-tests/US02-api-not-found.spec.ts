@@ -17,8 +17,9 @@ it("API returns structured error for unknown routes.", async () => {
   // THEN the response has status 404.
   expect(res.status).toBe(404);
   // THEN the response body shows an error message.
-  const body = await res.json() as { error: string };
-  expect(body.error).toBe("Not found");
+  const body = await res.json() as { error: { code: string; message: string } };
+  expect(body.error.code).toBe("not_found");
+  expect(body.error.message).toBe("Not found");
 });
 
 }); // end describe

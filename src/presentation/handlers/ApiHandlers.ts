@@ -17,5 +17,5 @@ export function healthCheck(c: Context): Response {
  * @returns JSON response with 404 status
  */
 export function apiNotFound(c: Context): Response {
-  return c.json({ error: 'Not found' }, 404);
+  return c.json({ error: { code: 'not_found', message: 'Not found' } }, 404);
 }

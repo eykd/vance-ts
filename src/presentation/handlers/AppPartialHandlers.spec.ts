@@ -23,7 +23,7 @@ describe('AppPartialHandlers', () => {
       const res = await app.fetch(req);
 
       expect(res.status).toBe(404);
-      expect(await res.json()).toEqual({ error: 'Not found' });
+      expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } });
     });
   });
 

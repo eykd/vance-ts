@@ -145,5 +145,5 @@ export class AppPartialHandlers {
  * @returns JSON response with 404 status
  */
 export function appPartialNotFound(c: Context): Response {
-  return c.json({ error: 'Not found' }, 404);
+  return c.json({ error: { code: 'not_found', message: 'Not found' } }, 404);
 }
