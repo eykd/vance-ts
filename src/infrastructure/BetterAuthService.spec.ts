@@ -375,9 +375,96 @@ describe('BetterAuthService', () => {
       }
     });
 
-    it('returns ok: false kind: weak_password when response is 400', async () => {
+    it('returns ok: false kind: weak_password when response is 400 with PASSWORD_TOO_SHORT code', async () => {
       expect.assertions(2);
-      authMock.api.signUpEmail.mockResolvedValue(new Response(null, { status: 400 }));
+      authMock.api.signUpEmail.mockResolvedValue(
+        new Response(
+          JSON.stringify({ code: 'PASSWORD_TOO_SHORT', message: 'Password too short' }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+
+      const result = await service.signUp({
+        email: 'new@example.com',
+        password: 'short',
+        name: 'Carol',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('weak_password');
+      }
+    });
+
+    it('returns ok: false kind: weak_password when response is 400 with PASSWORD_TOO_LONG code', async () => {
+      expect.assertions(2);
+      authMock.api.signUpEmail.mockResolvedValue(
+        new Response(JSON.stringify({ code: 'PASSWORD_TOO_LONG', message: 'Password too long' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      const result = await service.signUp({
+        email: 'new@example.com',
+        password: 'a'.repeat(200),
+        name: 'Carol',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('weak_password');
+      }
+    });
+
+    it('returns ok: false kind: invalid_email when response is 400 with INVALID_EMAIL code', async () => {
+      expect.assertions(2);
+      authMock.api.signUpEmail.mockResolvedValue(
+        new Response(JSON.stringify({ code: 'INVALID_EMAIL', message: 'Invalid email' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      const result = await service.signUp({
+        email: 'not-an-email',
+        password: 'correcthorse12',
+        name: 'Carol',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('invalid_email');
+      }
+    });
+
+    it('returns ok: false kind: weak_password when response is 400 with unparseable body', async () => {
+      expect.assertions(2);
+      authMock.api.signUpEmail.mockResolvedValue(new Response('not json', { status: 400 }));
+
+      const result = await service.signUp({
+        email: 'new@example.com',
+        password: 'short',
+        name: 'Carol',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('weak_password');
+      }
+    });
+
+    it('returns ok: false kind: weak_password when response is 400 with unrecognised code', async () => {
+      expect.assertions(2);
+      authMock.api.signUpEmail.mockResolvedValue(
+        new Response(JSON.stringify({ code: 'SOMETHING_ELSE', message: 'Unknown' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
 
       const result = await service.signUp({
         email: 'new@example.com',

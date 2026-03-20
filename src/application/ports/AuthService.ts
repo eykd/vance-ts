@@ -74,6 +74,7 @@ export interface AuthService {
    * **Result kind origins** (for implementors and callers):
    * - `email_taken` — `BetterAuthService`: better-auth HTTP 422.
    * - `weak_password` — `BetterAuthService`: better-auth HTTP 400 (password too short/long).
+   * - `invalid_email` — `BetterAuthService`: better-auth HTTP 400 with `INVALID_EMAIL` code.
    * - `rate_limited` — `BetterAuthService`: better-auth HTTP 429 (not KV rate limiting).
    * - `service_error` — `BetterAuthService`: non-2xx/400/422/429 response or thrown exception.
    *
@@ -93,7 +94,7 @@ export interface AuthService {
     name: string;
   }): Promise<
     | { ok: true }
-    | { ok: false; kind: 'email_taken' | 'weak_password' | 'service_error' }
+    | { ok: false; kind: 'email_taken' | 'weak_password' | 'invalid_email' | 'service_error' }
     | { ok: false; kind: 'rate_limited'; retryAfter?: number }
   >;
 

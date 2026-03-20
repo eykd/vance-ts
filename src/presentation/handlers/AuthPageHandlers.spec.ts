@@ -991,6 +991,46 @@ describe('AuthPageHandlers', () => {
       });
     });
 
+    describe('invalid email', () => {
+      beforeEach(() => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'invalid_email' });
+      });
+
+      it('returns 200 status', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(200);
+      });
+
+      it('re-renders the form with an email error message', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('Please enter a valid email address');
+      });
+
+      it('renders the error as a per-field email error (id="email-error")', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('id="email-error"');
+      });
+
+      it('does not render a general error banner for invalid email', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).not.toContain('id="register-error"');
+      });
+
+      it('re-renders the form with the submitted email pre-filled', async () => {
+        const req = makeSignUpPostRequest({ email: 'not-an-email' });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('not-an-email');
+      });
+    });
+
     describe('weak password', () => {
       beforeEach(() => {
         signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'weak_password' });

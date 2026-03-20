@@ -140,6 +140,18 @@ describe('SignUpUseCase', () => {
       }
     });
 
+    it('returns ok: false kind: invalid_email when authService returns invalid_email', async () => {
+      expect.assertions(2);
+      authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'invalid_email' });
+
+      const result = await useCase.execute(defaultRequest);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('invalid_email');
+      }
+    });
+
     it('returns ok: false kind: rate_limited when authService returns rate_limited', async () => {
       expect.assertions(2);
       authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'rate_limited' });

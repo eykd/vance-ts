@@ -38,10 +38,11 @@ const MAX_BODY_BYTES = 4096;
  * registration form. Covers weak passwords, common passwords, and service errors.
  */
 const SIGN_UP_ERROR_MESSAGES: Record<
-  'weak_password' | 'password_too_common' | 'service_error',
+  'weak_password' | 'invalid_email' | 'password_too_common' | 'service_error',
   string
 > = {
   weak_password: 'Password must be at least 12 characters',
+  invalid_email: 'Please enter a valid email address',
   password_too_common: 'Password is too common. Please choose a different password.',
   service_error: 'An error occurred. Please try again.',
 };
@@ -323,6 +324,16 @@ export class AuthPageHandlers {
     }
 
     const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
+
+    // invalid_email — show as per-field error on the email input
+    if (result.kind === 'invalid_email') {
+      const body = registerPage({
+        csrfToken,
+        email,
+        fieldErrors: { email: SIGN_UP_ERROR_MESSAGES[result.kind] },
+      });
+      return new Response(body, { headers: errorHeaders });
+    }
 
     // weak_password and password_too_common — show as per-field error on the password input
     if (result.kind === 'weak_password' || result.kind === 'password_too_common') {

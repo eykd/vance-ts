@@ -181,7 +181,8 @@ export class BetterAuthService implements AuthService {
    * interprets the HTTP response status to produce a typed result:
    * - 200: success
    * - 422: email already in use
-   * - 400: weak password (too short or too long per better-auth config)
+   * - 400 + `INVALID_EMAIL` code: invalid email format
+   * - 400 + other/missing code: weak password (too short or too long per better-auth config)
    * - 429: rate limited (optional `Retry-After` header parsed to seconds)
    * - other: service error
    * - throws: service error
@@ -198,7 +199,7 @@ export class BetterAuthService implements AuthService {
     name: string;
   }): Promise<
     | { ok: true }
-    | { ok: false; kind: 'email_taken' | 'weak_password' | 'service_error' }
+    | { ok: false; kind: 'email_taken' | 'weak_password' | 'invalid_email' | 'service_error' }
     | { ok: false; kind: 'rate_limited'; retryAfter?: number }
   > {
     try {
@@ -223,6 +224,19 @@ export class BetterAuthService implements AuthService {
       }
 
       if (response.status === 400) {
+        try {
+          const body: unknown = await response.json();
+          if (
+            typeof body === 'object' &&
+            body !== null &&
+            'code' in body &&
+            (body as { code: unknown }).code === 'INVALID_EMAIL'
+          ) {
+            return { ok: false, kind: 'invalid_email' };
+          }
+        } catch {
+          // Body unparseable — fall through to weak_password default
+        }
         return { ok: false, kind: 'weak_password' };
       }
 

@@ -33,6 +33,7 @@ type SignUpRequest = {
  * identifies the error category and its origin:
  * - `email_taken` — an account with this email already exists (from `AuthService.signUp`)
  * - `weak_password` — password too short/long per auth config (from `AuthService.signUp`)
+ * - `invalid_email` — email format is invalid (from `AuthService.signUp`)
  * - `password_too_common` — password is in the OWASP blocklist (detected in this use case)
  * - `rate_limited` — IP exceeded the allowed attempt window (`RateLimiter` or `AuthService`)
  * - `service_error` — infrastructure failure, e.g. DB unavailable (`AuthService` or `RateLimiter`)
@@ -41,7 +42,12 @@ type SignUpResult =
   | { ok: true }
   | {
       ok: false;
-      kind: 'email_taken' | 'weak_password' | 'password_too_common' | 'service_error';
+      kind:
+        | 'email_taken'
+        | 'weak_password'
+        | 'invalid_email'
+        | 'password_too_common'
+        | 'service_error';
     }
   | { ok: false; kind: 'rate_limited'; retryAfter?: number };
 
