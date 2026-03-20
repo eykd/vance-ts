@@ -10,13 +10,14 @@
 
 import { COMMON_PASSWORDS } from '../../domain/value-objects/common-passwords.js';
 import type { AuthService } from '../ports/AuthService.js';
+import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
-import { REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
+import { MAX_ATTEMPTS, REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
 /**
  * Input DTO for the sign-up use case.
  */
-export type SignUpRequest = {
+type SignUpRequest = {
   /** The user's email address. */
   email: string;
   /** The user's plaintext password. */
@@ -36,18 +37,13 @@ export type SignUpRequest = {
  * - `rate_limited` — IP exceeded the allowed attempt window (`RateLimiter` or `AuthService`)
  * - `service_error` — infrastructure failure, e.g. DB unavailable (`AuthService` or `RateLimiter`)
  */
-export type SignUpResult =
+type SignUpResult =
   | { ok: true }
   | {
       ok: false;
-      kind:
-        | 'email_taken'
-        | 'weak_password'
-        | 'password_too_common'
-        | 'rate_limited'
-        | 'service_error';
-      retryAfter?: number;
-    };
+      kind: 'email_taken' | 'weak_password' | 'password_too_common' | 'service_error';
+    }
+  | { ok: false; kind: 'rate_limited'; retryAfter?: number };
 
 /**
  * Orchestrates email/password registration with IP rate limiting.
@@ -62,7 +58,7 @@ export type SignUpResult =
  *
  * @example
  * ```typescript
- * const useCase = new SignUpUseCase(authService, rateLimiter);
+ * const useCase = new SignUpUseCase(authService, rateLimiter, logger);
  * const result = await useCase.execute({ email, password, ip });
  * if (result.ok) {
  *   return redirect('/auth/sign-in?registered=true');
@@ -76,15 +72,20 @@ export class SignUpUseCase {
   /** Rate limiter port interface, injected at construction time. */
   private readonly rateLimiter: RateLimiter;
 
+  /** Logger port interface, injected at construction time. */
+  private readonly logger: Logger;
+
   /**
    * Creates a new SignUpUseCase.
    *
    * @param authService - Auth service port; implemented by BetterAuthService.
    * @param rateLimiter - Rate limiter port; implemented by KvRateLimiter.
+   * @param logger - Logger port; implemented by ConsoleLogger.
    */
-  constructor(authService: AuthService, rateLimiter: RateLimiter) {
+  constructor(authService: AuthService, rateLimiter: RateLimiter, logger: Logger) {
     this.authService = authService;
     this.rateLimiter = rateLimiter;
+    this.logger = logger;
   }
 
   /**
@@ -95,10 +96,13 @@ export class SignUpUseCase {
    */
   async execute(request: SignUpRequest): Promise<SignUpResult> {
     try {
-      const ipKey = request.ip !== 'unknown' ? request.ip : crypto.randomUUID();
-      const key = `ratelimit:register:${ipKey}`;
+      const key = `ratelimit:register:${request.ip}`;
 
-      const rateCheck = await this.rateLimiter.checkAndIncrement(key, REGISTER_WINDOW_SECONDS);
+      const rateCheck = await this.rateLimiter.checkAndIncrement(
+        key,
+        REGISTER_WINDOW_SECONDS,
+        MAX_ATTEMPTS
+      );
       if (!rateCheck.allowed) {
         return { ok: false, kind: 'rate_limited', retryAfter: rateCheck.retryAfter };
       }
@@ -118,7 +122,8 @@ export class SignUpUseCase {
       });
 
       return result;
-    } catch {
+    } catch (error: unknown) {
+      this.logger.error('SignUpUseCase: unexpected error during sign-up', error);
       return { ok: false, kind: 'service_error' };
     }
   }

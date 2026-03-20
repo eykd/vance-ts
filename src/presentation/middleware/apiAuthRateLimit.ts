@@ -17,6 +17,7 @@
 import type { Context, Next } from 'hono';
 
 import type { RateLimiter } from '../../application/ports/RateLimiter';
+import { MAX_ATTEMPTS } from '../../application/ports/RateLimiter';
 import type { AppEnv } from '../types';
 import { extractClientIp } from '../utils/extractClientIp';
 
@@ -45,10 +46,9 @@ export function createApiAuthRateLimit(
 ): (c: Context<AppEnv>, next: Next) => Promise<Response | void> {
   return async function apiAuthRateLimit(c: Context<AppEnv>, next: Next): Promise<Response | void> {
     const ip = extractClientIp(c.req.raw);
-    const ipKey = ip !== 'unknown' ? ip : crypto.randomUUID();
-    const key = `ratelimit:${endpoint}:${ipKey}`;
+    const key = `ratelimit:${endpoint}:${ip}`;
 
-    const check = await rateLimiter.checkAndIncrement(key, windowSeconds);
+    const check = await rateLimiter.checkAndIncrement(key, windowSeconds, MAX_ATTEMPTS);
     if (!check.allowed) {
       return new Response(JSON.stringify({ error: 'Too many requests' }), {
         status: 429,

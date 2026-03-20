@@ -8,6 +8,9 @@
  * @module
  */
 
+import type { DomainError } from '../errors/DomainError.js';
+import type { Result } from '../shared/Result.js';
+import { ok } from '../shared/Result.js';
 import { requireNonBlank } from '../shared/validation.js';
 
 /** Auditable entity types within the domain. */
@@ -26,7 +29,7 @@ export type AuditEventKind =
   | 'action.completed';
 
 /**
- * AuditEvent entity — an immutable, append-only record of a domain mutation.
+ * AuditEvent entity -- an immutable, append-only record of a domain mutation.
  *
  * Constructed only via the `record` factory. No updates or deletes are ever
  * performed on audit events.
@@ -34,7 +37,7 @@ export type AuditEventKind =
 export interface AuditEvent {
   /** Unique identifier (UUID). */
   readonly id: string;
-  /** FK → `workspace.id`. The workspace this event belongs to. */
+  /** FK -> `workspace.id`. The workspace this event belongs to. */
   readonly workspaceId: string;
   /** Type of the affected entity. */
   readonly entityType: AuditEntityType;
@@ -42,7 +45,7 @@ export interface AuditEvent {
   readonly entityId: string;
   /** Event type describing the mutation. */
   readonly eventType: AuditEventKind;
-  /** FK → `actor.id`. The actor who caused this event. */
+  /** FK -> `actor.id`. The actor who caused this event. */
   readonly actorId: string;
   /** JSON snapshot of the entity state at the time of the event. */
   readonly payload: string;
@@ -56,15 +59,15 @@ export namespace AuditEvent {
    * Records a new audit event, generating a unique ID and current timestamp.
    *
    * This is the only way to create a new AuditEvent. No update or delete
-   * operations exist — audit events are append-only.
+   * operations exist -- audit events are append-only.
    *
-   * @param workspaceId - FK → `workspace.id`.
+   * @param workspaceId - FK -> `workspace.id`.
    * @param entityType - Type of the affected entity.
    * @param entityId - UUID of the affected entity.
    * @param eventType - Event type describing the mutation.
-   * @param actorId - FK → `actor.id`.
+   * @param actorId - FK -> `actor.id`.
    * @param payload - JSON snapshot of the entity state at event time.
-   * @returns A new immutable AuditEvent.
+   * @returns A Result containing a new immutable AuditEvent, or a DomainError.
    */
   export function record(
     workspaceId: string,
@@ -73,12 +76,19 @@ export namespace AuditEvent {
     eventType: AuditEventKind,
     actorId: string,
     payload: string
-  ): AuditEvent {
-    requireNonBlank(workspaceId, 'workspace_id_required');
-    requireNonBlank(entityId, 'entity_id_required');
-    requireNonBlank(actorId, 'actor_id_required');
-    requireNonBlank(payload, 'payload_required');
-    return {
+  ): Result<AuditEvent, DomainError> {
+    const checks = [
+      requireNonBlank(workspaceId, 'workspace_id_required'),
+      requireNonBlank(entityId, 'entity_id_required'),
+      requireNonBlank(actorId, 'actor_id_required'),
+      requireNonBlank(payload, 'payload_required'),
+    ];
+    for (const check of checks) {
+      if (!check.success) {
+        return check;
+      }
+    }
+    return ok({
       id: crypto.randomUUID(),
       workspaceId,
       entityType,
@@ -87,6 +97,6 @@ export namespace AuditEvent {
       actorId,
       payload,
       createdAt: new Date().toISOString(),
-    };
+    });
   }
 }

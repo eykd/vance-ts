@@ -2,7 +2,7 @@ import { escapeHtml, html, safe } from '../../utils/html';
 import { authLayout } from '../layouts/authLayout';
 
 /** Props for the login page template. */
-export interface LoginPageProps {
+interface LoginPageProps {
   /** CSRF token rendered in a hidden form field. */
   readonly csrfToken: string;
   /** Optional redirect destination preserved across sign-in. */

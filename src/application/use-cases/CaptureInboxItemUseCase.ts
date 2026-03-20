@@ -26,6 +26,17 @@ export type CaptureInboxItemRequest = {
 };
 
 /**
+ * Result type returned by {@link CaptureInboxItemUseCase.execute}.
+ *
+ * On success, `data` contains the captured inbox item DTO. On failure, `kind`
+ * identifies the error category:
+ * - `domain_error` — validation or other domain rule violation
+ */
+export type CaptureInboxItemResult =
+  | { ok: true; data: InboxItemDto }
+  | { ok: false; kind: 'domain_error'; code: string };
+
+/**
  * Captures a new inbox item into a workspace.
  */
 export class CaptureInboxItemUseCase {
@@ -44,16 +55,24 @@ export class CaptureInboxItemUseCase {
   }
 
   /**
-   * Creates and persists a new inbox item, returning its DTO.
+   * Creates and persists a new inbox item, returning a typed result.
    *
    * @param request - The request containing workspace ID and title.
-   * @returns The newly created inbox item DTO.
+   * @returns A typed result; never throws for domain errors.
    */
-  async execute(request: CaptureInboxItemRequest): Promise<InboxItemDto> {
-    const item = InboxItem.create(request.workspaceId, request.title, request.description ?? null);
+  async execute(request: CaptureInboxItemRequest): Promise<CaptureInboxItemResult> {
+    const createResult = InboxItem.create(
+      request.workspaceId,
+      request.title,
+      request.description ?? null
+    );
+    if (!createResult.success) {
+      return { ok: false, kind: 'domain_error', code: createResult.error.code };
+    }
+    const item = createResult.value;
     await this._repo.save(item);
     await this._recordAuditEvent(request, item);
-    return toInboxItemDto(item);
+    return { ok: true, data: toInboxItemDto(item) };
   }
 
   /**
@@ -69,7 +88,7 @@ export class CaptureInboxItemUseCase {
     if (this._auditRepo === undefined || request.actorId === undefined) {
       return;
     }
-    const event = AuditEvent.record(
+    const eventResult = AuditEvent.record(
       request.workspaceId,
       'inbox_item',
       item.id,
@@ -77,6 +96,8 @@ export class CaptureInboxItemUseCase {
       request.actorId,
       JSON.stringify({ title: item.title, description: item.description, status: item.status })
     );
-    await this._auditRepo.save(event);
+    if (eventResult.success) {
+      await this._auditRepo.save(eventResult.value);
+    }
   }
 }

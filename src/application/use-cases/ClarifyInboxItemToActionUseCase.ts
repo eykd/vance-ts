@@ -8,7 +8,6 @@
 import { Action } from '../../domain/entities/Action.js';
 import { AuditEvent } from '../../domain/entities/AuditEvent.js';
 import { InboxItem } from '../../domain/entities/InboxItem.js';
-import { DomainError } from '../../domain/errors/DomainError.js';
 import type { AreaRepository } from '../../domain/interfaces/AreaRepository.js';
 import type { ClarifyInboxItemBatchPort } from '../../domain/interfaces/ClarifyInboxItemBatchPort.js';
 import type { ContextRepository } from '../../domain/interfaces/ContextRepository.js';
@@ -35,6 +34,29 @@ export type ClarifyInboxItemRequest = {
   /** Optional description override; defaults to inbox item description. */
   description?: string;
 };
+
+/**
+ * Result type returned by {@link ClarifyInboxItemToActionUseCase.execute}.
+ *
+ * On success, `data` contains the newly created action DTO. On failure, `kind`
+ * identifies the error category:
+ * - `inbox_item_not_found` — no inbox item exists with the given ID
+ * - `area_not_found_or_archived` — area does not exist or is archived
+ * - `context_not_found` — context does not exist in the workspace
+ * - `already_clarified` — inbox item has already been clarified
+ * - `domain_error` — other domain validation failure
+ */
+export type ClarifyInboxItemResult =
+  | { ok: true; data: ActionDto }
+  | {
+      ok: false;
+      kind:
+        | 'inbox_item_not_found'
+        | 'area_not_found_or_archived'
+        | 'context_not_found'
+        | 'already_clarified'
+        | 'domain_error';
+    };
 
 /**
  * Clarifies an inbox item into an action, persisting both state changes.
@@ -69,26 +91,27 @@ export class ClarifyInboxItemToActionUseCase {
    * Clarifies an inbox item into an action.
    *
    * @param request - The clarification request.
-   * @returns The newly created action DTO.
+   * @returns A typed result; never throws.
    */
-  async execute(request: ClarifyInboxItemRequest): Promise<ActionDto> {
+  async execute(request: ClarifyInboxItemRequest): Promise<ClarifyInboxItemResult> {
     const item = await this._inboxRepo.getById(request.inboxItemId, request.workspaceId);
     if (item === null) {
-      throw new DomainError('inbox_item_not_found');
+      return { ok: false, kind: 'inbox_item_not_found' };
     }
 
     const area = await this._areaRepo.getActiveById(request.areaId, request.workspaceId);
     if (area === null) {
-      throw new DomainError('area_not_found_or_archived');
+      return { ok: false, kind: 'area_not_found_or_archived' };
     }
 
     const context = await this._contextRepo.getById(request.contextId, request.workspaceId);
     if (context === null) {
-      throw new DomainError('context_not_found');
+      return { ok: false, kind: 'context_not_found' };
     }
 
     const description = request.description ?? item.description;
-    const action = Action.create(
+
+    const createResult = Action.create(
       request.workspaceId,
       request.actorId,
       request.title,
@@ -96,13 +119,25 @@ export class ClarifyInboxItemToActionUseCase {
       request.contextId,
       description
     );
+    if (!createResult.success) {
+      return { ok: false, kind: 'domain_error' };
+    }
+    const action = createResult.value;
 
-    const clarifiedItem = InboxItem.clarify(item, 'action', action.id);
+    const clarifyResult = InboxItem.clarify(item, 'action', action.id);
+    if (!clarifyResult.success) {
+      if (clarifyResult.error.code === 'already_clarified') {
+        return { ok: false, kind: 'already_clarified' };
+      }
+      return { ok: false, kind: 'domain_error' };
+    }
+    const clarifiedItem = clarifyResult.value;
+
     const auditEvents = this._buildAuditEvents(request, clarifiedItem, action);
 
     await this._batchPort.clarifyBatch(clarifiedItem, action, auditEvents);
 
-    return toActionDto(action);
+    return { ok: true, data: toActionDto(action) };
   }
 
   /**
@@ -118,7 +153,8 @@ export class ClarifyInboxItemToActionUseCase {
     item: InboxItem,
     action: Action
   ): AuditEvent[] {
-    const itemEvent = AuditEvent.record(
+    const events: AuditEvent[] = [];
+    const itemEventResult = AuditEvent.record(
       request.workspaceId,
       'inbox_item',
       item.id,
@@ -130,7 +166,10 @@ export class ClarifyInboxItemToActionUseCase {
         clarifiedIntoId: item.clarifiedIntoId,
       })
     );
-    const actionEvent = AuditEvent.record(
+    if (itemEventResult.success) {
+      events.push(itemEventResult.value);
+    }
+    const actionEventResult = AuditEvent.record(
       request.workspaceId,
       'action',
       action.id,
@@ -143,6 +182,9 @@ export class ClarifyInboxItemToActionUseCase {
         contextId: action.contextId,
       })
     );
-    return [itemEvent, actionEvent];
+    if (actionEventResult.success) {
+      events.push(actionEventResult.value);
+    }
+    return events;
   }
 }

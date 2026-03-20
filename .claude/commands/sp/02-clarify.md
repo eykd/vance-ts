@@ -1,11 +1,3 @@
----
-description: Interview the user one question at a time to clarify any underspecified areas in the current feature spec, with no fixed cap on questions. Writes answers back into the spec.
-handoffs:
-  - label: Build Technical Plan
-    agent: sp:03-plan
-    prompt: Create a plan for the spec. I am building with...
----
-
 ## User Input
 
 ```text
@@ -205,7 +197,7 @@ Execution steps:
    c. Mark the task in progress (if not already):
 
    ```bash
-   npx bd update <clarify-task-id> --status in_progress
+   npx bd update <clarify-task-id> --claim
    ```
 
    d. Close the task with a completion summary:

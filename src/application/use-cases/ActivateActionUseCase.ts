@@ -6,7 +6,6 @@
 
 import { Action } from '../../domain/entities/Action.js';
 import { AuditEvent } from '../../domain/entities/AuditEvent.js';
-import { DomainError } from '../../domain/errors/DomainError.js';
 import type { ActionRepository } from '../../domain/interfaces/ActionRepository.js';
 import type { AuditEventRepository } from '../../domain/interfaces/AuditEventRepository.js';
 import type { ActionDto } from '../dto/ActionDto.js';
@@ -23,6 +22,18 @@ export type ActivateActionRequest = {
   /** FK -> actor.id for audit trail. */
   actorId: string;
 };
+
+/**
+ * Result type returned by {@link ActivateActionUseCase.execute}.
+ *
+ * On success, `data` contains the activated action DTO. On failure, `kind`
+ * identifies the error category:
+ * - `action_not_found` — no action exists with the given ID in the workspace
+ * - `invalid_status_transition` — action is not in 'ready' status
+ */
+export type ActivateActionResult =
+  | { ok: true; data: ActionDto }
+  | { ok: false; kind: 'action_not_found' | 'invalid_status_transition' };
 
 /**
  * Activates an action, transitioning it from 'ready' to 'active'.
@@ -46,19 +57,24 @@ export class ActivateActionUseCase {
    * Activates an action.
    *
    * @param request - The activation request.
-   * @returns The updated action DTO.
+   * @returns A typed result; never throws.
    */
-  async execute(request: ActivateActionRequest): Promise<ActionDto> {
+  async execute(request: ActivateActionRequest): Promise<ActivateActionResult> {
     const action = await this._actionRepo.getById(request.actionId, request.workspaceId);
     if (action === null) {
-      throw new DomainError('action_not_found');
+      return { ok: false, kind: 'action_not_found' };
     }
 
-    const activated = Action.activate(action);
+    const activateResult = Action.activate(action);
+    if (!activateResult.success) {
+      return { ok: false, kind: 'invalid_status_transition' };
+    }
+    const activated = activateResult.value;
+
     await this._actionRepo.save(activated);
 
     if (this._auditRepo !== undefined) {
-      const event = AuditEvent.record(
+      const eventResult = AuditEvent.record(
         request.workspaceId,
         'action',
         activated.id,
@@ -66,9 +82,11 @@ export class ActivateActionUseCase {
         request.actorId,
         JSON.stringify({ status: activated.status })
       );
-      await this._auditRepo.save(event);
+      if (eventResult.success) {
+        await this._auditRepo.save(eventResult.value);
+      }
     }
 
-    return toActionDto(activated);
+    return { ok: true, data: toActionDto(activated) };
   }
 }

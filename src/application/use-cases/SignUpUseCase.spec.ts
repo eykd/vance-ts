@@ -1,53 +1,55 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { AuthService } from '../ports/AuthService.js';
+import type { Logger } from '../ports/Logger.js';
 import type { RateLimiter } from '../ports/RateLimiter.js';
-import { REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
+import { MAX_ATTEMPTS, REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
 import { SignUpUseCase } from './SignUpUseCase.js';
 
 /**
- * Creates a minimal AuthService mock with vi.fn() stubs.
+ * Creates an AuthService mock with only the method SignUpUseCase calls.
  *
- * @returns An object with `vi.fn()` stubs for each AuthService method.
+ * @returns An object with a `vi.fn()` stub for signUp.
  */
 function makeAuthServiceMock(): {
-  signIn: ReturnType<typeof vi.fn>;
   signUp: ReturnType<typeof vi.fn>;
-  signOut: ReturnType<typeof vi.fn>;
-  getSession: ReturnType<typeof vi.fn>;
-  verifyDummyPassword: ReturnType<typeof vi.fn>;
-  hasSession: ReturnType<typeof vi.fn>;
 } {
   return {
-    signIn: vi.fn(),
     signUp: vi.fn(),
-    signOut: vi.fn(),
-    getSession: vi.fn(),
-    verifyDummyPassword: vi.fn().mockResolvedValue(undefined),
-    hasSession: vi.fn().mockReturnValue(false),
   };
 }
 
 /**
- * Creates a minimal RateLimiter mock with vi.fn() stubs.
+ * Creates a RateLimiter mock with only the method SignUpUseCase calls.
  *
- * @returns An object with `vi.fn()` stubs for each RateLimiter method.
+ * @returns An object with a `vi.fn()` stub for checkAndIncrement.
  */
 function makeRateLimiterMock(): {
-  check: ReturnType<typeof vi.fn>;
-  increment: ReturnType<typeof vi.fn>;
   checkAndIncrement: ReturnType<typeof vi.fn>;
 } {
   return {
-    check: vi.fn(),
-    increment: vi.fn(),
     checkAndIncrement: vi.fn(),
+  };
+}
+
+/**
+ * Creates a Logger mock with only the method SignUpUseCase calls.
+ *
+ * @returns An object with a `vi.fn()` stub for error.
+ */
+function makeLoggerMock(): {
+  error: ReturnType<typeof vi.fn>;
+} {
+  return {
+    error: vi.fn(),
   };
 }
 
 describe('SignUpUseCase', () => {
   let authServiceMock: ReturnType<typeof makeAuthServiceMock>;
   let rateLimiterMock: ReturnType<typeof makeRateLimiterMock>;
+  let loggerMock: ReturnType<typeof makeLoggerMock>;
   let useCase: SignUpUseCase;
 
   const defaultRequest = Object.freeze({
@@ -59,9 +61,14 @@ describe('SignUpUseCase', () => {
   beforeEach(() => {
     authServiceMock = makeAuthServiceMock();
     rateLimiterMock = makeRateLimiterMock();
+    loggerMock = makeLoggerMock();
     rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: true });
     authServiceMock.signUp.mockResolvedValue({ ok: true });
-    useCase = new SignUpUseCase(authServiceMock, rateLimiterMock as unknown as RateLimiter);
+    useCase = new SignUpUseCase(
+      authServiceMock as unknown as AuthService,
+      rateLimiterMock as unknown as RateLimiter,
+      loggerMock as Logger
+    );
   });
 
   afterEach(() => {
@@ -78,25 +85,25 @@ describe('SignUpUseCase', () => {
     });
 
     it('returns ok: false kind: rate_limited with retryAfter when rate limit is exceeded', async () => {
+      expect.assertions(2);
       rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false, retryAfter: 300 });
 
       const result = await useCase.execute(defaultRequest);
 
       expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('rate_limited');
+      if (!result.ok && result.kind === 'rate_limited') {
         expect(result.retryAfter).toBe(300);
       }
     });
 
     it('returns ok: false kind: rate_limited without retryAfter when checkAndIncrement omits retryAfter', async () => {
+      expect.assertions(2);
       rateLimiterMock.checkAndIncrement.mockResolvedValue({ allowed: false });
 
       const result = await useCase.execute(defaultRequest);
 
       expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.kind).toBe('rate_limited');
+      if (!result.ok && result.kind === 'rate_limited') {
         expect(result.retryAfter).toBeUndefined();
       }
     });
@@ -110,6 +117,7 @@ describe('SignUpUseCase', () => {
     });
 
     it('returns ok: false kind: email_taken when authService returns email_taken', async () => {
+      expect.assertions(2);
       authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'email_taken' });
 
       const result = await useCase.execute(defaultRequest);
@@ -121,6 +129,7 @@ describe('SignUpUseCase', () => {
     });
 
     it('returns ok: false kind: weak_password when authService returns weak_password', async () => {
+      expect.assertions(2);
       authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'weak_password' });
 
       const result = await useCase.execute(defaultRequest);
@@ -132,6 +141,7 @@ describe('SignUpUseCase', () => {
     });
 
     it('returns ok: false kind: rate_limited when authService returns rate_limited', async () => {
+      expect.assertions(2);
       authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'rate_limited' });
 
       const result = await useCase.execute(defaultRequest);
@@ -143,6 +153,7 @@ describe('SignUpUseCase', () => {
     });
 
     it('returns ok: false kind: service_error when authService returns service_error', async () => {
+      expect.assertions(2);
       authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'service_error' });
 
       const result = await useCase.execute(defaultRequest);
@@ -154,6 +165,7 @@ describe('SignUpUseCase', () => {
     });
 
     it('returns ok: false kind: password_too_common when password is in the common-password blocklist', async () => {
+      expect.assertions(3);
       // 'password1234' is in COMMON_PASSWORDS and is 12 chars (meets auth length minimum).
       // The use case must short-circuit before calling authService.signUp.
       const result = await useCase.execute({ ...defaultRequest, password: 'password1234' });
@@ -166,6 +178,7 @@ describe('SignUpUseCase', () => {
     });
 
     it('returns ok: false kind: service_error when authService.signUp throws', async () => {
+      expect.assertions(2);
       authServiceMock.signUp.mockRejectedValue(new Error('DB unavailable'));
 
       const result = await useCase.execute(defaultRequest);
@@ -176,7 +189,20 @@ describe('SignUpUseCase', () => {
       }
     });
 
+    it('logs the error via Logger.error when authService.signUp throws', async () => {
+      const error = new Error('DB unavailable');
+      authServiceMock.signUp.mockRejectedValue(error);
+
+      await useCase.execute(defaultRequest);
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'SignUpUseCase: unexpected error during sign-up',
+        error
+      );
+    });
+
     it('returns ok: false kind: service_error when rateLimiter.checkAndIncrement throws', async () => {
+      expect.assertions(2);
       rateLimiterMock.checkAndIncrement.mockRejectedValue(new Error('DO unavailable'));
 
       const result = await useCase.execute(defaultRequest);
@@ -185,6 +211,18 @@ describe('SignUpUseCase', () => {
       if (!result.ok) {
         expect(result.kind).toBe('service_error');
       }
+    });
+
+    it('logs the error via Logger.error when rateLimiter.checkAndIncrement throws', async () => {
+      const error = new Error('DO unavailable');
+      rateLimiterMock.checkAndIncrement.mockRejectedValue(error);
+
+      await useCase.execute(defaultRequest);
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'SignUpUseCase: unexpected error during sign-up',
+        error
+      );
     });
 
     it('calls checkAndIncrement with key ratelimit:register:{ip} and REGISTER_WINDOW_SECONDS', async () => {
@@ -196,32 +234,19 @@ describe('SignUpUseCase', () => {
 
       expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:register:9.8.7.6',
-        REGISTER_WINDOW_SECONDS
+        REGISTER_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
     });
 
-    it('does not use shared unknown bucket when IP is unknown', async () => {
+    it('uses shared sentinel key when IP is unknown so rate limiting is not bypassed', async () => {
       await useCase.execute({ ...defaultRequest, ip: 'unknown' });
 
-      expect(rateLimiterMock.checkAndIncrement).not.toHaveBeenCalledWith(
+      expect(rateLimiterMock.checkAndIncrement).toHaveBeenCalledWith(
         'ratelimit:register:unknown',
-        expect.anything()
+        REGISTER_WINDOW_SECONDS,
+        MAX_ATTEMPTS
       );
-    });
-
-    it('uses a UUID-based key when IP is unknown', async () => {
-      authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'email_taken' });
-
-      let capturedKey = '';
-      rateLimiterMock.checkAndIncrement.mockImplementation((key: unknown) => {
-        capturedKey = String(key);
-        return Promise.resolve({ allowed: true });
-      });
-
-      await useCase.execute({ ...defaultRequest, ip: 'unknown' });
-
-      expect(capturedKey).not.toBe('ratelimit:register:unknown');
-      expect(capturedKey).toMatch(/^ratelimit:register:[0-9a-f-]+$/);
     });
 
     it('calls authService.signUp with email, password, and name derived from email prefix', async () => {

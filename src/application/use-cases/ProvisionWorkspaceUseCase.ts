@@ -17,8 +17,15 @@
 
 import { Actor } from '../../domain/entities/Actor.js';
 import { Area } from '../../domain/entities/Area.js';
+import type { Area as AreaType } from '../../domain/entities/Area.js';
 import { AuditEvent } from '../../domain/entities/AuditEvent.js';
+import type {
+  AuditEntityType,
+  AuditEvent as AuditEventType,
+  AuditEventKind,
+} from '../../domain/entities/AuditEvent.js';
 import { Context } from '../../domain/entities/Context.js';
+import type { Context as ContextType } from '../../domain/entities/Context.js';
 import { Workspace } from '../../domain/entities/Workspace.js';
 import type { WorkspaceBatchPort } from '../../domain/interfaces/WorkspaceBatchPort.js';
 
@@ -35,6 +42,9 @@ export type ProvisionWorkspaceRequest = {
   /** The user ID (from better-auth) to provision a workspace for. */
   userId: string;
 };
+
+/** Result type returned by {@link ProvisionWorkspaceUseCase.execute}. */
+export type ProvisionWorkspaceResult = { ok: true } | { ok: false; error: string };
 
 /**
  * Orchestrates workspace provisioning for a newly registered user.
@@ -63,54 +73,58 @@ export class ProvisionWorkspaceUseCase {
    * for every entity. Persists all entities atomically via the batch port.
    *
    * @param request - The provisioning request containing the user ID.
-   * @returns Resolved promise on success.
+   * @returns A result indicating success or a provisioning bug description.
    */
-  async execute(request: ProvisionWorkspaceRequest): Promise<void> {
-    const workspace = Workspace.create(request.userId);
-    const actor = Actor.createHuman(workspace.id, request.userId);
+  async execute(request: ProvisionWorkspaceRequest): Promise<ProvisionWorkspaceResult> {
+    const wsResult = Workspace.create(request.userId);
+    if (!wsResult.success) return { ok: false, error: `Provisioning bug: ${wsResult.error.code}` };
+    const workspace = wsResult.value;
 
-    const areas = SEED_AREA_NAMES.map((name) => Area.create(workspace.id, name));
-    const contexts = SEED_CONTEXT_NAMES.map((name) => Context.create(workspace.id, name));
+    const actorResult = Actor.createHuman(workspace.id, request.userId);
+    if (!actorResult.success)
+      return { ok: false, error: `Provisioning bug: ${actorResult.error.code}` };
+    const actor = actorResult.value;
 
-    const auditEvents = [
-      AuditEvent.record(
-        workspace.id,
-        'workspace',
-        workspace.id,
-        'workspace.provisioned',
+    const areas: AreaType[] = [];
+    for (const name of SEED_AREA_NAMES) {
+      const r = Area.create(workspace.id, name);
+      if (!r.success) return { ok: false, error: `Provisioning bug: ${r.error.code}` };
+      areas.push(r.value);
+    }
+
+    const contexts: ContextType[] = [];
+    for (const name of SEED_CONTEXT_NAMES) {
+      const r = Context.create(workspace.id, name);
+      if (!r.success) return { ok: false, error: `Provisioning bug: ${r.error.code}` };
+      contexts.push(r.value);
+    }
+
+    const auditEvents: AuditEventType[] = [];
+    const auditInputs: Array<[AuditEntityType, string, AuditEventKind, string, string]> = [
+      ['workspace', workspace.id, 'workspace.provisioned', actor.id, JSON.stringify(workspace)],
+      ['actor', actor.id, 'actor.created', actor.id, JSON.stringify(actor)],
+      ...areas.map((a): [AuditEntityType, string, AuditEventKind, string, string] => [
+        'area',
+        a.id,
+        'area.created',
         actor.id,
-        JSON.stringify(workspace)
-      ),
-      AuditEvent.record(
-        workspace.id,
-        'actor',
+        JSON.stringify(a),
+      ]),
+      ...contexts.map((c): [AuditEntityType, string, AuditEventKind, string, string] => [
+        'context',
+        c.id,
+        'context.created',
         actor.id,
-        'actor.created',
-        actor.id,
-        JSON.stringify(actor)
-      ),
-      ...areas.map((area) =>
-        AuditEvent.record(
-          workspace.id,
-          'area',
-          area.id,
-          'area.created',
-          actor.id,
-          JSON.stringify(area)
-        )
-      ),
-      ...contexts.map((ctx) =>
-        AuditEvent.record(
-          workspace.id,
-          'context',
-          ctx.id,
-          'context.created',
-          actor.id,
-          JSON.stringify(ctx)
-        )
-      ),
+        JSON.stringify(c),
+      ]),
     ];
+    for (const [entityType, entityId, eventType, actorId, payload] of auditInputs) {
+      const r = AuditEvent.record(workspace.id, entityType, entityId, eventType, actorId, payload);
+      if (!r.success) return { ok: false, error: `Provisioning bug: ${r.error.code}` };
+      auditEvents.push(r.value);
+    }
 
     await this._batchPort.provisionBatch(workspace, actor, areas, contexts, auditEvents);
+    return { ok: true };
   }
 }

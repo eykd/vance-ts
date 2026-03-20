@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InboxItemDto } from '../../application/dto/InboxItemDto.js';
 import type { CaptureInboxItemUseCase } from '../../application/use-cases/CaptureInboxItemUseCase.js';
 import type { ListInboxItemsUseCase } from '../../application/use-cases/ListInboxItemsUseCase.js';
-import { DomainError } from '../../domain/errors/DomainError.js';
 
 import { createInboxItemApiHandlers } from './InboxItemApiHandlers.js';
 
@@ -73,10 +72,12 @@ describe('createInboxItemApiHandlers', () => {
   }
 
   describe('handleCaptureInboxItem', () => {
-    it('returns 422 with error envelope when DomainError is thrown', async () => {
-      captureUseCaseMock.execute.mockRejectedValue(
-        new DomainError('title_required', 'Title is required')
-      );
+    it('returns 422 with error envelope when use case returns a domain error', async () => {
+      captureUseCaseMock.execute.mockResolvedValue({
+        ok: false,
+        kind: 'domain_error',
+        code: 'title_required',
+      });
 
       const app = makeTestApp();
       const res = await app.fetch(
@@ -90,7 +91,7 @@ describe('createInboxItemApiHandlers', () => {
       expect(res.status).toBe(422);
       const body = await res.json<{ error: { code: string; message: string } }>();
       expect(body.error.code).toBe('title_required');
-      expect(body.error.message).toBe('Title is required');
+      expect(body.error.message).toBe('domain_error');
     });
 
     it('returns 400 when title is missing from body', async () => {
@@ -185,7 +186,7 @@ describe('createInboxItemApiHandlers', () => {
     });
 
     it('returns 201 with the created inbox item DTO', async () => {
-      captureUseCaseMock.execute.mockResolvedValue(INBOX_ITEM_DTO);
+      captureUseCaseMock.execute.mockResolvedValue({ ok: true, data: INBOX_ITEM_DTO });
 
       const app = makeTestApp();
       const res = await app.fetch(

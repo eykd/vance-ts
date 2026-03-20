@@ -8,6 +8,9 @@
  * @module
  */
 
+import type { DomainError } from '../errors/DomainError.js';
+import type { Result } from '../shared/Result.js';
+import { ok } from '../shared/Result.js';
 import { requireNonBlank } from '../shared/validation.js';
 
 /**
@@ -19,7 +22,7 @@ import { requireNonBlank } from '../shared/validation.js';
 export interface Workspace {
   /** Unique identifier (UUID). */
   readonly id: string;
-  /** FK → `user.id`. Each user has exactly one workspace. */
+  /** FK -> `user.id`. Each user has exactly one workspace. */
   readonly userId: string;
   /** ISO-8601 UTC timestamp of workspace creation. */
   readonly createdAt: string;
@@ -32,17 +35,20 @@ export namespace Workspace {
   /**
    * Creates a new Workspace for the given user, generating a unique ID and current timestamps.
    *
-   * @param userId - FK → `user.id`. The owning user account.
-   * @returns A new immutable Workspace with `createdAt` and `updatedAt` set to now.
+   * @param userId - FK -> `user.id`. The owning user account.
+   * @returns A Result containing a new immutable Workspace, or a DomainError.
    */
-  export function create(userId: string): Workspace {
-    requireNonBlank(userId, 'user_id_required');
+  export function create(userId: string): Result<Workspace, DomainError> {
+    const check = requireNonBlank(userId, 'user_id_required');
+    if (!check.success) {
+      return check;
+    }
     const now = new Date().toISOString();
-    return {
+    return ok({
       id: crypto.randomUUID(),
       userId,
       createdAt: now,
       updatedAt: now,
-    };
+    });
   }
 }

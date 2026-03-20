@@ -37,6 +37,8 @@ readonly TDD_STEP_RETRY_MAX_DELAY=60   # cap for Claude invocation backoff
 readonly TDD_MAX_CYCLES=5         # max R-G-R-Review cycles per task
 readonly ATDD_MAX_INNER_CYCLES=15
 readonly ACCEPTANCE_OUTPUT_FILE=".ralph-acceptance.json"
+readonly MAX_AUTO_DEFERRALS=3       # escalate after this many transient triage failures
+readonly FALLBACK_DEFER="+4h"       # deferral for transient failures (shorter than +1d)
 
 # Exit codes
 readonly EXIT_SUCCESS=0
@@ -190,7 +192,7 @@ get_signal() {
         echo "$default"; return
     fi
     local val
-    val=$(echo "$LAST_RALPH_SIGNAL" | jq -r ".$field // empty" 2>/dev/null) || true
+    val=$(echo "$LAST_RALPH_SIGNAL" | jq -r --arg f "$field" '.[$f] // empty' 2>/dev/null) || true
     echo "${val:-$default}"
 }
 
@@ -466,7 +468,7 @@ validate_prerequisites() {
         }
 
         # Exclude the epic itself and event tasks
-        task_count=$(echo "$all_tasks" | jq '[.[] | select(.id != "'"$epic_id"'" and .issue_type != "event")] | length' 2>/dev/null || echo "0")
+        task_count=$(echo "$all_tasks" | jq --arg eid "$epic_id" '[.[] | select(.id != $eid and .issue_type != "event")] | length' 2>/dev/null || echo "0")
 
         if [[ "$task_count" -eq 0 ]]; then
             log ERROR "The epic has no tasks to process"
@@ -808,6 +810,52 @@ get_in_progress_task() {
     echo "$in_progress_tasks" | jq -r '.[0] // empty'
 }
 
+# Check if a task has children (is a parent container)
+task_has_children() {
+    local task_id="$1"
+    local child_count
+    child_count=$(npx bd list --parent "$task_id" --limit 1 --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    [[ "$child_count" -gt 0 ]]
+}
+
+# Check if all direct children of a task are closed
+all_children_closed() {
+    local task_id="$1"
+    local open_count
+    open_count=$(npx bd list --parent "$task_id" --status open --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    [[ "$open_count" -eq 0 ]]
+}
+
+# Auto-close parent container tasks when all their children are completed.
+# Walks up from the given task ID, closing ancestors bottom-up.
+auto_close_completed_parents() {
+    local task_id="$1"
+    local epic_id="$2"
+    local current_id="$task_id"
+
+    while true; do
+        # Remove last ID segment to get parent
+        local parent_id="${current_id%.*}"
+
+        # Stop if we can't go higher or reached the epic
+        [[ "$parent_id" == "$current_id" ]] && break
+        [[ "$parent_id" == "$epic_id" ]] && break
+
+        # Check if parent has children and all are closed
+        if task_has_children "$parent_id" && all_children_closed "$parent_id"; then
+            log INFO "Auto-closing completed parent task: $parent_id"
+            npx bd close "$parent_id" 2>/dev/null || {
+                log WARN "Failed to auto-close parent task: $parent_id"
+                break
+            }
+        else
+            break  # If this parent can't close, no ancestor can either
+        fi
+
+        current_id="$parent_id"
+    done
+}
+
 # Get ready tasks for the epic (returns JSON array)
 get_ready_tasks() {
     local epic_id="$1"
@@ -820,8 +868,35 @@ get_ready_tasks() {
     }
 
     # Filter out the epic itself and event tasks
-    echo "$ready_json" | jq --arg epic "$epic_id" \
-        '[.[] | select(.id != $epic and .issue_type != "event")]'
+    local filtered
+    filtered=$(echo "$ready_json" | jq --arg epic "$epic_id" \
+        '[.[] | select(.id != $epic and .issue_type != "event")]')
+
+    # Filter out parent container tasks (tasks that have children).
+    # Parent tasks are not work items; ralph processes their children individually.
+    local leaf_ids=()
+    local task_id
+    while IFS= read -r task_id; do
+        [[ -z "$task_id" ]] && continue
+        if task_has_children "$task_id"; then
+            log DEBUG "Skipping parent container task: $task_id"
+        else
+            leaf_ids+=("$task_id")
+        fi
+    done < <(echo "$filtered" | jq -r '.[].id')
+
+    if [[ ${#leaf_ids[@]} -eq 0 ]]; then
+        echo "[]"
+        return 0
+    fi
+
+    # Rebuild JSON array with only leaf tasks
+    local id_array
+    id_array=$(printf '"%s",' "${leaf_ids[@]}")
+    id_array="[${id_array%,}]"
+
+    echo "$filtered" | jq --argjson ids "$id_array" \
+        '[.[] | select(.id | IN($ids[]))]'
 }
 
 # Check if there are ready tasks remaining
@@ -998,10 +1073,8 @@ generate_focused_prompt() {
         fi
     fi
 
-    # Start with base prompt
+    # Start with base prompt (no /sp:next — ralph already resolved the task)
     cat <<EOF
-/sp:next
-
 ## Non-Interactive Mode
 You are running in ralph's automation loop (non-interactive).
 You CANNOT ask questions or wait for user input.
@@ -2153,10 +2226,18 @@ RALPH_SIGNAL:{"action":"<close|decompose|defer>","reason":"<brief explanation>",
 Rules:
 - Choose exactly ONE action
 - For decompose: provide title and description for the new sibling task
-- For defer: provide defer_duration (default +1d if unsure)
+- For defer: provide defer_duration (e.g. +4h for transient issues, +1d for external dependencies)
 - For close: just provide the reason
 - Do NOT run any tests or tools — this is analysis only
 EOF
+}
+
+# Count how many times a task has been auto-deferred due to transient triage failures
+count_auto_deferrals() {
+    local task_id="$1"
+    local comments
+    comments=$(npx bd comments "$task_id" --json 2>/dev/null) || { echo "0"; return; }
+    echo "$comments" | jq '[.[] | select(.text | test("^BLOCKED: Triage (invocation failed|produced no signal)"))] | length' 2>/dev/null || echo "0"
 }
 
 # Triage a blocked task by invoking Claude for diagnostic analysis
@@ -2175,17 +2256,33 @@ triage_blocked_task() {
 
     # Invoke Claude
     if ! invoke_claude_with_retry "$triage_prompt"; then
-        log WARN "Triage invocation failed for $task_id — falling back to defer +1d"
-        npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
-        npx bd comment "$task_id" "BLOCKED: Triage invocation failed, auto-deferred +1d" 2>/dev/null || true
+        local defer_count
+        defer_count=$(count_auto_deferrals "$task_id")
+        if (( defer_count >= MAX_AUTO_DEFERRALS )); then
+            log WARN "Task $task_id auto-deferred $defer_count times — escalating to P1"
+            npx bd update "$task_id" --status=open --priority 1 2>/dev/null || true
+            npx bd comment "$task_id" "BLOCKED: Triage invocation failed $((defer_count + 1)) times. Escalated to P1 for human review." 2>/dev/null || true
+        else
+            log WARN "Triage invocation failed for $task_id — deferring $FALLBACK_DEFER"
+            npx bd update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
+            npx bd comment "$task_id" "BLOCKED: Triage invocation failed, auto-deferred $FALLBACK_DEFER" 2>/dev/null || true
+        fi
         return 0
     fi
 
     # Parse RALPH_SIGNAL from Claude output
     if ! parse_ralph_signal "$LAST_CLAUDE_OUTPUT"; then
-        log WARN "No RALPH_SIGNAL in triage output for $task_id — falling back to defer +1d"
-        npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
-        npx bd comment "$task_id" "BLOCKED: Triage produced no signal, auto-deferred +1d" 2>/dev/null || true
+        local defer_count
+        defer_count=$(count_auto_deferrals "$task_id")
+        if (( defer_count >= MAX_AUTO_DEFERRALS )); then
+            log WARN "Task $task_id auto-deferred $defer_count times — escalating to P1"
+            npx bd update "$task_id" --status=open --priority 1 2>/dev/null || true
+            npx bd comment "$task_id" "BLOCKED: Triage produced no signal $((defer_count + 1)) times. Escalated to P1 for human review." 2>/dev/null || true
+        else
+            log WARN "No RALPH_SIGNAL in triage output for $task_id — deferring $FALLBACK_DEFER"
+            npx bd update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
+            npx bd comment "$task_id" "BLOCKED: Triage produced no signal, auto-deferred $FALLBACK_DEFER" 2>/dev/null || true
+        fi
         return 0
     fi
 
@@ -2203,20 +2300,36 @@ triage_blocked_task() {
             auto_close_completed_parents "$task_id" "$epic_id"
             ;;
         decompose)
-            local new_title new_description parent_id
+            local new_title new_description parent_id sibling_id
             new_title=$(get_signal "title" "Follow-up for $task_id")
             new_description=$(get_signal "description" "Decomposed from blocked task $task_id")
-            # Create sibling under the same parent (implement task)
-            parent_id="${task_id%.*}"
+            # Query the actual parent from beads — string manipulation (${task_id%.*})
+            # fails for IDs without dots (e.g. turtlebased-ts-852), creating children
+            # of the blocked task instead of siblings. Children of a blocked parent
+            # are unreachable by `bd ready`.
+            parent_id=$(npx bd show "$task_id" --json 2>/dev/null | jq -r '.[0].parent // empty' 2>/dev/null)
+            if [[ -z "$parent_id" ]]; then
+                parent_id="$EPIC_ID"
+            fi
             log INFO "Triage decomposing: creating sibling task under $parent_id"
-            npx bd create "$new_title" --parent "$parent_id" --description "$new_description" 2>/dev/null || true
-            npx bd comment "$task_id" "TRIAGE: Decomposed — $reason. New sibling task created under $parent_id" 2>/dev/null || true
-            npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
+            sibling_id=$(npx bd create "$new_title" --parent "$parent_id" --description "$new_description" --silent 2>/dev/null) || true
+            if [[ -n "$sibling_id" ]]; then
+                npx bd dep "$sibling_id" --blocks "$task_id" 2>/dev/null || true
+                # Reset to open so find_leaf_task's in_progress fast-path
+                # doesn't bypass the dependency check (bd ready respects deps)
+                npx bd update "$task_id" --status=open 2>/dev/null || true
+                npx bd comment "$task_id" "TRIAGE: Decomposed — $reason. Blocked by sibling $sibling_id" 2>/dev/null || true
+                log INFO "Created sibling $sibling_id blocking $task_id"
+            else
+                npx bd update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
+                npx bd comment "$task_id" "TRIAGE: Decomposed — $reason. Sibling creation failed, deferred $FALLBACK_DEFER" 2>/dev/null || true
+                log WARN "Could not capture sibling ID for $task_id — fell back to $FALLBACK_DEFER defer"
+            fi
             ;;
         *)
             # defer (explicit or unknown action fallback)
             local duration
-            duration=$(get_signal "defer_duration" "+1d")
+            duration=$(get_signal "defer_duration" "$FALLBACK_DEFER")
             log INFO "Triage deferring task $task_id for $duration: $reason"
             npx bd comment "$task_id" "TRIAGE: Deferring $duration — $reason" 2>/dev/null || true
             npx bd update "$task_id" --status=open --defer="$duration" 2>/dev/null || true

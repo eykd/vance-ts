@@ -13,6 +13,7 @@
  */
 
 import type { AuthService } from '../application/ports/AuthService';
+import type { Logger } from '../application/ports/Logger';
 import type { RateLimiter } from '../application/ports/RateLimiter';
 import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../application/ports/RateLimiter';
 import { ActivateActionUseCase } from '../application/use-cases/ActivateActionUseCase';
@@ -35,8 +36,14 @@ import type { ContextRepository } from '../domain/interfaces/ContextRepository';
 import type { InboxItemRepository } from '../domain/interfaces/InboxItemRepository';
 import type { WorkspaceRepository } from '../domain/interfaces/WorkspaceRepository';
 import { getAuth, resetAuth } from '../infrastructure/auth';
+import {
+  getAuthIndicatorCookieName,
+  getCsrfCookieName,
+  getSessionCookieName,
+} from '../infrastructure/authCookieNames';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
 import { ClarifyInboxItemD1BatchAdapter } from '../infrastructure/ClarifyInboxItemD1BatchAdapter';
+import { ConsoleLogger } from '../infrastructure/ConsoleLogger';
 import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
 import { D1ActionRepository } from '../infrastructure/repositories/D1ActionRepository';
 import { D1ActorRepository } from '../infrastructure/repositories/D1ActorRepository';
@@ -76,8 +83,20 @@ export class ServiceFactory {
   /** Validated secret extracted after getAuth confirms it is a non-empty string. */
   private readonly _validatedSecret: string;
 
+  /** Session cookie name derived from BETTER_AUTH_URL. */
+  private readonly _sessionCookieName: string;
+
+  /** CSRF cookie name derived from BETTER_AUTH_URL. */
+  private readonly _csrfCookieName: string;
+
+  /** Auth indicator cookie name derived from BETTER_AUTH_URL. */
+  private readonly _authIndicatorCookieName: string;
+
   /** Cached AuthService adapter. */
   private _authService: AuthService | null = null;
+
+  /** Cached Logger adapter. */
+  private _logger: Logger | null = null;
 
   /** Cached RateLimiter adapter. */
   private _rateLimiter: RateLimiter | null = null;
@@ -185,6 +204,9 @@ export class ServiceFactory {
     this.env = env;
     this._authInstance = getAuth(env); // validates BETTER_AUTH_SECRET, throws if invalid
     this._validatedSecret = env.BETTER_AUTH_SECRET;
+    this._sessionCookieName = getSessionCookieName(env.BETTER_AUTH_URL);
+    this._csrfCookieName = getCsrfCookieName(env.BETTER_AUTH_URL);
+    this._authIndicatorCookieName = getAuthIndicatorCookieName(env.BETTER_AUTH_URL);
   }
 
   /**
@@ -193,8 +215,22 @@ export class ServiceFactory {
    * @returns The lazily-initialised BetterAuthService instance.
    */
   private get _authServiceInstance(): AuthService {
-    this._authService ??= new BetterAuthService(this._authInstance);
+    this._authService ??= new BetterAuthService(
+      this._authInstance,
+      this._sessionCookieName,
+      this._loggerInstance
+    );
     return this._authService;
+  }
+
+  /**
+   * Lazily initialises and returns the Logger implementation.
+   *
+   * @returns The lazily-initialised ConsoleLogger instance.
+   */
+  private get _loggerInstance(): Logger {
+    this._logger ??= new ConsoleLogger();
+    return this._logger;
   }
 
   /**
@@ -217,12 +253,25 @@ export class ServiceFactory {
   }
 
   /**
+   * The Logger port adapter (ConsoleLogger).
+   *
+   * @returns The lazily-initialised Logger instance.
+   */
+  get logger(): Logger {
+    return this._loggerInstance;
+  }
+
+  /**
    * The sign-in use case orchestrator.
    *
    * @returns The lazily-initialised SignInUseCase instance.
    */
   get signInUseCase(): SignInUseCase {
-    this._signInUseCase ??= new SignInUseCase(this._authServiceInstance, this._rateLimiterInstance);
+    this._signInUseCase ??= new SignInUseCase(
+      this._authServiceInstance,
+      this._rateLimiterInstance,
+      this._loggerInstance
+    );
     return this._signInUseCase;
   }
 
@@ -232,7 +281,11 @@ export class ServiceFactory {
    * @returns The lazily-initialised SignUpUseCase instance.
    */
   get signUpUseCase(): SignUpUseCase {
-    this._signUpUseCase ??= new SignUpUseCase(this._authServiceInstance, this._rateLimiterInstance);
+    this._signUpUseCase ??= new SignUpUseCase(
+      this._authServiceInstance,
+      this._rateLimiterInstance,
+      this._loggerInstance
+    );
     return this._signUpUseCase;
   }
 
@@ -260,7 +313,10 @@ export class ServiceFactory {
   get requireAuthMiddleware(): ReturnType<typeof createRequireAuth> {
     this._requireAuthMiddleware ??= createRequireAuth(
       this._authServiceInstance,
-      this._validatedSecret
+      this._validatedSecret,
+      this._sessionCookieName,
+      this._csrfCookieName,
+      this._authIndicatorCookieName
     );
     return this._requireAuthMiddleware;
   }
@@ -275,7 +331,9 @@ export class ServiceFactory {
       this.signInUseCase,
       this.signUpUseCase,
       this.signOutUseCase,
-      this._authServiceInstance
+      this._sessionCookieName,
+      this._csrfCookieName,
+      this._authIndicatorCookieName
     );
     return this._authPageHandlers;
   }
@@ -411,7 +469,8 @@ export class ServiceFactory {
   get requireApiAuthMiddleware(): ReturnType<typeof createRequireApiAuth> {
     this._requireApiAuthMiddleware ??= createRequireApiAuth(
       this._authServiceInstance,
-      this.workspaceRepository
+      this.workspaceRepository,
+      this._sessionCookieName
     );
     return this._requireApiAuthMiddleware;
   }

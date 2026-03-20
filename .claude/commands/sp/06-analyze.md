@@ -1,7 +1,3 @@
----
-description: Cross-artifact consistency and quality analysis across spec.md, plan.md, and beads tasks after task generation. Automatically creates remediation beads tasks under the current epic for any issues found.
----
-
 ## User Input
 
 ```text

@@ -33,7 +33,7 @@
     <link rel="canonical" href="{{ .Permalink }}" />
 
     <!-- Robots -->
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="{{ .Params.robots | default "index, follow" }}" />
 
     <!-- SEO -->
     {{ partial "seo/google_analytics.html" . }}
@@ -79,6 +79,21 @@
         {{ end }}
       {{ end }}
     {{ end }}
+
+    <!-- CRITICAL: Both scripts MUST use `defer` (NOT `async`).
+         `defer` guarantees execution order: auth-store.js registers the store
+         before Alpine.js initialises — so x-show / x-cloak see the store immediately. -->
+    {{ with resources.Get "js/auth-store.js" }}
+      {{ with . | minify | fingerprint }}
+        <script
+          defer
+          src="{{ .RelPermalink }}"
+          integrity="{{ .Data.Integrity }}"
+          crossorigin="anonymous"
+        ></script>
+      {{ end }}
+    {{ end }}
+    <script defer src="/js/alpine-csp-3.15.8.min.js"></script>
   </head>
   <body class="font-sans bg-base-200">
     <div class="flex min-h-screen flex-col">

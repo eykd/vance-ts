@@ -13,9 +13,24 @@ import {
   mockInboxRepo,
 } from '../../../tests/mocks/repositories';
 import { InboxItem } from '../../domain/entities/InboxItem';
-import { DomainError } from '../../domain/errors/DomainError';
 
 import { ClarifyInboxItemToActionUseCase } from './ClarifyInboxItemToActionUseCase';
+import type { ClarifyInboxItemResult } from './ClarifyInboxItemToActionUseCase';
+
+/**
+ * Helper to unwrap a successful Result or fail the test.
+ *
+ * @param result - The domain Result to unwrap.
+ * @param result.success - Whether the result is successful.
+ * @param result.value - The success value.
+ * @returns The success value.
+ */
+function unwrap<T>(result: { success: boolean; value?: T }): T {
+  if (!result.success) {
+    throw new Error('Expected Result to be successful');
+  }
+  return result.value as T;
+}
 
 /**
  * Shared area stub for tests.
@@ -44,8 +59,8 @@ const CONTEXT_STUB = {
  *
  * @returns An inbox item in 'inbox' status.
  */
-function sampleInboxItem(): ReturnType<typeof InboxItem.create> {
-  return InboxItem.create('ws-1', 'Buy groceries', 'Weekly shopping list');
+function sampleInboxItem(): InboxItem {
+  return unwrap(InboxItem.create('ws-1', 'Buy groceries', 'Weekly shopping list'));
 }
 
 /**
@@ -78,7 +93,7 @@ describe('ClarifyInboxItemToActionUseCase', () => {
     areaRepo.getActiveById.mockResolvedValue(AREA_STUB);
     contextRepo.getById.mockResolvedValue(CONTEXT_STUB);
 
-    const result = await uc.execute({
+    const result: ClarifyInboxItemResult = await uc.execute({
       workspaceId: 'ws-1',
       inboxItemId: item.id,
       title: 'Buy groceries',
@@ -87,10 +102,13 @@ describe('ClarifyInboxItemToActionUseCase', () => {
       actorId: 'actor-1',
     });
 
-    expect(result.status).toBe('ready');
-    expect(result.title).toBe('Buy groceries');
-    expect(result.areaId).toBe('area-1');
-    expect(result.contextId).toBe('ctx-1');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.status).toBe('ready');
+      expect(result.data.title).toBe('Buy groceries');
+      expect(result.data.areaId).toBe('area-1');
+      expect(result.data.contextId).toBe('ctx-1');
+    }
     expect(batchPort.clarifyBatch).toHaveBeenCalledTimes(1);
   });
 
@@ -133,76 +151,79 @@ describe('ClarifyInboxItemToActionUseCase', () => {
       actorId: 'actor-1',
     });
 
-    expect(result.description).toBe('Weekly shopping list');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.description).toBe('Weekly shopping list');
+    }
   });
 
-  it('throws when inbox item not found', async () => {
+  it('returns error when inbox item not found', async () => {
     const { uc } = buildUseCase();
 
-    await expect(
-      uc.execute({
-        workspaceId: 'ws-1',
-        inboxItemId: 'nonexistent',
-        title: 'Title',
-        areaId: 'area-1',
-        contextId: 'ctx-1',
-        actorId: 'actor-1',
-      })
-    ).rejects.toThrow(DomainError);
+    const result = await uc.execute({
+      workspaceId: 'ws-1',
+      inboxItemId: 'nonexistent',
+      title: 'Title',
+      areaId: 'area-1',
+      contextId: 'ctx-1',
+      actorId: 'actor-1',
+    });
+
+    expect(result).toEqual({ ok: false, kind: 'inbox_item_not_found' });
   });
 
-  it('throws when inbox item already clarified', async () => {
+  it('returns error when inbox item already clarified', async () => {
     const { uc, inboxRepo, areaRepo, contextRepo } = buildUseCase();
     const item = sampleInboxItem();
-    const clarified = InboxItem.clarify(item, 'action', 'some-action-id');
+    const clarified = unwrap(InboxItem.clarify(item, 'action', 'some-action-id'));
     inboxRepo.getById.mockResolvedValue(clarified);
     areaRepo.getActiveById.mockResolvedValue(AREA_STUB);
     contextRepo.getById.mockResolvedValue(CONTEXT_STUB);
 
-    await expect(
-      uc.execute({
-        workspaceId: 'ws-1',
-        inboxItemId: item.id,
-        title: 'Title',
-        areaId: 'area-1',
-        contextId: 'ctx-1',
-        actorId: 'actor-1',
-      })
-    ).rejects.toThrow(DomainError);
+    const result = await uc.execute({
+      workspaceId: 'ws-1',
+      inboxItemId: item.id,
+      title: 'Title',
+      areaId: 'area-1',
+      contextId: 'ctx-1',
+      actorId: 'actor-1',
+    });
+
+    expect(result).toEqual({ ok: false, kind: 'already_clarified' });
   });
 
-  it('throws when area not found or archived', async () => {
+  it('returns error when area not found or archived', async () => {
     const { uc, inboxRepo } = buildUseCase();
     const item = sampleInboxItem();
     inboxRepo.getById.mockResolvedValue(item);
 
-    await expect(
-      uc.execute({
-        workspaceId: 'ws-1',
-        inboxItemId: item.id,
-        title: 'Title',
-        areaId: 'nonexistent',
-        contextId: 'ctx-1',
-        actorId: 'actor-1',
-      })
-    ).rejects.toThrow(DomainError);
+    const result = await uc.execute({
+      workspaceId: 'ws-1',
+      inboxItemId: item.id,
+      title: 'Title',
+      areaId: 'nonexistent',
+      contextId: 'ctx-1',
+      actorId: 'actor-1',
+    });
+
+    expect(result).toEqual({ ok: false, kind: 'area_not_found_or_archived' });
   });
 
-  it('throws when context not found', async () => {
+  it('returns error when context not found', async () => {
     const { uc, inboxRepo, areaRepo } = buildUseCase();
     const item = sampleInboxItem();
     inboxRepo.getById.mockResolvedValue(item);
     areaRepo.getActiveById.mockResolvedValue(AREA_STUB);
 
-    await expect(
-      uc.execute({
-        workspaceId: 'ws-1',
-        inboxItemId: item.id,
-        title: 'Title',
-        areaId: 'area-1',
-        contextId: 'nonexistent',
-        actorId: 'actor-1',
-      })
-    ).rejects.toThrow(DomainError);
+    const result = await uc.execute({
+      workspaceId: 'ws-1',
+      inboxItemId: item.id,
+      title: 'Title',
+      areaId: 'area-1',
+      contextId: 'nonexistent',
+      actorId: 'actor-1',
+    });
+
+    expect(result).toEqual({ ok: false, kind: 'context_not_found' });
   });
 });

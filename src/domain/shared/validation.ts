@@ -2,33 +2,46 @@
  * Shared domain validation helpers.
  *
  * Centralises common input validation used across entity factory methods.
+ * Returns Result types instead of throwing to represent validation failures
+ * as values.
  *
  * @module
  */
 
 import { DomainError } from '../errors/DomainError.js';
 
+import type { Result } from './Result.js';
+import { err, ok } from './Result.js';
+
 /**
- * Throws a DomainError if the string is empty or whitespace-only.
+ * Returns a failure Result if the string is empty or whitespace-only.
  *
  * @param value - The string to validate.
- * @param errorCode - The error code to throw.
+ * @param errorCode - The error code for the failure.
+ * @returns Ok on valid input, or an error Result with a DomainError.
  */
-export function requireNonBlank(value: string, errorCode: string): void {
+export function requireNonBlank(value: string, errorCode: string): Result<void, DomainError> {
   if (value.trim().length === 0) {
-    throw new DomainError(errorCode);
+    return err(new DomainError(errorCode));
   }
+  return ok(undefined);
 }
 
 /**
- * Throws a DomainError if the string exceeds the maximum length.
+ * Returns a failure Result if the string exceeds the maximum length.
  *
  * @param value - The string to validate.
  * @param max - The maximum allowed length.
- * @param errorCode - The error code to throw.
+ * @param errorCode - The error code for the failure.
+ * @returns Ok on valid input, or an error Result with a DomainError.
  */
-export function requireMaxLength(value: string, max: number, errorCode: string): void {
+export function requireMaxLength(
+  value: string,
+  max: number,
+  errorCode: string
+): Result<void, DomainError> {
   if (value.length > max) {
-    throw new DomainError(errorCode);
+    return err(new DomainError(errorCode));
   }
+  return ok(undefined);
 }

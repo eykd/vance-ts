@@ -52,16 +52,15 @@ export function createInboxItemApiHandlers(
       }
       const workspaceId = c.get('workspaceId');
       const actorId = c.get('actorId');
-      try {
-        const result = await captureUseCase.execute({
-          workspaceId,
-          title: body['title'],
-          actorId,
-        });
-        return c.json(result, 201);
-      } catch (err: unknown) {
-        return apiErrorResponse(c, err);
+      const result = await captureUseCase.execute({
+        workspaceId,
+        title: body['title'],
+        actorId,
+      });
+      if (!result.ok) {
+        return c.json({ error: { code: result.code, message: result.kind } }, 422);
       }
+      return c.json(result.data, 201);
     },
 
     /**

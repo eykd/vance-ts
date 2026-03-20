@@ -1,7 +1,3 @@
----
-description: Perform adversarial review of spec and plan to identify security, edge cases, performance, and accessibility concerns. Enhances plan.md with findings before task generation.
----
-
 ## Red Team Purpose: Adversarial Plan Enhancement
 
 **CRITICAL CONCEPT**: This phase performs **ADVERSARIAL REVIEW** of requirements and design to strengthen the plan BEFORE implementation tasks are generated.

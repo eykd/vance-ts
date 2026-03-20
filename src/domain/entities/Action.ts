@@ -2,12 +2,14 @@
  * Action entity.
  *
  * A concrete, single next step that has been clarified from an inbox item.
- * Lifecycle in this slice: `ready` → `active` → `done`.
+ * Lifecycle in this slice: `ready` -> `active` -> `done`.
  *
  * @module
  */
 
 import { DomainError } from '../errors/DomainError.js';
+import type { Result } from '../shared/Result.js';
+import { err, ok } from '../shared/Result.js';
 import { requireMaxLength, requireNonBlank } from '../shared/validation.js';
 
 /** Maximum allowed length for an action title. */
@@ -61,7 +63,7 @@ export namespace Action {
    * @param areaId - FK -> `area.id`.
    * @param contextId - FK -> `context.id`.
    * @param description - Optional description, defaults to null.
-   * @returns A new immutable Action with `status='ready'`.
+   * @returns A Result containing a new immutable Action with `status='ready'`, or a DomainError.
    */
   export function create(
     workspaceId: string,
@@ -70,19 +72,32 @@ export namespace Action {
     areaId: string,
     contextId: string,
     description: string | null = null
-  ): Action {
-    requireNonBlank(workspaceId, 'workspace_id_required');
-    requireNonBlank(actorId, 'actor_id_required');
-    requireNonBlank(title, 'title_required');
-    requireMaxLength(title, MAX_TITLE_LENGTH, 'title_too_long');
-    requireNonBlank(areaId, 'area_id_required');
-    requireNonBlank(contextId, 'context_id_required');
+  ): Result<Action, DomainError> {
+    const checks: Result<void, DomainError>[] = [
+      requireNonBlank(workspaceId, 'workspace_id_required'),
+      requireNonBlank(actorId, 'actor_id_required'),
+      requireNonBlank(title, 'title_required'),
+      requireMaxLength(title, MAX_TITLE_LENGTH, 'title_too_long'),
+      requireNonBlank(areaId, 'area_id_required'),
+      requireNonBlank(contextId, 'context_id_required'),
+    ];
+    for (const check of checks) {
+      if (!check.success) {
+        return check;
+      }
+    }
     if (description !== null) {
-      requireNonBlank(description, 'description_required');
-      requireMaxLength(description, MAX_DESCRIPTION_LENGTH, 'description_too_long');
+      const descBlank = requireNonBlank(description, 'description_required');
+      if (!descBlank.success) {
+        return descBlank;
+      }
+      const descLen = requireMaxLength(description, MAX_DESCRIPTION_LENGTH, 'description_too_long');
+      if (!descLen.success) {
+        return descLen;
+      }
     }
     const now = new Date().toISOString();
-    return {
+    return ok({
       id: crypto.randomUUID(),
       workspaceId,
       createdByActorId: actorId,
@@ -94,7 +109,7 @@ export namespace Action {
       projectId: null,
       createdAt: now,
       updatedAt: now,
-    };
+    });
   }
 
   /**
@@ -111,33 +126,33 @@ export namespace Action {
    * Transitions an action from 'ready' to 'active'.
    *
    * @param action - The action to activate.
-   * @returns A new Action with `status='active'`.
+   * @returns A Result containing a new Action with `status='active'`, or a DomainError.
    */
-  export function activate(action: Action): Action {
+  export function activate(action: Action): Result<Action, DomainError> {
     if (action.status !== 'ready') {
-      throw new DomainError('invalid_status_transition');
+      return err(new DomainError('invalid_status_transition'));
     }
-    return {
+    return ok({
       ...action,
-      status: 'active',
+      status: 'active' as const,
       updatedAt: new Date().toISOString(),
-    };
+    });
   }
 
   /**
    * Transitions an action from 'active' to 'done'.
    *
    * @param action - The action to complete.
-   * @returns A new Action with `status='done'`.
+   * @returns A Result containing a new Action with `status='done'`, or a DomainError.
    */
-  export function complete(action: Action): Action {
+  export function complete(action: Action): Result<Action, DomainError> {
     if (action.status !== 'active') {
-      throw new DomainError('invalid_status_transition');
+      return err(new DomainError('invalid_status_transition'));
     }
-    return {
+    return ok({
       ...action,
-      status: 'done',
+      status: 'done' as const,
       updatedAt: new Date().toISOString(),
-    };
+    });
   }
 }

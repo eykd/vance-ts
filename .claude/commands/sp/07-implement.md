@@ -1,7 +1,3 @@
----
-description: Execute the implementation plan by processing tasks from beads. Uses bd ready to get available tasks and bd close to mark completion.
----
-
 ## User Input
 
 ```text
@@ -78,7 +74,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    a. **Mark task in progress**:
 
    ```bash
-   npx bd update <task-id> --status in_progress --json
+   npx bd update <task-id> --claim
    ```
 
    b. **Execute the task implementation**:
@@ -196,8 +192,7 @@ Note: This command uses beads exclusively for task tracking. Run `/sp:05-tasks` 
 ```text
 ┌──────────┐     bd update      ┌─────────────┐     bd close     ┌────────┐
 │   open   │ ────────────────→  │ in_progress │ ──────────────→  │ closed │
-└──────────┘   --status         └─────────────┘    --reason       └────────┘
-                in_progress
+└──────────┘     --claim        └─────────────┘    --reason       └────────┘
 ```
 
 ## Beads Commands Reference
@@ -205,7 +200,7 @@ Note: This command uses beads exclusively for task tracking. Run `/sp:05-tasks` 
 | Action               | Command                                               |
 | -------------------- | ----------------------------------------------------- |
 | Get ready tasks      | `npx bd ready --json`                                 |
-| Mark in progress     | `npx bd update <id> --status in_progress`             |
+| Claim task           | `npx bd update <id> --claim`                          |
 | Mark complete        | `npx bd close <id> --reason "summary"`                |
 | View task            | `npx bd show <id>`                                    |
 | List open tasks      | `npx bd list --parent <epic-id> --status open --json` |

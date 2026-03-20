@@ -19,11 +19,13 @@ import { WorkspaceProvisioningService } from './WorkspaceProvisioningService';
  * @param impl - Optional override for the `execute` mock implementation.
  * @returns An object containing the mock function and the cast use case instance.
  */
-function makeUseCaseMock(impl?: () => Promise<void>): {
+function makeUseCaseMock(impl?: () => Promise<{ ok: true } | { ok: false; error: string }>): {
   execute: ReturnType<typeof vi.fn>;
   useCase: ProvisionWorkspaceUseCase;
 } {
-  const execute = vi.fn().mockImplementation(impl ?? ((): Promise<void> => Promise.resolve()));
+  const execute = vi
+    .fn()
+    .mockImplementation(impl ?? ((): Promise<{ ok: true }> => Promise.resolve({ ok: true })));
   return { execute, useCase: { execute } as unknown as ProvisionWorkspaceUseCase };
 }
 
@@ -39,16 +41,20 @@ describe('WorkspaceProvisioningService', () => {
       expect(execute).toHaveBeenCalledWith({ userId: 'user-abc-123' });
     });
 
-    it('resolves to undefined when the use case resolves', async () => {
-      const { useCase } = makeUseCaseMock((): Promise<void> => Promise.resolve());
+    it('resolves to undefined when the use case returns ok', async () => {
+      const { useCase } = makeUseCaseMock(
+        (): Promise<{ ok: true }> => Promise.resolve({ ok: true })
+      );
       const service = new WorkspaceProvisioningService(useCase);
 
       await expect(service.onUserCreated('user-1')).resolves.toBeUndefined();
     });
 
-    it('propagates errors thrown by the use case', async () => {
-      const error = new Error('ProvisionWorkspace failed');
-      const { useCase } = makeUseCaseMock((): Promise<void> => Promise.reject(error));
+    it('throws when the use case returns an error result', async () => {
+      const { useCase } = makeUseCaseMock(
+        (): Promise<{ ok: false; error: string }> =>
+          Promise.resolve({ ok: false, error: 'ProvisionWorkspace failed' })
+      );
       const service = new WorkspaceProvisioningService(useCase);
 
       await expect(service.onUserCreated('user-1')).rejects.toThrow('ProvisionWorkspace failed');

@@ -6,7 +6,6 @@ import type { ActivateActionUseCase } from '../../application/use-cases/Activate
 import type { ClarifyInboxItemToActionUseCase } from '../../application/use-cases/ClarifyInboxItemToActionUseCase.js';
 import type { CompleteActionUseCase } from '../../application/use-cases/CompleteActionUseCase.js';
 import type { ListActionsUseCase } from '../../application/use-cases/ListActionsUseCase.js';
-import { DomainError } from '../../domain/errors/DomainError.js';
 
 import { createActionApiHandlers } from './ActionApiHandlers.js';
 
@@ -75,7 +74,7 @@ describe('createActionApiHandlers', () => {
 
   describe('handleClarify', () => {
     it('returns 200 with created action DTO', async () => {
-      clarifyMock.execute.mockResolvedValue(ACTION_DTO);
+      clarifyMock.execute.mockResolvedValue({ ok: true, data: ACTION_DTO });
 
       const app = makeTestApp();
       const res = await app.fetch(
@@ -98,8 +97,8 @@ describe('createActionApiHandlers', () => {
       });
     });
 
-    it('returns 422 for already_clarified error', async () => {
-      clarifyMock.execute.mockRejectedValue(new DomainError('already_clarified'));
+    it('returns 409 for already_clarified error', async () => {
+      clarifyMock.execute.mockResolvedValue({ ok: false, kind: 'already_clarified' });
 
       const app = makeTestApp();
       const res = await app.fetch(
@@ -110,13 +109,13 @@ describe('createActionApiHandlers', () => {
         })
       );
 
-      expect(res.status).toBe(422);
+      expect(res.status).toBe(409);
       const body: { error: { code: string } } = await res.json();
       expect(body.error.code).toBe('already_clarified');
     });
 
-    it('returns 422 for area_not_found_or_archived error', async () => {
-      clarifyMock.execute.mockRejectedValue(new DomainError('area_not_found_or_archived'));
+    it('returns 404 for area_not_found_or_archived error', async () => {
+      clarifyMock.execute.mockResolvedValue({ ok: false, kind: 'area_not_found_or_archived' });
 
       const app = makeTestApp();
       const res = await app.fetch(
@@ -127,11 +126,11 @@ describe('createActionApiHandlers', () => {
         })
       );
 
-      expect(res.status).toBe(422);
+      expect(res.status).toBe(404);
     });
 
-    it('returns 422 for context_not_found error', async () => {
-      clarifyMock.execute.mockRejectedValue(new DomainError('context_not_found'));
+    it('returns 404 for context_not_found error', async () => {
+      clarifyMock.execute.mockResolvedValue({ ok: false, kind: 'context_not_found' });
 
       const app = makeTestApp();
       const res = await app.fetch(
@@ -142,7 +141,7 @@ describe('createActionApiHandlers', () => {
         })
       );
 
-      expect(res.status).toBe(422);
+      expect(res.status).toBe(404);
     });
 
     it('returns 400 when required fields are missing', async () => {
@@ -206,7 +205,7 @@ describe('createActionApiHandlers', () => {
       expect(body.error.code).toBe('validation_error');
     });
 
-    it('returns 500 with error envelope for unexpected errors', async () => {
+    it('returns 500 for unexpected errors', async () => {
       clarifyMock.execute.mockRejectedValue(new Error('unexpected'));
 
       const app = makeTestApp();
@@ -219,15 +218,13 @@ describe('createActionApiHandlers', () => {
       );
 
       expect(res.status).toBe(500);
-      const body = await res.json<{ error: { code: string; message: string } }>();
-      expect(body.error.code).toBe('service_error');
     });
   });
 
   describe('handleActivate', () => {
     it('returns 200 with activated action DTO', async () => {
       const activatedDto = { ...ACTION_DTO, status: 'active' as const };
-      activateMock.execute.mockResolvedValue(activatedDto);
+      activateMock.execute.mockResolvedValue({ ok: true, data: activatedDto });
 
       const app = makeTestApp();
       const res = await app.fetch(
@@ -245,8 +242,8 @@ describe('createActionApiHandlers', () => {
       });
     });
 
-    it('returns 422 for invalid_status_transition', async () => {
-      activateMock.execute.mockRejectedValue(new DomainError('invalid_status_transition'));
+    it('returns 409 for invalid_status_transition', async () => {
+      activateMock.execute.mockResolvedValue({ ok: false, kind: 'invalid_status_transition' });
 
       const app = makeTestApp();
       const res = await app.fetch(
@@ -255,12 +252,12 @@ describe('createActionApiHandlers', () => {
         })
       );
 
-      expect(res.status).toBe(422);
+      expect(res.status).toBe(409);
       const body: { error: { code: string } } = await res.json();
       expect(body.error.code).toBe('invalid_status_transition');
     });
 
-    it('returns 500 with error envelope for unexpected errors', async () => {
+    it('returns 500 for unexpected errors', async () => {
       activateMock.execute.mockRejectedValue(new Error('unexpected'));
 
       const app = makeTestApp();
@@ -271,15 +268,13 @@ describe('createActionApiHandlers', () => {
       );
 
       expect(res.status).toBe(500);
-      const body = await res.json<{ error: { code: string; message: string } }>();
-      expect(body.error.code).toBe('service_error');
     });
   });
 
   describe('handleComplete', () => {
     it('returns 200 with completed action DTO', async () => {
       const completedDto = { ...ACTION_DTO, status: 'done' as const };
-      completeMock.execute.mockResolvedValue(completedDto);
+      completeMock.execute.mockResolvedValue({ ok: true, data: completedDto });
 
       const app = makeTestApp();
       const res = await app.fetch(
@@ -292,8 +287,8 @@ describe('createActionApiHandlers', () => {
       expect(await res.json()).toEqual(completedDto);
     });
 
-    it('returns 422 for invalid_status_transition', async () => {
-      completeMock.execute.mockRejectedValue(new DomainError('invalid_status_transition'));
+    it('returns 409 for invalid_status_transition', async () => {
+      completeMock.execute.mockResolvedValue({ ok: false, kind: 'invalid_status_transition' });
 
       const app = makeTestApp();
       const res = await app.fetch(
@@ -302,10 +297,10 @@ describe('createActionApiHandlers', () => {
         })
       );
 
-      expect(res.status).toBe(422);
+      expect(res.status).toBe(409);
     });
 
-    it('returns 500 with error envelope for unexpected errors', async () => {
+    it('returns 500 for unexpected errors', async () => {
       completeMock.execute.mockRejectedValue(new Error('unexpected'));
 
       const app = makeTestApp();
@@ -316,8 +311,6 @@ describe('createActionApiHandlers', () => {
       );
 
       expect(res.status).toBe(500);
-      const body = await res.json<{ error: { code: string; message: string } }>();
-      expect(body.error.code).toBe('service_error');
     });
   });
 

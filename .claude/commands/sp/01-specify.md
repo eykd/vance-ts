@@ -1,15 +1,3 @@
----
-description: Create or update the feature specification from a natural language description, using an explicit one-question-at-a-time user interview. Creates a beads epic for task tracking.
-handoffs:
-  - label: Build Technical Plan
-    agent: sp:03-plan
-    prompt: Create a plan for the spec. I am building with...
-  - label: Clarify Spec Requirements
-    agent: sp:02-clarify
-    prompt: Clarify specification requirements
-    send: true
----
-
 ## User Input
 
 ```text

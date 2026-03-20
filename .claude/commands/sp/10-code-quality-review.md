@@ -1,7 +1,3 @@
----
-description: Review all changes from the base branch to HEAD for general code quality. Create remediation beads tasks on the current epic for any findings not already tracked.
----
-
 ## User Input
 
 ```text
@@ -110,7 +106,8 @@ git show HEAD:<file-path> 2>/dev/null && echo "exists" || echo "not-yet-written"
 **[SEVERITY] <short title>**
 Problem: <what is wrong>
 Fix: <concrete steps to implement it correctly from the start>"
-```
+
+````
 
 - Do **NOT** create a standalone task for this finding. Stop here for this finding.
 
@@ -127,7 +124,7 @@ Fix: <concrete steps to implement it correctly from the start>"
 ```bash
 npx bd create "Remediate: <short finding title>" -p <1|2|3> --parent <epic-id> \
   --description "**Review**: [sp:10-code-quality-review]\n**Range**: <base>..HEAD\n**Files**: <file paths>\n\n**Finding**:\n<what's wrong>\n\n**Fix suggestion**:\n<concrete steps>\n\n**Acceptance**:\n- <verifiable criteria>" --json
-```
+````
 
 Severity → priority mapping:
 

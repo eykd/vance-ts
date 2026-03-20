@@ -76,8 +76,8 @@ it("Attempting to clarify an already-clarified item is rejected.", async () => {
     }),
   );
 
-  // THEN the response has status 422.
-  expect(res.status).toBe(422);
+  // THEN the response has status 409 (already clarified = conflict).
+  expect(res.status).toBe(409);
 
   // THEN the response body describes the invalid status transition.
   const body = await res.json() as { error: { code: string; message: string } };
@@ -101,8 +101,8 @@ it("Clarification with a non-existent or archived area is rejected.", async () =
     }),
   );
 
-  // THEN the response has status 422.
-  expect(res.status).toBe(422);
+  // THEN the response has status 404 (area not found).
+  expect(res.status).toBe(404);
 
   // THEN the response body describes the invalid area reference.
   const body = await res.json() as { error: { code: string; message: string } };
@@ -126,8 +126,8 @@ it("Clarification with a non-existent context is rejected.", async () => {
     }),
   );
 
-  // THEN the response has status 422.
-  expect(res.status).toBe(422);
+  // THEN the response has status 404 (context not found).
+  expect(res.status).toBe(404);
 
   // THEN the response body describes the invalid context reference.
   const body = await res.json() as { error: { code: string; message: string } };

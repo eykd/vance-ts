@@ -12,10 +12,15 @@ __pycache__/
 # Test coverage
 coverage/
 
+# Test results (CI-generated)
+test-results.json
+flaky-report.json
+
 # Environment files
 .env
 .env.local
 .env.*.local
+.dev.vars
 
 # IDE
 .vscode/
@@ -54,6 +59,10 @@ tmp/
 # Acceptance pipeline IR (ephemeral, regenerated each run)
 acceptance-pipeline/ir/
 .claude/worktrees/
+
+# Stryker mutation reports
+reports/
+.stryker-tmp/
 
 # Dolt database files (added by bd init)
 .dolt/

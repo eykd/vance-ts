@@ -142,16 +142,13 @@ Spec: specs/011-better-auth/spec.md
 
 ---
 
-## ClawTask Vertical Slice
+## Auth-Static Site Integration
 
-Keywords: clawtask, inbox, inbox capture, inbox item, clarify, standalone action, action lifecycle,
-GTD, getting things done, inbox zero, workspace, workspace provisioning, actor, area, context,
-audit event, audit trail, status transition, ready active done, provision, seed data, D1 repositories,
-domain layer, application commands, use cases, CaptureInboxItem, ClarifyInboxItemToAction,
-ActivateAction, CompleteAction, ProvisionWorkspace, tenant isolation, workspace-scoped,
-HTMX UI, JSON API, api/v1, app/inbox, app/actions, dashboard, quick capture, vertical slice,
-better-auth integration, signup hook
-Spec: specs/012-clawtask-vertical-slice/spec.md
+Keywords: auth integration, static site auth, navbar auth, sign in link, sign up button,
+dashboard, auth status, session check, authenticated navbar, HTMX swap, Alpine.js store,
+progressive enhancement, auth guard, client-side redirect, auth endpoint, hypermedia auth,
+Get Started replacement, nav auth area, auth state, fail-closed
+Spec: specs/012-auth-static-integration/spec.md
 
 ---
 

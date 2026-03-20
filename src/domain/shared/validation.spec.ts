@@ -11,53 +11,79 @@ import { DomainError } from '../errors/DomainError.js';
 import { requireMaxLength, requireNonBlank } from './validation.js';
 
 describe('requireNonBlank', () => {
-  it('does not throw for a non-blank string', () => {
-    expect(() => requireNonBlank('hello', 'code')).not.toThrow();
+  it('returns ok for a non-blank string', () => {
+    const result = requireNonBlank('hello', 'code');
+
+    expect(result.success).toBe(true);
   });
 
-  it('throws DomainError for an empty string', () => {
-    expect(() => requireNonBlank('', 'field_required')).toThrow(DomainError);
+  it('returns failure for an empty string', () => {
+    const result = requireNonBlank('', 'field_required');
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(DomainError);
+    }
   });
 
-  it('throws DomainError for a whitespace-only string', () => {
-    expect(() => requireNonBlank('   ', 'field_required')).toThrow(DomainError);
+  it('returns failure for a whitespace-only string', () => {
+    const result = requireNonBlank('   ', 'field_required');
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(DomainError);
+    }
   });
 
-  it('throws DomainError for tabs and newlines only', () => {
-    expect(() => requireNonBlank('\t\n', 'field_required')).toThrow(DomainError);
+  it('returns failure for tabs and newlines only', () => {
+    const result = requireNonBlank('\t\n', 'field_required');
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(DomainError);
+    }
   });
 
   it('uses the provided error code', () => {
-    try {
-      requireNonBlank('', 'my_custom_code');
-      expect.fail('should have thrown');
-    } catch (err: unknown) {
-      expect(err).toBeInstanceOf(DomainError);
-      expect((err as DomainError).code).toBe('my_custom_code');
+    const result = requireNonBlank('', 'my_custom_code');
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(DomainError);
+      expect(result.error.code).toBe('my_custom_code');
     }
   });
 });
 
 describe('requireMaxLength', () => {
-  it('does not throw when string length is within limit', () => {
-    expect(() => requireMaxLength('abc', 5, 'code')).not.toThrow();
+  it('returns ok when string length is within limit', () => {
+    const result = requireMaxLength('abc', 5, 'code');
+
+    expect(result.success).toBe(true);
   });
 
-  it('does not throw when string length equals limit', () => {
-    expect(() => requireMaxLength('abcde', 5, 'code')).not.toThrow();
+  it('returns ok when string length equals limit', () => {
+    const result = requireMaxLength('abcde', 5, 'code');
+
+    expect(result.success).toBe(true);
   });
 
-  it('throws DomainError when string exceeds limit', () => {
-    expect(() => requireMaxLength('abcdef', 5, 'too_long')).toThrow(DomainError);
+  it('returns failure when string exceeds limit', () => {
+    const result = requireMaxLength('abcdef', 5, 'too_long');
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(DomainError);
+    }
   });
 
   it('uses the provided error code', () => {
-    try {
-      requireMaxLength('abcdef', 5, 'my_length_code');
-      expect.fail('should have thrown');
-    } catch (err: unknown) {
-      expect(err).toBeInstanceOf(DomainError);
-      expect((err as DomainError).code).toBe('my_length_code');
+    const result = requireMaxLength('abcdef', 5, 'my_length_code');
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(DomainError);
+      expect(result.error.code).toBe('my_length_code');
     }
   });
 });

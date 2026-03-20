@@ -12,11 +12,6 @@ main:
     url: "/about/"
     weight: 3
 
-buttons:
-  - name: "Get Started"
-    url: "/get-started/"
-    weight: 1
-
 footer:
   - name: "Privacy Policy"
     url: "/privacy/"

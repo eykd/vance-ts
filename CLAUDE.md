@@ -146,10 +146,21 @@ Conventional commits enforced via commitlint:
 
 - **ALWAYS include `--description`** when creating beads tasks with `npx bd create`
 - Descriptions should explain the task's purpose, not just repeat the title
-- When creating beads tasks ad hoc (during planning, reviews, or mid-implementation discovery),
-  check `npx bd list --status=in_progress --type=epic` for the active epic. If one exists, always pass
-  `--parent <implement-task-id>` (the `[sp:07-implement]` child of the epic, not the epic root
-  itself). Orphaned tasks are invisible to `ralph` automation.
+- **ALWAYS parent ad-hoc tasks to the current branch's epic (non-negotiable).**
+  Ralph finds epics by stripping the leading digits from the branch name (e.g.
+  `012-auth-static-integration` → `auth-static-integration`) and matching against
+  open epic titles (case-insensitive, hyphens = spaces). Find the epic and its
+  implement child, then pass `--parent`:
+  ```
+  epic=$(npx bd list --type epic --status open --json | \
+    jq -r --arg b "$(git branch --show-current | sed 's/^[0-9]*-//')" \
+    '.[] | select(.title | ascii_downcase | gsub("-";" ") | contains($b | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
+  impl=$(npx bd children "$epic" --json | jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
+  npx bd create --title "..." --description "..." --parent "$impl"
+  ```
+  Orphaned tasks are invisible to ralph automation.
+- **Epic naming convention**: Epic titles MUST contain the branch feature name
+  (the part after stripping leading digits). Hyphens vs spaces and case don't matter.
 
 ### Warnings and Deprecations
 
@@ -189,8 +200,10 @@ Before implementing any feature, read `specs/readme.md` first. It lists all spec
 Always use subagents liberally and aggressively to conserve the main context window.
 
 ## Active Technologies
-- TypeScript/ES2022 targeting Cloudflare Workers V8 isolate + Hono 4.x, better-auth, Drizzle ORM (sqlite-core + D1 adapter), Vitest 2.x + `@cloudflare/vitest-pool-workers` (012-clawtask-vertical-slice)
-- Cloudflare D1 (SQLite); D1 batch API for atomic multi-entity mutations (012-clawtask-vertical-slice)
+
+- TypeScript (ES2022) + Hugo Go templates + Hono (HTTP), Alpine.js 3.15.8, DaisyUI 5, better-auth (012-auth-static-integration)
+- D1 (sessions via better-auth), indicator cookie (client-side only) (012-auth-static-integration)
 
 ## Recent Changes
-- 012-clawtask-vertical-slice: Added TypeScript/ES2022 targeting Cloudflare Workers V8 isolate + Hono 4.x, better-auth, Drizzle ORM (sqlite-core + D1 adapter), Vitest 2.x + `@cloudflare/vitest-pool-workers`
+
+- 012-auth-static-integration: Added TypeScript (ES2022) + Hugo Go templates + Hono (HTTP), Alpine.js 3.15.8, DaisyUI 5, better-auth

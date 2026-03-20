@@ -31,9 +31,12 @@ describe('AppPartialHandlers', () => {
     it('calls CaptureInboxItemUseCase and returns HTML partial with captured title', async () => {
       const captureInbox = makeUseCaseMock();
       captureInbox.execute.mockResolvedValue({
-        id: 'inbox-1',
-        title: 'Buy milk',
-        status: 'pending',
+        ok: true,
+        data: {
+          id: 'inbox-1',
+          title: 'Buy milk',
+          status: 'pending',
+        },
       });
 
       const handlers = new AppPartialHandlers(
@@ -77,9 +80,12 @@ describe('AppPartialHandlers', () => {
       const clarifyInbox = makeUseCaseMock();
       const activateAction = makeUseCaseMock();
       activateAction.execute.mockResolvedValue({
-        id: 'action-1',
-        title: 'Buy organic milk',
-        status: 'active',
+        ok: true,
+        data: {
+          id: 'action-1',
+          title: 'Buy organic milk',
+          status: 'active',
+        },
       });
 
       const handlers = new AppPartialHandlers(
@@ -124,9 +130,12 @@ describe('AppPartialHandlers', () => {
       const activateAction = makeUseCaseMock();
       const completeAction = makeUseCaseMock();
       completeAction.execute.mockResolvedValue({
-        id: 'action-1',
-        title: 'Buy organic milk',
-        status: 'done',
+        ok: true,
+        data: {
+          id: 'action-1',
+          title: 'Buy organic milk',
+          status: 'done',
+        },
       });
 
       const handlers = new AppPartialHandlers(
@@ -169,14 +178,17 @@ describe('AppPartialHandlers', () => {
       const captureInbox = makeUseCaseMock();
       const clarifyInbox = makeUseCaseMock();
       clarifyInbox.execute.mockResolvedValue({
-        id: 'action-1',
-        title: 'Buy organic milk',
-        description: null,
-        status: 'ready',
-        areaId: 'area-1',
-        contextId: 'ctx-1',
-        createdAt: '2026-03-07T00:00:00.000Z',
-        updatedAt: '2026-03-07T00:00:00.000Z',
+        ok: true,
+        data: {
+          id: 'action-1',
+          title: 'Buy organic milk',
+          description: null,
+          status: 'ready',
+          areaId: 'area-1',
+          contextId: 'ctx-1',
+          createdAt: '2026-03-07T00:00:00.000Z',
+          updatedAt: '2026-03-07T00:00:00.000Z',
+        },
       });
 
       const handlers = new AppPartialHandlers(

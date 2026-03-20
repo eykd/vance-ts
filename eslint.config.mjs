@@ -1,9 +1,137 @@
 import js from '@eslint/js';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
+import boundaries from 'eslint-plugin-boundaries';
 import importPlugin from 'eslint-plugin-import';
 import jsdocPlugin from 'eslint-plugin-jsdoc';
 import prettierConfig from 'eslint-config-prettier';
+
+/** Node.js module bans — Cloudflare Workers runtime constraint. */
+const NODE_JS_BAN_PATHS = [
+  {
+    name: 'fs',
+    message: 'Node.js fs module not available in Cloudflare Workers. Use R2 for object storage.',
+  },
+  {
+    name: 'path',
+    message:
+      'Node.js path module not available in Cloudflare Workers. Use URL API for path manipulation.',
+  },
+  {
+    name: 'os',
+    message: 'Node.js os module not available in Cloudflare Workers.',
+  },
+  {
+    name: 'crypto',
+    message:
+      'Node.js crypto module not available in Cloudflare Workers. Use Web Crypto API (crypto.subtle).',
+  },
+  {
+    name: 'child_process',
+    message: 'Node.js child_process module not available in Cloudflare Workers.',
+  },
+  {
+    name: 'http',
+    message: 'Node.js http module not available in Cloudflare Workers. Use fetch API.',
+  },
+  {
+    name: 'https',
+    message: 'Node.js https module not available in Cloudflare Workers. Use fetch API.',
+  },
+  {
+    name: 'net',
+    message:
+      'Node.js net module not available in Cloudflare Workers. Use TCP Sockets API or connect().',
+  },
+  {
+    name: 'dns',
+    message: 'Node.js dns module not available in Cloudflare Workers.',
+  },
+  {
+    name: 'stream',
+    message: 'Node.js stream module not available in Cloudflare Workers. Use Web Streams API.',
+  },
+  {
+    name: 'buffer',
+    message:
+      'Node.js buffer module not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
+  },
+  {
+    name: 'util',
+    message: 'Node.js util module not available in Cloudflare Workers.',
+  },
+  {
+    name: 'events',
+    message: 'Node.js events module not available in Cloudflare Workers. Use EventTarget.',
+  },
+  {
+    name: 'process',
+    message:
+      'Node.js process module not available in Cloudflare Workers. Use env parameter in fetch handler.',
+  },
+];
+
+/** Node.js global bans — Cloudflare Workers runtime constraint. */
+const NODE_JS_BAN_GLOBALS = [
+  {
+    name: 'process',
+    message:
+      'process not available in Cloudflare Workers. Use env parameter in fetch(request, env, ctx).',
+  },
+  {
+    name: '__dirname',
+    message: '__dirname not available in Cloudflare Workers (no file system).',
+  },
+  {
+    name: '__filename',
+    message: '__filename not available in Cloudflare Workers (no file system).',
+  },
+  {
+    name: 'Buffer',
+    message: 'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
+  },
+  {
+    name: 'require',
+    message: 'require() not available in Cloudflare Workers. Use ES modules (import/export).',
+  },
+];
+
+/** Library containment — keyed by library name. */
+const CONTAINED_LIBS = {
+  'better-auth': {
+    group: ['better-auth', 'better-auth/**'],
+    message:
+      'Import better-auth only in src/infrastructure/. Use the AuthService port to access auth from other layers.',
+  },
+  'drizzle-orm': {
+    group: ['drizzle-orm', 'drizzle-orm/**'],
+    message:
+      'Import drizzle-orm only in src/infrastructure/. Use repository interfaces from domain/ to access data.',
+  },
+  hono: {
+    group: ['hono', 'hono/**'],
+    message:
+      'Import hono only in src/presentation/ or src/worker.ts. Use domain/application interfaces for business logic.',
+  },
+  '@cloudflare/workers-types': {
+    group: ['@cloudflare/workers-types'],
+    message:
+      'Import @cloudflare/workers-types only in src/shared/env.ts or src/infrastructure/. Use AppEnv from shared/env.ts.',
+  },
+};
+
+/**
+ * Builds a no-restricted-imports rule combining Node.js bans with
+ * library containment bans, excluding libraries listed in allowedKeys.
+ */
+function restrictedImports(...allowedKeys) {
+  const patterns = Object.entries(CONTAINED_LIBS)
+    .filter(([key]) => !allowedKeys.includes(key))
+    .map(([, value]) => value);
+  return patterns.length > 0
+    ? ['error', { paths: NODE_JS_BAN_PATHS, patterns }]
+    : ['error', { paths: NODE_JS_BAN_PATHS }];
+}
 
 export default [
   // Ignore patterns
@@ -129,11 +257,7 @@ export default [
             esm: true,
             window: true,
           },
-          contexts: [
-            'TSInterfaceDeclaration',
-            'TSTypeAliasDeclaration',
-            'TSEnumDeclaration',
-          ],
+          contexts: ['TSInterfaceDeclaration', 'TSTypeAliasDeclaration', 'TSEnumDeclaration'],
         },
       ],
       'jsdoc/require-description': [
@@ -180,14 +304,7 @@ export default [
       'import/order': [
         'error',
         {
-          groups: [
-            'builtin',
-            'external',
-            'internal',
-            'parent',
-            'sibling',
-            'index',
-          ],
+          groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
           'newlines-between': 'always',
           alphabetize: {
             order: 'asc',
@@ -205,112 +322,10 @@ export default [
       'no-var': 'error',
 
       // Cloudflare Workers runtime constraints - ban Node.js imports
-      'no-restricted-imports': [
-        'error',
-        {
-          paths: [
-            {
-              name: 'fs',
-              message:
-                'Node.js fs module not available in Cloudflare Workers. Use R2 for object storage.',
-            },
-            {
-              name: 'path',
-              message:
-                'Node.js path module not available in Cloudflare Workers. Use URL API for path manipulation.',
-            },
-            {
-              name: 'os',
-              message: 'Node.js os module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'crypto',
-              message:
-                'Node.js crypto module not available in Cloudflare Workers. Use Web Crypto API (crypto.subtle).',
-            },
-            {
-              name: 'child_process',
-              message:
-                'Node.js child_process module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'http',
-              message:
-                'Node.js http module not available in Cloudflare Workers. Use fetch API.',
-            },
-            {
-              name: 'https',
-              message:
-                'Node.js https module not available in Cloudflare Workers. Use fetch API.',
-            },
-            {
-              name: 'net',
-              message:
-                'Node.js net module not available in Cloudflare Workers. Use TCP Sockets API or connect().',
-            },
-            {
-              name: 'dns',
-              message:
-                'Node.js dns module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'stream',
-              message:
-                'Node.js stream module not available in Cloudflare Workers. Use Web Streams API.',
-            },
-            {
-              name: 'buffer',
-              message:
-                'Node.js buffer module not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
-            },
-            {
-              name: 'util',
-              message:
-                'Node.js util module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'events',
-              message:
-                'Node.js events module not available in Cloudflare Workers. Use EventTarget.',
-            },
-            {
-              name: 'process',
-              message:
-                'Node.js process module not available in Cloudflare Workers. Use env parameter in fetch handler.',
-            },
-          ],
-        },
-      ],
+      'no-restricted-imports': ['error', { paths: NODE_JS_BAN_PATHS }],
 
       // Ban Node.js globals
-      'no-restricted-globals': [
-        'error',
-        {
-          name: 'process',
-          message:
-            'process not available in Cloudflare Workers. Use env parameter in fetch(request, env, ctx).',
-        },
-        {
-          name: '__dirname',
-          message:
-            '__dirname not available in Cloudflare Workers (no file system).',
-        },
-        {
-          name: '__filename',
-          message:
-            '__filename not available in Cloudflare Workers (no file system).',
-        },
-        {
-          name: 'Buffer',
-          message:
-            'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
-        },
-        {
-          name: 'require',
-          message:
-            'require() not available in Cloudflare Workers. Use ES modules (import/export).',
-        },
-      ],
+      'no-restricted-globals': ['error', ...NODE_JS_BAN_GLOBALS],
 
       // Prettier config (disable conflicting rules)
       ...prettierConfig.rules,
@@ -436,11 +451,7 @@ export default [
             esm: true,
             window: true,
           },
-          contexts: [
-            'TSInterfaceDeclaration',
-            'TSTypeAliasDeclaration',
-            'TSEnumDeclaration',
-          ],
+          contexts: ['TSInterfaceDeclaration', 'TSTypeAliasDeclaration', 'TSEnumDeclaration'],
         },
       ],
       'jsdoc/require-description': [
@@ -487,14 +498,7 @@ export default [
       'import/order': [
         'error',
         {
-          groups: [
-            'builtin',
-            'external',
-            'internal',
-            'parent',
-            'sibling',
-            'index',
-          ],
+          groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
           'newlines-between': 'always',
           alphabetize: {
             order: 'asc',
@@ -512,132 +516,106 @@ export default [
       'no-var': 'error',
 
       // Cloudflare Workers runtime constraints - ban Node.js imports
-      'no-restricted-imports': [
-        'error',
-        {
-          paths: [
-            {
-              name: 'fs',
-              message:
-                'Node.js fs module not available in Cloudflare Workers. Use R2 for object storage.',
-            },
-            {
-              name: 'path',
-              message:
-                'Node.js path module not available in Cloudflare Workers. Use URL API for path manipulation.',
-            },
-            {
-              name: 'os',
-              message: 'Node.js os module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'crypto',
-              message:
-                'Node.js crypto module not available in Cloudflare Workers. Use Web Crypto API (crypto.subtle).',
-            },
-            {
-              name: 'child_process',
-              message:
-                'Node.js child_process module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'http',
-              message:
-                'Node.js http module not available in Cloudflare Workers. Use fetch API.',
-            },
-            {
-              name: 'https',
-              message:
-                'Node.js https module not available in Cloudflare Workers. Use fetch API.',
-            },
-            {
-              name: 'net',
-              message:
-                'Node.js net module not available in Cloudflare Workers. Use TCP Sockets API or connect().',
-            },
-            {
-              name: 'dns',
-              message:
-                'Node.js dns module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'stream',
-              message:
-                'Node.js stream module not available in Cloudflare Workers. Use Web Streams API.',
-            },
-            {
-              name: 'buffer',
-              message:
-                'Node.js buffer module not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
-            },
-            {
-              name: 'util',
-              message:
-                'Node.js util module not available in Cloudflare Workers.',
-            },
-            {
-              name: 'events',
-              message:
-                'Node.js events module not available in Cloudflare Workers. Use EventTarget.',
-            },
-            {
-              name: 'process',
-              message:
-                'Node.js process module not available in Cloudflare Workers. Use env parameter in fetch handler.',
-            },
-          ],
-        },
-      ],
+      'no-restricted-imports': ['error', { paths: NODE_JS_BAN_PATHS }],
 
       // Ban Node.js globals
-      'no-restricted-globals': [
-        'error',
-        {
-          name: 'process',
-          message:
-            'process not available in Cloudflare Workers. Use env parameter in fetch(request, env, ctx).',
-        },
-        {
-          name: '__dirname',
-          message:
-            '__dirname not available in Cloudflare Workers (no file system).',
-        },
-        {
-          name: '__filename',
-          message:
-            '__filename not available in Cloudflare Workers (no file system).',
-        },
-        {
-          name: 'Buffer',
-          message:
-            'Buffer not available in Cloudflare Workers. Use Uint8Array or ArrayBuffer.',
-        },
-        {
-          name: 'require',
-          message:
-            'require() not available in Cloudflare Workers. Use ES modules (import/export).',
-        },
-      ],
+      'no-restricted-globals': ['error', ...NODE_JS_BAN_GLOBALS],
 
       // Prettier config (disable conflicting rules)
       ...prettierConfig.rules,
     },
   },
 
-  // Clean Architecture layer boundary enforcement
-  //
-  // Domain layer cannot import from outer layers
+  // Clean Architecture boundary enforcement via eslint-plugin-boundaries
   {
-    files: ['src/domain/**/*.ts'],
+    files: ['src/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    plugins: {
+      boundaries,
+    },
+    settings: {
+      'import/resolver': {
+        typescript: {
+          alwaysTryTypes: true,
+        },
+      },
+      'boundaries/include': ['src/**/*.ts'],
+      'boundaries/ignore': ['**/*.spec.ts', '**/*.test.ts'],
+      'boundaries/elements': [
+        { type: 'shared', pattern: 'src/shared', mode: 'folder' },
+        { type: 'domain', pattern: 'src/domain', mode: 'folder' },
+        { type: 'application', pattern: 'src/application', mode: 'folder' },
+        {
+          type: 'infrastructure',
+          pattern: 'src/infrastructure',
+          mode: 'folder',
+        },
+        { type: 'presentation', pattern: 'src/presentation', mode: 'folder' },
+        { type: 'di', pattern: 'src/di', mode: 'folder' },
+        {
+          type: 'entry',
+          pattern: ['src/worker.ts', 'src/index.ts'],
+          mode: 'file',
+        },
+      ],
+    },
     rules: {
-      'no-restricted-imports': [
+      'boundaries/dependencies': [
         'error',
         {
-          patterns: [
+          default: 'disallow',
+          rules: [
             {
-              group: ['**/infrastructure/**', '**/presentation/**', '**/application/**'],
-              message:
-                'Domain layer must not import from outer layers (application, infrastructure, presentation). Domain should only depend on other domain code.',
+              from: { type: 'shared' },
+              allow: { to: { type: 'shared' } },
+            },
+            {
+              from: { type: 'domain' },
+              allow: { to: { type: ['domain', 'shared'] } },
+            },
+            {
+              from: { type: 'application' },
+              allow: { to: { type: ['domain', 'application', 'shared'] } },
+            },
+            {
+              from: { type: 'infrastructure' },
+              allow: {
+                to: {
+                  type: ['domain', 'application', 'shared', 'infrastructure'],
+                },
+              },
+            },
+            {
+              from: { type: 'presentation' },
+              allow: {
+                to: {
+                  type: ['domain', 'application', 'shared', 'presentation'],
+                },
+              },
+            },
+            {
+              from: { type: 'di' },
+              allow: {
+                to: {
+                  type: ['domain', 'application', 'shared', 'infrastructure', 'presentation', 'di'],
+                },
+              },
+            },
+            {
+              from: { type: 'entry' },
+              allow: {
+                to: {
+                  type: [
+                    'domain',
+                    'application',
+                    'shared',
+                    'infrastructure',
+                    'presentation',
+                    'di',
+                    'entry',
+                  ],
+                },
+              },
             },
           ],
         },
@@ -645,39 +623,173 @@ export default [
     },
   },
 
-  // Application layer cannot import from infrastructure or presentation
+  // ─── Library Containment ────────────────────────────────────────────
+  // Restricts third-party library imports to their intended architectural
+  // layers. See docs/library-containment.md for the full policy.
+
+  // Default: ban all contained libraries across src/
   {
-    files: ['src/application/**/*.ts'],
+    files: ['src/**/*.ts'],
     rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              group: ['**/infrastructure/**', '**/presentation/**'],
-              message:
-                'Application layer must not import from outer layers (infrastructure, presentation). Application should depend on domain interfaces, not concrete implementations.',
-            },
-          ],
-        },
-      ],
+      'no-restricted-imports': restrictedImports(),
     },
   },
 
-  // Infrastructure layer cannot import from presentation
+  // Infrastructure may import: better-auth, drizzle-orm, @cloudflare/workers-types
   {
     files: ['src/infrastructure/**/*.ts'],
     rules: {
-      'no-restricted-imports': [
+      'no-restricted-imports': restrictedImports(
+        'better-auth',
+        'drizzle-orm',
+        '@cloudflare/workers-types'
+      ),
+    },
+  },
+
+  // Presentation may import: hono
+  {
+    files: ['src/presentation/**/*.ts'],
+    rules: {
+      'no-restricted-imports': restrictedImports('hono'),
+    },
+  },
+
+  // Worker entry point may import: hono
+  {
+    files: ['src/worker.ts', 'src/worker.spec.ts'],
+    rules: {
+      'no-restricted-imports': restrictedImports('hono'),
+    },
+  },
+
+  // shared/env.ts may import: @cloudflare/workers-types
+  {
+    files: ['src/shared/env.ts'],
+    rules: {
+      'no-restricted-imports': restrictedImports('@cloudflare/workers-types'),
+    },
+  },
+
+  // ─── DDD Convention Enforcement ──────────────────────────────────────
+  // Intra-layer quality rules that codify DDD conventions into lint rules.
+  // Complements eslint-plugin-boundaries (inter-layer) and library
+  // containment (third-party imports) with domain purity checks.
+
+  // Domain layer: errors as values, no console side effects
+  {
+    files: ['src/domain/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
         'error',
         {
-          patterns: [
-            {
-              group: ['**/presentation/**'],
-              message:
-                'Infrastructure layer must not import from presentation layer. Infrastructure implements domain interfaces and can be used by presentation.',
-            },
-          ],
+          selector: 'ThrowStatement',
+          message: 'Use Result.failure() to represent errors as values.',
+        },
+        {
+          selector: 'CallExpression[callee.object.name="console"]',
+          message: 'Use structured logging via the Logger port.',
+        },
+      ],
+    },
+  },
+
+  // Domain entities/value objects: must also be synchronous and pure
+  {
+    files: ['src/domain/entities/**/*.ts', 'src/domain/value-objects/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ThrowStatement',
+          message: 'Use Result.failure() to represent errors as values.',
+        },
+        {
+          selector: 'CallExpression[callee.object.name="console"]',
+          message: 'Use structured logging via the Logger port.',
+        },
+        {
+          selector: 'FunctionDeclaration[async=true]',
+          message:
+            'Entities and value objects must be synchronous. Move async operations to domain services or infrastructure.',
+        },
+        {
+          selector: 'FunctionExpression[async=true]',
+          message:
+            'Entities and value objects must be synchronous. Move async operations to domain services or infrastructure.',
+        },
+        {
+          selector: 'ArrowFunctionExpression[async=true]',
+          message:
+            'Entities and value objects must be synchronous. Move async operations to domain services or infrastructure.',
+        },
+      ],
+    },
+  },
+
+  // Application layer: errors as values, no HTTP types
+  {
+    files: ['src/application/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ThrowStatement',
+          message:
+            'Use Result types to represent errors as values. Let presentation layer handle HTTP error responses.',
+        },
+      ],
+      'no-restricted-globals': [
+        'error',
+        ...NODE_JS_BAN_GLOBALS,
+        {
+          name: 'Response',
+          message:
+            'Application layer must not use HTTP types. Return DTOs and let the presentation layer build HTTP responses.',
+        },
+        {
+          name: 'Request',
+          message:
+            'Application layer must not use HTTP types. Accept DTOs and let the presentation layer parse HTTP requests.',
+        },
+        {
+          name: 'Headers',
+          message:
+            'Application layer must not use HTTP types. Return DTOs and let the presentation layer build HTTP responses.',
+        },
+      ],
+    },
+  },
+
+  // Presentation layer: no direct D1 or Durable Object access
+  {
+    files: ['src/presentation/**/*.ts'],
+    ignores: ['**/*.spec.ts', '**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.property.name="prepare"]',
+          message:
+            'Direct D1 queries belong in repositories. Inject a use case or repository instead.',
+        },
+        {
+          selector: 'CallExpression[callee.property.name="idFromName"]',
+          message:
+            'Direct DO access belongs in infrastructure. Use a port/repository interface.',
+        },
+        {
+          selector: 'CallExpression[callee.property.name="idFromString"]',
+          message:
+            'Direct DO access belongs in infrastructure. Use a port/repository interface.',
+        },
+        {
+          selector: 'CallExpression[callee.property.name="newUniqueId"]',
+          message:
+            'Direct DO access belongs in infrastructure. Use a port/repository interface.',
         },
       ],
     },
@@ -714,6 +826,46 @@ export default [
       // Allow Node.js imports in development tooling
       'no-restricted-imports': 'off',
       'no-restricted-globals': 'off',
+      // Hooks are simple Node.js scripts, not Workers code
+      'no-restricted-syntax': 'off',
+      'no-console': 'off',
+      'jsdoc/require-jsdoc': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/restrict-plus-operands': 'off',
+      '@typescript-eslint/strict-boolean-expressions': 'off',
+    },
+  },
+
+  // Build scripts in scripts/ directory can use Node.js APIs
+  // (run via tsx/vitest in Node.js, not in Cloudflare Workers)
+  {
+    files: ['scripts/**/*.ts'],
+    languageOptions: {
+      globals: {
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        process: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        describe: 'readonly',
+        test: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+      },
+    },
+    rules: {
+      'no-restricted-imports': 'off',
+      'no-restricted-globals': 'off',
+      'no-console': 'off',
     },
   },
 

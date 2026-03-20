@@ -1,7 +1,20 @@
-import { writeFile } from 'fs/promises';
 import { basename, extname } from 'path';
 
 import type { Feature } from './types.js';
+
+/**
+ * Safe indexed access returning empty string for out-of-bounds positions.
+ *
+ * Consolidates the `arr[i] ?? ''` pattern required by `noUncheckedIndexedAccess`
+ * into a single location instead of scattering `c8 ignore next` comments.
+ *
+ * @param source - The array to index into.
+ * @param index - The position to access.
+ * @returns The element at `index`, or `''` if out of bounds.
+ */
+export function at(source: readonly string[], index: number): string {
+  return source[index] ?? ''; /* c8 ignore next */
+}
 
 /**
  * Sentinel string placed in generated stub it() blocks.
@@ -10,25 +23,59 @@ import type { Feature } from './types.js';
  */
 export const UnboundSentinel = 'throw new Error("acceptance test not yet bound")';
 
-/** The standard cloudflare:test import emitted for new files. */
-const DEFAULT_CLOUDFLARE_IMPORT = 'import { SELF } from "cloudflare:test";';
+/** Regex matching `^it("desc",\s+` with double-quoted description. */
+const IT_PREFIX_DOUBLE = /^it\("((?:[^"\\]|\\.)+)",\s+/;
+/** Regex matching `^it('desc',\s+` with single-quoted description. */
+const IT_PREFIX_SINGLE = /^it\('((?:[^'\\]|\\.)+)',\s+/;
+/** The exact suffix that ends the it() signature before the callback body. */
+const CALLBACK_SUFFIX = 'async () => {';
 
 /**
- * Extracts custom import lines from an existing generated test file.
+ * Matches an `it()` line with an optional vitest options object.
  *
- * "Custom" means: any import line that is not the standard vitest import.
- * This includes the cloudflare:test import when it has been extended (e.g.
- * to add `env`), and any helper imports added during binding.
+ * Uses balanced-brace counting so options objects with nested braces
+ * (e.g. `{ onFailure: () => {} }`) are handled correctly.
  *
- * @param source - The full text of the existing generated test file.
- * @returns Array of custom import lines to preserve on regeneration.
+ * @param line - A single line of source code.
+ * @returns The test description (unescaped) and total match length, or null.
  */
-export function extractCustomImports(source: string): string[] {
-  const STANDARD_VITEST = 'import { describe, it, expect } from "vitest";';
-  const DEFAULT_CF = DEFAULT_CLOUDFLARE_IMPORT;
-  return source
-    .split('\n')
-    .filter((line) => line.startsWith('import ') && line !== STANDARD_VITEST && line !== DEFAULT_CF);
+export function matchItLine(line: string): { description: string; matchLength: number } | null {
+  const prefix = IT_PREFIX_DOUBLE.exec(line) ?? IT_PREFIX_SINGLE.exec(line);
+  if (prefix === null) {
+    return null;
+  }
+  const description = at(prefix, 1).replace(/\\(.)/g, '$1');
+  let pos = prefix[0].length;
+
+  // Optional vitest options object: { ... },\s*
+  if (line[pos] === '{') {
+    let depth = 1;
+    pos++;
+    while (pos < line.length && depth > 0) {
+      const ch = line[pos];
+      if (ch === '{') {
+        depth++;
+      } else if (ch === '}') {
+        depth--;
+      }
+      pos++;
+    }
+    if (depth !== 0) {
+      return null;
+    }
+    const commaAndSpace = /^,\s*/.exec(line.slice(pos));
+    if (commaAndSpace === null) {
+      return null;
+    }
+    pos += commaAndSpace[0].length;
+  }
+
+  // Must end with the callback opening
+  if (!line.slice(pos).startsWith(CALLBACK_SUFFIX)) {
+    return null;
+  }
+
+  return { description, matchLength: pos + CALLBACK_SUFFIX.length };
 }
 
 /**
@@ -54,26 +101,21 @@ export function extractBoundFunctions(source: string): Map<string, string> {
   let i = 0;
 
   while (i < lines.length) {
-    /* c8 ignore next */
-    const line = lines[i] ?? '';
-    const match =
-      /^it\("((?:[^"\\]|\\.)+)", async \(\) => \{/.exec(line) ??
-      /^it\('((?:[^'\\]|\\.)+)', async \(\) => \{/.exec(line);
+    const line = at(lines, i);
+    const match = matchItLine(line);
 
     if (match !== null) {
-      /* c8 ignore next */
-      const description = (match[1] ?? '').replace(/\\(.)/g, '$1');
+      const { description } = match;
       const startLine = i;
-      let depth = 0;
+      let depth = 1; // matchItLine matched through the opening `{` of the callback
       let endLine = -1;
       let inString: string | null = null;
 
       outer: for (let j = startLine; j < lines.length; j++) {
-        /* c8 ignore next */
-        const scanLine = lines[j] ?? '';
-        for (let k = 0; k < scanLine.length; k++) {
-          /* c8 ignore next */
-          const ch = scanLine[k] ?? '';
+        const scanLine = at(lines, j);
+        const startK = j === startLine ? match.matchLength : 0;
+        for (let k = startK; k < scanLine.length; k++) {
+          const ch = scanLine.charAt(k);
           const next = scanLine[k + 1];
 
           if (inString !== null) {
@@ -98,6 +140,7 @@ export function extractBoundFunctions(source: string): Map<string, string> {
         }
       }
 
+      /* v8 ignore next -- endLine always >= 0 for well-formed generated test files */
       if (endLine >= 0) {
         const block = lines.slice(startLine, endLine + 1).join('\n');
         if (!block.includes(UnboundSentinel)) {
@@ -112,6 +155,34 @@ export function extractBoundFunctions(source: string): Map<string, string> {
   }
 
   return result;
+}
+
+/** Standard import specifiers that are always emitted by the generator. */
+const STANDARD_IMPORT_SOURCES = new Set(['"cloudflare:test"', '"vitest"', '"./helpers"']);
+
+/**
+ * Extracts non-standard import lines from an existing generated test file.
+ *
+ * Standard imports (cloudflare:test, vitest, ./helpers) are always emitted by
+ * the generator and are therefore excluded. Any other `import` line is
+ * considered custom and will be preserved across regeneration.
+ *
+ * @param source - The full text of the existing generated test file.
+ * @returns An array of custom import lines.
+ */
+export function extractCustomImports(source: string): string[] {
+  if (source === '') {
+    return [];
+  }
+  const importLines = source.split('\n').filter((line) => /^import\s/.test(line));
+  return importLines.filter((line) => {
+    const fromMatch = /from\s+("[^"]+"|'[^']+')/.exec(line);
+    if (fromMatch === null) {
+      return true; // side-effect import — always custom
+    }
+    const specifier = at(fromMatch, 1).replace(/'/g, '"');
+    return !STANDARD_IMPORT_SOURCES.has(specifier);
+  });
 }
 
 /**
@@ -143,6 +214,7 @@ export function sanitizeFuncName(desc: string): string {
  */
 export function generateTests(feature: Feature, existingSource: string): string {
   const boundFunctions = extractBoundFunctions(existingSource);
+  const customImports = extractCustomImports(existingSource);
   const specName = basename(feature.sourceFile, extname(feature.sourceFile));
 
   const lines: string[] = [];
@@ -154,15 +226,15 @@ export function generateTests(feature: Feature, existingSource: string): string 
   lines.push(`// Source: ${feature.sourceFile.replace(/[\r\n]/g, '')}`);
   lines.push('');
 
-  // Imports — use extended cloudflare:test if present in existing source, else standard
-  const customImports = extractCustomImports(existingSource);
-  const cloudflareImport =
-    customImports.find((l) => l.includes('"cloudflare:test"')) ?? DEFAULT_CLOUDFLARE_IMPORT;
-  const extraImports = customImports.filter((l) => !l.includes('"cloudflare:test"'));
-  lines.push(cloudflareImport);
+  // Imports
+  lines.push('import { SELF } from "cloudflare:test";');
   lines.push('import { describe, it, expect } from "vitest";');
-  for (const imp of extraImports) {
-    lines.push(imp);
+  lines.push('');
+  lines.push(
+    'import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";'
+  );
+  for (const customImport of customImports) {
+    lines.push(customImport);
   }
   lines.push('');
 
@@ -214,18 +286,3 @@ export function generateTests(feature: Feature, existingSource: string): string 
 
   return lines.join('\n') + '\n';
 }
-
-/* c8 ignore start */
-/**
- * Writes the generated test file content to disk.
- *
- * This function is the I/O boundary for the generator and is exempt from
- * coverage requirements.
- *
- * @param path - The file path to write.
- * @param content - The content to write.
- */
-export async function writeTestFileImpl(path: string, content: string): Promise<void> {
-  await writeFile(path, content, 'utf-8');
-}
-/* c8 ignore stop */

@@ -1,6 +1,7 @@
 {{/*
-  Site header - navigation bar with logo, main menu, and CTA buttons.
-  Menus configured in config/_default/menus.yaml (main, buttons)
+  Site header - navigation bar with logo, main menu, and auth-aware buttons.
+  Auth state driven by Alpine.js $store.auth (reads indicator cookie client-side).
+  Menus configured in config/_default/menus.yaml (main)
 */}}
 <div class="navbar bg-base-100 shadow-sm">
   <div class="flex-1">
@@ -21,16 +22,23 @@
         </li>
       {{ end }}
     </ul>
-    <ul class="menu menu-horizontal">
-      {{ range $i, $e := .Site.Menus.buttons }}
+    {{/* Auth-aware navbar buttons — Alpine.js swaps between states */}}
+    <div x-data class="min-w-48" aria-live="polite">
+      {{/* Unauthenticated: visible by default (progressive enhancement for no-JS) */}}
+      <ul class="menu menu-horizontal" :class="{ 'hidden': $store.auth.isAuthenticated }" aria-label="Account">
         <li class="text-center">
-          {{ if (eq $i 0) }}
-            {{ partial "components/button/primary" (dict "label" .Name "href" .URL ) }}
-          {{ else }}
-            {{ partial "components/button/outline" (dict "label" .Name "href" .URL ) }}
-          {{ end }}
+          <a class="link link-hover link-primary" href="/auth/sign-in">Sign In</a>
         </li>
-      {{ end }}
-    </ul>
+        <li class="text-center">
+          {{ partial "components/button/primary" (dict "label" "Sign Up" "href" "/auth/sign-up") }}
+        </li>
+      </ul>
+      {{/* Authenticated: hidden until Alpine confirms auth (x-cloak prevents FOUC) */}}
+      <ul class="menu menu-horizontal" x-cloak :class="{ 'hidden': !$store.auth.isAuthenticated }" aria-label="Account">
+        <li class="text-center">
+          {{ partial "components/button/primary" (dict "label" "Dashboard" "href" "/dashboard/") }}
+        </li>
+      </ul>
+    </div>
   </div>
 </div>

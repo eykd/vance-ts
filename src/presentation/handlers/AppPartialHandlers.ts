@@ -1,14 +1,15 @@
 import type { Context } from 'hono';
 
+import type { ActivateActionResult } from '../../application/use-cases/ActivateActionUseCase.js';
+import type { CaptureInboxItemResult } from '../../application/use-cases/CaptureInboxItemUseCase.js';
+import type { ClarifyInboxItemResult } from '../../application/use-cases/ClarifyInboxItemToActionUseCase.js';
+import type { CompleteActionResult } from '../../application/use-cases/CompleteActionUseCase.js';
 import { html } from '../utils/html.js';
 
 /** Use case contract expected by AppPartialHandlers. */
 interface CaptureInboxUseCase {
   /** Executes the capture inbox item use case. */
-  execute(input: {
-    workspaceId: string;
-    title: string;
-  }): Promise<{ id: string; title: string; status: string }>;
+  execute(input: { workspaceId: string; title: string }): Promise<CaptureInboxItemResult>;
 }
 
 /** Use case contract for clarifying an inbox item into an action. */
@@ -21,7 +22,7 @@ interface ClarifyInboxUseCase {
     areaId: string;
     contextId: string;
     actorId: string;
-  }): Promise<{ id: string; title: string }>;
+  }): Promise<ClarifyInboxItemResult>;
 }
 
 /** Use case contract for action state transitions (activate, complete). */
@@ -31,7 +32,7 @@ interface ActionCommandUseCase {
     workspaceId: string;
     actionId: string;
     actorId: string;
-  }): Promise<{ id: string; title: string; status: string }>;
+  }): Promise<ActivateActionResult | CompleteActionResult>;
 }
 
 /**
@@ -64,7 +65,10 @@ export class AppPartialHandlers {
     const title = formData.get('title') as string;
     const workspaceId = c.get('workspaceId') as string;
     const result = await this.captureInbox.execute({ workspaceId, title });
-    return c.html(html`<li>${result.title}</li>`);
+    if (!result.ok) {
+      return c.html(html`<li>Error: ${result.kind}</li>`, 422);
+    }
+    return c.html(html`<li>${result.data.title}</li>`);
   }
 
   /**
@@ -97,9 +101,12 @@ export class AppPartialHandlers {
   private async executeActionCommand(c: Context, useCase: ActionCommandUseCase): Promise<Response> {
     const workspaceId = c.get('workspaceId') as string;
     const actorId = c.get('actorId') as string;
-    const actionId = c.req.param('id');
+    const actionId = c.req.param('id') as string;
     const result = await useCase.execute({ workspaceId, actionId, actorId });
-    return c.html(html`<li>${result.status}</li>`);
+    if (!result.ok) {
+      return c.html(html`<li>Error: ${result.kind}</li>`, 422);
+    }
+    return c.html(html`<li>${result.data.status}</li>`);
   }
 
   /**
@@ -115,7 +122,7 @@ export class AppPartialHandlers {
     const contextId = formData.get('contextId') as string;
     const workspaceId = c.get('workspaceId') as string;
     const actorId = c.get('actorId') as string;
-    const inboxItemId = c.req.param('id');
+    const inboxItemId = c.req.param('id') as string;
     const result = await this.clarifyInbox.execute({
       workspaceId,
       inboxItemId,
@@ -124,7 +131,10 @@ export class AppPartialHandlers {
       contextId,
       actorId,
     });
-    return c.html(html`<li>${result.title}</li>`);
+    if (!result.ok) {
+      return c.html(html`<li>Error: ${result.kind}</li>`, 422);
+    }
+    return c.html(html`<li>${result.data.title}</li>`);
   }
 }
 

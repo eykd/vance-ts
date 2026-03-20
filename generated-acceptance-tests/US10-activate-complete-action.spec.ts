@@ -102,8 +102,8 @@ it("Attempting to activate a done action is rejected.", async () => {
     }),
   );
 
-  // THEN the response has status 422.
-  expect(res.status).toBe(422);
+  // THEN the response has status 409 (invalid status transition = conflict).
+  expect(res.status).toBe(409);
 
   // THEN the response body describes the invalid status transition.
   const body = await res.json() as { error: { code: string; message: string } };
@@ -125,8 +125,8 @@ it("Attempting to complete a ready action without activating it first is rejecte
     }),
   );
 
-  // THEN the response has status 422.
-  expect(res.status).toBe(422);
+  // THEN the response has status 409 (invalid status transition = conflict).
+  expect(res.status).toBe(409);
 
   // THEN the response body describes the invalid status transition.
   const body = await res.json() as { error: { code: string; message: string } };

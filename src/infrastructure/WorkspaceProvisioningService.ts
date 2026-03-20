@@ -46,6 +46,9 @@ export class WorkspaceProvisioningService {
    * @throws {Error} When the use case fails.
    */
   async onUserCreated(userId: string): Promise<void> {
-    await this._useCase.execute({ userId });
+    const result = await this._useCase.execute({ userId });
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
   }
 }

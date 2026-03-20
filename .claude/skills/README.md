@@ -238,6 +238,13 @@ Skills can also be activated automatically by Claude when it detects relevant co
 - **Provides:** Shadow organizations, feature flags for rollout, database backfill scripts
 - **Cross-references:** cloudflare-migrations, kv-session-management, org-data-model
 
+### Task Management
+
+**[beads-tasks](./beads-tasks/SKILL.md)**
+
+- **Use when:** Creating, querying, updating, or closing beads tasks; batch operations; task parenting for ralph automation
+- **Provides:** bd CLI reference, task parenting rules, batch scripting patterns, jq cookbook
+
 ### Security & Quality
 
 **[code-review](./code-review/SKILL.md)**

@@ -46,8 +46,11 @@ function makeWorkspaceRepoMock(): {
   };
 }
 
+/** Session cookie name for tests (production form). */
+const SESSION_COOKIE_NAME = '__Host-better-auth.session_token';
+
 /** Valid session cookie for tests. */
-const SESSION_COOKIE = '__Host-better-auth.session_token=test-token';
+const SESSION_COOKIE = `${SESSION_COOKIE_NAME}=test-token`;
 
 /** Minimal user fixture. */
 const TEST_USER = {
@@ -97,7 +100,8 @@ describe('createRequireApiAuth', () => {
     const app = new Hono();
     const middleware = createRequireApiAuth(
       authServiceMock as unknown as AuthService,
-      workspaceRepoMock as unknown as WorkspaceRepository
+      workspaceRepoMock as unknown as WorkspaceRepository,
+      SESSION_COOKIE_NAME
     );
     app.use('*', middleware);
     app.get('/api/v1/test', (c) => c.json({ ok: true }));
@@ -218,7 +222,8 @@ describe('createRequireApiAuth', () => {
     const app = new Hono();
     const middleware = createRequireApiAuth(
       authServiceMock as unknown as AuthService,
-      workspaceRepoMock as unknown as WorkspaceRepository
+      workspaceRepoMock as unknown as WorkspaceRepository,
+      SESSION_COOKIE_NAME
     );
     app.use('*', middleware);
     app.get('/api/v1/test', (c) => {

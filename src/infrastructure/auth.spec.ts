@@ -38,9 +38,9 @@ vi.mock('drizzle-orm/d1', () => ({
 }));
 
 vi.mock('./WorkspaceProvisioningService.js', () => ({
-  WorkspaceProvisioningService: vi.fn().mockImplementation(() => ({
-    onUserCreated: mocks.mockOnUserCreated,
-  })),
+  WorkspaceProvisioningService: vi.fn().mockImplementation(function () {
+    return { onUserCreated: mocks.mockOnUserCreated };
+  }),
 }));
 
 /**
@@ -369,7 +369,9 @@ describe('getAuth', () => {
 
     it('documents the OAuth callback route: auth.handler serves /api/auth/callback/:provider', () => {
       const callbackResponse = new Response(null, { status: 302, headers: { location: '/app' } });
-      const handlerFn = vi.fn<[Request], Promise<Response>>().mockResolvedValue(callbackResponse);
+      const handlerFn = vi
+        .fn<(req: Request) => Promise<Response>>()
+        .mockResolvedValue(callbackResponse);
       mocks.betterAuth.mockReturnValue({ handler: handlerFn });
       const env = makeEnv();
       const auth = getAuth(env);

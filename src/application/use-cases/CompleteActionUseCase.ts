@@ -6,7 +6,6 @@
 
 import { Action } from '../../domain/entities/Action.js';
 import { AuditEvent } from '../../domain/entities/AuditEvent.js';
-import { DomainError } from '../../domain/errors/DomainError.js';
 import type { ActionRepository } from '../../domain/interfaces/ActionRepository.js';
 import type { AuditEventRepository } from '../../domain/interfaces/AuditEventRepository.js';
 import type { ActionDto } from '../dto/ActionDto.js';
@@ -23,6 +22,18 @@ export type CompleteActionRequest = {
   /** FK -> actor.id for audit trail. */
   actorId: string;
 };
+
+/**
+ * Result type returned by {@link CompleteActionUseCase.execute}.
+ *
+ * On success, `data` contains the completed action DTO. On failure, `kind`
+ * identifies the error category:
+ * - `action_not_found` — no action exists with the given ID in the workspace
+ * - `invalid_status_transition` — action is not in 'active' status
+ */
+export type CompleteActionResult =
+  | { ok: true; data: ActionDto }
+  | { ok: false; kind: 'action_not_found' | 'invalid_status_transition' };
 
 /**
  * Completes an action, transitioning it from 'active' to 'done'.
@@ -46,19 +57,24 @@ export class CompleteActionUseCase {
    * Completes an action.
    *
    * @param request - The completion request.
-   * @returns The updated action DTO.
+   * @returns A typed result; never throws.
    */
-  async execute(request: CompleteActionRequest): Promise<ActionDto> {
+  async execute(request: CompleteActionRequest): Promise<CompleteActionResult> {
     const action = await this._actionRepo.getById(request.actionId, request.workspaceId);
     if (action === null) {
-      throw new DomainError('action_not_found');
+      return { ok: false, kind: 'action_not_found' };
     }
 
-    const completed = Action.complete(action);
+    const completeResult = Action.complete(action);
+    if (!completeResult.success) {
+      return { ok: false, kind: 'invalid_status_transition' };
+    }
+    const completed = completeResult.value;
+
     await this._actionRepo.save(completed);
 
     if (this._auditRepo !== undefined) {
-      const event = AuditEvent.record(
+      const eventResult = AuditEvent.record(
         request.workspaceId,
         'action',
         completed.id,
@@ -66,9 +82,11 @@ export class CompleteActionUseCase {
         request.actorId,
         JSON.stringify({ status: completed.status })
       );
-      await this._auditRepo.save(event);
+      if (eventResult.success) {
+        await this._auditRepo.save(eventResult.value);
+      }
     }
 
-    return toActionDto(completed);
+    return { ok: true, data: toActionDto(completed) };
   }
 }

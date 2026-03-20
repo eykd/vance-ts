@@ -8,6 +8,9 @@
  * @module
  */
 
+import type { DomainError } from '../errors/DomainError.js';
+import type { Result } from '../shared/Result.js';
+import { ok } from '../shared/Result.js';
 import { requireNonBlank } from '../shared/validation.js';
 
 /**
@@ -19,9 +22,9 @@ import { requireNonBlank } from '../shared/validation.js';
 export interface Actor {
   /** Unique identifier (UUID). */
   readonly id: string;
-  /** FK → `workspace.id`. The workspace this actor belongs to. */
+  /** FK -> `workspace.id`. The workspace this actor belongs to. */
   readonly workspaceId: string;
-  /** FK → `user.id`. The user account linked to this actor (for human actors). */
+  /** FK -> `user.id`. The user account linked to this actor (for human actors). */
   readonly userId: string;
   /** Actor type. `'agent'` is reserved for future automation; only `'human'` in this slice. */
   readonly type: 'human' | 'agent';
@@ -34,19 +37,25 @@ export namespace Actor {
   /**
    * Creates a new human Actor within a workspace, generating a unique ID and current timestamp.
    *
-   * @param workspaceId - FK → `workspace.id`. The workspace this actor belongs to.
-   * @param userId - FK → `user.id`. The user account linked to this actor.
-   * @returns A new immutable Actor with `type='human'` and `createdAt` set to now.
+   * @param workspaceId - FK -> `workspace.id`. The workspace this actor belongs to.
+   * @param userId - FK -> `user.id`. The user account linked to this actor.
+   * @returns A Result containing a new immutable Actor, or a DomainError.
    */
-  export function createHuman(workspaceId: string, userId: string): Actor {
-    requireNonBlank(workspaceId, 'workspace_id_required');
-    requireNonBlank(userId, 'user_id_required');
-    return {
+  export function createHuman(workspaceId: string, userId: string): Result<Actor, DomainError> {
+    const wsCheck = requireNonBlank(workspaceId, 'workspace_id_required');
+    if (!wsCheck.success) {
+      return wsCheck;
+    }
+    const userCheck = requireNonBlank(userId, 'user_id_required');
+    if (!userCheck.success) {
+      return userCheck;
+    }
+    return ok({
       id: crypto.randomUUID(),
       workspaceId,
       userId,
-      type: 'human',
+      type: 'human' as const,
       createdAt: new Date().toISOString(),
-    };
+    });
   }
 }

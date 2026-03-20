@@ -17,7 +17,7 @@ This directory contains the spec-kit workflow commands integrated with [beads](h
 | `/sp:08-security-review`     | Security review (base..HEAD)     | Creates remediation tasks in beads                                      |
 | `/sp:09-architecture-review` | Architecture review (base..HEAD) | Creates remediation tasks in beads                                      |
 | `/sp:10-code-quality-review` | Code quality review (base..HEAD) | Creates remediation tasks in beads                                      |
-| `/sp:next`                   | **Orchestrate workflow**         | Queries `bd ready`, invokes next skill                                  |
+| `/sp:next`                   | **Orchestrate workflow**         | Queries `bd ready`, invokes next command                                |
 
 ## Workflow: Beads Dependency Chain
 
@@ -57,9 +57,9 @@ Progress: Run `/sp:next` to query `bd ready` and invoke the next phase
 
 ## Phase Task Naming Convention
 
-Phase tasks use the `[sp:NN-name]` prefix for automatic skill invocation:
+Phase tasks use the `[sp:NN-name]` prefix for automatic command invocation:
 
-| Phase Task                        | Skill Invoked                |
+| Phase Task                        | Command Invoked              |
 | --------------------------------- | ---------------------------- |
 | `[sp:02-clarify] ...`             | `/sp:02-clarify`             |
 | `[sp:03-plan] ...`                | `/sp:03-plan`                |

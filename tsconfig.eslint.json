@@ -1,6 +1,6 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src/**/*", ".claude/**/*", "acceptance/**/*", "vitest.config.ts"],
+  "include": ["src/**/*", ".claude/**/*", "acceptance/**/*", "scripts/**/*", "tests/**/*", "vitest.config.mts", "vitest.config.stryker.ts", "knip.config.ts", "hugo/knip.config.ts"],
   "compilerOptions": {
     "types": ["node", "vitest/globals", "@cloudflare/vitest-pool-workers"]
   },

@@ -10,10 +10,28 @@ import { DomainError } from '../errors/DomainError';
 
 import { Action } from './Action';
 
+/**
+ * Helper to unwrap a successful Result or fail the test.
+ *
+ * @param result - The Result to unwrap.
+ * @returns The success value.
+ */
+function unwrap<T>(
+  result: { success: true; value: T } | { success: false; error: DomainError }
+): T {
+  if (!result.success) {
+    throw new Error(`Unexpected failure: ${result.error.code}`);
+  }
+  return result.value;
+}
+
 describe('Action', () => {
   describe('create', () => {
     it('creates an action with ready status', () => {
-      const action = Action.create('ws-1', 'actor-1', 'Do the thing', 'area-1', 'ctx-1');
+      const result = Action.create('ws-1', 'actor-1', 'Do the thing', 'area-1', 'ctx-1');
+
+      expect(result.success).toBe(true);
+      const action = unwrap(result);
       expect(action.workspaceId).toBe('ws-1');
       expect(action.createdByActorId).toBe('actor-1');
       expect(action.title).toBe('Do the thing');
@@ -28,48 +46,85 @@ describe('Action', () => {
     });
 
     it('accepts an optional description', () => {
-      const action = Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1', 'Some desc');
+      const action = unwrap(
+        Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1', 'Some desc')
+      );
       expect(action.description).toBe('Some desc');
     });
 
-    it('throws when workspaceId is blank', () => {
-      expect(() => Action.create('', 'actor-1', 'Title', 'area-1', 'ctx-1')).toThrow(DomainError);
+    it('returns failure when workspaceId is blank', () => {
+      const result = Action.create('', 'actor-1', 'Title', 'area-1', 'ctx-1');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+        expect(result.error.code).toBe('workspace_id_required');
+      }
     });
 
-    it('throws when actorId is blank', () => {
-      expect(() => Action.create('ws-1', '', 'Title', 'area-1', 'ctx-1')).toThrow(DomainError);
+    it('returns failure when actorId is blank', () => {
+      const result = Action.create('ws-1', '', 'Title', 'area-1', 'ctx-1');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+      }
     });
 
-    it('throws when title is blank', () => {
-      expect(() => Action.create('ws-1', 'actor-1', '', 'area-1', 'ctx-1')).toThrow(DomainError);
+    it('returns failure when title is blank', () => {
+      const result = Action.create('ws-1', 'actor-1', '', 'area-1', 'ctx-1');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+      }
     });
 
-    it('throws when title exceeds 255 characters', () => {
+    it('returns failure when title exceeds 255 characters', () => {
       const longTitle = 'x'.repeat(256);
-      expect(() => Action.create('ws-1', 'actor-1', longTitle, 'area-1', 'ctx-1')).toThrow(
-        DomainError
-      );
+      const result = Action.create('ws-1', 'actor-1', longTitle, 'area-1', 'ctx-1');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+      }
     });
 
-    it('throws when areaId is blank', () => {
-      expect(() => Action.create('ws-1', 'actor-1', 'Title', '', 'ctx-1')).toThrow(DomainError);
+    it('returns failure when areaId is blank', () => {
+      const result = Action.create('ws-1', 'actor-1', 'Title', '', 'ctx-1');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+      }
     });
 
-    it('throws when contextId is blank', () => {
-      expect(() => Action.create('ws-1', 'actor-1', 'Title', 'area-1', '')).toThrow(DomainError);
+    it('returns failure when contextId is blank', () => {
+      const result = Action.create('ws-1', 'actor-1', 'Title', 'area-1', '');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+      }
     });
 
-    it('throws when description is blank whitespace', () => {
-      expect(() => Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1', '   ')).toThrow(
-        DomainError
-      );
+    it('returns failure when description is blank whitespace', () => {
+      const result = Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1', '   ');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+      }
     });
 
-    it('throws when description exceeds 2000 characters', () => {
+    it('returns failure when description exceeds 2000 characters', () => {
       const longDesc = 'x'.repeat(2001);
-      expect(() => Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1', longDesc)).toThrow(
-        DomainError
-      );
+      const result = Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1', longDesc);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+      }
     });
   });
 
@@ -95,50 +150,71 @@ describe('Action', () => {
 
   describe('activate', () => {
     it('transitions a ready action to active', () => {
-      const action = Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1');
-      const activated = Action.activate(action);
+      const action = unwrap(Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1'));
+      const result = Action.activate(action);
+
+      expect(result.success).toBe(true);
+      const activated = unwrap(result);
       expect(activated.status).toBe('active');
       expect(activated.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
 
-    it('throws when action is not ready', () => {
-      const action = Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1');
-      const activated = Action.activate(action);
-      expect(() => Action.activate(activated)).toThrow(DomainError);
+    it('returns failure when action is not ready', () => {
+      const action = unwrap(Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1'));
+      const activated = unwrap(Action.activate(action));
+      const result = Action.activate(activated);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+      }
     });
 
-    it('throws with invalid_status_transition code', () => {
-      expect.assertions(2);
-      const action = Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1');
-      const activated = Action.activate(action);
-      try {
-        Action.activate(activated);
-      } catch (err: unknown) {
-        expect(err).toBeInstanceOf(DomainError);
-        expect((err as DomainError).code).toBe('invalid_status_transition');
+    it('returns failure with invalid_status_transition code', () => {
+      const action = unwrap(Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1'));
+      const activated = unwrap(Action.activate(action));
+      const result = Action.activate(activated);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+        expect(result.error.code).toBe('invalid_status_transition');
       }
     });
   });
 
   describe('complete', () => {
     it('transitions an active action to done', () => {
-      const action = Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1');
-      const activated = Action.activate(action);
-      const completed = Action.complete(activated);
+      const action = unwrap(Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1'));
+      const activated = unwrap(Action.activate(action));
+      const result = Action.complete(activated);
+
+      expect(result.success).toBe(true);
+      const completed = unwrap(result);
       expect(completed.status).toBe('done');
       expect(completed.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
 
-    it('throws when action is not active', () => {
-      const action = Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1');
-      expect(() => Action.complete(action)).toThrow(DomainError);
+    it('returns failure when action is not active', () => {
+      const action = unwrap(Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1'));
+      const result = Action.complete(action);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+      }
     });
 
-    it('throws when action is already done', () => {
-      const action = Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1');
-      const activated = Action.activate(action);
-      const completed = Action.complete(activated);
-      expect(() => Action.complete(completed)).toThrow(DomainError);
+    it('returns failure when action is already done', () => {
+      const action = unwrap(Action.create('ws-1', 'actor-1', 'Title', 'area-1', 'ctx-1'));
+      const activated = unwrap(Action.activate(action));
+      const completed = unwrap(Action.complete(activated));
+      const result = Action.complete(completed);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBeInstanceOf(DomainError);
+      }
     });
   });
 });

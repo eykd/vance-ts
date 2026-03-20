@@ -22,44 +22,42 @@ npm install -D vitest @cloudflare/vitest-pool-workers
 
 ```typescript
 // vitest.config.ts
-import { defineWorkersConfig, readD1Migrations } from '@cloudflare/vitest-pool-workers/config';
+import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-workers';
+import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 
-export default defineWorkersConfig(async () => {
-  const migrationsPath = path.join(__dirname, 'migrations');
-  const migrations = await readD1Migrations(migrationsPath);
+const migrationsPath = path.join(__dirname, 'migrations');
+const migrations = await readD1Migrations(migrationsPath);
 
-  return {
-    test: {
-      globals: true,
-      include: ['src/**/*.{spec,test}.ts', 'tests/**/*.test.ts'],
-      setupFiles: ['./tests/setup.ts'],
-
-      poolOptions: {
-        workers: {
-          wrangler: {
-            configPath: './wrangler.toml',
-          },
-          miniflare: {
-            d1Databases: {
-              DB: {}, // Matches wrangler.toml binding
-            },
-            kvNamespaces: ['SESSIONS'],
-            bindings: {
-              MIGRATIONS: migrations,
-            },
-          },
-          isolatedStorage: true, // Critical: each test gets fresh DB
+export default defineConfig({
+  plugins: [
+    cloudflareTest({
+      wrangler: {
+        configPath: './wrangler.toml',
+      },
+      miniflare: {
+        d1Databases: {
+          DB: {}, // Matches wrangler.toml binding
+        },
+        kvNamespaces: ['SESSIONS'],
+        bindings: {
+          MIGRATIONS: migrations,
         },
       },
+      isolatedStorage: true, // Critical: each test gets fresh DB
+    }),
+  ],
+  test: {
+    globals: true,
+    include: ['src/**/*.{spec,test}.ts', 'tests/**/*.test.ts'],
+    setupFiles: ['./tests/setup.ts'],
 
-      coverage: {
-        provider: 'v8',
-        reporter: ['text', 'json', 'html'],
-        exclude: ['node_modules/', '**/*.spec.ts', '**/*.test.ts'],
-      },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: ['node_modules/', '**/*.spec.ts', '**/*.test.ts'],
     },
-  };
+  },
 });
 ```
 
@@ -87,7 +85,7 @@ export default defineWorkersConfig(async () => {
 ```typescript
 // tests/setup.ts
 import { env } from 'cloudflare:test';
-import { applyD1Migrations } from '@cloudflare/vitest-pool-workers/config';
+import { applyD1Migrations } from '@cloudflare/vitest-pool-workers';
 import { beforeAll, afterEach, vi } from 'vitest';
 
 beforeAll(async () => {

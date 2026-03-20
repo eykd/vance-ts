@@ -1,16 +1,3 @@
----
-description: Generate beads tasks for the feature based on available design artifacts. Creates tasks in beads hierarchy instead of markdown checkboxes.
-handoffs:
-  - label: Analyze For Consistency
-    agent: sp:06-analyze
-    prompt: Run a project analysis for consistency
-    send: true
-  - label: Implement Project
-    agent: sp:07-implement
-    prompt: Start the implementation in phases
-    send: true
----
-
 ## User Input
 
 ```text
@@ -48,7 +35,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    c. If no epic exists, create one:
 
    ```bash
-   npx bd create "Feature: <feature-name>" -t epic -p 0 --json
+   npx bd create "Feature: <feature-name>" -t epic -p 0 --description "Epic for <feature-name> feature" --json
    ```
 
    - Store the returned ID for use in task creation

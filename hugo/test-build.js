@@ -66,7 +66,7 @@ try {
   logInfo('Test 1: Running Hugo build...');
   let buildOutput = '';
   try {
-    buildOutput = execSync('npx hugo --minify', {
+    buildOutput = execSync('hugo --minify', {
       cwd: __dirname,
       stdio: 'pipe',
       encoding: 'utf-8',
@@ -190,7 +190,7 @@ try {
   // Test 7: Verify vendored JS files exist
   logInfo('\nTest 7: Checking vendored JS files...');
   const jsDir = path.join(publicDir, 'js');
-  const requiredJsFiles = ['htmx-2.0.8.min.js', 'alpine-3.15.8.min.js'];
+  const requiredJsFiles = ['htmx-2.0.8.min.js', 'alpine-csp-3.15.8.min.js'];
   for (const jsFile of requiredJsFiles) {
     const jsPath = path.join(jsDir, jsFile);
     if (fs.existsSync(jsPath)) {

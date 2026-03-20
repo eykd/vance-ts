@@ -54,15 +54,17 @@ const SERVICE_ERROR_HEADERS = { 'Content-Type': 'application/json', 'Retry-After
  *
  * @param authService - The AuthService port for session validation.
  * @param workspaceRepository - Repository for resolving the workspace by user ID.
+ * @param sessionCookieName - The session cookie name matching better-auth's configured prefix.
  * @returns A Hono middleware function for use with `app.use('/api/v1/*', ...)`.
  */
 export function createRequireApiAuth(
   authService: AuthService,
-  workspaceRepository: WorkspaceRepository
+  workspaceRepository: WorkspaceRepository,
+  sessionCookieName: string
 ): (c: Context<AppEnv>, next: Next) => Promise<Response | void> {
   return async function requireApiAuth(c: Context<AppEnv>, next: Next): Promise<Response | void> {
     const cookieHeader = c.req.header('Cookie') ?? '';
-    const sessionToken = extractSessionToken(cookieHeader);
+    const sessionToken = extractSessionToken(cookieHeader, sessionCookieName);
 
     if (sessionToken === null) {
       return new Response(UNAUTHENTICATED_BODY, { status: 401, headers: JSON_HEADERS });

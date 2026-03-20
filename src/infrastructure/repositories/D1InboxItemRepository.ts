@@ -133,7 +133,7 @@ export class D1InboxItemRepository implements InboxItemRepository {
    * @returns The hydrated InboxItem entity.
    */
   private _reconstitute(row: InboxItemRow): InboxItem {
-    return InboxItem.reconstitute({
+    const result = InboxItem.reconstitute({
       id: row.id,
       workspaceId: row.workspace_id,
       title: row.title,
@@ -144,5 +144,9 @@ export class D1InboxItemRepository implements InboxItemRepository {
       clarifiedIntoType: row.clarified_into_type,
       clarifiedIntoId: row.clarified_into_id,
     });
+    if (!result.success) {
+      throw new Error(`Corrupt inbox_item row ${row.id}: ${result.error.code}`);
+    }
+    return result.value;
   }
 }

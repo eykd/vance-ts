@@ -6,9 +6,15 @@
 
 import type { Context } from 'hono';
 
-import type { ActivateActionUseCase } from '../../application/use-cases/ActivateActionUseCase.js';
+import type {
+  ActivateActionResult,
+  ActivateActionUseCase,
+} from '../../application/use-cases/ActivateActionUseCase.js';
 import type { ClarifyInboxItemToActionUseCase } from '../../application/use-cases/ClarifyInboxItemToActionUseCase.js';
-import type { CompleteActionUseCase } from '../../application/use-cases/CompleteActionUseCase.js';
+import type {
+  CompleteActionResult,
+  CompleteActionUseCase,
+} from '../../application/use-cases/CompleteActionUseCase.js';
 import type { ListActionsUseCase } from '../../application/use-cases/ListActionsUseCase.js';
 import type { AppEnv } from '../types.js';
 import { apiErrorResponse } from '../utils/apiErrorResponse.js';
@@ -20,7 +26,23 @@ interface ActionCommandUseCase {
     workspaceId: string;
     actionId: string;
     actorId: string;
-  }): Promise<{ id: string; title: string; status: string }>;
+  }): Promise<ActivateActionResult | CompleteActionResult>;
+}
+
+/**
+ * Maps a use case error kind to an HTTP status code.
+ *
+ * @param kind - The error kind from the use case result.
+ * @returns The corresponding HTTP status code.
+ */
+function mapKindToStatus(kind: string): 404 | 409 | 500 {
+  if (kind === 'action_not_found') {
+    return 404;
+  }
+  if (kind === 'invalid_status_transition') {
+    return 409;
+  }
+  return 500;
 }
 
 /**
@@ -34,15 +56,17 @@ async function executeActionCommand(
   c: Context<AppEnv>,
   useCase: ActionCommandUseCase
 ): Promise<Response> {
-  const actionId = c.req.param('id');
+  const actionId = c.req.param('id') as string;
   const workspaceId = c.get('workspaceId');
   const actorId = c.get('actorId');
-  try {
-    const result = await useCase.execute({ workspaceId, actionId, actorId });
-    return c.json(result, 200);
-  } catch (err: unknown) {
-    return apiErrorResponse(c, err);
+  const result = await useCase.execute({ workspaceId, actionId, actorId });
+  if (!result.ok) {
+    return c.json(
+      { error: { code: result.kind, message: result.kind } },
+      mapKindToStatus(result.kind)
+    );
   }
+  return c.json(result.data, 200);
 }
 
 /**
@@ -73,7 +97,7 @@ export function createActionApiHandlers(
      * @returns JSON response with created action.
      */
     async handleClarify(c: Context<AppEnv>): Promise<Response> {
-      const inboxItemId = c.req.param('id');
+      const inboxItemId = c.req.param('id') as string;
       const workspaceId = c.get('workspaceId');
       const actorId = c.get('actorId');
       let body: Record<string, unknown>;
@@ -100,19 +124,26 @@ export function createActionApiHandlers(
           400
         );
       }
-      try {
-        const result = await clarifyUseCase.execute({
-          workspaceId,
-          inboxItemId,
-          title: body['title'],
-          areaId: body['areaId'],
-          contextId: body['contextId'],
-          actorId,
-        });
-        return c.json(result, 200);
-      } catch (err: unknown) {
-        return apiErrorResponse(c, err);
+      const result = await clarifyUseCase.execute({
+        workspaceId,
+        inboxItemId,
+        title: body['title'],
+        areaId: body['areaId'],
+        contextId: body['contextId'],
+        actorId,
+      });
+      if (!result.ok) {
+        const status =
+          result.kind === 'inbox_item_not_found' ||
+          result.kind === 'area_not_found_or_archived' ||
+          result.kind === 'context_not_found'
+            ? 404
+            : result.kind === 'already_clarified'
+              ? 409
+              : 422;
+        return c.json({ error: { code: result.kind, message: result.kind } }, status);
       }
+      return c.json(result.data, 200);
     },
 
     /**

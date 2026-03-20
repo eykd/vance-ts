@@ -1,0 +1,20 @@
+;=============================================
+; An unauthenticated visitor has no client-side auth status.
+;=============================================
+GIVEN a visitor who has not signed in.
+WHEN they load any page on the site.
+THEN the client-side auth status indicates they are not authenticated.
+
+;=============================================
+; An authenticated user has client-side auth status.
+;=============================================
+GIVEN a user who has signed in.
+WHEN they load any page on the site.
+THEN the client-side auth status indicates they are authenticated.
+
+;=============================================
+; The server is the authority on authentication, not the client.
+;=============================================
+GIVEN a user whose session has expired but the auth indicator has not been cleared.
+WHEN the user attempts a protected action.
+THEN the server rejects the request.
