@@ -342,6 +342,34 @@ describe('Worker', () => {
       expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
       expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
     });
+
+    it('serves 404 page HTML when ASSETS returns empty 404', async () => {
+      const emptyNotFound = new Response(null, {
+        status: 404,
+        headers: { 'Content-Length': '0' },
+      });
+      const notFoundPage = new Response('<html>404 page</html>', {
+        headers: { 'Content-Type': 'text/html' },
+      });
+      const fetchSpy = vi
+        .fn()
+        .mockResolvedValueOnce(emptyNotFound)
+        .mockResolvedValueOnce(notFoundPage);
+      const env: Env = {
+        ASSETS: {
+          fetch: fetchSpy,
+          connect: vi.fn(),
+        } as unknown as Fetcher,
+      } as unknown as Env;
+      const req = new Request('https://example.com/nonexistent');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(404);
+      expect(await res.text()).toBe('<html>404 page</html>');
+      expect(res.headers.get('Content-Type')).toContain('text/html');
+      expectSecurityHeaders(res);
+    });
   });
 
   describe('GET /auth/sign-in', () => {
