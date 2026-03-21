@@ -21,4 +21,4 @@ ClawTask is built by Worlds Enough Studios in the Pacific Northwest. We are pass
 
 ## Contact Us
 
-If you have questions or feedback, we would love to hear from you. Reach out to us through our social channels.
+If you have questions or feedback, we would love to hear from you. Email us at [hello@meetclawtask.com](mailto:hello@meetclawtask.com).

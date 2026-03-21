@@ -25,4 +25,4 @@ We may update this privacy policy from time to time. We will notify you of any c
 
 ## Contact Us
 
-If you have questions about this privacy policy, please contact us.
+If you have questions about this privacy policy, please email us at [hello@meetclawtask.com](mailto:hello@meetclawtask.com).

@@ -29,4 +29,4 @@ We reserve the right to modify these terms at any time. Continued use of the ser
 
 ## Contact Us
 
-If you have questions about these terms, please contact us.
+If you have questions about these terms, please email us at [hello@meetclawtask.com](mailto:hello@meetclawtask.com).

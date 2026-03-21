@@ -17,6 +17,9 @@ imageAlt: "ClawTask - AI-powered OKR execution"
 # STARTUPFIXME: Add your logo file to hugo/assets/
 logo: "logo.svg"
 
+# STARTUPFIXME: Add your contact email address
+contactEmail: "hello@meetclawtask.com"
+
 # STARTUPFIXME: Add your social media accounts
 # social:
 #   twitter: "your-twitter-handle"
