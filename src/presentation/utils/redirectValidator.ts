@@ -7,7 +7,7 @@
  * - '' (empty string): represents the root path '/'
  * - 'app': application routes such as '/app/dashboard'
  * - 'dashboard': top-level dashboard route '/dashboard/'
- * - 'posts': blog content routes such as '/posts/sample-post'
+ * - 'posts': blog content routes such as '/posts/why-most-okrs-fail'
  */
 const ALLOWED_FIRST_SEGMENTS = new Set(['', 'app', 'dashboard', 'posts']);
 
