@@ -7,9 +7,9 @@ Practical jq patterns for processing beads JSON output in batch operations.
 All beads commands support `--json` (global flag) for machine-readable output:
 
 ```bash
-npx bd list --json
-npx bd ready --json
-npx bd show <id> --json
+br list --json
+br ready --json
+br show <id> --json
 ```
 
 **Pitfall:** The flag is `--json`, NOT `--format json`. The `--format` flag is for Go template formatting, not JSON output.
@@ -19,23 +19,23 @@ npx bd show <id> --json
 ### Get All Task IDs
 
 ```bash
-npx bd list --json | jq -r '.[].id'
+br list --json | jq -r '.[].id'
 ```
 
 ### Get Task Titles and IDs
 
 ```bash
-npx bd list --json | jq -r '.[] | "\(.id): \(.title)"'
+br list --json | jq -r '.[] | "\(.id): \(.title)"'
 ```
 
 ### Extract Specific Fields
 
 ```bash
 # Just titles
-npx bd list --json | jq -r '.[].title'
+br list --json | jq -r '.[].title'
 
 # Title, status, and priority
-npx bd list --json | jq -r '.[] | "\(.title) | \(.status) | P\(.priority)"'
+br list --json | jq -r '.[] | "\(.title) | \(.status) | P\(.priority)"'
 ```
 
 ## Filtering Patterns
@@ -44,39 +44,39 @@ npx bd list --json | jq -r '.[] | "\(.title) | \(.status) | P\(.priority)"'
 
 ```bash
 # All open tasks
-npx bd list --json | jq '.[] | select(.status == "open")'
+br list --json | jq '.[] | select(.status == "open")'
 
 # All closed tasks (need --all to include closed in list output)
-npx bd list --json --all | jq '.[] | select(.status == "closed")'
+br list --json --all | jq '.[] | select(.status == "closed")'
 
 # In-progress tasks
-npx bd list --json | jq '.[] | select(.status == "in_progress")'
+br list --json | jq '.[] | select(.status == "in_progress")'
 ```
 
 ### Filter by Multiple Conditions
 
 ```bash
 # High priority tasks that are open (priority 0 or 1)
-npx bd list --json | jq '.[] | select(.priority <= 1 and .status == "open")'
+br list --json | jq '.[] | select(.priority <= 1 and .status == "open")'
 
 # Open tasks of a specific type
-npx bd list --json | jq '.[] | select(.status == "open" and .issue_type == "task")'
+br list --json | jq '.[] | select(.status == "open" and .issue_type == "task")'
 
 # Tasks with no dependencies
-npx bd list --json | jq '.[] | select(.dependency_count == 0)'
+br list --json | jq '.[] | select(.dependency_count == 0)'
 ```
 
 ### Filter by Label Presence
 
 ```bash
-# Tasks with a specific label (use bd list --label flag instead when possible)
-npx bd list --json --label "bug" | jq -r '.[] | .id'
+# Tasks with a specific label (use br list --label flag instead when possible)
+br list --json --label "bug" | jq -r '.[] | .id'
 
 # Tasks with any labels
-npx bd list --json | jq '.[] | select(.labels != null and (.labels | length > 0))'
+br list --json | jq '.[] | select(.labels != null and (.labels | length > 0))'
 
 # Tasks without labels
-npx bd list --json | jq '.[] | select(.labels == null or (.labels | length == 0))'
+br list --json | jq '.[] | select(.labels == null or (.labels | length == 0))'
 ```
 
 ## Aggregation Patterns
@@ -84,7 +84,7 @@ npx bd list --json | jq '.[] | select(.labels == null or (.labels | length == 0)
 ### Count by Status
 
 ```bash
-npx bd list --json --limit 0 | jq -r '
+br list --json --limit 0 | jq -r '
   group_by(.status) |
   map({status: .[0].status, count: length}) |
   .[] |
@@ -95,7 +95,7 @@ npx bd list --json --limit 0 | jq -r '
 ### Count by Priority
 
 ```bash
-npx bd list --json --limit 0 | jq -r '
+br list --json --limit 0 | jq -r '
   group_by(.priority) |
   map({priority: .[0].priority, count: length}) |
   .[] |
@@ -106,7 +106,7 @@ npx bd list --json --limit 0 | jq -r '
 ### Count by Issue Type
 
 ```bash
-npx bd list --json --limit 0 | jq -r '
+br list --json --limit 0 | jq -r '
   group_by(.issue_type) |
   map({type: .[0].issue_type, count: length}) |
   .[] |
@@ -119,19 +119,19 @@ npx bd list --json --limit 0 | jq -r '
 ### Sort by Created Date (Newest First)
 
 ```bash
-npx bd list --json | jq 'sort_by(.created_at) | reverse | .[]'
+br list --json | jq 'sort_by(.created_at) | reverse | .[]'
 ```
 
 ### Sort by Priority (Highest First, 0 = Highest)
 
 ```bash
-npx bd list --json | jq 'sort_by(.priority) | .[]'
+br list --json | jq 'sort_by(.priority) | .[]'
 ```
 
 ### Sort by Title (Alphabetical)
 
 ```bash
-npx bd list --json | jq 'sort_by(.title) | .[]'
+br list --json | jq 'sort_by(.title) | .[]'
 ```
 
 ## Transformation Patterns
@@ -139,7 +139,7 @@ npx bd list --json | jq 'sort_by(.title) | .[]'
 ### Convert to Markdown Checklist
 
 ```bash
-npx bd ready --json | jq -r '.[] | "- [ ] \(.title) (`\(.id)`)"'
+br ready --json | jq -r '.[] | "- [ ] \(.title) (`\(.id)`)"'
 ```
 
 ### Generate CSV Output
@@ -149,7 +149,7 @@ npx bd ready --json | jq -r '.[] | "- [ ] \(.title) (`\(.id)`)"'
 echo "ID,Title,Status,Priority"
 
 # Data rows
-npx bd list --json | jq -r '
+br list --json | jq -r '
   .[] |
   [.id, .title, .status, .priority] |
   @csv
@@ -159,7 +159,7 @@ npx bd list --json | jq -r '
 ### Create JSON Summary Object
 
 ```bash
-npx bd list --json --limit 0 | jq '{
+br list --json --limit 0 | jq '{
   total: length,
   by_status: (group_by(.status) | map({(.[0].status): length}) | add),
   open_count: ([.[] | select(.status == "open")] | length),
@@ -172,20 +172,20 @@ npx bd list --json --limit 0 | jq '{
 ### Find Top-Level Tasks (No Parent)
 
 ```bash
-npx bd list --json --no-parent | jq -r '.[] | "\(.id): \(.title)"'
+br list --json --no-parent | jq -r '.[] | "\(.id): \(.title)"'
 ```
 
 ### Find Tasks by Epic
 
 ```bash
 # List children of a specific parent
-npx bd children <epic-id> --json | jq -r '.[] | "\(.id): \(.title) [\(.status)]"'
+br children <epic-id> --json | jq -r '.[] | "\(.id): \(.title) [\(.status)]"'
 ```
 
 ### Find Blocked Tasks with Details
 
 ```bash
-npx bd blocked --json | jq -r '
+br blocked --json | jq -r '
   .[] | "\(.id): \(.title) (status: \(.status))"
 '
 ```
@@ -196,17 +196,17 @@ npx bd blocked --json | jq -r '
 
 ```bash
 # Use "none" if assignee is null
-npx bd list --json | jq -r '.[] | .assignee // "unassigned"'
+br list --json | jq -r '.[] | .assignee // "unassigned"'
 
 # Default for missing fields
-npx bd list --json | jq '.[] | .labels // []'
+br list --json | jq '.[] | .labels // []'
 ```
 
 ### Conditional Field Selection
 
 ```bash
 # Show different output based on status
-npx bd list --json | jq -r '
+br list --json | jq -r '
   .[] |
   if .status == "closed" then
     "DONE \(.title)"
@@ -224,12 +224,12 @@ npx bd list --json | jq -r '
 
 ```bash
 # Store ready task IDs in Bash array
-mapfile -t ready_ids < <(npx bd ready --json | jq -r '.[].id')
+mapfile -t ready_ids < <(br ready --json | jq -r '.[].id')
 
 # Iterate over array
 for id in "${ready_ids[@]}"; do
   echo "Processing: $id"
-  npx bd update "$id" --claim
+  br update "$id" --claim
 done
 ```
 
@@ -237,7 +237,7 @@ done
 
 ```bash
 # Check if any tasks are in progress
-in_progress=$(npx bd list --json --status=in_progress | jq 'length')
+in_progress=$(br list --json --status=in_progress | jq 'length')
 
 if [ "$in_progress" -gt 0 ]; then
   echo "Tasks in progress: $in_progress"
@@ -250,11 +250,11 @@ fi
 
 ```bash
 # Get the first ready task ID
-next_task=$(npx bd ready --json --limit 1 | jq -r '.[0].id // empty')
+next_task=$(br ready --json --limit 1 | jq -r '.[0].id // empty')
 
 if [ -n "$next_task" ]; then
   echo "Claiming task: $next_task"
-  npx bd update "$next_task" --claim
+  br update "$next_task" --claim
 else
   echo "No ready tasks"
 fi
@@ -265,26 +265,26 @@ fi
 ### Pretty Print JSON
 
 ```bash
-npx bd list --json | jq '.'
+br list --json | jq '.'
 ```
 
 ### View Array Length
 
 ```bash
-npx bd list --json | jq 'length'
+br list --json | jq 'length'
 ```
 
 ### Inspect First Item (see actual field names)
 
 ```bash
-npx bd list --json | jq '.[0]'
+br list --json | jq '.[0]'
 ```
 
 ### Test Filter Without Processing
 
 ```bash
 # See how many would be selected
-npx bd list --json | jq '[.[] | select(.status == "open")] | length'
+br list --json | jq '[.[] | select(.status == "open")] | length'
 ```
 
 ## Common Pitfalls
@@ -297,10 +297,10 @@ npx bd list --json | jq '[.[] | select(.status == "open")] | length'
 
 ```bash
 # Wrong
-npx bd list --format json
+br list --format json
 
 # Correct
-npx bd list --json
+br list --json
 ```
 
 ### Pitfall: "Cannot index null"
@@ -326,13 +326,13 @@ jq '.[] | .assignee?'
 
 ```bash
 # Step 1: See all tasks
-npx bd list --json | jq '.'
+br list --json | jq '.'
 
 # Step 2: See first task structure (verify field names)
-npx bd list --json | jq '.[0]'
+br list --json | jq '.[0]'
 
 # Step 3: Test filter
-npx bd list --json | jq '.[] | select(.status == "open")'
+br list --json | jq '.[] | select(.status == "open")'
 ```
 
 Remember: fields are **snake_case** (`created_at`, `issue_type`, `dependency_count`), NOT camelCase.
@@ -357,28 +357,28 @@ jq '.[] | select(.priority <= 1)'  # P0 and P1 (highest)
 
 ```bash
 # See type of a field
-npx bd list --json | jq '.[0].labels | type'
+br list --json | jq '.[0].labels | type'
 
 # Handle arrays vs strings
-npx bd list --json | jq '.[] | .labels[]?'  # Iterate array safely
+br list --json | jq '.[] | .labels[]?'  # Iterate array safely
 ```
 
 ## Performance Tips
 
-1. **Use bd's own filters first** — `--status`, `--type`, `--label` filter at the source, reducing JSON size
+1. **Use br's own filters first** — `--status`, `--type`, `--label` filter at the source, reducing JSON size
 2. **Filter early in jq** — use `select()` before `sort_by()` or other operations
 3. **Limit output** — use `.[0:10]` to take first 10 items if you don't need all
 4. **Avoid repeated queries** — store JSON in a variable if you'll process it multiple times
 
 ```bash
 # Good: Query once
-tasks=$(npx bd list --json --limit 0)
+tasks=$(br list --json --limit 0)
 echo "$tasks" | jq 'filter expression 1'
 echo "$tasks" | jq 'filter expression 2'
 
 # Bad: Query multiple times
-npx bd list --json | jq 'filter expression 1'
-npx bd list --json | jq 'filter expression 2'
+br list --json | jq 'filter expression 1'
+br list --json | jq 'filter expression 2'
 ```
 
 ## Reference

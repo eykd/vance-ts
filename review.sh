@@ -334,7 +334,7 @@ find_epic_id() {
     local feature_name="$1"
     local epics_json
 
-    epics_json=$(npx bd list --type epic --status open --json 2>/dev/null) || {
+    epics_json=$(br list --type epic --status open --json 2>/dev/null) || {
         echo "Error: Failed to query beads for epics" >&2
         return 1
     }
@@ -365,7 +365,7 @@ ensure_epic_exists() {
 
     if [[ -z "$epic_id" ]]; then
         log INFO "No epic found for feature '$feature_name', creating..."
-        epic_id=$(npx bd create "Code Review: $feature_name" \
+        epic_id=$(br create "Code Review: $feature_name" \
             --description "Automated code review epic for branch: $branch" \
             --type epic \
             --priority 0 \
@@ -382,11 +382,11 @@ ensure_epic_open() {
     local epic_id="$1"
     local status
 
-    status=$(npx bd show "$epic_id" --json | jq -r '.[0].status')
+    status=$(br show "$epic_id" --json | jq -r '.[0].status')
 
     if [[ "$status" == "closed" ]]; then
         log INFO "Reopening closed epic $epic_id"
-        npx bd reopen "$epic_id"
+        br reopen "$epic_id"
     fi
 }
 
@@ -394,7 +394,7 @@ get_open_tasks() {
     local epic_id="$1"
     local open_json
 
-    open_json=$(npx bd list --status open --json 2>/dev/null) || {
+    open_json=$(br list --status open --json 2>/dev/null) || {
         echo "[]"
         return 0
     }
@@ -510,7 +510,7 @@ Use judgment to avoid duplicate work.
 2. Check against existing open tasks (provided above) to avoid duplicates
 3. For each NEW finding, immediately create a beads task using:
 
-   npx bd create "[$skill] Title" \\
+   br create "[$skill] Title" \\
      --description "File: $file
 Line: [line]
 Severity: [severity]
@@ -537,7 +537,7 @@ Fix:
 | Low      | 3        | Style issue, optional enhancement, documentation |
 
 ## Important
-- Use the exact npx bd create command format shown above
+- Use the exact br create command format shown above
 - Always include --description with full context
 - Always include --priority based on severity (Critical=0, High=1, Medium=2, Low=3)
 - Always include --parent $EPIC_ID to attach to this epic
@@ -545,7 +545,7 @@ Fix:
 
 ## Example
 If you find a security issue, run:
-npx bd create "[security-review] SQL Injection in search" \\
+br create "[security-review] SQL Injection in search" \\
   --description "File: src/search.ts
 Line: 45
 Severity: Critical
@@ -782,7 +782,7 @@ format_duration() {
 generate_summary_prompt() {
     # Query tasks under the epic
     local tasks_json
-    tasks_json=$(npx bd list --parent "$EPIC_ID" --status open --json 2>/dev/null || echo "[]")
+    tasks_json=$(br list --parent "$EPIC_ID" --status open --json 2>/dev/null || echo "[]")
 
     local task_count
     task_count=$(echo "$tasks_json" | jq length)
@@ -808,12 +808,12 @@ You can address these issues by:
 
 1. **Review tasks in beads:**
    \`\`\`bash
-   npx bd list --parent $EPIC_ID
+   br list --parent $EPIC_ID
    \`\`\`
 
 2. **Start working on high-priority tasks:**
    \`\`\`bash
-   npx bd ready --parent $EPIC_ID
+   br ready --parent $EPIC_ID
    \`\`\`
 
 3. **Or ask Claude to fix specific issues**
@@ -837,7 +837,7 @@ show_summary() {
     local task_count=0
     if [[ "$DRY_RUN" != "true" && -n "$EPIC_ID" ]]; then
         local tasks_json
-        tasks_json=$(npx bd list --parent "$EPIC_ID" --status open --json 2>/dev/null || echo "[]")
+        tasks_json=$(br list --parent "$EPIC_ID" --status open --json 2>/dev/null || echo "[]")
         task_count=$(echo "$tasks_json" | jq length)
     fi
 

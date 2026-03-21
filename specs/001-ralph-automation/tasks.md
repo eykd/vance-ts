@@ -38,13 +38,13 @@
 - [x] T003 [US1] Implement epic detection from branch name in `ralph.sh` (`workspace-9w6.5.1.3`)
   - Get current branch: `git branch --show-current`
   - Extract feature name: strip numeric prefix
-  - Query beads: `npx bd list --type epic --status open --json`
+  - Query beads: `br list --type epic --status open --json`
   - Match epic by title containing feature name
   - Store `EPIC_ID` variable
 
-- [x] T004 [US1] Implement main loop with bd ready check in `ralph.sh` (`workspace-9w6.5.1.4`)
+- [x] T004 [US1] Implement main loop with br ready check in `ralph.sh` (`workspace-9w6.5.1.4`)
   - While loop: `while (( iteration < MAX_ITERATIONS ))`
-  - Query: `npx bd ready --json`
+  - Query: `br ready --json`
   - Filter tasks by epic ID prefix
   - Break if no ready tasks (success)
   - Increment iteration counter
@@ -76,7 +76,7 @@
 **Note**: Progress persistence is inherent in the beads-based design:
 
 - Beads tracks task completion state
-- `bd ready` returns remaining tasks
+- `br ready` returns remaining tasks
 - No additional implementation needed beyond US1's beads integration
 
 **Checkpoint**: Persistence verified through US1 implementation

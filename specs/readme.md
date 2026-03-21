@@ -106,9 +106,9 @@ Spec: specs/007-hugo-project-setup/spec.md
 
 ## Beads Integration
 
-Keywords: beads, bd, task tracking, epic, task hierarchy, dependency graph, bd init,
-bd create, bd ready, bd close, bd dep, bd list, spec-kit, /sp:01-specify, namespace
-swap, task status, git-backed, issue tracker, epic ID, sub-task, phase tasks, dolt
+Keywords: beads, br, task tracking, epic, task hierarchy, dependency graph, br init,
+br create, br ready, br close, br dep, br list, spec-kit, /sp:01-specify, namespace
+swap, task status, git-backed, issue tracker, epic ID, sub-task, phase tasks
 Spec: specs/008-beads-integration/spec.md
 
 ---

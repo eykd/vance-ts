@@ -62,6 +62,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install beads_rust CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
       - name: Query beads for known issues
         env:
           HEAD_REF: ${{ github.head_ref }}
@@ -74,8 +79,8 @@ jobs:
             echo "EPIC_ID=$EPIC_ID" >> $GITHUB_ENV
 
             # Query open and ready tasks for this epic
-            npx bd list --parent "$EPIC_ID" --status open --format json > known-issues.json || echo "[]" > known-issues.json
-            npx bd list --parent "$EPIC_ID" --status ready --format json >> known-issues.json || true
+            br list --parent "$EPIC_ID" --status open --json > known-issues.json || echo "[]" > known-issues.json
+            br list --parent "$EPIC_ID" --status ready --json >> known-issues.json || true
 
             echo "Known issues queried from beads"
           else
@@ -145,6 +150,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install beads_rust CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
       - name: Query beads for known issues
         env:
           HEAD_REF: ${{ github.head_ref }}
@@ -157,8 +167,8 @@ jobs:
             echo "EPIC_ID=$EPIC_ID" >> $GITHUB_ENV
 
             # Query open and ready tasks for this epic
-            npx bd list --parent "$EPIC_ID" --status open --format json > known-issues.json || echo "[]" > known-issues.json
-            npx bd list --parent "$EPIC_ID" --status ready --format json >> known-issues.json || true
+            br list --parent "$EPIC_ID" --status open --json > known-issues.json || echo "[]" > known-issues.json
+            br list --parent "$EPIC_ID" --status ready --json >> known-issues.json || true
 
             echo "Known issues queried from beads"
           else
@@ -227,6 +237,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install beads_rust CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
       - name: Query beads for known issues
         env:
           HEAD_REF: ${{ github.head_ref }}
@@ -239,8 +254,8 @@ jobs:
             echo "EPIC_ID=$EPIC_ID" >> $GITHUB_ENV
 
             # Query open and ready tasks for this epic
-            npx bd list --parent "$EPIC_ID" --status open --format json > known-issues.json || echo "[]" > known-issues.json
-            npx bd list --parent "$EPIC_ID" --status ready --format json >> known-issues.json || true
+            br list --parent "$EPIC_ID" --status open --json > known-issues.json || echo "[]" > known-issues.json
+            br list --parent "$EPIC_ID" --status ready --json >> known-issues.json || true
 
             echo "Known issues queried from beads"
           else

@@ -80,8 +80,8 @@ Findings:
 Total: 4 tasks created under epic workspace-abc
 
 Next Steps:
-- Review tasks: npx bd list --parent workspace-abc
-- Start working: npx bd ready --parent workspace-abc
+- Review tasks: br list --parent workspace-abc
+- Start working: br ready --parent workspace-abc
 ```
 
 ## File Discovery
@@ -366,7 +366,7 @@ Use these logs to debug or audit the review.
 /code-review
 
 # Address findings
-npx bd ready  # See tasks created by review
+br ready  # See tasks created by review
 # Work on high-priority findings
 
 # Commit fixes
@@ -504,13 +504,13 @@ Once review.sh completes:
 1. **Check tasks created**:
 
    ```bash
-   npx bd list --parent <epic-id>
+   br list --parent <epic-id>
    ```
 
 2. **Start with high-priority**:
 
    ```bash
-   npx bd ready --parent <epic-id>
+   br ready --parent <epic-id>
    ```
 
 3. **Work on findings**:

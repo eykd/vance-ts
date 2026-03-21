@@ -10,7 +10,7 @@ Create a generalized `code-review` Claude Code skill that provides structured co
 ## Technical Context
 
 **Language/Version**: Markdown (Claude Skill format) + Bash scripts for integration
-**Primary Dependencies**: Git (for diff generation), beads CLI (`@beads/bd`), existing `security-review` skill
+**Primary Dependencies**: Git (for diff generation), beads CLI (`beads_rust`), existing `security-review` skill
 **Storage**: N/A (stateless skill, beads handles persistence)
 **Testing**: Manual validation (skills are prompt-based, not executable code)
 **Target Platform**: Claude Code CLI (cross-platform: macOS, Linux, Windows via WSL)

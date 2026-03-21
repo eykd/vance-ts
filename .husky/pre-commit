@@ -1,4 +1,3 @@
-npx bd hooks run pre-commit
 npx lint-staged
 npm run lint:unused
 npm run format:check

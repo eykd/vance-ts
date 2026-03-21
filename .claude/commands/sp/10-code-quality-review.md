@@ -48,8 +48,8 @@ If no epic id is found, ERROR with: "No Beads Epic found for this feature. Run `
 3. List current open + in_progress tasks for the epic (for de-duplication):
 
 ```bash
-npx bd list --parent <epic-id> --status open --json
-npx bd list --parent <epic-id> --status in_progress --json
+br list --parent <epic-id> --status open --json
+br list --parent <epic-id> --status in_progress --json
 ```
 
 4. Identify changed files and summary:
@@ -92,11 +92,11 @@ git show HEAD:<file-path> 2>/dev/null && echo "exists" || echo "not-yet-written"
 - **File does NOT exist on HEAD** → This is a **design constraint**, not an independent fixable issue. The code hasn't been written yet; implementing a standalone task forces a build-wrong-then-fix cycle.
   - Identify the US story task that will own this code:
     ```bash
-    npx bd list --parent <epic-id> --json | jq -r '.[] | select(.title | test("^US[0-9]+:")) | {id, title}'
+    br list --parent <epic-id> --json | jq -r '.[] | select(.title | test("^US[0-9]+:")) | {id, title}'
     ```
   - Append the finding to that US story's description as an `## Implementation Constraints` entry:
     ```bash
-    npx bd update <us-story-id> --description "<current-description>
+    br update <us-story-id> --description "<current-description>
     ```
 
 ---
@@ -106,7 +106,8 @@ git show HEAD:<file-path> 2>/dev/null && echo "exists" || echo "not-yet-written"
 **[SEVERITY] <short title>**
 Problem: <what is wrong>
 Fix: <concrete steps to implement it correctly from the start>"
-```
+
+````
 
 - Do **NOT** create a standalone task for this finding. Stop here for this finding.
 
@@ -121,9 +122,9 @@ Fix: <concrete steps to implement it correctly from the start>"
 - Create a new task under the epic:
 
 ```bash
-npx bd create "Remediate: <short finding title>" -p <1|2|3> --parent <epic-id> \
+br create "Remediate: <short finding title>" -p <1|2|3> --parent <epic-id> \
   --description "**Review**: [sp:10-code-quality-review]\n**Range**: <base>..HEAD\n**Files**: <file paths>\n\n**Finding**:\n<what's wrong>\n\n**Fix suggestion**:\n<concrete steps>\n\n**Acceptance**:\n- <verifiable criteria>" --json
-```
+````
 
 Severity → priority mapping:
 

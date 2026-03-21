@@ -24,7 +24,7 @@ Before running ralph.sh:
 2. **Verify prerequisites are ready**:
    ```bash
    # Check that clarify task is closed
-   npx bd list --parent <epic-id> --json | jq '.[] | select(.title | contains("clarify")) | .status'
+   br list --parent <epic-id> --json | jq '.[] | select(.title | contains("clarify")) | .status'
    # Should output: "closed"
    ```
 
@@ -154,13 +154,13 @@ claude
 
 ```bash
 # See all tasks under epic
-npx bd list --parent workspace-9w6
+br list --parent workspace-9w6
 
 # See dependency tree
-npx bd dep tree workspace-9w6
+br dep tree workspace-9w6
 
 # See what's ready
-npx bd ready
+br ready
 ```
 
 ### Remove stale lock
