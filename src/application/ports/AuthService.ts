@@ -132,4 +132,37 @@ export interface AuthService {
    * @param password - The submitted plaintext password to verify against the dummy hash.
    */
   verifyDummyPassword(password: string): Promise<void>;
+
+  /**
+   * Requests a password reset for the given email address.
+   *
+   * The underlying implementation generates a verification token, stores it,
+   * and triggers the configured email delivery (or console log in development).
+   * Returns the same success shape regardless of whether the email exists
+   * to prevent email enumeration (FR-007).
+   *
+   * @param params - Password reset request parameters.
+   * @param params.email - The email address requesting the reset.
+   * @param params.redirectTo - Optional URL path to redirect to after token callback.
+   * @returns `{ ok: true }` on success (always, to prevent enumeration), or a typed failure.
+   */
+  requestPasswordReset(params: {
+    email: string;
+    redirectTo?: string;
+  }): Promise<{ ok: true } | { ok: false; kind: 'service_error' }>;
+
+  /**
+   * Resets a user's password using a valid verification token.
+   *
+   * @param params - Password reset parameters.
+   * @param params.token - The verification token from the reset URL.
+   * @param params.newPassword - The new password to set.
+   * @returns Typed result indicating success or failure kind.
+   */
+  resetPassword(params: {
+    token: string;
+    newPassword: string;
+  }): Promise<
+    { ok: true } | { ok: false; kind: 'invalid_token' | 'weak_password' | 'service_error' }
+  >;
 }

@@ -323,6 +323,26 @@ app.post('/auth/sign-out', async (c): Promise<Response> => {
   return getServiceFactory(c.env).authPageHandlers.handlePostSignOut(c.req.raw);
 });
 
+/** Renders the forgot-password form page. */
+app.get('/auth/forgot-password', (c): Response => {
+  return getServiceFactory(c.env).authPageHandlers.handleGetForgotPassword(c.req.raw);
+});
+
+/** Requests a password reset for the submitted email address. */
+app.post('/auth/forgot-password', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).authPageHandlers.handlePostForgotPassword(c.req.raw);
+});
+
+/** Renders the reset-password form page with the token from the URL. */
+app.get('/auth/reset-password', (c): Response => {
+  return getServiceFactory(c.env).authPageHandlers.handleGetResetPassword(c.req.raw);
+});
+
+/** Resets the user's password using the verification token. */
+app.post('/auth/reset-password', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).authPageHandlers.handlePostResetPassword(c.req.raw);
+});
+
 /**
  * Returns 405 Method Not Allowed for unsupported methods on auth page routes.
  *
@@ -338,6 +358,14 @@ app.all('/auth/sign-up', (c): Response => {
 });
 
 app.all('/auth/sign-out', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET, POST' });
+});
+
+app.all('/auth/forgot-password', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET, POST' });
+});
+
+app.all('/auth/reset-password', (c): Response => {
   return c.body(null, 405, { Allow: 'GET, POST' });
 });
 

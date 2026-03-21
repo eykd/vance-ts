@@ -347,4 +347,98 @@ export class BetterAuthService implements AuthService {
   async verifyDummyPassword(password: string): Promise<void> {
     await verifyPassword(password, BetterAuthService.DUMMY_HASH);
   }
+
+  /**
+   * Requests a password reset for the given email address.
+   *
+   * Delegates to `auth.api.requestPasswordReset` with `asResponse: true`.
+   * better-auth handles timing-safe enumeration prevention internally
+   * (simulates token generation even when the email is not found).
+   *
+   * @param params - Password reset request parameters.
+   * @param params.email - The email address requesting the reset.
+   * @param params.redirectTo - Optional redirect path for the callback URL.
+   * @returns `{ ok: true }` on success (always, to prevent enumeration), or a typed failure.
+   */
+  async requestPasswordReset(params: {
+    email: string;
+    redirectTo?: string;
+  }): Promise<{ ok: true } | { ok: false; kind: 'service_error' }> {
+    try {
+      const response = await this.auth.api.requestPasswordReset({
+        body: {
+          email: params.email,
+          ...(params.redirectTo !== undefined ? { redirectTo: params.redirectTo } : {}),
+        },
+        asResponse: true,
+      });
+
+      if (response.ok) {
+        return { ok: true };
+      }
+
+      this.logger.error(
+        `BetterAuthService.requestPasswordReset: unexpected status ${String(response.status)}`
+      );
+      return { ok: false, kind: 'service_error' };
+    } catch (error: unknown) {
+      this.logger.error('BetterAuthService.requestPasswordReset: exception thrown', error);
+      return { ok: false, kind: 'service_error' };
+    }
+  }
+
+  /**
+   * Resets a user's password using a verification token.
+   *
+   * Delegates to `auth.api.resetPassword` with `asResponse: true` and
+   * interprets the HTTP response status:
+   * - 200: success (password updated)
+   * - 400: invalid token or weak password (parsed from response body)
+   * - other: service error
+   *
+   * @param params - Password reset parameters.
+   * @param params.token - The verification token from the reset URL.
+   * @param params.newPassword - The new password to set.
+   * @returns Typed result indicating success or failure kind.
+   */
+  async resetPassword(params: {
+    token: string;
+    newPassword: string;
+  }): Promise<
+    { ok: true } | { ok: false; kind: 'invalid_token' | 'weak_password' | 'service_error' }
+  > {
+    try {
+      const response = await this.auth.api.resetPassword({
+        body: { token: params.token, newPassword: params.newPassword },
+        asResponse: true,
+      });
+
+      if (response.ok) {
+        return { ok: true };
+      }
+
+      if (response.status === 400) {
+        try {
+          const body: unknown = await response.json();
+          if (typeof body === 'object' && body !== null && 'code' in body) {
+            const code = (body as { code: unknown }).code;
+            if (code === 'PASSWORD_TOO_SHORT' || code === 'PASSWORD_TOO_LONG') {
+              return { ok: false, kind: 'weak_password' };
+            }
+          }
+        } catch {
+          // Body unparseable — fall through to invalid_token
+        }
+        return { ok: false, kind: 'invalid_token' };
+      }
+
+      this.logger.error(
+        `BetterAuthService.resetPassword: unexpected status ${String(response.status)}`
+      );
+      return { ok: false, kind: 'service_error' };
+    } catch (error: unknown) {
+      this.logger.error('BetterAuthService.resetPassword: exception thrown', error);
+      return { ok: false, kind: 'service_error' };
+    }
+  }
 }

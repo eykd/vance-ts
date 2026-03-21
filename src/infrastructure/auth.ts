@@ -139,6 +139,14 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
         requireEmailVerification: false,
         minPasswordLength: 12,
         maxPasswordLength: 128,
+        // eslint-disable-next-line @typescript-eslint/require-await
+        sendResetPassword: async ({ url }, _request): Promise<void> => {
+          // Email delivery infrastructure is not yet available. Log the reset
+          // URL so that operators (and automated tests) can complete the flow.
+          // Replace this with a real email sender (e.g. Resend) when available.
+          // eslint-disable-next-line no-console
+          console.info('[PasswordReset] Reset URL generated:', url);
+        },
         password: {
           hash: hashPassword,
           // Wrapper required: better-auth passes { password, hash } as a single object, but
@@ -200,18 +208,31 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
             /**
              * Hash the verification value with HMAC-SHA256 before it is written to D1.
              * Uses the dedicated 'verification-token-v1' sub-key derived from the master
-             * secret for key separation. Any feature that reads `verification.value` after
-             * a successful lookup will receive the hash; future plugins that store sensitive
-             * tokens in this field must account for this transform.
+             * secret for key separation.
+             *
+             * Password-reset verifications are excluded: better-auth stores the user ID
+             * in `value` and reads it back by identifier lookup. Hashing the user ID
+             * would cause `resetPassword` to receive a hash instead of a valid user ID,
+             * breaking the password update. The token itself is stored in the `identifier`
+             * field (not `value`), so skipping the hash does not expose it.
              *
              * @param verification - The verification data being created, including the raw value.
-             * @returns Updated verification data with the HMAC-SHA256 hash of the value.
+             * @returns Updated verification data, with the value hashed for non-password-reset verifications.
              */
             before: async (
-              verification: { value: string } & Record<string, unknown>
-            ): Promise<{ data: { value: string } }> => ({
-              data: { value: await hashToken(verification.value, secret, 'verification-token-v1') },
-            }),
+              verification: { value: string; identifier?: string } & Record<string, unknown>
+            ): Promise<{ data: { value: string } }> => {
+              const identifier =
+                typeof verification.identifier === 'string' ? verification.identifier : '';
+              if (identifier.startsWith('reset-password:')) {
+                return { data: { value: verification.value } };
+              }
+              return {
+                data: {
+                  value: await hashToken(verification.value, secret, 'verification-token-v1'),
+                },
+              };
+            },
           },
         },
         user: {

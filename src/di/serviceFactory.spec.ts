@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   SignInUseCase: vi.fn(),
   SignUpUseCase: vi.fn(),
   SignOutUseCase: vi.fn(),
+  RequestPasswordResetUseCase: vi.fn(),
+  ResetPasswordUseCase: vi.fn(),
   AuthPageHandlers: vi.fn(),
   createRequireAuth: vi.fn(),
   createRequireWorkspace: vi.fn(),
@@ -73,6 +75,14 @@ vi.mock('../application/use-cases/SignUpUseCase', () => ({
 
 vi.mock('../application/use-cases/SignOutUseCase', () => ({
   SignOutUseCase: mocks.SignOutUseCase,
+}));
+
+vi.mock('../application/use-cases/RequestPasswordResetUseCase', () => ({
+  RequestPasswordResetUseCase: mocks.RequestPasswordResetUseCase,
+}));
+
+vi.mock('../application/use-cases/ResetPasswordUseCase', () => ({
+  ResetPasswordUseCase: mocks.ResetPasswordUseCase,
 }));
 
 vi.mock('../presentation/handlers/AuthPageHandlers', () => ({

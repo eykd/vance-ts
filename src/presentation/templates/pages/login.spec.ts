@@ -180,4 +180,32 @@ describe('loginPage', () => {
       expect(result).toContain('&quot;&gt;&lt;script&gt;');
     });
   });
+
+  describe('forgot password link', () => {
+    it('includes a link to the forgot password page', () => {
+      expect.assertions(1);
+      const result = loginPage({ csrfToken: 'token' });
+      expect(result).toContain('href="/auth/forgot-password"');
+    });
+
+    it('renders "Forgot password?" text', () => {
+      expect.assertions(1);
+      const result = loginPage({ csrfToken: 'token' });
+      expect(result).toContain('Forgot password?');
+    });
+  });
+
+  describe('password reset success banner', () => {
+    it('shows reset success banner when passwordResetSuccess is true', () => {
+      expect.assertions(1);
+      const result = loginPage({ csrfToken: 'token', passwordResetSuccess: true });
+      expect(result).toContain('Password reset successfully');
+    });
+
+    it('does not show reset success banner when passwordResetSuccess is not set', () => {
+      expect.assertions(1);
+      const result = loginPage({ csrfToken: 'token' });
+      expect(result).not.toContain('Password reset successfully');
+    });
+  });
 });

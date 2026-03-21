@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { RequestPasswordResetUseCase } from '../../application/use-cases/RequestPasswordResetUseCase.js';
+import type { ResetPasswordUseCase } from '../../application/use-cases/ResetPasswordUseCase.js';
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
 import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
@@ -170,16 +172,22 @@ describe('AuthPageHandlers', () => {
   let signInUseCaseMock: ReturnType<typeof makeUseCaseMock>;
   let signUpUseCaseMock: ReturnType<typeof makeUseCaseMock>;
   let signOutUseCaseMock: ReturnType<typeof makeUseCaseMock>;
+  let requestPasswordResetUseCaseMock: ReturnType<typeof makeUseCaseMock>;
+  let resetPasswordUseCaseMock: ReturnType<typeof makeUseCaseMock>;
   let handlers: AuthPageHandlers;
 
   beforeEach(() => {
     signInUseCaseMock = makeUseCaseMock();
     signUpUseCaseMock = makeUseCaseMock();
     signOutUseCaseMock = makeUseCaseMock();
+    requestPasswordResetUseCaseMock = makeUseCaseMock();
+    resetPasswordUseCaseMock = makeUseCaseMock();
     handlers = new AuthPageHandlers(
       signInUseCaseMock as unknown as SignInUseCase,
       signUpUseCaseMock as unknown as SignUpUseCase,
       signOutUseCaseMock as unknown as SignOutUseCase,
+      requestPasswordResetUseCaseMock as unknown as RequestPasswordResetUseCase,
+      resetPasswordUseCaseMock as unknown as ResetPasswordUseCase,
       PROD_COOKIE_NAME,
       PROD_CSRF_NAME,
       PROD_INDICATOR_NAME
@@ -1454,6 +1462,247 @@ describe('AuthPageHandlers', () => {
           setCookies.some((v) => v.includes('__Host-auth_status=') && v.includes('Max-Age=0'))
         ).toBe(true);
       });
+    });
+  });
+
+  describe('handleGetForgotPassword', () => {
+    it('returns 200 status', () => {
+      const req = new Request('https://example.com/auth/forgot-password');
+      const res = handlers.handleGetForgotPassword(req);
+      expect(res.status).toBe(200);
+    });
+
+    it('renders forgot password form', async () => {
+      const req = new Request('https://example.com/auth/forgot-password');
+      const res = handlers.handleGetForgotPassword(req);
+      const body = await res.text();
+      expect(body).toContain('Forgot Password');
+      expect(body).toContain('/auth/forgot-password');
+    });
+
+    it('shows success banner when success=true', async () => {
+      const req = new Request('https://example.com/auth/forgot-password?success=true');
+      const res = handlers.handleGetForgotPassword(req);
+      const body = await res.text();
+      expect(body).toContain('password reset link has been sent');
+    });
+
+    it('does not show success banner when success is absent', async () => {
+      const req = new Request('https://example.com/auth/forgot-password');
+      const res = handlers.handleGetForgotPassword(req);
+      const body = await res.text();
+      expect(body).not.toContain('password reset link has been sent');
+    });
+
+    it('sets CSRF cookie', () => {
+      const req = new Request('https://example.com/auth/forgot-password');
+      const res = handlers.handleGetForgotPassword(req);
+      expect(res.headers.get('Set-Cookie')).toContain('__Host-csrf=');
+    });
+  });
+
+  describe('handlePostForgotPassword', () => {
+    /**
+     * Builds a POST request to /auth/forgot-password.
+     *
+     * @param options - Optional overrides for the request.
+     * @returns A Request with form-encoded body and CSRF cookie.
+     */
+    function makeForgotPasswordPostRequest(
+      options?: Partial<{
+        email: string;
+        csrfToken: string;
+        csrfCookie: string;
+        contentType: string;
+      }>
+    ): Request {
+      const {
+        email = 'test@example.com',
+        csrfToken = TEST_CSRF,
+        csrfCookie = TEST_CSRF,
+        contentType = 'application/x-www-form-urlencoded',
+      } = options ?? {};
+      const params = new URLSearchParams({ _csrf: csrfToken, email });
+      return new Request('https://example.com/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': contentType,
+          Cookie: `__Host-csrf=${csrfCookie}`,
+        },
+        body: params.toString(),
+      });
+    }
+
+    it('redirects to success page on valid request', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeForgotPasswordPostRequest();
+      const res = await handlers.handlePostForgotPassword(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/auth/forgot-password?success=true');
+    });
+
+    it('passes lowercased trimmed email to use case', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeForgotPasswordPostRequest({ email: '  Test@Example.COM  ' });
+      await handlers.handlePostForgotPassword(req);
+      expect(requestPasswordResetUseCaseMock.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'test@example.com' })
+      );
+    });
+
+    it('returns 429 when rate limited', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({
+        ok: false,
+        kind: 'rate_limited',
+        retryAfter: 600,
+      });
+      const req = makeForgotPasswordPostRequest();
+      const res = await handlers.handlePostForgotPassword(req);
+      expect(res.status).toBe(429);
+    });
+
+    it('returns 403 when CSRF token is invalid', async () => {
+      const req = makeForgotPasswordPostRequest({ csrfCookie: 'wrong' });
+      const res = await handlers.handlePostForgotPassword(req);
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('handleGetResetPassword', () => {
+    it('returns 200 with token in query', async () => {
+      const req = new Request('https://example.com/auth/reset-password?token=abc123');
+      const res = handlers.handleGetResetPassword(req);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('Reset Password');
+      expect(body).toContain('abc123');
+    });
+
+    it('returns 400 when token is missing', async () => {
+      const req = new Request('https://example.com/auth/reset-password');
+      const res = handlers.handleGetResetPassword(req);
+      expect(res.status).toBe(400);
+      const body = await res.text();
+      expect(body).toContain('invalid or has expired');
+    });
+
+    it('sets CSRF cookie', () => {
+      const req = new Request('https://example.com/auth/reset-password?token=abc');
+      const res = handlers.handleGetResetPassword(req);
+      expect(res.headers.get('Set-Cookie')).toContain('__Host-csrf=');
+    });
+  });
+
+  describe('handlePostResetPassword', () => {
+    /**
+     * Builds a POST request to /auth/reset-password.
+     *
+     * @param options - Optional overrides for the request.
+     * @returns A Request with form-encoded body and CSRF cookie.
+     */
+    function makeResetPasswordPostRequest(
+      options?: Partial<{
+        token: string;
+        password: string;
+        csrfToken: string;
+        csrfCookie: string;
+        contentType: string;
+      }>
+    ): Request {
+      const {
+        token = 'valid-token-123',
+        password = 'newSecurePass123',
+        csrfToken = TEST_CSRF,
+        csrfCookie = TEST_CSRF,
+        contentType = 'application/x-www-form-urlencoded',
+      } = options ?? {};
+      const params = new URLSearchParams({ _csrf: csrfToken, token, password });
+      return new Request('https://example.com/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': contentType,
+          Cookie: `__Host-csrf=${csrfCookie}`,
+        },
+        body: params.toString(),
+      });
+    }
+
+    it('redirects to sign-in on success', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/auth/sign-in?reset=true');
+    });
+
+    it('passes token and password to use case', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeResetPasswordPostRequest({ token: 'my-token', password: 'myNewPass12345' });
+      await handlers.handlePostResetPassword(req);
+      expect(resetPasswordUseCaseMock.execute).toHaveBeenCalledWith({
+        token: 'my-token',
+        newPassword: 'myNewPass12345',
+      });
+    });
+
+    it('re-renders form with error on invalid_token', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'invalid_token' });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('invalid or has expired');
+    });
+
+    it('re-renders form with password error on weak_password', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'weak_password' });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('at least 12 characters');
+    });
+
+    it('re-renders form with password error on password_too_common', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({
+        ok: false,
+        kind: 'password_too_common',
+      });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('too common');
+    });
+
+    it('returns 400 when token is empty', async () => {
+      const req = makeResetPasswordPostRequest({ token: '' });
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(400);
+      const body = await res.text();
+      expect(body).toContain('invalid or has expired');
+    });
+
+    it('returns 403 when CSRF token is invalid', async () => {
+      const req = makeResetPasswordPostRequest({ csrfCookie: 'wrong' });
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('handleGetSignIn with password reset success', () => {
+    it('shows password reset success banner when reset=true', async () => {
+      const req = new Request('https://example.com/auth/sign-in?reset=true');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).toContain('Password reset successfully');
+    });
+
+    it('does not show password reset banner when reset is absent', async () => {
+      const req = new Request('https://example.com/auth/sign-in');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('Password reset successfully');
     });
   });
 });

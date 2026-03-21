@@ -25,6 +25,8 @@ import { ListAreasUseCase } from '../application/use-cases/ListAreasUseCase';
 import { ListContextsUseCase } from '../application/use-cases/ListContextsUseCase';
 import { ListInboxItemsUseCase } from '../application/use-cases/ListInboxItemsUseCase';
 import { ProvisionWorkspaceUseCase } from '../application/use-cases/ProvisionWorkspaceUseCase';
+import { RequestPasswordResetUseCase } from '../application/use-cases/RequestPasswordResetUseCase';
+import { ResetPasswordUseCase } from '../application/use-cases/ResetPasswordUseCase';
 import { SignInUseCase } from '../application/use-cases/SignInUseCase';
 import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
@@ -109,6 +111,12 @@ export class ServiceFactory {
 
   /** Cached SignOutUseCase. */
   private _signOutUseCase: SignOutUseCase | null = null;
+
+  /** Cached RequestPasswordResetUseCase. */
+  private _requestPasswordResetUseCase: RequestPasswordResetUseCase | null = null;
+
+  /** Cached ResetPasswordUseCase. */
+  private _resetPasswordUseCase: ResetPasswordUseCase | null = null;
 
   /** Cached AuthPageHandlers. */
   private _authPageHandlers: AuthPageHandlers | null = null;
@@ -300,6 +308,33 @@ export class ServiceFactory {
   }
 
   /**
+   * The request-password-reset use case orchestrator.
+   *
+   * @returns The lazily-initialised RequestPasswordResetUseCase instance.
+   */
+  get requestPasswordResetUseCase(): RequestPasswordResetUseCase {
+    this._requestPasswordResetUseCase ??= new RequestPasswordResetUseCase(
+      this._authServiceInstance,
+      this._rateLimiterInstance,
+      this._loggerInstance
+    );
+    return this._requestPasswordResetUseCase;
+  }
+
+  /**
+   * The reset-password use case orchestrator.
+   *
+   * @returns The lazily-initialised ResetPasswordUseCase instance.
+   */
+  get resetPasswordUseCase(): ResetPasswordUseCase {
+    this._resetPasswordUseCase ??= new ResetPasswordUseCase(
+      this._authServiceInstance,
+      this._loggerInstance
+    );
+    return this._resetPasswordUseCase;
+  }
+
+  /**
    * Hono middleware that guards routes behind session authentication.
    *
    * Pre-injects the AuthService and BETTER_AUTH_SECRET so that `worker.ts`
@@ -331,6 +366,8 @@ export class ServiceFactory {
       this.signInUseCase,
       this.signUpUseCase,
       this.signOutUseCase,
+      this.requestPasswordResetUseCase,
+      this.resetPasswordUseCase,
       this._sessionCookieName,
       this._csrfCookieName,
       this._authIndicatorCookieName

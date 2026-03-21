@@ -7,12 +7,16 @@
  * @module
  */
 
+import type { RequestPasswordResetUseCase } from '../../application/use-cases/RequestPasswordResetUseCase.js';
+import type { ResetPasswordUseCase } from '../../application/use-cases/ResetPasswordUseCase.js';
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
 import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
+import { forgotPasswordPage } from '../templates/pages/forgotPassword.js';
 import { loginPage } from '../templates/pages/login.js';
 import { rateLimitPage } from '../templates/pages/rateLimit.js';
 import { registerPage } from '../templates/pages/register.js';
+import { resetPasswordPage } from '../templates/pages/resetPassword.js';
 import { signOutPage } from '../templates/pages/signOut.js';
 import {
   buildAuthIndicatorCookie,
@@ -49,6 +53,20 @@ const SIGN_UP_ERROR_MESSAGES: Record<
 };
 
 /**
+ * Maps reset-password failure kinds to user-facing error messages rendered
+ * in the reset password form.
+ */
+const RESET_PASSWORD_ERROR_MESSAGES: Record<
+  'invalid_token' | 'weak_password' | 'password_too_common' | 'service_error',
+  string
+> = {
+  invalid_token: 'This reset link is invalid or has expired. Please request a new one.',
+  weak_password: 'Password must be at least 12 characters',
+  password_too_common: 'Password is too common. Please choose a different password.',
+  service_error: 'An error occurred. Please try again.',
+};
+
+/**
  * HTTP handlers for HTML-rendered auth pages.
  *
  * Coordinates sign-in form rendering (GET) and form submission (POST).
@@ -65,6 +83,12 @@ export class AuthPageHandlers {
   /** Injected sign-out use case. */
   private readonly signOutUseCase: SignOutUseCase;
 
+  /** Injected request-password-reset use case. */
+  private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase;
+
+  /** Injected reset-password use case. */
+  private readonly resetPasswordUseCase: ResetPasswordUseCase;
+
   /** The session cookie name matching better-auth's configured cookie prefix. */
   private readonly sessionCookieName: string;
 
@@ -80,6 +104,8 @@ export class AuthPageHandlers {
    * @param signInUseCase - The sign-in orchestration use case.
    * @param signUpUseCase - The sign-up orchestration use case.
    * @param signOutUseCase - The sign-out orchestration use case.
+   * @param requestPasswordResetUseCase - The password reset request use case.
+   * @param resetPasswordUseCase - The password reset use case.
    * @param sessionCookieName - The session cookie name matching better-auth's configured prefix.
    * @param csrfCookieName - The CSRF cookie name (e.g. `__Host-csrf` or `csrf` on localhost).
    * @param authIndicatorCookieName - The auth indicator cookie name (e.g. `__Host-auth_status` or `auth_status` on localhost).
@@ -88,6 +114,8 @@ export class AuthPageHandlers {
     signInUseCase: SignInUseCase,
     signUpUseCase: SignUpUseCase,
     signOutUseCase: SignOutUseCase,
+    requestPasswordResetUseCase: RequestPasswordResetUseCase,
+    resetPasswordUseCase: ResetPasswordUseCase,
     sessionCookieName: string,
     csrfCookieName: string,
     authIndicatorCookieName: string
@@ -95,6 +123,8 @@ export class AuthPageHandlers {
     this.signInUseCase = signInUseCase;
     this.signUpUseCase = signUpUseCase;
     this.signOutUseCase = signOutUseCase;
+    this.requestPasswordResetUseCase = requestPasswordResetUseCase;
+    this.resetPasswordUseCase = resetPasswordUseCase;
     this.sessionCookieName = sessionCookieName;
     this.csrfCookieName = csrfCookieName;
     this.authIndicatorCookieName = authIndicatorCookieName;
@@ -214,10 +244,14 @@ export class AuthPageHandlers {
     }
 
     const registeredSuccess = url.searchParams.get('registered') === 'true';
+    const passwordResetSuccess = url.searchParams.get('reset') === 'true';
     const redirectTo = validated !== '/' ? validated : undefined;
 
     const { headers, csrfToken } = this.makeFreshAuthHeaders();
-    return new Response(loginPage({ csrfToken, redirectTo, registeredSuccess }), { headers });
+    return new Response(
+      loginPage({ csrfToken, redirectTo, registeredSuccess, passwordResetSuccess }),
+      { headers }
+    );
   }
 
   /**
@@ -420,5 +454,131 @@ export class AuthPageHandlers {
     return AuthPageHandlers.buildRedirect('/', [
       clearAuthIndicatorCookie(this.authIndicatorCookieName),
     ]);
+  }
+
+  /**
+   * Handles GET /auth/forgot-password.
+   *
+   * Renders the forgot-password form with a fresh CSRF token. If a `success=true`
+   * query parameter is present, shows a success banner.
+   *
+   * @param request - The incoming HTTP request.
+   * @returns A 200 HTML response with the forgot-password form.
+   */
+  handleGetForgotPassword(request: Request): Response {
+    const url = new URL(request.url);
+    const success = url.searchParams.get('success') === 'true';
+    const { headers, csrfToken } = this.makeFreshAuthHeaders();
+    return new Response(forgotPasswordPage({ csrfToken, success }), { headers });
+  }
+
+  /**
+   * Handles POST /auth/forgot-password.
+   *
+   * Validates Content-Type, body size, and CSRF token before delegating to
+   * {@link RequestPasswordResetUseCase}. Always redirects to the success state
+   * to prevent email enumeration.
+   *
+   * @param request - The incoming HTTP request.
+   * @returns The appropriate HTTP response.
+   */
+  async handlePostForgotPassword(request: Request): Promise<Response> {
+    const formOrError = await this.parseValidatedAuthForm(request);
+    if (formOrError instanceof Response) {
+      return formOrError;
+    }
+
+    const email = (formOrError.get('email') ?? '').toLowerCase().trim();
+    const ip = extractClientIp(request);
+
+    const result = await this.requestPasswordResetUseCase.execute({ email, ip });
+
+    if (!result.ok && result.kind === 'rate_limited') {
+      return AuthPageHandlers.buildRateLimitedResponse(result.retryAfter);
+    }
+
+    // Always redirect to success to prevent email enumeration
+    return AuthPageHandlers.buildRedirect('/auth/forgot-password?success=true');
+  }
+
+  /**
+   * Handles GET /auth/reset-password.
+   *
+   * Renders the reset-password form with the verification token from the
+   * query string. If no token is present, shows an error.
+   *
+   * @param request - The incoming HTTP request.
+   * @returns A 200 HTML response with the reset-password form, or 400 if no token.
+   */
+  handleGetResetPassword(request: Request): Response {
+    const url = new URL(request.url);
+    const token = url.searchParams.get('token') ?? '';
+    const { headers, csrfToken } = this.makeFreshAuthHeaders();
+
+    if (token === '') {
+      const body = resetPasswordPage({
+        csrfToken,
+        token: '',
+        error: RESET_PASSWORD_ERROR_MESSAGES.invalid_token,
+      });
+      return new Response(body, { status: 400, headers });
+    }
+
+    return new Response(resetPasswordPage({ csrfToken, token }), { headers });
+  }
+
+  /**
+   * Handles POST /auth/reset-password.
+   *
+   * Validates Content-Type, body size, and CSRF token before delegating to
+   * {@link ResetPasswordUseCase}. On success, redirects to sign-in with a
+   * success message. On failure, re-renders the form with an error.
+   *
+   * @param request - The incoming HTTP request.
+   * @returns The appropriate HTTP response.
+   */
+  async handlePostResetPassword(request: Request): Promise<Response> {
+    const formOrError = await this.parseValidatedAuthForm(request);
+    if (formOrError instanceof Response) {
+      return formOrError;
+    }
+
+    const token = formOrError.get('token') ?? '';
+    const newPassword = formOrError.get('password') ?? '';
+
+    if (token === '') {
+      const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
+      const body = resetPasswordPage({
+        csrfToken,
+        token: '',
+        error: RESET_PASSWORD_ERROR_MESSAGES.invalid_token,
+      });
+      return new Response(body, { status: 400, headers: errorHeaders });
+    }
+
+    const result = await this.resetPasswordUseCase.execute({ token, newPassword });
+
+    if (result.ok) {
+      return AuthPageHandlers.buildRedirect('/auth/sign-in?reset=true');
+    }
+
+    const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
+
+    if (result.kind === 'weak_password' || result.kind === 'password_too_common') {
+      const body = resetPasswordPage({
+        csrfToken,
+        token,
+        passwordError: RESET_PASSWORD_ERROR_MESSAGES[result.kind],
+      });
+      return new Response(body, { headers: errorHeaders });
+    }
+
+    // invalid_token or service_error
+    const body = resetPasswordPage({
+      csrfToken,
+      token,
+      error: RESET_PASSWORD_ERROR_MESSAGES[result.kind],
+    });
+    return new Response(body, { headers: errorHeaders });
   }
 }
