@@ -316,7 +316,7 @@ detect_task_source() {
     log DEBUG "Detecting task source mode for epic $epic_id..."
 
     # Query all tasks under the epic
-    all_tasks=$(br list --parent "$epic_id" --all --json 2>/dev/null) || {
+    all_tasks=$(br show "$epic_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child")]') || {
         log DEBUG "Failed to query tasks, defaulting to generic mode"
         echo "generic"
         return 0
@@ -351,8 +351,8 @@ check_clarify_complete() {
 
     # Find the clarify task for this epic (title contains [sp:02-clarify])
     # Must use --status closed since we're checking for completed phase tasks
-    clarify_task=$(br list --parent "$epic_id" --status closed --json 2>/dev/null | \
-        jq -c 'first(.[] | select(.title | contains("[sp:02-clarify]"))) | {id, status}')
+    clarify_task=$(br show "$epic_id" --json 2>/dev/null | \
+        jq -c '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "closed")] | first(.[] | select(.title | contains("[sp:02-clarify]"))) | {id, status}')
 
     if [[ -z "$clarify_task" ]]; then
         log DEBUG "No clarify task found for epic $epic_id"
@@ -386,8 +386,8 @@ check_tasks_generated() {
 
     # Find the tasks phase task for this epic (title contains [sp:05-tasks])
     # Must use --status closed since we're checking for completed phase tasks
-    tasks_task=$(br list --parent "$epic_id" --status closed --json 2>/dev/null | \
-        jq -c 'first(.[] | select(.title | contains("[sp:05-tasks]"))) | {id, status}')
+    tasks_task=$(br show "$epic_id" --json 2>/dev/null | \
+        jq -c '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "closed")] | first(.[] | select(.title | contains("[sp:05-tasks]"))) | {id, status}')
 
     if [[ -z "$tasks_task" ]]; then
         log DEBUG "No tasks phase found for epic $epic_id"
@@ -462,7 +462,7 @@ validate_prerequisites() {
         log INFO "Validating generic task workflow prerequisites..."
 
         # For generic mode, just verify epic has at least one task
-        all_tasks=$(br list --parent "$epic_id" --json 2>/dev/null) || {
+        all_tasks=$(br show "$epic_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status != "closed")]') || {
             log ERROR "Failed to query tasks for epic $epic_id"
             return 1
         }
@@ -597,7 +597,7 @@ find_epic_id() {
     # Normalize hyphens to spaces so "linemark-mvp" matches "Linemark MVP"
     local epic_id
     epic_id=$(echo "$epics_json" | jq -r --arg name "$feature_name" \
-        '.[] | select(.title | ascii_downcase | gsub("-"; " ") | contains($name | ascii_downcase | gsub("-"; " "))) | .id' | head -n1)
+        '.issues[] | select(.title | ascii_downcase | gsub("-"; " ") | contains($name | ascii_downcase | gsub("-"; " "))) | .id' | head -n1)
 
     if [[ -z "$epic_id" ]]; then
         echo "Error: No epic found matching feature '$feature_name'" >&2
@@ -618,7 +618,7 @@ validate_epic_exists() {
 
     # Query beads for this epic ID
     epic_data=$(br list --type epic --json 2>/dev/null | \
-        jq -r --arg id "$epic_id" '.[] | select(.id == $id)') || {
+        jq -r --arg id "$epic_id" '.issues[] | select(.id == $id)') || {
         log ERROR "Failed to query beads for epics"
         return 1
     }
@@ -691,7 +691,7 @@ get_in_progress_tasks() {
     local in_progress_json
 
     in_progress_json=$(br list --status=in_progress --json 2>/dev/null | \
-        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))]') || {
+        jq --arg prefix "$epic_id." '[.issues[] | select(.id | startswith($prefix))]') || {
         echo "Error: Failed to query beads for in-progress tasks" >&2
         return 1
     }
@@ -706,10 +706,10 @@ task_has_active_children() {
     local task_id="$1"
     local open_count in_progress_count
 
-    open_count=$(br list --status=open --parent "$task_id" --json 2>/dev/null | \
-        jq '[.[] | select(.issue_type != "event")] | length' 2>/dev/null || echo "0")
-    in_progress_count=$(br list --status=in_progress --parent "$task_id" --json 2>/dev/null | \
-        jq '[.[] | select(.issue_type != "event")] | length' 2>/dev/null || echo "0")
+    open_count=$(br show "$task_id" --json 2>/dev/null | \
+        jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "open" and .issue_type != "event")] | length' 2>/dev/null || echo "0")
+    in_progress_count=$(br show "$task_id" --json 2>/dev/null | \
+        jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "in_progress" and .issue_type != "event")] | length' 2>/dev/null || echo "0")
 
     [[ "$((open_count + in_progress_count))" -gt 0 ]]
 }
@@ -718,7 +718,7 @@ task_has_active_children() {
 task_has_children() {
     local task_id="$1"
     local child_count
-    child_count=$(br list --parent "$task_id" --limit 1 --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    child_count=$(br show "$task_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child")] | length' 2>/dev/null) || return 1
     [[ "$child_count" -gt 0 ]]
 }
 
@@ -726,8 +726,8 @@ task_has_children() {
 all_children_closed() {
     local task_id="$1"
     local non_closed_count
-    non_closed_count=$(br list --parent "$task_id" --json 2>/dev/null | \
-        jq '[.[] | select(.status != "closed")] | length' 2>/dev/null) || return 1
+    non_closed_count=$(br show "$task_id" --json 2>/dev/null | \
+        jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status != "closed")] | length' 2>/dev/null) || return 1
     [[ "$non_closed_count" -eq 0 ]]
 }
 
@@ -771,7 +771,7 @@ sweep_completed_parents() {
 
     open_tasks=$(br list --status open --json 2>/dev/null | \
         jq --arg prefix "$epic_id." --arg epic "$epic_id" \
-        '[.[] | select(.id | startswith($prefix)) | select(.id != $epic and .issue_type != "event")]') || return 1
+        '[.issues[] | select(.id | startswith($prefix)) | select(.id != $epic and .issue_type != "event")]') || return 1
 
     local task_count
     task_count=$(echo "$open_tasks" | jq 'length')
@@ -814,7 +814,7 @@ get_in_progress_task() {
 task_has_children() {
     local task_id="$1"
     local child_count
-    child_count=$(br list --parent "$task_id" --limit 1 --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    child_count=$(br show "$task_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child")] | length' 2>/dev/null) || return 1
     [[ "$child_count" -gt 0 ]]
 }
 
@@ -822,7 +822,7 @@ task_has_children() {
 all_children_closed() {
     local task_id="$1"
     local open_count
-    open_count=$(br list --parent "$task_id" --status open --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    open_count=$(br show "$task_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "open")] | length' 2>/dev/null) || return 1
     [[ "$open_count" -eq 0 ]]
 }
 
@@ -928,8 +928,8 @@ find_leaf_task() {
 
     # First: check for in-progress tasks at this level (prefer resuming)
     local in_progress_json
-    in_progress_json=$(br list --status=in_progress --parent "$parent_id" --json 2>/dev/null | \
-        jq --arg p "$parent_id" '[.[] | select(.id != $p and .issue_type != "event")]')
+    in_progress_json=$(br show "$parent_id" --json 2>/dev/null | \
+        jq --arg p "$parent_id" '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "in_progress" and .id != $p and .issue_type != "event")]')
 
     local count
     count=$(echo "$in_progress_json" | jq 'length')
@@ -950,8 +950,14 @@ find_leaf_task() {
 
     # Second: check for ready tasks at this level
     local ready_json
-    ready_json=$(br ready --parent "$parent_id" --limit 1000 --json 2>/dev/null | \
-        jq --arg p "$parent_id" '[.[] | select(.id != $p and .issue_type != "event")]')
+    # Get children of parent, then intersect with globally ready tasks
+    local children_ids ready_all
+    children_ids=$(br show "$parent_id" --json 2>/dev/null | \
+        jq -r '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child")] | .[].id')
+    ready_all=$(br ready --limit 1000 --json 2>/dev/null || echo '[]')
+    ready_json=$(echo "$ready_all" | \
+        jq --arg p "$parent_id" --argjson kids "$(echo "$children_ids" | jq -R -s 'split("\n") | map(select(length > 0))')" \
+        '[.[] | select(.id as $id | $kids | index($id)) | select(.id != $p and .issue_type != "event")]')
 
     count=$(echo "$ready_json" | jq 'length')
     if [[ "$count" -gt 0 ]]; then
@@ -997,7 +1003,7 @@ get_open_tasks() {
     local open_json
 
     open_json=$(br list --status open --json 2>/dev/null | \
-        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))]') || {
+        jq --arg prefix "$epic_id." '[.issues[] | select(.id | startswith($prefix))]') || {
         echo "Error: Failed to query beads for open tasks" >&2
         return 1
     }
@@ -2189,7 +2195,7 @@ generate_triage_prompt() {
     # Epic open task count
     local open_count
     open_count=$(br list --status=open --json 2>/dev/null | \
-        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))] | length' 2>/dev/null) || open_count="unknown"
+        jq --arg prefix "$epic_id." '[.issues[] | select(.id | startswith($prefix))] | length' 2>/dev/null) || open_count="unknown"
 
     cat <<EOF
 You are triaging a BLOCKED task in ralph's automation loop.
@@ -2314,7 +2320,7 @@ triage_blocked_task() {
             log INFO "Triage decomposing: creating sibling task under $parent_id"
             sibling_id=$(br create "$new_title" --parent "$parent_id" --description "$new_description" --silent 2>/dev/null) || true
             if [[ -n "$sibling_id" ]]; then
-                br dep "$sibling_id" --blocks "$task_id" 2>/dev/null || true
+                br dep add "$task_id" "$sibling_id" --type blocks 2>/dev/null || true
                 # Reset to open so find_leaf_task's in_progress fast-path
                 # doesn't bypass the dependency check (br ready respects deps)
                 br update "$task_id" --status=open 2>/dev/null || true
