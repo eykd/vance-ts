@@ -135,10 +135,13 @@ specs/013-import-design-skills/
      Current fonts: [list]. Current scale: [describe]."
    ```
 
-6. **Update cross-references** in skills that mention `frontend-design`:
-   - `tailwind-daisyui-design` — update any reference
-   - `daisyui-design-system-generator` — update any reference
-   - `hugo-templates` — update any reference
+6. **Update cross-references** in files that mention `frontend-design` (5 occurrences in 3 files):
+   - `.claude/skills/README.md` line 174 — update cross-reference list
+   - `.claude/skills/hugo-copywriting/SKILL.md` line 3 (frontmatter description) — update integration mention
+   - `.claude/skills/hugo-copywriting/SKILL.md` line 134 — update "Integrates with" list
+   - `.claude/skills/hugo-copywriting/SKILL.md` line 136 — update workflow flow description
+   - `.claude/skills/hugo-copywriting/references/hugo-claude-integration.md` line 41 — update skill reference
+   - **Decision**: Replace `frontend-design` → `design-interview` in these references (since design-interview is the workflow orchestrator that these skills actually integrate with)
 
 ### Phase C: Import `design-frontend` (impeccable's reference hub)
 
@@ -171,6 +174,7 @@ specs/013-import-design-skills/
 
 1. **Add Apache 2.0 attribution header** (see Contract 2)
 2. **Replace Mandatory Preparation block** — every skill has this pattern:
+
    ```markdown
    ## MANDATORY PREPARATION
 
@@ -179,7 +183,9 @@ specs/013-import-design-skills/
    protocol before proceeding — if no design context exists yet, you
    MUST run teach-impeccable first. Additionally gather: {skill-specific}.
    ```
+
    Replace with:
+
    ```markdown
    ## MANDATORY PREPARATION
 
@@ -188,16 +194,20 @@ specs/013-import-design-skills/
    protocol before proceeding — if no design context exists yet, you
    MUST run `/design-interview` first. Additionally gather: {skill-specific}.
    ```
+
 3. **Replace `{{ask_instruction}}` placeholder** — found in some skills in the pattern `"If any of these are unclear from the codebase, {{ask_instruction}}"`. Replace with `"If any of these are unclear from the codebase, ask the user."` (Claude Code handles this natively)
 4. **No `{{model}}` or `{{config_file}}` replacements needed** — these are not present in standalone skill source files
 5. **Add cross-references** to existing project skills where domains overlap (per Overlap Resolution table below)
 6. **Add DaisyUI/Tailwind mapping notes** where skills reference generic CSS patterns — annotate with equivalent Tailwind utility classes or DaisyUI components
 
-**Skills requiring minimal adaptation** (framework-agnostic, only Mandatory Preparation + header):
-polish, arrange, colorize, typeset, animate, delight, critique, audit, clarify, bolder, quieter, harden, adapt, normalize, onboard, distill
+**Skills requiring minimal adaptation** (framework-agnostic, only Mandatory Preparation + header + `{{ask_instruction}}`):
+polish, arrange, colorize, typeset, animate, delight, critique, audit, clarify, bolder, quieter, harden, adapt, normalize, onboard, distill, overdrive
 
-**Skills requiring moderate adaptation** (has some framework-specific examples):
-overdrive — may reference WebGL/advanced APIs; verify examples work in Hugo/Alpine.js context
+**Note on overdrive**: Source analysis confirms it is ~95% framework-agnostic, focused on browser-native APIs (View Transitions, scroll-driven animations, WebGL, Canvas, Web Workers, WASM). Only two library references need adaptation:
+
+- "motion (formerly Framer Motion)" → remove or replace with GSAP (already listed in the skill) or Web Animations API
+- "TanStack Virtual" → note as vanilla-compatible or replace with custom approach for Alpine.js
+  All CSS and vanilla JS techniques work directly with Hugo + Alpine.js.
 
 ### Phase E: Integration & Cross-References
 
