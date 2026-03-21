@@ -201,6 +201,9 @@ Always use subagents liberally and aggressively to conserve the main context win
 
 ## Active Technologies
 
+- Markdown (skill definition files) — no application code + Claude Code skill system (`.claude/skills/*/SKILL.md`) (013-import-design-skills)
+- N/A (file-based skill definitions only) (013-import-design-skills)
+
 - TypeScript (ES2022) + Hugo Go templates + Hono (HTTP), Alpine.js 3.15.8, DaisyUI 5, better-auth (012-auth-static-integration)
 - D1 (sessions via better-auth), indicator cookie (client-side only) (012-auth-static-integration)
 
