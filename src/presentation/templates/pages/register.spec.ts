@@ -447,6 +447,31 @@ describe('registerPage', () => {
     });
   });
 
+  describe('terms of service and privacy policy notice', () => {
+    let result: string;
+
+    beforeEach(() => {
+      result = registerPage({ csrfToken: 'csrf' });
+    });
+
+    it('renders a link to the Terms of Service page', () => {
+      expect(result).toContain('href="/terms/"');
+      expect(result).toContain('Terms of Service');
+    });
+
+    it('renders a link to the Privacy Policy page', () => {
+      expect(result).toContain('href="/privacy/"');
+      expect(result).toContain('Privacy Policy');
+    });
+
+    it('renders the notice after the submit button', () => {
+      const buttonPos = result.indexOf('Create Account');
+      const termsPos = result.indexOf('Terms of Service');
+      expect(buttonPos).toBeGreaterThanOrEqual(0);
+      expect(termsPos).toBeGreaterThan(buttonPos);
+    });
+  });
+
   describe('XSS protection for csrfToken', () => {
     it('escapes the CSRF token value', () => {
       const result = registerPage({ csrfToken: '"><script>alert(1)</script>' });

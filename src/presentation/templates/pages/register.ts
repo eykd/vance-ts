@@ -195,6 +195,11 @@ export function registerPage(props: RegisterPageProps): string {
           Create Account
         </button>
       </div>
+      <p class="text-base-content/60 text-sm mt-4 text-center">
+        By creating an account, you agree to our
+        <a href="/terms/" class="link link-primary">Terms of Service</a> and
+        <a href="/privacy/" class="link link-primary">Privacy Policy</a>.
+      </p>
     </form>
     <div class="mt-4 text-center">
       <a href="/auth/sign-in" class="link link-primary">Already have an account? Sign in</a>
