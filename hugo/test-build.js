@@ -222,6 +222,63 @@ try {
     logSuccess('No route collisions with Worker paths (api/, app/_/)');
   }
 
+  // Test 9: Verify noindex pages are excluded from sitemap
+  logInfo('\nTest 9: Checking sitemap excludes noindex pages...');
+  const sitemapPath = path.join(publicDir, 'sitemap.xml');
+  if (fs.existsSync(sitemapPath)) {
+    const sitemapContent = fs.readFileSync(sitemapPath, 'utf-8');
+    // Find all content files with robots: noindex
+    const contentDir = path.join(__dirname, 'content');
+    const noindexPages = [];
+
+    /**
+     * Recursively scans a directory for Markdown files with robots: noindex front matter.
+     * @param {string} dir - Directory to scan.
+     */
+    function findNoindexPages(dir) {
+      if (!fs.existsSync(dir)) return;
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          findNoindexPages(fullPath);
+        } else if (entry.name.endsWith('.md')) {
+          const content = fs.readFileSync(fullPath, 'utf-8');
+          if (/^robots:\s*noindex/m.test(content)) {
+            // Derive URL path from file path relative to content dir
+            const relPath = path.relative(contentDir, fullPath);
+            const urlPath = relPath
+              .replace(/_index\.md$/, '')
+              .replace(/\.md$/, '/');
+            noindexPages.push(urlPath);
+          }
+        }
+      }
+    }
+
+    findNoindexPages(contentDir);
+
+    if (noindexPages.length === 0) {
+      logInfo('No noindex pages found to check');
+    } else {
+      let sitemapViolation = false;
+      for (const urlPath of noindexPages) {
+        // Check if sitemap contains a URL ending with this path
+        if (sitemapContent.includes(`/${urlPath}</loc>`) || sitemapContent.includes(`/${urlPath.replace(/\/$/, '')}</loc>`)) {
+          logError(`Sitemap includes noindex page: /${urlPath}`);
+          sitemapViolation = true;
+          exitCode = 1;
+        }
+      }
+      if (!sitemapViolation) {
+        logSuccess(`All ${noindexPages.length} noindex page(s) correctly excluded from sitemap`);
+      }
+    }
+  } else {
+    logError('public/sitemap.xml not found');
+    exitCode = 1;
+  }
+
   // Summary
   console.log('\n' + '='.repeat(50));
   if (exitCode === 0) {
