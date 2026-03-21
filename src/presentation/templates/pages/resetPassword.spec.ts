@@ -232,7 +232,7 @@ describe('resetPasswordPage', () => {
     it('page title is "Reset Password"', () => {
       expect.assertions(1);
       const result = resetPasswordPage({ csrfToken: 'csrf', token: 'tok' });
-      expect(result).toContain('<title>Reset Password</title>');
+      expect(result).toContain('<title>Reset Password | ClawTask</title>');
     });
   });
 

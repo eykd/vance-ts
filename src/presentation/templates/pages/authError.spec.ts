@@ -10,7 +10,7 @@ describe('authErrorPage', () => {
 
   it('renders page title "Authentication Error"', () => {
     const result = authErrorPage();
-    expect(result).toContain('<title>Authentication Error</title>');
+    expect(result).toContain('<title>Authentication Error | ClawTask</title>');
   });
 
   it('renders an error heading', () => {

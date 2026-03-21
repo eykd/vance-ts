@@ -35,7 +35,7 @@ export function authLayout(props: AuthLayoutProps): string {
           name="htmx-config"
           content='{"selfRequestsOnly":true,"allowScriptTags":false,"allowEval":false}'
         />
-        <title>${props.title}</title>
+        <title>${props.title} | ClawTask</title>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />

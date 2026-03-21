@@ -26,7 +26,7 @@ describe('rateLimitPage', () => {
 
     it('renders page title "Too Many Requests"', () => {
       const result = rateLimitPage({});
-      expect(result).toContain('<title>Too Many Requests</title>');
+      expect(result).toContain('<title>Too Many Requests | ClawTask</title>');
     });
 
     it('does not mention retry time when retryAfter is undefined', () => {

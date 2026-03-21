@@ -130,7 +130,7 @@ describe('forgotPasswordPage', () => {
     it('page title is "Forgot Password"', () => {
       expect.assertions(1);
       const result = forgotPasswordPage({ csrfToken: 'csrf' });
-      expect(result).toContain('<title>Forgot Password</title>');
+      expect(result).toContain('<title>Forgot Password | ClawTask</title>');
     });
   });
 

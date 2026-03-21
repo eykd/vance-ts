@@ -15,13 +15,15 @@ describe('authLayout', () => {
     expect(result).toMatch(/^<!DOCTYPE html>/);
   });
 
-  it('includes the title in the <title> tag', () => {
-    expect(result).toContain('<title>Sign In</title>');
+  it('includes the title with site name suffix in the <title> tag', () => {
+    expect(result).toContain('<title>Sign In | ClawTask</title>');
   });
 
-  it('XSS-escapes the title', () => {
+  it('XSS-escapes the title while preserving site name suffix', () => {
     const xss = authLayout({ title: '<script>alert("xss")</script>', content: '' });
-    expect(xss).toContain('<title>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</title>');
+    expect(xss).toContain(
+      '<title>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; | ClawTask</title>'
+    );
     expect(xss).not.toContain('<title><script>');
   });
 

@@ -28,7 +28,7 @@ describe('signOutPage', () => {
 
   it('renders a page title containing Sign Out', () => {
     const result = signOutPage({ csrfToken: 'csrf' });
-    expect(result).toContain('<title>Sign Out</title>');
+    expect(result).toContain('<title>Sign Out | ClawTask</title>');
   });
 
   it('renders a link to go back to the home page', () => {
