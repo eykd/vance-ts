@@ -7,6 +7,7 @@ import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
 import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
 import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandler';
 import { createBodyLimitMiddleware } from './presentation/middleware/bodyLimit';
+import { isOriginAllowed } from './presentation/middleware/originCheck';
 import { authErrorPage } from './presentation/templates/pages/authError';
 import type { AppEnv } from './presentation/types';
 import { authErrorStatusCode } from './presentation/utils/authErrorStatus';
@@ -86,6 +87,29 @@ app.use('/dashboard/*', withRequireAuth);
 
 /** Health check endpoint. */
 app.get('/api/health', healthCheck);
+
+/**
+ * Origin-check middleware for POST /api/auth/*.
+ *
+ * better-auth's `formCsrfMiddleware` skips origin validation when a request
+ * carries no cookies and no Fetch Metadata headers. This allows cross-origin
+ * JSON POSTs (e.g. from an attacker page) to reach sign-up and sign-in
+ * endpoints unchecked. This middleware closes the gap by validating the
+ * `Origin` header against `BETTER_AUTH_URL` for every POST to `/api/auth/*`.
+ *
+ * A per-env cache avoids reconstructing the middleware on every request while
+ * still supporting env rotation within the same isolate.
+ */
+app.use('/api/auth/*', async (c, next): Promise<Response | void> => {
+  if (c.req.method !== 'POST') return next();
+  if (!isOriginAllowed(c.req.header('Origin'), c.env.BETTER_AUTH_URL)) {
+    return c.json(
+      { error: { code: 'origin_not_allowed', message: 'Cross-origin requests are not allowed' } },
+      403
+    );
+  }
+  return next();
+});
 
 /**
  * Rate limit middleware for POST /api/auth/sign-in/*.

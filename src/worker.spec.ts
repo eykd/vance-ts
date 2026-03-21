@@ -182,12 +182,16 @@ afterEach(() => {
  */
 function mockEnv(assetResponse?: Response): Env {
   return {
+    BETTER_AUTH_URL: 'https://example.com',
     ASSETS: {
       fetch: vi.fn().mockResolvedValue(assetResponse ?? new Response('static')),
       connect: vi.fn(),
     } as unknown as Fetcher,
   } as unknown as Env;
 }
+
+/** Same-origin Origin header value matching BETTER_AUTH_URL in mockEnv. */
+const SAME_ORIGIN = 'https://example.com';
 
 /**
  * Asserts that the response includes the expected security headers.
@@ -767,7 +771,10 @@ describe('Worker', () => {
       const env = mockEnv();
       mocks.authHandlerFn.mockRejectedValue(new Error('D1 unavailable'));
 
-      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(503);
@@ -781,7 +788,10 @@ describe('Worker', () => {
       const env = mockEnv();
       mocks.authHandlerFn.mockRejectedValue(new Error('D1 unavailable'));
 
-      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       const res = await app.fetch(req, env);
 
       expect(res.headers.get('Retry-After')).toBe('30');
@@ -791,7 +801,10 @@ describe('Worker', () => {
       const env = mockEnv();
       mocks.authHandlerFn.mockRejectedValue(new Error('D1 unavailable'));
 
-      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       const res = await app.fetch(req, env);
 
       expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
@@ -816,7 +829,10 @@ describe('Worker', () => {
       const error = new Error('D1 unavailable');
       mocks.authHandlerFn.mockRejectedValue(error);
 
-      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       await app.fetch(req, env);
 
       expect(mocks.loggerError).toHaveBeenCalledWith('auth handler error', error);
@@ -826,7 +842,10 @@ describe('Worker', () => {
       const env = mockEnv();
       mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 500 }));
 
-      const req = new Request('https://example.com/api/auth/sign-out', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-out', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(503);
@@ -840,7 +859,10 @@ describe('Worker', () => {
       const env = mockEnv();
       mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 502 }));
 
-      const req = new Request('https://example.com/api/auth/sign-out', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-out', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       const res = await app.fetch(req, env);
 
       expect(res.headers.get('Retry-After')).toBe('30');
@@ -850,7 +872,10 @@ describe('Worker', () => {
       const env = mockEnv();
       mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 500 }));
 
-      const req = new Request('https://example.com/api/auth/sign-out', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-out', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       await app.fetch(req, env);
 
       expect(mocks.loggerError).toHaveBeenCalledOnce();
@@ -864,7 +889,10 @@ describe('Worker', () => {
       const env = mockEnv();
       mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 500 }));
 
-      const req = new Request('https://example.com/api/auth/sign-out', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-out', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       const res = await app.fetch(req, env);
 
       expectSecurityHeaders(res);
@@ -937,7 +965,7 @@ describe('Worker', () => {
 
       const req = new Request('https://example.com/api/auth/sign-in/email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Origin: SAME_ORIGIN },
         body: '{not valid json',
       });
       const res = await app.fetch(req, env);
@@ -953,7 +981,7 @@ describe('Worker', () => {
 
       const req = new Request('https://example.com/api/auth/sign-up/email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Origin: SAME_ORIGIN },
         body: '{not valid json',
       });
       const res = await app.fetch(req, env);
@@ -969,7 +997,7 @@ describe('Worker', () => {
 
       const req = new Request('https://example.com/api/auth/sign-in/email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Origin: SAME_ORIGIN },
         body: '{not valid json',
       });
       await app.fetch(req, env);
@@ -982,7 +1010,7 @@ describe('Worker', () => {
 
       const req = new Request('https://example.com/api/auth/sign-in/email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Origin: SAME_ORIGIN },
         body: '{not valid json',
       });
       const res = await app.fetch(req, env);
@@ -996,6 +1024,7 @@ describe('Worker', () => {
 
       const req = new Request('https://example.com/api/auth/sign-out', {
         method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
       });
       const res = await app.fetch(req, env);
 
@@ -1014,7 +1043,10 @@ describe('Worker', () => {
         })
       );
 
-      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       const res = await app.fetch(req, env);
 
       expect(mocks.authHandlerFn).toHaveBeenCalledWith(req);
@@ -1025,7 +1057,80 @@ describe('Worker', () => {
       const env = mockEnv();
       mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
 
-      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
+      const res = await app.fetch(req, env);
+
+      expectSecurityHeaders(res);
+    });
+  });
+
+  describe('POST /api/auth/* cross-origin protection', () => {
+    it('returns 403 when Origin is a foreign domain on sign-up', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/sign-up/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: 'http://evil.com' },
+        body: JSON.stringify({ email: 'a@b.com', password: 'test12345678' }),
+      });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(403);
+      const body = await res.json<{ error: { code: string } }>();
+      expect(body.error.code).toBe('origin_not_allowed');
+      expect(mocks.authHandlerFn).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 when Origin is a foreign domain on sign-in', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: 'http://evil.com' },
+        body: JSON.stringify({ email: 'a@b.com', password: 'test12345678' }),
+      });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(403);
+      expect(mocks.authHandlerFn).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 when Origin is missing on POST', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/sign-up/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'a@b.com', password: 'test12345678' }),
+      });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('does not block GET requests with a foreign Origin', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
+
+      const req = new Request('https://example.com/api/auth/session', {
+        headers: { Origin: 'http://evil.com' },
+      });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(200);
+    });
+
+    it('includes security headers on 403 cross-origin responses', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/sign-up/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: 'http://evil.com' },
+        body: JSON.stringify({ email: 'a@b.com', password: 'test12345678' }),
+      });
       const res = await app.fetch(req, env);
 
       expectSecurityHeaders(res);
@@ -1042,7 +1147,10 @@ describe('Worker', () => {
         })
       );
 
-      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(429);
@@ -1053,7 +1161,10 @@ describe('Worker', () => {
       const env = mockEnv();
       mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
 
-      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       const res = await app.fetch(req, env);
 
       expect(mocks.signInApiRateLimitMiddlewareFn).toHaveBeenCalled();
@@ -1082,7 +1193,10 @@ describe('Worker', () => {
         })
       );
 
-      const req = new Request('https://example.com/api/auth/sign-up/email', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-up/email', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(429);
@@ -1093,7 +1207,10 @@ describe('Worker', () => {
       const env = mockEnv();
       mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
 
-      const req = new Request('https://example.com/api/auth/sign-up/email', { method: 'POST' });
+      const req = new Request('https://example.com/api/auth/sign-up/email', {
+        method: 'POST',
+        headers: { Origin: SAME_ORIGIN },
+      });
       const res = await app.fetch(req, env);
 
       expect(mocks.signUpApiRateLimitMiddlewareFn).toHaveBeenCalled();
