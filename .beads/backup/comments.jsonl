@@ -15,3 +15,5 @@
 {"author":"eykd","created_at":"2026-03-21T01:02:57Z","id":"019d0dea-ae9d-79c1-8ea0-a98aa0db174f","issue_id":"clawtask-1y8.1.20","text":"Starting work on adding name field to sign-up form"}
 {"author":"eykd","created_at":"2026-03-21T01:17:14Z","id":"019d0df7-c240-78ba-85cc-d579d67fb2bf","issue_id":"clawtask-1y8.1.19","text":"Starting work: investigating cross-origin request handling for auth sign-up/sign-in endpoints"}
 {"author":"eykd","created_at":"2026-03-21T01:33:07Z","id":"019d0e06-4b54-72eb-a118-a21869144108","issue_id":"clawtask-1y8.1.18","text":"Starting investigation: reading better-auth config and cookie handling code"}
+{"author":"eykd","created_at":"2026-03-21T01:48:43Z","id":"019d0e14-9576-7a71-a0e5-7af81518d959","issue_id":"clawtask-1y8.1.17","text":"Starting work: rate limit page needs context-aware back link based on originating page"}
+{"author":"eykd","created_at":"2026-03-21T01:56:08Z","id":"019d0e1b-603e-7ebb-b8b8-65fb831bac12","issue_id":"clawtask-1y8.1.16","text":"Starting work: replacing spoofable query parameter with server-side session flag for sign-in success banner"}

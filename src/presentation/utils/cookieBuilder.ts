@@ -80,6 +80,14 @@ const THIRTY_DAY_MAX_AGE = 2_592_000;
 const AUTH_INDICATOR_COOKIE_ATTRIBUTES = 'Secure; SameSite=Lax; Path=/';
 
 /**
+ * Two-minute TTL for flash cookies — long enough to survive the redirect
+ * from sign-up to sign-in, short enough to minimise replay.
+ */
+const FLASH_MAX_AGE = 120;
+
+const FLASH_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Strict; Path=/';
+
+/**
  * Builds a Set-Cookie header value for the auth indicator cookie.
  *
  * This cookie is intentionally NOT HttpOnly so that client-side JavaScript
@@ -127,6 +135,44 @@ export function buildSessionCookie(token: string, sessionCookieName: string): st
  */
 export function clearSessionCookie(sessionCookieName: string): string {
   return `${sessionCookieName}=; ${SESSION_COOKIE_ATTRIBUTES}; Max-Age=0`;
+}
+
+/**
+ * Builds a Set-Cookie header value for the flash registered cookie.
+ *
+ * This short-lived, HttpOnly cookie replaces the spoofable `?registered=true`
+ * query parameter. It is set on the redirect after successful sign-up and
+ * consumed (cleared) on the sign-in GET handler.
+ *
+ * @param flashRegisteredCookieName - The flash cookie name (e.g. `__Host-flash_registered` or `flash_registered` on localhost).
+ * @returns A Set-Cookie header value string
+ */
+export function buildFlashRegisteredCookie(flashRegisteredCookieName: string): string {
+  return `${flashRegisteredCookieName}=1; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=${FLASH_MAX_AGE}`;
+}
+
+/**
+ * Builds a Set-Cookie header value that clears the flash registered cookie.
+ *
+ * @param flashRegisteredCookieName - The flash cookie name (e.g. `__Host-flash_registered` or `flash_registered` on localhost).
+ * @returns A Set-Cookie header value string with Max-Age=0
+ */
+export function clearFlashRegisteredCookie(flashRegisteredCookieName: string): string {
+  return `${flashRegisteredCookieName}=; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=0`;
+}
+
+/**
+ * Returns true when the Cookie request header contains the flash registered cookie.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @param flashRegisteredCookieName - The flash cookie name (e.g. `__Host-flash_registered` or `flash_registered` on localhost).
+ * @returns True if the flash registered cookie is present
+ */
+export function hasFlashRegisteredCookie(
+  cookieHeader: string | null,
+  flashRegisteredCookieName: string
+): boolean {
+  return extractCookieValue(cookieHeader, flashRegisteredCookieName) !== null;
 }
 
 /**

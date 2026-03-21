@@ -26,6 +26,9 @@ const PROD_CSRF_NAME = '__Host-csrf';
 /** Production auth indicator cookie name used in tests. */
 const PROD_INDICATOR_NAME = '__Host-auth_status';
 
+/** Production flash registered cookie name used in tests. */
+const PROD_FLASH_REGISTERED_NAME = '__Host-flash_registered';
+
 /** Cookie header containing the test CSRF token. */
 const CSRF_COOKIE = `__Host-csrf=${TEST_CSRF}`;
 
@@ -202,7 +205,8 @@ describe('AuthPageHandlers', () => {
       resetPasswordUseCaseMock as unknown as ResetPasswordUseCase,
       PROD_COOKIE_NAME,
       PROD_CSRF_NAME,
-      PROD_INDICATOR_NAME
+      PROD_INDICATOR_NAME,
+      PROD_FLASH_REGISTERED_NAME
     );
   });
 
@@ -273,15 +277,37 @@ describe('AuthPageHandlers', () => {
       expect(body).not.toContain('Account created successfully');
     });
 
-    it('shows registered success banner when registered=true query param is set', async () => {
-      const req = new Request('https://example.com/auth/sign-in?registered=true');
+    it('shows registered success banner when flash registered cookie is present', async () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: '__Host-flash_registered=1' },
+      });
       const res = handlers.handleGetSignIn(req);
       const body = await res.text();
       expect(body).toContain('Account created successfully');
     });
 
-    it('does not show registered success banner when registered=false', async () => {
-      const req = new Request('https://example.com/auth/sign-in?registered=false');
+    it('clears flash registered cookie when it is present', () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: '__Host-flash_registered=1' },
+      });
+      const res = handlers.handleGetSignIn(req);
+      const setCookies = (res.headers as unknown as { getAll(name: string): string[] }).getAll(
+        'Set-Cookie'
+      );
+      const clearCookie = setCookies.find((c: string) => c.includes('__Host-flash_registered='));
+      expect(clearCookie).toBeDefined();
+      expect(clearCookie).toContain('Max-Age=0');
+    });
+
+    it('does not show registered success banner when flash cookie is absent', async () => {
+      const req = new Request('https://example.com/auth/sign-in');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('Account created successfully');
+    });
+
+    it('ignores spoofable registered=true query parameter', async () => {
+      const req = new Request('https://example.com/auth/sign-in?registered=true');
       const res = handlers.handleGetSignIn(req);
       const body = await res.text();
       expect(body).not.toContain('Account created successfully');
@@ -1056,10 +1082,21 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(303);
       });
 
-      it('redirects to /auth/sign-in?registered=true', async () => {
+      it('redirects to /auth/sign-in', async () => {
         const req = makeSignUpPostRequest();
         const res = await handlers.handlePostSignUp(req);
-        expect(res.headers.get('Location')).toBe('/auth/sign-in?registered=true');
+        expect(res.headers.get('Location')).toBe('/auth/sign-in');
+      });
+
+      it('sets flash registered cookie on the redirect response', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const setCookies = (res.headers as unknown as { getAll(name: string): string[] }).getAll(
+          'Set-Cookie'
+        );
+        const flashCookie = setCookies.find((c: string) => c.includes('__Host-flash_registered='));
+        expect(flashCookie).toBeDefined();
+        expect(flashCookie).toContain('__Host-flash_registered=1');
       });
 
       it('passes email, name, password, and IP to the sign-up use case', async () => {
@@ -1089,10 +1126,20 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(303);
       });
 
-      it('redirects to /auth/sign-in?registered=true (same URL as success)', async () => {
+      it('redirects to /auth/sign-in (same URL as success)', async () => {
         const req = makeSignUpPostRequest();
         const res = await handlers.handlePostSignUp(req);
-        expect(res.headers.get('Location')).toBe('/auth/sign-in?registered=true');
+        expect(res.headers.get('Location')).toBe('/auth/sign-in');
+      });
+
+      it('sets flash registered cookie (same as success)', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const setCookies = (res.headers as unknown as { getAll(name: string): string[] }).getAll(
+          'Set-Cookie'
+        );
+        const flashCookie = setCookies.find((c: string) => c.includes('__Host-flash_registered='));
+        expect(flashCookie).toBeDefined();
       });
     });
 

@@ -24,8 +24,10 @@ it("A new visitor can register an account.", async () => {
   // THEN their account is created.
   // THEN they are redirected to the sign-in page.
   expect(res.status).toBe(303);
-  // THEN the sign-in page acknowledges that registration was successful.
-  expect(res.headers.get('Location')).toBe('/auth/sign-in?registered=true');
+  // THEN the sign-in page acknowledges that registration was successful (via flash cookie).
+  expect(res.headers.get('Location')).toBe('/auth/sign-in');
+  const setCookies = res.headers.getAll('Set-Cookie');
+  expect(setCookies.some((c) => c.includes('flash_registered=1'))).toBe(true);
 });
 
 // Registering with an email already in use silently redirects to sign-in.
@@ -52,7 +54,10 @@ it("Registering with an email already in use silently redirects to sign-in.", as
   // THEN they are redirected to the sign-in page.
   expect(res.status).toBe(303);
   // THEN the page gives no indication that the email address was already registered.
-  expect(res.headers.get('Location')).toBe('/auth/sign-in?registered=true');
+  // Both success and email-taken produce the same redirect + flash cookie.
+  expect(res.headers.get('Location')).toBe('/auth/sign-in');
+  const setCookies = res.headers.getAll('Set-Cookie');
+  expect(setCookies.some((c) => c.includes('flash_registered=1'))).toBe(true);
 });
 
 // A password shorter than 12 characters is rejected.

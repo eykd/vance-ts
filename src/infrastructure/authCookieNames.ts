@@ -59,3 +59,16 @@ export function getCsrfCookieName(authUrl: string): string {
 export function getAuthIndicatorCookieName(authUrl: string): string {
   return isPlainHttpLocalhost(authUrl) ? 'auth_status' : '__Host-auth_status';
 }
+
+/**
+ * Returns the flash registered cookie name for the given auth URL.
+ *
+ * This short-lived cookie replaces the spoofable `?registered=true` query
+ * parameter. On localhost (plain HTTP), the `__Host-` prefix is dropped.
+ *
+ * @param authUrl - The BETTER_AUTH_URL value from the Workers env.
+ * @returns The flash cookie name (`__Host-flash_registered` or `flash_registered`).
+ */
+export function getFlashRegisteredCookieName(authUrl: string): string {
+  return isPlainHttpLocalhost(authUrl) ? 'flash_registered' : '__Host-flash_registered';
+}

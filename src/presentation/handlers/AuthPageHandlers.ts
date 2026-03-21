@@ -21,13 +21,16 @@ import { signOutPage } from '../templates/pages/signOut.js';
 import {
   buildAuthIndicatorCookie,
   buildCsrfCookie,
+  buildFlashRegisteredCookie,
   buildSessionCookie,
   clearAuthIndicatorCookie,
   clearCsrfCookie,
+  clearFlashRegisteredCookie,
   clearSessionCookie,
   extractCsrfTokenFromCookies,
   extractSessionToken,
   generateCsrfToken,
+  hasFlashRegisteredCookie,
   hasSessionCookie,
 } from '../utils/cookieBuilder.js';
 import { extractClientIp } from '../utils/extractClientIp.js';
@@ -101,6 +104,9 @@ export class AuthPageHandlers {
   /** The auth indicator cookie name (drops `__Host-` prefix on localhost). */
   private readonly authIndicatorCookieName: string;
 
+  /** The flash registered cookie name (drops `__Host-` prefix on localhost). */
+  private readonly flashRegisteredCookieName: string;
+
   /**
    * Creates a new AuthPageHandlers instance.
    *
@@ -112,6 +118,7 @@ export class AuthPageHandlers {
    * @param sessionCookieName - The session cookie name matching better-auth's configured prefix.
    * @param csrfCookieName - The CSRF cookie name (e.g. `__Host-csrf` or `csrf` on localhost).
    * @param authIndicatorCookieName - The auth indicator cookie name (e.g. `__Host-auth_status` or `auth_status` on localhost).
+   * @param flashRegisteredCookieName - The flash registered cookie name (e.g. `__Host-flash_registered` or `flash_registered` on localhost).
    */
   constructor(
     signInUseCase: SignInUseCase,
@@ -121,7 +128,8 @@ export class AuthPageHandlers {
     resetPasswordUseCase: ResetPasswordUseCase,
     sessionCookieName: string,
     csrfCookieName: string,
-    authIndicatorCookieName: string
+    authIndicatorCookieName: string,
+    flashRegisteredCookieName: string
   ) {
     this.signInUseCase = signInUseCase;
     this.signUpUseCase = signUpUseCase;
@@ -131,6 +139,7 @@ export class AuthPageHandlers {
     this.sessionCookieName = sessionCookieName;
     this.csrfCookieName = csrfCookieName;
     this.authIndicatorCookieName = authIndicatorCookieName;
+    this.flashRegisteredCookieName = flashRegisteredCookieName;
   }
 
   /**
@@ -247,16 +256,23 @@ export class AuthPageHandlers {
   handleGetSignIn(request: Request): Response {
     const url = new URL(request.url);
     const validated = validateRedirectTo(url.searchParams.get('redirectTo'));
+    const cookieHeader = request.headers.get('Cookie');
 
-    if (hasSessionCookie(request.headers.get('Cookie'), this.sessionCookieName)) {
+    if (hasSessionCookie(cookieHeader, this.sessionCookieName)) {
       return AuthPageHandlers.buildRedirect(validated);
     }
 
-    const registeredSuccess = url.searchParams.get('registered') === 'true';
+    const registeredSuccess = hasFlashRegisteredCookie(
+      cookieHeader,
+      this.flashRegisteredCookieName
+    );
     const passwordResetSuccess = url.searchParams.get('reset') === 'true';
     const redirectTo = validated !== '/' ? validated : undefined;
 
     const { headers, csrfToken } = this.makeFreshAuthHeaders();
+    if (registeredSuccess) {
+      headers.append('Set-Cookie', clearFlashRegisteredCookie(this.flashRegisteredCookieName));
+    }
     return new Response(
       loginPage({ csrfToken, redirectTo, registeredSuccess, passwordResetSuccess }),
       { headers }
@@ -339,8 +355,8 @@ export class AuthPageHandlers {
    *
    * Validates Content-Type, body size, and CSRF token before delegating to
    * {@link SignUpUseCase}. On success (or `email_taken`), redirects to
-   * `/auth/sign-in?registered=true` — both outcomes produce the same response
-   * to prevent email enumeration (FR-007). On `weak_password` or
+   * `/auth/sign-in` with a flash cookie — both outcomes produce the same
+   * response to prevent email enumeration (FR-007). On `weak_password` or
    * `service_error`, re-renders the form with an appropriate error message.
    *
    * @param request - The incoming HTTP request.
@@ -373,7 +389,9 @@ export class AuthPageHandlers {
     const result = await this.signUpUseCase.execute({ email, name, password, ip });
 
     if (result.ok || result.kind === 'email_taken') {
-      return AuthPageHandlers.buildRedirect('/auth/sign-in?registered=true');
+      return AuthPageHandlers.buildRedirect('/auth/sign-in', [
+        buildFlashRegisteredCookie(this.flashRegisteredCookieName),
+      ]);
     }
 
     if (result.kind === 'rate_limited') {

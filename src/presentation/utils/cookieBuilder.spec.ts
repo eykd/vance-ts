@@ -1,15 +1,18 @@
 import {
   buildAuthIndicatorCookie,
   buildCsrfCookie,
+  buildFlashRegisteredCookie,
   buildSessionCookie,
   clearAuthIndicatorCookie,
   clearCsrfCookie,
+  clearFlashRegisteredCookie,
   clearSessionCookie,
   deriveCsrfToken,
   extractCsrfTokenFromCookies,
   extractSessionToken,
   generateCsrfToken,
   hasAuthIndicatorCookie,
+  hasFlashRegisteredCookie,
   hasSessionCookie,
 } from './cookieBuilder';
 
@@ -27,6 +30,12 @@ const PROD_INDICATOR_NAME = '__Host-auth_status';
 
 /** Localhost auth indicator cookie name (no __Host- prefix). */
 const LOCAL_INDICATOR_NAME = 'auth_status';
+
+/** Production flash registered cookie name. */
+const PROD_FLASH_REGISTERED_NAME = '__Host-flash_registered';
+
+/** Localhost flash registered cookie name (no __Host- prefix). */
+const LOCAL_FLASH_REGISTERED_NAME = 'flash_registered';
 
 describe('buildAuthIndicatorCookie', () => {
   it('sets cookie value to __Host-auth_status=1 for production name', () => {
@@ -394,5 +403,102 @@ describe('extractSessionToken', () => {
 
   it('returns null when session cookie value is empty with no trailing attributes', () => {
     expect(extractSessionToken('__Host-better-auth.session_token=', PROD_COOKIE_NAME)).toBeNull();
+  });
+});
+
+describe('buildFlashRegisteredCookie', () => {
+  it('sets cookie value to __Host-flash_registered=1 for production name', () => {
+    expect(buildFlashRegisteredCookie(PROD_FLASH_REGISTERED_NAME)).toMatch(
+      /^__Host-flash_registered=1;/
+    );
+  });
+
+  it('includes HttpOnly flag', () => {
+    expect(buildFlashRegisteredCookie(PROD_FLASH_REGISTERED_NAME)).toContain('HttpOnly');
+  });
+
+  it('includes Secure flag', () => {
+    expect(buildFlashRegisteredCookie(PROD_FLASH_REGISTERED_NAME)).toContain('Secure');
+  });
+
+  it('includes SameSite=Strict', () => {
+    expect(buildFlashRegisteredCookie(PROD_FLASH_REGISTERED_NAME)).toContain('SameSite=Strict');
+  });
+
+  it('includes Path=/', () => {
+    expect(buildFlashRegisteredCookie(PROD_FLASH_REGISTERED_NAME)).toContain('Path=/');
+  });
+
+  it('includes Max-Age=120 (2 minutes)', () => {
+    expect(buildFlashRegisteredCookie(PROD_FLASH_REGISTERED_NAME)).toContain('Max-Age=120');
+  });
+
+  it('uses localhost cookie name when configured for localhost', () => {
+    expect(buildFlashRegisteredCookie(LOCAL_FLASH_REGISTERED_NAME)).toMatch(/^flash_registered=1;/);
+  });
+});
+
+describe('clearFlashRegisteredCookie', () => {
+  it('sets flash_registered to empty with Max-Age=0', () => {
+    const value = clearFlashRegisteredCookie(PROD_FLASH_REGISTERED_NAME);
+    expect(value).toContain('__Host-flash_registered=');
+    expect(value).toContain('Max-Age=0');
+  });
+
+  it('includes HttpOnly flag', () => {
+    expect(clearFlashRegisteredCookie(PROD_FLASH_REGISTERED_NAME)).toContain('HttpOnly');
+  });
+
+  it('includes Secure flag', () => {
+    expect(clearFlashRegisteredCookie(PROD_FLASH_REGISTERED_NAME)).toContain('Secure');
+  });
+
+  it('includes SameSite=Strict', () => {
+    expect(clearFlashRegisteredCookie(PROD_FLASH_REGISTERED_NAME)).toContain('SameSite=Strict');
+  });
+
+  it('includes Path=/', () => {
+    expect(clearFlashRegisteredCookie(PROD_FLASH_REGISTERED_NAME)).toContain('Path=/');
+  });
+
+  it('uses localhost cookie name when configured for localhost', () => {
+    const value = clearFlashRegisteredCookie(LOCAL_FLASH_REGISTERED_NAME);
+    expect(value).toContain('flash_registered=');
+    expect(value).not.toContain('__Host-');
+  });
+});
+
+describe('hasFlashRegisteredCookie', () => {
+  it('returns false when cookieHeader is null', () => {
+    expect(hasFlashRegisteredCookie(null, PROD_FLASH_REGISTERED_NAME)).toBe(false);
+  });
+
+  it('returns false when cookieHeader is empty string', () => {
+    expect(hasFlashRegisteredCookie('', PROD_FLASH_REGISTERED_NAME)).toBe(false);
+  });
+
+  it('returns false when flash registered cookie is absent from the header', () => {
+    expect(
+      hasFlashRegisteredCookie('other=value; __Host-csrf=token', PROD_FLASH_REGISTERED_NAME)
+    ).toBe(false);
+  });
+
+  it('returns true when flash registered cookie is present in the header', () => {
+    expect(hasFlashRegisteredCookie('__Host-flash_registered=1', PROD_FLASH_REGISTERED_NAME)).toBe(
+      true
+    );
+  });
+
+  it('returns true when flash registered cookie is present alongside other cookies', () => {
+    expect(
+      hasFlashRegisteredCookie(
+        'other=value; __Host-flash_registered=1; more=stuff',
+        PROD_FLASH_REGISTERED_NAME
+      )
+    ).toBe(true);
+  });
+
+  it('detects localhost cookie name', () => {
+    expect(hasFlashRegisteredCookie('flash_registered=1', LOCAL_FLASH_REGISTERED_NAME)).toBe(true);
   });
 });

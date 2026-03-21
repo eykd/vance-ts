@@ -1,6 +1,7 @@
 import {
   getAuthIndicatorCookieName,
   getCsrfCookieName,
+  getFlashRegisteredCookieName,
   getSessionCookieName,
 } from './authCookieNames';
 
@@ -67,5 +68,27 @@ describe('getAuthIndicatorCookieName', () => {
 
   it('returns __Host-auth_status for https://localhost URLs', () => {
     expect(getAuthIndicatorCookieName('https://localhost:8787')).toBe('__Host-auth_status');
+  });
+});
+
+describe('getFlashRegisteredCookieName', () => {
+  it('returns __Host-flash_registered for HTTPS production URLs', () => {
+    expect(getFlashRegisteredCookieName('https://example.com')).toBe('__Host-flash_registered');
+  });
+
+  it('returns flash_registered for http://localhost URLs', () => {
+    expect(getFlashRegisteredCookieName('http://localhost:8787')).toBe('flash_registered');
+  });
+
+  it('returns flash_registered for http://localhost without port', () => {
+    expect(getFlashRegisteredCookieName('http://localhost')).toBe('flash_registered');
+  });
+
+  it('returns flash_registered for http://127.0.0.1 URLs', () => {
+    expect(getFlashRegisteredCookieName('http://127.0.0.1:8787')).toBe('flash_registered');
+  });
+
+  it('returns __Host-flash_registered for https://localhost URLs', () => {
+    expect(getFlashRegisteredCookieName('https://localhost:8787')).toBe('__Host-flash_registered');
   });
 });

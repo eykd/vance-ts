@@ -93,3 +93,5 @@
 {"actor":"eykd","comment":null,"created_at":"2026-03-21T01:12:34Z","event_type":"closed","id":"5e6cb7c5-f6ed-4881-8e75-eb1c03c891da","issue_id":"clawtask-1y8.1.20","new_value":"Closed","old_value":""}
 {"actor":"eykd","comment":null,"created_at":"2026-03-21T01:29:20Z","event_type":"closed","id":"dec47ac2-79ee-4885-ac06-425bba98ced7","issue_id":"clawtask-1y8.1.19","new_value":"Closed","old_value":""}
 {"actor":"eykd","comment":null,"created_at":"2026-03-21T01:44:56Z","event_type":"closed","id":"87de6563-28a2-4c8a-a0d5-6bb856ea598f","issue_id":"clawtask-1y8.1.18","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-21T01:51:34Z","event_type":"closed","id":"fe8321c1-0184-400c-98de-32c121d4de14","issue_id":"clawtask-1y8.1.17","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-21T02:07:35Z","event_type":"closed","id":"0ce1199a-c29b-4356-acf5-79f759aaa4fa","issue_id":"clawtask-1y8.1.16","new_value":"Closed","old_value":""}
