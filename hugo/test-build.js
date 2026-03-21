@@ -356,6 +356,62 @@ try {
     logInfo('Skipping (404.html not found — covered by Test 5)');
   }
 
+  // Test 14: Verify auth nav links use progressive enhancement (no x-cloak on unauthenticated links)
+  logInfo('\nTest 14: Checking auth nav progressive enhancement...');
+  if (fs.existsSync(indexPath)) {
+    const indexContent = fs.readFileSync(indexPath, 'utf-8');
+
+    // Extract all <li> elements that contain auth links (match within single <li>...</li>)
+    const liElements = indexContent.match(/<li[^>]*>.*?<\/li>/gis) || [];
+
+    /**
+     * Finds the <li> element containing a link with the given href path.
+     * @param {string} href - The href path to search for (e.g., '/auth/sign-in').
+     * @returns {string|null} The matching <li> element HTML, or null.
+     */
+    function findLiWithHref(href) {
+      return liElements.find(li => li.includes(href)) || null;
+    }
+
+    // Sign In link must exist without x-cloak (visible by default for no-JS)
+    const signInLi = findLiWithHref('/auth/sign-in');
+    if (!signInLi) {
+      logError('Sign In link (/auth/sign-in) not found in any <li> element');
+      exitCode = 1;
+    } else if (/x-cloak/.test(signInLi)) {
+      logError('Sign In <li> has x-cloak — would be hidden without JavaScript');
+      exitCode = 1;
+    } else {
+      logSuccess('Sign In link exists and is visible by default (no x-cloak)');
+    }
+
+    // Sign Up link must exist without x-cloak
+    const signUpLi = findLiWithHref('/auth/sign-up');
+    if (!signUpLi) {
+      logError('Sign Up link (/auth/sign-up) not found in any <li> element');
+      exitCode = 1;
+    } else if (/x-cloak/.test(signUpLi)) {
+      logError('Sign Up <li> has x-cloak — would be hidden without JavaScript');
+      exitCode = 1;
+    } else {
+      logSuccess('Sign Up link exists and is visible by default (no x-cloak)');
+    }
+
+    // Dashboard link MUST have x-cloak (hidden by default for no-JS)
+    const dashboardLi = findLiWithHref('/dashboard/');
+    const dashboardUl = indexContent.match(/<ul[^>]*x-cloak[^>]*>[^]*?\/dashboard\//i);
+    if (dashboardLi && /x-cloak/.test(dashboardLi)) {
+      logSuccess('Dashboard link is hidden by default (has x-cloak on <li>)');
+    } else if (dashboardUl) {
+      logSuccess('Dashboard link is hidden by default (has x-cloak on parent <ul>)');
+    } else {
+      logError('Dashboard link should have x-cloak (hidden by default without JavaScript)');
+      exitCode = 1;
+    }
+  } else {
+    logInfo('Skipping (index.html not found — covered by Test 3)');
+  }
+
   // Summary
   console.log('\n' + '='.repeat(50));
   if (exitCode === 0) {

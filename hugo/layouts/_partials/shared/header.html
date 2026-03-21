@@ -15,20 +15,21 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" />
         </svg>
       </div>
-      <ul tabindex="0" class="menu menu-sm dropdown-content bg-base-100 rounded-box z-10 mt-3 w-52 p-2 shadow">
+      <ul tabindex="0" class="menu menu-sm dropdown-content bg-base-100 rounded-box z-10 mt-3 w-52 p-2 shadow" x-data>
         {{ range site.Menus.main }}
           {{ $isActive := or ($.IsMenuCurrent "main" .) ($.HasMenuCurrent "main" .) }}
           <li><a href="{{ .URL }}"{{ if $isActive }} class="active" aria-current="page"{{ end }}>{{ .Name }}</a></li>
         {{ end }}
-        {{/* Mobile auth links */}}
+        {{/* Mobile auth links — unauthenticated visible by default (progressive enhancement for no-JS) */}}
         <li class="menu-title lg:hidden">Account</li>
-        <li x-data :class="{ 'hidden': $store.auth.isAuthenticated }">
+        <li :class="{ 'hidden': $store.auth.isAuthenticated }">
           <a href="/auth/sign-in">Sign In</a>
         </li>
-        <li x-data :class="{ 'hidden': $store.auth.isAuthenticated }">
+        <li :class="{ 'hidden': $store.auth.isAuthenticated }">
           <a href="/auth/sign-up">Sign Up</a>
         </li>
-        <li x-data x-cloak :class="{ 'hidden': !$store.auth.isAuthenticated }">
+        {{/* Authenticated: hidden until Alpine confirms auth (x-cloak prevents FOUC) */}}
+        <li x-cloak :class="{ 'hidden': !$store.auth.isAuthenticated }">
           <a href="/dashboard/">Dashboard</a>
         </li>
       </ul>

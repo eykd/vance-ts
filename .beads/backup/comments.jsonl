@@ -27,3 +27,4 @@
 {"author":"eykd","created_at":"2026-03-21T03:21:53Z","id":"019d0e69-e0e8-741a-8ce1-b45f1ebdf35c","issue_id":"clawtask-1y8.1.2","text":"Starting work: fixing breadcrumb JSON-LD Home item name"}
 {"author":"eykd","created_at":"2026-03-21T03:26:46Z","id":"019d0e6e-58fb-72dc-86b0-64c739d6bcc7","issue_id":"clawtask-1y8.1.1","text":"Verified: placeholder text already fixed in commit 08ea1f1. All og:title, og:description, twitter:title, twitter:description, Schema.org description, and hero section correctly show ClawTask branding."}
 {"author":"eykd","created_at":"2026-03-21T03:27:52Z","id":"019d0e6f-5ad5-7da9-b089-5476a5cc02ce","issue_id":"clawtask-1y8.1","text":"All 30 child bug tasks from exploratory testing have been completed and closed. Closing parent task."}
+{"author":"eykd","created_at":"2026-03-21T05:47:11Z","id":"019d0eee-e8d3-777e-9288-32838db6dddf","issue_id":"clawtask-rwt.1.14","text":"Starting work: investigating Alpine.js default state hiding Sign In link"}
