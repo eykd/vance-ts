@@ -148,7 +148,7 @@ app.get('/api/auth/callback/*', apiNotFound);
 /**
  * better-auth API pass-through.
  *
- * Delegates all GET/POST requests under `/api/auth/*` to the better-auth
+ * Delegates all GET/HEAD/POST requests under `/api/auth/*` to the better-auth
  * handler via the ServiceFactory (so worker.ts never imports from
  * infrastructure directly). The response is reconstructed as a new Response
  * to expose mutable headers to the `/api/*` security-headers middleware.
@@ -156,7 +156,7 @@ app.get('/api/auth/callback/*', apiNotFound);
  * Must be registered before the `/api/*` catch-all so that auth API requests
  * are handled here rather than returning 404.
  */
-app.on(['GET', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
+app.on(['GET', 'HEAD', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
   try {
     if (
       c.req.method === 'POST' &&

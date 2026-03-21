@@ -715,6 +715,53 @@ describe('Worker', () => {
     });
   });
 
+  describe('HEAD /api/auth/*', () => {
+    it('returns same status as GET (not 404)', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
+
+      const req = new Request('https://example.com/api/auth/session', { method: 'HEAD' });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(200);
+    });
+
+    it('delegates to authHandler', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
+
+      const req = new Request('https://example.com/api/auth/session', { method: 'HEAD' });
+      await app.fetch(req, env);
+
+      expect(mocks.authHandlerFn).toHaveBeenCalled();
+    });
+
+    it('returns an empty body', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(
+        new Response(JSON.stringify({ session: null }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      const req = new Request('https://example.com/api/auth/session', { method: 'HEAD' });
+      const res = await app.fetch(req, env);
+
+      expect(res.body).toBeNull();
+    });
+
+    it('applies security headers', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockResolvedValue(new Response(null, { status: 200 }));
+
+      const req = new Request('https://example.com/api/auth/session', { method: 'HEAD' });
+      const res = await app.fetch(req, env);
+
+      expectSecurityHeaders(res);
+    });
+  });
+
   describe('/api/auth/* error handling', () => {
     it('returns 503 JSON when authHandler throws', async () => {
       const env = mockEnv();

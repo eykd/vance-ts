@@ -87,3 +87,6 @@
 {"actor":"eykd","comment":null,"created_at":"2026-03-21T00:35:37Z","event_type":"created","id":"050eb5c6-4773-45f0-8e13-5f1252bf3ecf","issue_id":"clawtask-1y8.1.24.1","new_value":"","old_value":""}
 {"actor":"eykd","comment":"Added label: lifecycle:in-progress","created_at":"2026-03-21T00:35:38Z","event_type":"label_added","id":"08afd6b1-0107-4fa8-b302-0544ef54613c","issue_id":"clawtask-1y8.1.24","new_value":null,"old_value":null}
 {"actor":"eykd","comment":null,"created_at":"2026-03-21T00:39:23Z","event_type":"closed","id":"9731e761-5406-4c50-b7b0-fe0f20990b04","issue_id":"clawtask-1y8.1.24","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-21T00:49:25Z","event_type":"closed","id":"e9f6d499-db04-44c7-94e3-177b62d6bf7d","issue_id":"clawtask-1y8.1.23","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-21T00:52:18Z","event_type":"closed","id":"9da8f785-455a-4af9-9f9d-1edd0c69921c","issue_id":"clawtask-1y8.1.22","new_value":"Closed","old_value":""}
+{"actor":"eykd","comment":null,"created_at":"2026-03-21T01:00:11Z","event_type":"closed","id":"34716ba4-a869-456c-be78-00e846dad728","issue_id":"clawtask-1y8.1.21","new_value":"Closed","old_value":""}
