@@ -36,6 +36,9 @@ export function authLayout(props: AuthLayoutProps): string {
           content='{"selfRequestsOnly":true,"allowScriptTags":false,"allowEval":false}'
         />
         <title>${props.title}</title>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
         <link rel="stylesheet" href="${safe(STYLES_CSS_PATH)}" />
         <script src="${safe(HTMX_JS_PATH)}"></script>
         <script defer src="${safe(ALPINE_JS_PATH)}"></script>

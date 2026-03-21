@@ -77,4 +77,17 @@ describe('authLayout', () => {
   it('includes robots noindex nofollow meta tag', () => {
     expect(result).toContain('<meta name="robots" content="noindex, nofollow"');
   });
+
+  it('includes an SVG favicon link tag', () => {
+    expect(result).toContain('<link rel="icon" type="image/svg+xml" href="/favicon.svg"');
+  });
+
+  it('includes an apple-touch-icon link tag', () => {
+    expect(result).toContain('<link rel="apple-touch-icon"');
+    expect(result).toContain('href="/apple-touch-icon.png"');
+  });
+
+  it('includes a web app manifest link tag', () => {
+    expect(result).toContain('<link rel="manifest" href="/site.webmanifest"');
+  });
 });
