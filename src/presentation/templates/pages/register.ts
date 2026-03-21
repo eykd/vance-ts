@@ -27,6 +27,9 @@ const EMAIL_ERROR_ID = 'email-error';
 /** ID for the password field error element, referenced by aria-describedby. */
 const PASSWORD_ERROR_ID = 'password-error';
 
+/** ID for the password requirements hint element, referenced by aria-describedby. */
+const PASSWORD_HINT_ID = 'password-hint';
+
 /** ID for the confirm-password field error element, referenced by aria-describedby. */
 const PASSWORD_CONFIRM_ERROR_ID = 'password_confirm-error';
 
@@ -96,12 +99,12 @@ export function registerPage(props: RegisterPageProps): string {
   const emailDescribedbyAttr =
     emailParts.length > 0 ? safe(`aria-describedby="${emailParts.join(' ')}"`) : safe('');
 
-  // Compute aria-describedby for the password input (omit attribute when no IDs).
+  // Compute aria-describedby for the password input (always includes hint).
   const passwordParts: string[] = [];
   if (props.error !== undefined) passwordParts.push(GENERAL_ERROR_ID);
+  passwordParts.push(PASSWORD_HINT_ID);
   if (passwordFieldError !== undefined) passwordParts.push(PASSWORD_ERROR_ID);
-  const passwordDescribedbyAttr =
-    passwordParts.length > 0 ? safe(`aria-describedby="${passwordParts.join(' ')}"`) : safe('');
+  const passwordDescribedbyAttr = safe(`aria-describedby="${passwordParts.join(' ')}"`);
 
   // Compute aria-describedby for the confirm-password input (omit attribute when no IDs).
   const passwordConfirmParts: string[] = [];
@@ -167,6 +170,9 @@ export function registerPage(props: RegisterPageProps): string {
           class="input input-bordered w-full"
           required
         />
+        <p id="${PASSWORD_HINT_ID}" class="text-base-content/60 text-sm mt-1">
+          Must be at least 12 characters
+        </p>
         ${passwordErrorEl}
       </div>
       <div class="form-control mb-6">

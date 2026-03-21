@@ -81,8 +81,18 @@ describe('registerPage', () => {
       expect(result).not.toContain('id="register-error"');
     });
 
-    it('does not render aria-describedby when no errors', () => {
-      expect(result).not.toContain('aria-describedby');
+    it('does not render aria-describedby on non-password fields when no errors', () => {
+      const nameInputPos = result.indexOf('id="name"');
+      const nameSection = result.slice(nameInputPos, result.indexOf('>', nameInputPos));
+      expect(nameSection).not.toContain('aria-describedby');
+
+      const emailInputPos = result.indexOf('id="email"');
+      const emailSection = result.slice(emailInputPos, result.indexOf('>', emailInputPos));
+      expect(emailSection).not.toContain('aria-describedby');
+
+      const confirmInputPos = result.indexOf('id="password_confirm"');
+      const confirmSection = result.slice(confirmInputPos, result.indexOf('>', confirmInputPos));
+      expect(confirmSection).not.toContain('aria-describedby');
     });
   });
 
@@ -126,10 +136,10 @@ describe('registerPage', () => {
       expect(emailSection).toContain('aria-describedby="register-error"');
     });
 
-    it('sets aria-describedby on the password input referencing the error container', () => {
+    it('sets aria-describedby on the password input referencing general error and hint', () => {
       const passwordInputPos = result.indexOf('id="password"');
       const passwordSection = result.slice(passwordInputPos, result.indexOf('>', passwordInputPos));
-      expect(passwordSection).toContain('aria-describedby="register-error"');
+      expect(passwordSection).toContain('aria-describedby="register-error password-hint"');
     });
   });
 
@@ -180,13 +190,13 @@ describe('registerPage', () => {
         expect(result).toContain('Password must be at least 12 characters');
       });
 
-      it('sets aria-describedby on the password input referencing the field error', () => {
+      it('sets aria-describedby on the password input referencing hint and field error', () => {
         const passwordInputPos = result.indexOf('id="password"');
         const passwordSection = result.slice(
           passwordInputPos,
           result.indexOf('>', passwordInputPos)
         );
-        expect(passwordSection).toContain('aria-describedby="password-error"');
+        expect(passwordSection).toContain('aria-describedby="password-hint password-error"');
       });
     });
 
@@ -235,7 +245,7 @@ describe('registerPage', () => {
     });
 
     describe('with both general error and password field error', () => {
-      it('includes both error IDs in the password input aria-describedby', () => {
+      it('includes general error, hint, and field error IDs in the password input aria-describedby', () => {
         const result = registerPage({
           csrfToken: 'csrf',
           error: 'Fix the errors below',
@@ -246,7 +256,9 @@ describe('registerPage', () => {
           passwordInputPos,
           result.indexOf('>', passwordInputPos)
         );
-        expect(passwordSection).toContain('aria-describedby="register-error password-error"');
+        expect(passwordSection).toContain(
+          'aria-describedby="register-error password-hint password-error"'
+        );
       });
     });
 
@@ -352,6 +364,66 @@ describe('registerPage', () => {
       const result = registerPage({ csrfToken: 'csrf', email: '"><script>xss</script>' });
       expect(result).not.toContain('"><script>xss</script>');
       expect(result).toContain('&quot;&gt;&lt;script&gt;xss&lt;/script&gt;');
+    });
+  });
+
+  describe('password requirements hint', () => {
+    let result: string;
+
+    beforeEach(() => {
+      result = registerPage({ csrfToken: 'csrf' });
+    });
+
+    it('renders a password requirements hint element', () => {
+      expect(result).toContain('id="password-hint"');
+    });
+
+    it('displays the minimum length requirement', () => {
+      expect(result).toContain('12 characters');
+    });
+
+    it('renders the hint between the password input and the confirm password field', () => {
+      const passwordInputPos = result.indexOf('id="password"');
+      const hintPos = result.indexOf('id="password-hint"');
+      const confirmPos = result.indexOf('id="password_confirm"');
+      expect(passwordInputPos).toBeGreaterThanOrEqual(0);
+      expect(hintPos).toBeGreaterThan(passwordInputPos);
+      expect(confirmPos).toBeGreaterThan(hintPos);
+    });
+
+    it('always includes password-hint in password aria-describedby', () => {
+      const passwordInputPos = result.indexOf('id="password"');
+      const passwordSection = result.slice(passwordInputPos, result.indexOf('>', passwordInputPos));
+      expect(passwordSection).toContain('aria-describedby="password-hint"');
+    });
+
+    it('includes both hint and error IDs when password field error is present', () => {
+      const errorResult = registerPage({
+        csrfToken: 'csrf',
+        fieldErrors: { password: 'Password too weak' },
+      });
+      const passwordInputPos = errorResult.indexOf('id="password"');
+      const passwordSection = errorResult.slice(
+        passwordInputPos,
+        errorResult.indexOf('>', passwordInputPos)
+      );
+      expect(passwordSection).toContain('aria-describedby="password-hint password-error"');
+    });
+
+    it('includes general error, hint, and field error IDs when both errors are present', () => {
+      const errorResult = registerPage({
+        csrfToken: 'csrf',
+        error: 'Fix the errors below',
+        fieldErrors: { password: 'Password too weak' },
+      });
+      const passwordInputPos = errorResult.indexOf('id="password"');
+      const passwordSection = errorResult.slice(
+        passwordInputPos,
+        errorResult.indexOf('>', passwordInputPos)
+      );
+      expect(passwordSection).toContain(
+        'aria-describedby="register-error password-hint password-error"'
+      );
     });
   });
 
