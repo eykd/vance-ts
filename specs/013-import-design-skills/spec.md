@@ -3,7 +3,20 @@
 **Feature Branch**: `013-import-design-skills`
 **Created**: 2026-03-20
 **Status**: Draft
+**Beads Epic**: `turtlebased-ts-erz`
 **Input**: User description: "Import and adapt impeccable style skills from pbakaus/impeccable repo, namespaced with design- prefix, with Apache 2.0 attribution, integrated with existing Tailwind/DaisyUI/Hugo design skills"
+
+**Beads Phase Tasks**:
+
+- clarify: `turtlebased-ts-erz.1` (closed)
+- plan: `turtlebased-ts-erz.2` (closed)
+- red-team: `turtlebased-ts-erz.3`
+- tasks: `turtlebased-ts-erz.4`
+- analyze: `turtlebased-ts-erz.5`
+- implement: `turtlebased-ts-erz.6`
+- security-review: `turtlebased-ts-erz.7`
+- architecture-review: `turtlebased-ts-erz.8`
+- code-quality-review: `turtlebased-ts-erz.9`
 
 ## User Scenarios & Testing _(mandatory)_
 

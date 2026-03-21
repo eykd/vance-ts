@@ -89,6 +89,20 @@ specs/013-import-design-skills/
 
 ## Implementation Strategy
 
+### Commit Strategy
+
+_Added by red team review (sp:04)._
+
+Each phase should be committed separately for clean git history, but with guards against broken intermediate states:
+
+- **Phase A** (License): Safe to commit independently — no dependencies.
+- **Phase B** (Rename): Safe to commit — the orchestrator's new phases (Refine/Review/Harden) should reference skills as "coming soon" or use conditional language ("when available, invoke...") until Phase D.
+- **Phase C** (design-frontend): Depends on Phase A (NOTICE file). Commit together with Phase A, or after.
+- **Phase D** (16 skills): Depends on Phases A and C (attribution + design-frontend references). Commit after C.
+- **Phase E** (cross-references): Depends on all prior phases. Commit last.
+
+If interrupted mid-phase, the post-import verification checklist will catch broken cross-references.
+
 ### Phase A: License & Attribution
 
 1. Create `.claude/skills/NOTICE` with Apache 2.0 attribution (see contracts/skill-interface.md Contract 3)
@@ -135,13 +149,19 @@ specs/013-import-design-skills/
      Current fonts: [list]. Current scale: [describe]."
    ```
 
-6. **Update cross-references** in files that mention `frontend-design` (5 occurrences in 3 files):
+6. **Enforce <150-line SKILL.md constraint** _(added by red team review)_: The project convention (README.md) mandates SKILL.md files be <150 lines with progressive disclosure. The expanded orchestrator will exceed this. Extract phase detail into reference documents:
+   - `references/phases.md` — full phase definitions with templated prompts
+   - `references/design-patterns.md` — existing (preserved)
+   - `references/hugo-templates.md` — existing (preserved)
+   - SKILL.md retains: frontmatter, workflow overview, interview framework, phase summary table with "See references/phases.md" pointer. Target: ≤150 lines.
+7. **Update cross-references** in files that mention `frontend-design` (5 occurrences in 3 files):
    - `.claude/skills/README.md` line 174 — update cross-reference list
    - `.claude/skills/hugo-copywriting/SKILL.md` line 3 (frontmatter description) — update integration mention
    - `.claude/skills/hugo-copywriting/SKILL.md` line 134 — update "Integrates with" list
    - `.claude/skills/hugo-copywriting/SKILL.md` line 136 — update workflow flow description
    - `.claude/skills/hugo-copywriting/references/hugo-claude-integration.md` line 41 — update skill reference
    - **Decision**: Replace `frontend-design` → `design-interview` in these references (since design-interview is the workflow orchestrator that these skills actually integrate with)
+   - **Internal reference paths** _(added by red team review)_: After `git mv`, verify that no files outside `.claude/skills/design-interview/` contain path references to the old location: `grep -r "frontend-design/references" .` — must return zero results. Also check `specs/` and `docs/` directories for stale path references.
 
 ### Phase C: Import `design-frontend` (impeccable's reference hub)
 
@@ -186,15 +206,18 @@ specs/013-import-design-skills/
    MUST run teach-impeccable first. Additionally gather: {skill-specific}.
    ```
 
-   Replace with:
+   Replace with _(recursion guard added by red team review)_:
 
    ```markdown
    ## MANDATORY PREPARATION
 
    Use the `/design-frontend` skill — it contains design principles,
    anti-patterns, and the **Context Gathering Protocol**. Follow the
-   protocol before proceeding — if no design context exists yet, you
-   MUST run `/design-interview` first. Additionally gather: {skill-specific}.
+   protocol before proceeding — if no design context exists yet,
+   **ask the user** whether to run `/design-interview` first or
+   proceed with reasonable defaults. Do NOT auto-invoke
+   `/design-interview` — let the user decide.
+   Additionally gather: {skill-specific}.
    ```
 
 3. **Replace `{{ask_instruction}}` placeholder** — found in some skills in the pattern `"If any of these are unclear from the codebase, {{ask_instruction}}"`. Replace with `"If any of these are unclear from the codebase, ask the user."` (Claude Code handles this natively)
@@ -241,6 +264,10 @@ harden — has no Mandatory Preparation section. ADD the standard template (step
 
 **Note on onboard**: Contains instructions for localStorage-based user tracking and analytics metrics. Add a privacy warning (see Security Considerations → Privacy-Sensitive Skill Instructions).
 
+**Note on harden** _(added by red team review)_: This skill instructs production-resilience changes that may touch security-sensitive files (`static/_headers` for CSP, caching configuration, error handling). Add a project-specific guard:
+
+> **Security Note**: Changes to `static/_headers`, Content Security Policy, caching headers, or service worker configuration must be reviewed against the project's security policies in CLAUDE.md before applying. Do not weaken existing security headers to accommodate design changes.
+
 **Note on audit and critique**: Contain `{{available_commands}}` placeholders requiring replacement (see step 4 above).
 
 ### Phase E: Integration & Cross-References
@@ -250,13 +277,13 @@ harden — has no Mandatory Preparation section. ADD the standard template (step
    - `daisyui-design-system-generator/SKILL.md` → add: "For color strategy guidance before generating themes, see `/design-colorize`. To align existing UI to your generated theme, see `/design-normalize`."
    - `hugo-copywriting/SKILL.md` → add: "For UX microcopy (labels, error messages, empty states), see `/design-clarify`."
    - `htmx-pattern-library/SKILL.md` → add: "For motion design guidance on HTMX transitions, see `/design-animate`."
-   - `ui-design-language/SKILL.md` → add: "For design anti-patterns and the AI Slop Test, see `/design-frontend`."
+   - `ui-design-language/SKILL.md` → add: "For layout composition strategy, see `/design-arrange`. For UX evaluation, see `/design-critique`. For design anti-patterns and the AI Slop Test, see `/design-frontend`." _(expanded by red team review)_
 2. **Verify no contradictions** — spot-check key areas:
    - Color advice: design-colorize vs daisyui-design-system-generator (strategy vs generation — complementary)
    - Typography: design-typeset vs tailwind-daisyui-design typography-readability.md (selection vs application — complementary)
    - Accessibility: design-audit vs tailwind-daisyui-design form-accessibility.md (broad vs form-specific — complementary)
 3. **Update CLAUDE.md skill list** — ensure all new `design-*` skills appear in the available skills section
-4. **Update `.claude/skills/README.md`** — add a new "### Design" section under "Frontend & UI" containing catalog entries for all 18 imported `design-*` skills plus `design-interview`. Each entry must follow the existing format: name with link, "Use when" triggers, "Provides" summary, "Cross-references" list. Add a "Design Chain" to the Skill Chains section: `design-interview → design-frontend → daisyui-design-system-generator → tailwind-daisyui-design → design-*/refine → design-*/review → design-*/harden`. Update the `frontend-design` entry to `design-interview` with its new orchestrator description.
+4. **Update `.claude/skills/README.md`** — add a new "### Design" section under "Frontend & UI" containing catalog entries for all 18 imported `design-*` skills plus `design-interview`. Each entry must follow the existing format: name with link, "Use when" triggers, "Provides" summary, "Cross-references" list. Add a "Design Chain" to the Skill Chains section: `design-interview → design-frontend → daisyui-design-system-generator → tailwind-daisyui-design → design-*/refine → design-*/review → design-*/harden`. Add a **new entry** for `design-interview` (there is no existing `frontend-design` entry in README.md to update — it was only referenced in cross-references). Place it first in the Design section as the workflow entry point. _(corrected by red team review)_
 5. **Add cross-references for `design-language-to-daisyui`** — this existing skill overlaps with `design-arrange` (layout) and `design-normalize` (system alignment). Add to `design-language-to-daisyui/SKILL.md`: "For layout composition strategy, see `/design-arrange`. For design system alignment, see `/design-normalize`."
 
 ### Adaptation Matrix
@@ -281,18 +308,20 @@ harden — has no Mandatory Preparation section. ADD the standard template (step
 
 ### Overlap Resolution
 
-| Imported Skill     | Existing Skill                                        | Resolution                                                                                                                                                                                                                           |
-| ------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `design-colorize`  | `daisyui-design-system-generator`                     | design-colorize provides _strategy_ (when/where to add color); existing skill generates _themes_ (OKLCH values). Complementary. design-colorize defers to existing for theme generation.                                             |
-| `design-colorize`  | `tailwind-daisyui-design` (color-usage.md)            | design-colorize adds color strategy layer; existing provides semantic application patterns. Cross-reference both.                                                                                                                    |
-| `design-typeset`   | `tailwind-daisyui-design` (typography-readability.md) | design-typeset provides font selection and hierarchy strategy; existing provides Tailwind prose classes and readability rules. Cross-reference both.                                                                                 |
-| `design-audit`     | `tailwind-daisyui-design` (form-accessibility.md)     | design-audit is broader (all a11y); existing is form-specific. Complementary.                                                                                                                                                        |
-| `design-frontend`  | `design-interview`                                    | design-frontend is the reference hub (guidelines, anti-patterns); design-interview is the workflow orchestrator (routes users through phases). Distinct responsibilities.                                                            |
-| `design-adapt`     | `htmx-alpine-templates`                               | design-adapt covers responsive strategy; existing provides implementation templates. Complementary.                                                                                                                                  |
-| `design-normalize` | `daisyui-design-system-generator`                     | design-normalize aligns existing UI to a system; existing generates the system. Sequential.                                                                                                                                          |
-| `design-clarify`   | `hugo-copywriting`                                    | design-clarify handles UX microcopy (labels, errors); copywriting handles long-form content. Different scope.                                                                                                                        |
-| `design-arrange`   | `design-language-to-daisyui`                          | design-arrange provides layout strategy; existing translates vocabulary to DaisyUI classes. Cross-reference: design-arrange should note "For translating layout descriptions to DaisyUI classes, see `/design-language-to-daisyui`." |
-| `design-normalize` | `design-language-to-daisyui`                          | design-normalize aligns existing UI to design system; existing translates design vocabulary to DaisyUI. Complementary.                                                                                                               |
+| Imported Skill     | Existing Skill                                        | Resolution                                                                                                                                                                                                                                                                                                                 |
+| ------------------ | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `design-colorize`  | `daisyui-design-system-generator`                     | design-colorize provides _strategy_ (when/where to add color); existing skill generates _themes_ (OKLCH values). Complementary. design-colorize defers to existing for theme generation.                                                                                                                                   |
+| `design-colorize`  | `tailwind-daisyui-design` (color-usage.md)            | design-colorize adds color strategy layer; existing provides semantic application patterns. Cross-reference both.                                                                                                                                                                                                          |
+| `design-typeset`   | `tailwind-daisyui-design` (typography-readability.md) | design-typeset provides font selection and hierarchy strategy; existing provides Tailwind prose classes and readability rules. Cross-reference both.                                                                                                                                                                       |
+| `design-audit`     | `tailwind-daisyui-design` (form-accessibility.md)     | design-audit is broader (all a11y); existing is form-specific. Complementary.                                                                                                                                                                                                                                              |
+| `design-frontend`  | `design-interview`                                    | design-frontend is the reference hub (guidelines, anti-patterns); design-interview is the workflow orchestrator (routes users through phases). Distinct responsibilities.                                                                                                                                                  |
+| `design-adapt`     | `htmx-alpine-templates`                               | design-adapt covers responsive strategy; existing provides implementation templates. Complementary.                                                                                                                                                                                                                        |
+| `design-normalize` | `daisyui-design-system-generator`                     | design-normalize aligns existing UI to a system; existing generates the system. Sequential.                                                                                                                                                                                                                                |
+| `design-clarify`   | `hugo-copywriting`                                    | design-clarify handles UX microcopy (labels, errors); copywriting handles long-form content. Different scope.                                                                                                                                                                                                              |
+| `design-arrange`   | `design-language-to-daisyui`                          | design-arrange provides layout strategy; existing translates vocabulary to DaisyUI classes. Cross-reference: design-arrange should note "For translating layout descriptions to DaisyUI classes, see `/design-language-to-daisyui`."                                                                                       |
+| `design-normalize` | `design-language-to-daisyui`                          | design-normalize aligns existing UI to design system; existing translates design vocabulary to DaisyUI. Complementary.                                                                                                                                                                                                     |
+| `design-arrange`   | `ui-design-language`                                  | design-arrange provides high-level layout strategy (rhythm, visual weight, negative space); ui-design-language provides structured vocabulary for specific layout implementations. Cross-reference: "To describe layouts using the project's standard vocabulary, see `/ui-design-language`." _(added by red team review)_ |
+| `design-critique`  | `ui-design-language`                                  | design-critique evaluates UX quality; ui-design-language provides vocabulary for describing UIs. When critique output describes layout changes, it should use ui-design-language vocabulary for consistency. _(added by red team review)_                                                                                  |
 
 ## Security Considerations
 
@@ -401,6 +430,14 @@ Phase E mentions updating CLAUDE.md and cross-references in existing skills, but
 
 - **Mitigation**: See Phase E step 4 for README.md update plan.
 
+### Recursive Skill Invocation via Mandatory Preparation
+
+_Added by red team review (sp:04) — second pass._
+
+Every imported skill's Mandatory Preparation block says "Use the `/design-frontend` skill... if no design context exists yet, you MUST run `/design-interview` first." The orchestrator then routes users back to these same skills. Without a written `## Design Context` section in CLAUDE.md, the chain becomes: sub-skill → Mandatory Prep → design-frontend → Context Gathering Protocol → "no context found" → MUST run design-interview → Interview phase → eventually recommends the same sub-skill. This recursive loop wastes significant context budget.
+
+- **Mitigation**: The Mandatory Preparation template has been updated (Phase D step 2) to use "ask the user" instead of "MUST run `/design-interview`", converting the hard requirement into a user-controlled decision. This breaks the recursion at the source.
+
 ### Historical Status Docs
 
 `docs/2026-02-25_project_status.md` and `docs/2026-03-19-status.md` list `frontend-design` in their skills inventory. These are historical point-in-time snapshots.
@@ -422,6 +459,8 @@ After all phases complete, run these verification checks before committing:
 7. **Preserved parameters**: `grep -r "{{area}}" .claude/skills/design-audit/` — must return results (intentional user-facing parameter, not to be replaced)
 8. **Privacy warnings**: `design-onboard/SKILL.md` must contain a Privacy Notice warning about localStorage tracking
 9. **README.md completeness**: `.claude/skills/README.md` must contain entries for all 18 imported skills plus `design-interview`
+10. **NOTICE file completeness** _(added by red team review)_: Count `design-*/SKILL.md` entries in `.claude/skills/NOTICE` — must equal the number of `design-*/SKILL.md` files in `.claude/skills/` (expected: 18). Also verify all 7 reference doc paths are listed.
+11. **Stale path references** _(added by red team review)_: `grep -r "frontend-design" .claude/skills/ specs/ docs/` — must return zero results except in historical status docs (docs/2026-\*-status.md) and spec files documenting the rename itself
 
 ## Misuse & Abuse Considerations
 
