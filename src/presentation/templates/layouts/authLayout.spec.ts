@@ -74,6 +74,10 @@ describe('authLayout', () => {
     expect(result).toContain('<html lang="en"');
   });
 
+  it('uses the lemonade DaisyUI theme to match Hugo static pages', () => {
+    expect(result).toContain('data-theme="lemonade"');
+  });
+
   it('includes robots noindex nofollow meta tag', () => {
     expect(result).toContain('<meta name="robots" content="noindex, nofollow"');
   });

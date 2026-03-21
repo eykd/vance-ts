@@ -26,7 +26,7 @@ interface AuthLayoutProps {
  */
 export function authLayout(props: AuthLayoutProps): string {
   return html`<!DOCTYPE html>
-    <html lang="en" data-theme="turtlebased">
+    <html lang="en" data-theme="lemonade">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
