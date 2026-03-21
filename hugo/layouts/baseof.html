@@ -33,7 +33,9 @@
     <link rel="canonical" href="{{ .Permalink }}" />
 
     <!-- Robots -->
-    <meta name="robots" content="{{ .Params.robots | default "index, follow" }}" />
+    {{ $robots := .Params.robots | default "index, follow" }}
+    {{ if eq .Kind "404" }}{{ $robots = "noindex, nofollow" }}{{ end }}
+    <meta name="robots" content="{{ $robots }}" />
 
     <!-- SEO -->
     {{ partial "seo/google_analytics.html" . }}

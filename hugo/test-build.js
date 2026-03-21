@@ -314,6 +314,48 @@ try {
     logInfo('Skipping (404.html not found — covered by Test 5)');
   }
 
+  // Test 12: Verify 404 page has noindex robots meta
+  logInfo('\nTest 12: Checking 404 page robots meta...');
+  if (fs.existsSync(notFoundPath)) {
+    const notFoundContent = fs.readFileSync(notFoundPath, 'utf-8');
+    const robotsMeta = notFoundContent.match(/<meta\s+name=["']?robots["']?\s+content="([^"]+)"/i);
+    if (robotsMeta) {
+      const robotsValue = robotsMeta[1].toLowerCase();
+      if (robotsValue.includes('noindex')) {
+        logSuccess(`404.html has correct robots meta: "${robotsMeta[1]}"`);
+      } else {
+        logError(`404.html robots meta is "${robotsMeta[1]}" — should contain "noindex"`);
+        exitCode = 1;
+      }
+    } else {
+      logError('404.html is missing robots meta tag');
+      exitCode = 1;
+    }
+  } else {
+    logInfo('Skipping (404.html not found — covered by Test 5)');
+  }
+
+  // Test 13: Verify 404 page has og:type "website" (not "article")
+  logInfo('\nTest 13: Checking 404 page og:type...');
+  if (fs.existsSync(notFoundPath)) {
+    const notFoundContent = fs.readFileSync(notFoundPath, 'utf-8');
+    const ogType = notFoundContent.match(/<meta\s+property="og:type"\s+content="([^"]+)"/i) ||
+      notFoundContent.match(/<meta\s+property=og:type\s+content="([^"]+)"/i);
+    if (ogType) {
+      if (ogType[1] === 'website') {
+        logSuccess(`404.html has correct og:type: "${ogType[1]}"`);
+      } else {
+        logError(`404.html og:type is "${ogType[1]}" — should be "website"`);
+        exitCode = 1;
+      }
+    } else {
+      logError('404.html is missing og:type meta tag');
+      exitCode = 1;
+    }
+  } else {
+    logInfo('Skipping (404.html not found — covered by Test 5)');
+  }
+
   // Summary
   console.log('\n' + '='.repeat(50));
   if (exitCode === 0) {
