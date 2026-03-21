@@ -2,8 +2,8 @@
 # Used by layouts/_partials/blocks/home/hero.html
 
 enable: true
-title: "Welcome to My Hugo Site"
-subtitle: "A modern static website built with Hugo, TailwindCSS, and DaisyUI. Fast, beautiful, and easy to customize."
+title: "ClawTask — AI-Powered OKR Execution"
+subtitle: "The operating system that turns you and your AI into a disciplined OKR execution team."
 image: "images/hero-image.png"
 button:
   label: "Get Started"
