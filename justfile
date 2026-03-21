@@ -200,16 +200,12 @@ test-all: test acceptance-run
 beads-init:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Ensure dolt is installed
-    if ! command -v dolt &>/dev/null; then
-        echo "Installing dolt..."
-        curl -fsSL https://github.com/dolthub/dolt/releases/latest/download/install.sh | sudo bash
+    # Ensure br (beads_rust) is installed
+    if ! command -v br &>/dev/null; then
+        echo "Installing beads_rust..."
+        curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
     fi
-    # Skip if already initialized and healthy
-    if npx bd dolt test --quiet 2>/dev/null && npx bd list --json --quiet 2>/dev/null | grep -q '"id"'; then
-        echo "✅ Beads already initialized and healthy — nothing to do."
-        exit 0
-    fi
-    # Hydrate dolt database from the JSONL that travels with the repo
-    npx bd init --from-jsonl --server-port 14080
-    echo "✅ Beads initialized from issues.jsonl"
+    # Initialize and import
+    br init
+    br sync --import-only
+    echo "✅ Beads initialized"

@@ -21,7 +21,7 @@
 
 - Q: How should ralph.sh handle interactive phases like sp:02-clarify? → A: ralph.sh automates phases 03-09 only; phases 01-02 are manual prerequisites. Script must verify sp:02-clarify is complete before starting, and bail with guidance if not.
 - Q: What error recovery strategy for Claude failures/timeouts? → A: Retry up to 10 times with exponential backoff, capped at 5-minute maximum delay between retries; exit on persistent failure.
-- Q: How does ralph.sh detect task completion? → A: Beads is source of truth. Loop simply checks `bd ready` for epic tasks each iteration; keep invoking Claude until no ready tasks remain or iteration limit hit. No per-task completion tracking needed.
+- Q: How does ralph.sh detect task completion? → A: Beads is source of truth. Loop simply checks `br ready` for epic tasks each iteration; keep invoking Claude until no ready tasks remain or iteration limit hit. No per-task completion tracking needed.
 
 ## User Scenarios & Testing _(mandatory)_
 
@@ -37,7 +37,7 @@ A developer defines a feature through `sp:01-specify` and clarifies it through `
 
 1. **Given** a feature spec exists with a beads epic and phase tasks created via `sp:01-specify`, **When** the user runs `ralph.sh`, **Then** the script invokes Claude with `/sp:next` and begins processing the first ready task.
 
-2. **Given** `ralph.sh` is running and Claude completes a phase task, **When** Claude marks the task complete via `bd close`, **Then** the script detects task completion and invokes Claude again with `/sp:next` for the next ready task.
+2. **Given** `ralph.sh` is running and Claude completes a phase task, **When** Claude marks the task complete via `br close`, **Then** the script detects task completion and invokes Claude again with `/sp:next` for the next ready task.
 
 3. **Given** all phase tasks under the epic are complete, **When** the script checks for remaining work, **Then** `ralph.sh` exits with a success message indicating the feature is complete.
 
@@ -55,7 +55,7 @@ Each iteration of the Ralph loop preserves context through git commits, beads ta
 
 **Acceptance Scenarios**:
 
-1. **Given** Claude completes a phase task and commits changes, **When** the next Claude instance starts via `ralph.sh`, **Then** it can query `bd ready` to find the next task without re-reading all previous context.
+1. **Given** Claude completes a phase task and commits changes, **When** the next Claude instance starts via `ralph.sh`, **Then** it can query `br ready` to find the next task without re-reading all previous context.
 
 2. **Given** the loop was interrupted (user Ctrl+C or system crash), **When** `ralph.sh` is restarted, **Then** it resumes from the last successfully closed beads task.
 
@@ -99,7 +99,7 @@ While running, the script provides visual feedback showing which phase/task is b
 
 ### Edge Cases
 
-- What happens when `bd ready` returns no tasks but the epic is not complete (orphaned tasks with unmet dependencies)?
+- What happens when `br ready` returns no tasks but the epic is not complete (orphaned tasks with unmet dependencies)?
 - How does the system handle network failures during Claude invocation?
 - What happens when Claude produces no output or hangs indefinitely?
 - How are concurrent runs of `ralph.sh` on the same branch prevented?
@@ -111,7 +111,7 @@ While running, the script provides visual feedback showing which phase/task is b
 
 - **FR-001**: System MUST provide a `ralph.sh` bash script in the repository root that orchestrates the automation loop.
 - **FR-002**: System MUST invoke the Claude CLI with `/sp:next` prompt at each iteration to process the next ready task.
-- **FR-003**: System MUST query beads via `bd ready` to determine if tasks remain under the current epic.
+- **FR-003**: System MUST query beads via `br ready` to determine if tasks remain under the current epic.
 - **FR-004**: System MUST detect when all epic tasks are complete and terminate the loop successfully.
 - **FR-005**: System MUST track iteration count and enforce a configurable maximum limit (default: 50) to prevent infinite loops.
 - **FR-006**: System MUST handle SIGINT (Ctrl+C) gracefully, terminating without state corruption.
@@ -148,7 +148,7 @@ While running, the script provides visual feedback showing which phase/task is b
 ## Assumptions
 
 - The Claude CLI is available and authenticated in the execution environment.
-- The beads CLI (`bd`) is installed and initialized in the repository.
+- The beads CLI (`br`) is installed and initialized in the repository.
 - The `sp:*` skills are properly configured and functional.
 - Git is available for branch detection and commit operations.
 - The terminal supports standard output for progress display.

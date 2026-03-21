@@ -189,7 +189,7 @@ Execution steps:
    b. Find the clarify phase task:
 
    ```bash
-   npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:02-clarify]")) | .id'
+   br list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:02-clarify]")) | .id'
    ```
 
    Or retrieve from spec.md front matter if stored under "Beads Phase Tasks".
@@ -197,19 +197,19 @@ Execution steps:
    c. Mark the task in progress (if not already):
 
    ```bash
-   npx bd update <clarify-task-id> --claim
+   br update <clarify-task-id> --claim
    ```
 
    d. Close the task with a completion summary:
 
    ```bash
-   npx bd close <clarify-task-id> --reason "Clarified <N> requirements: <brief summary of key clarifications>"
+   br close <clarify-task-id> --reason "Clarified <N> requirements: <brief summary of key clarifications>"
    ```
 
    e. Verify the next phase is now ready:
 
    ```bash
-   npx bd ready --json | jq '.[] | select(.title | contains("[sp:03-plan]"))'
+   br ready --json | jq '.[] | select(.title | contains("[sp:03-plan]"))'
    ```
 
    f. Report: "Phase [sp:02-clarify] complete. Run `/sp:next` or `/sp:03-plan` to continue."
@@ -217,7 +217,7 @@ Execution steps:
    **Skip scenario**: If user explicitly skips clarification (e.g., "skip", "no clarification needed"):
 
    ```bash
-   npx bd close <clarify-task-id> --reason "Skipped: User requested direct progression to planning"
+   br close <clarify-task-id> --reason "Skipped: User requested direct progression to planning"
    ```
 
    Warn: "Clarification skipped. Downstream rework risk increases. The [sp:03-plan] task is now ready."

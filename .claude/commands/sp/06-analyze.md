@@ -94,25 +94,25 @@ grep "Beads Epic" FEATURE_DIR/spec.md | grep -oE 'workspace-[a-z0-9]+|bd-[a-z0-9
 b. Query beads for task statistics:
 
 ```bash
-npx bd stats --json
+br stats --json
 ```
 
 c. List all tasks for this feature:
 
 ```bash
-npx bd list --parent <epic-id> --json
+br list --parent <epic-id> --json
 ```
 
 d. Get ready tasks:
 
 ```bash
-npx bd ready --json
+br ready --json
 ```
 
 e. View dependency tree:
 
 ```bash
-npx bd dep tree <epic-id>
+br dep tree <epic-id>
 ```
 
 ### 3. Load Artifacts (Progressive Disclosure)
@@ -134,7 +134,7 @@ Load only the minimal necessary context from each artifact:
 - Phases
 - Technical constraints
 
-**From beads tasks** (via `npx bd list --parent <epic-id> --json`):
+**From beads tasks** (via `br list --parent <epic-id> --json`):
 
 - Task IDs and titles
 - Task descriptions (containing spec refs, skills, acceptance criteria)
@@ -231,11 +231,11 @@ Before creating manual remediation tasks, apply auto-fixes where safe:
 2. **Coverage Gaps - Create Missing Tasks**:
    - For requirements with zero task coverage, create beads task:
      ```bash
-     npx bd create --parent <epic-id> --description "**Spec**: [requirement reference]\n\n**Context**: Auto-generated from sp:06-analyze coverage analysis\n\n**Acceptance**: [extract from requirement acceptance criteria]" "Implement [requirement title]"
+     br create --parent <epic-id> --description "**Spec**: [requirement reference]\n\n**Context**: Auto-generated from sp:06-analyze coverage analysis\n\n**Acceptance**: [extract from requirement acceptance criteria]" "Implement [requirement title]"
      ```
 
 3. **Orphan Task Mapping**:
-   - Add `**Spec**: [best-match-requirement]` to task descriptions using `npx bd edit`
+   - Add `**Spec**: [best-match-requirement]` to task descriptions using `br edit`
    - Log mappings for reporting
 
 4. **Simple Duplicates**:
@@ -342,12 +342,12 @@ Include a section showing beads task progress:
 **Task Hierarchy:**
 
 ```text
-[Include output from bd dep tree]
+[Include output from br dep tree]
 ```
 
 **Ready Tasks:**
 
-- List tasks currently available for work from `bd ready`
+- List tasks currently available for work from `br ready`
 
 **Blocked Tasks:**
 
@@ -395,13 +395,13 @@ At end of report, output a concise Next Actions block:
 
 ## Beads Commands Reference
 
-| Action          | Command                                 |
-| --------------- | --------------------------------------- |
-| Get statistics  | `npx bd stats --json`                   |
-| List all tasks  | `npx bd list --parent <epic-id> --json` |
-| Get ready tasks | `npx bd ready --json`                   |
-| View hierarchy  | `npx bd dep tree <epic-id>`             |
-| Check cycles    | `npx bd dep cycles`                     |
+| Action          | Command                             |
+| --------------- | ----------------------------------- |
+| Get statistics  | `br stats --json`                   |
+| List all tasks  | `br list --parent <epic-id> --json` |
+| Get ready tasks | `br ready --json`                   |
+| View hierarchy  | `br dep tree <epic-id>`             |
+| Check cycles    | `br dep cycles`                     |
 
 ## Context
 
