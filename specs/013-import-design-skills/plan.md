@@ -91,58 +91,144 @@ specs/013-import-design-skills/
 
 ### Phase A: License & Attribution
 
-1. Create `.claude/skills/NOTICE` with Apache 2.0 attribution
-2. Define the standard file header for all imported skills
+1. Create `.claude/skills/NOTICE` with Apache 2.0 attribution (see contracts/skill-interface.md Contract 3)
+2. Define the standard file header for all imported skills (see contracts/skill-interface.md Contract 2)
 
 ### Phase B: Rename & Expand `frontend-design` → `design-interview`
 
-1. Rename `.claude/skills/frontend-design/` → `.claude/skills/design-interview/`
-2. Fold `teach-impeccable` UX context-gathering questions into the interview phase
-3. Expand into structured orchestrator with 7 phases (FR-010):
-   - Interview → Theme → Components → Implement → Refine → Review → Harden
-4. Add templated prompts for each phase transition (FR-011)
-5. Update cross-references in other skills that mention `frontend-design`
+1. **Rename**: `git mv .claude/skills/frontend-design/ .claude/skills/design-interview/`
+2. **Preserve existing content**: Keep the current 4-phase workflow (Interview → Color Theme → Components → Implement), design-patterns.md, hugo-templates.md references, anti-pattern guidance, and file edit priority table
+3. **Fold teach-impeccable context-gathering** into the interview phase. The existing skill already has a 5-question interview; expand it with teach-impeccable's structured approach:
+   - **Step 1 (before questions)**: Codebase scan for design signals — README, package.json, existing components, brand assets, CSS variables, style guides. Note what was learned.
+   - **Step 2 (questions, skip any answered by codebase scan)**:
+     - _Users & Purpose_: Who uses this? Context? What job? What emotions to evoke?
+     - _Brand & Personality_: 3-word personality? Reference sites/apps? Anti-references?
+     - _Aesthetic Preferences_: Visual direction? Light/dark mode? Colors to use/avoid?
+     - _Accessibility_: WCAG level? Reduced motion, color blindness accommodations?
+   - **Step 3**: Synthesize into Design Context (Users, Brand Personality, Aesthetic Direction, Design Principles)
+4. **Expand to 7-phase orchestrator** (FR-010). The existing skill already covers phases 1-4; add Refine, Review, Harden:
 
-### Phase C: Import `design-frontend` (impeccable's orchestrator hub)
+   | Phase         | Existing?    | What to add                                                             |
+   | ------------- | ------------ | ----------------------------------------------------------------------- |
+   | 1. Interview  | Yes (expand) | teach-impeccable codebase scan + structured questions                   |
+   | 2. Theme      | Yes          | No changes — already delegates to `daisyui-design-system-generator`     |
+   | 3. Components | Yes          | No changes — already delegates to `tailwind-daisyui-design`             |
+   | 4. Implement  | Yes          | No changes — already references Hugo template skills                    |
+   | 5. Refine     | **NEW**      | Route to design-bolder/quieter/colorize/typeset/arrange/animate/delight |
+   | 6. Review     | **NEW**      | Route to design-critique/audit/polish/clarify                           |
+   | 7. Harden     | **NEW**      | Route to design-harden/adapt/normalize/onboard                          |
 
-1. Import impeccable's `frontend-design` as `design-frontend`
-2. Adapt to reference project stack (DaisyUI 5, TailwindCSS 4, Hugo, Alpine.js)
-3. Import and adapt 7 reference documents
-4. Replace template placeholders (`{{model}}` → Claude, etc.)
-5. Update cross-references to point to `design-interview` instead of `teach-impeccable`
+5. **Add templated prompts** for each phase transition (FR-011). Example format:
+
+   ```markdown
+   ### Next: Refine Phase
+
+   Your design is implemented. Choose a refinement direction:
+
+   - **Too safe/boring?** → `/design-bolder` — "Amplify the design of [component].
+     Current: [describe]. Make it more visually striking while keeping it usable."
+   - **Too aggressive?** → `/design-quieter` — "Tone down [component].
+     Current: [describe]. Reduce visual intensity while preserving design quality."
+   - **Needs color?** → `/design-colorize` — "Add strategic color to [component].
+     Current palette: [list]. Brand colors: [list]."
+   - **Typography needs work?** → `/design-typeset` — "Improve typography in [area].
+     Current fonts: [list]. Current scale: [describe]."
+   ```
+
+6. **Update cross-references** in skills that mention `frontend-design`:
+   - `tailwind-daisyui-design` — update any reference
+   - `daisyui-design-system-generator` — update any reference
+   - `hugo-templates` — update any reference
+
+### Phase C: Import `design-frontend` (impeccable's reference hub)
+
+1. Import impeccable's `frontend-design` SKILL.md as `design-frontend`
+2. **Key content to preserve and adapt**:
+   - Context Gathering Protocol → update to reference `design-interview` instead of `teach-impeccable`
+   - Design Direction framework (Purpose, Tone, Constraints, Differentiation)
+   - Frontend Aesthetics Guidelines (Typography, Color & Theme, Layout & Space, Visual Details, Motion, Interaction, Responsive, UX Writing) — each with reference doc pointer
+   - AI Slop Test ("If you showed this to someone and said 'AI made this,' would they believe you immediately?")
+   - Anti-pattern lists (avoid Inter/Roboto/Arial, avoid cyan-on-dark, purple-to-blue gradients, neon accents, glassmorphism, bounce/elastic easing)
+   - Implementation Principles (match complexity to vision, never converge on common choices)
+3. **Adapt Context Gathering Protocol lookup chain**:
+   - ~~Check `.impeccable.md`~~ → Check CLAUDE.md for `## Design Context` section
+   - ~~Run `teach-impeccable`~~ → Run `/design-interview`
+4. **Import and adapt 7 reference documents** into `design-frontend/references/`:
+   - `color-and-contrast.md` — Framework-agnostic OKLCH advice. Add notes mapping to DaisyUI 5 semantic color tokens (`primary`, `secondary`, `accent`, `neutral`) and `data-theme` attributes. Pure CSS examples are directly applicable.
+   - `interaction-design.md` — Add notes mapping to HTMX patterns (`hx-swap`, progressive disclosure) and Alpine.js (`x-data`, `x-show`)
+   - `motion-design.md` — Framework-agnostic CSS (cubic-bezier, @media prefers-reduced-motion). Add Tailwind motion utilities (`transition-transform`, `duration-300`, `motion-reduce:*`) and Alpine.js `x-transition` examples.
+   - `responsive-design.md` — Add Tailwind responsive prefixes (`sm:`, `md:`, `lg:`) and DaisyUI responsive component variants
+   - `spatial-design.md` — Add Tailwind spacing scale and DaisyUI layout components
+   - `typography.md` — Add `@tailwindcss/typography` prose classes and DaisyUI typography conventions
+   - `ux-writing.md` — Cross-reference with existing `hugo-copywriting` skill
+5. **No `{{model}}` or `{{config_file}}` placeholders** in the `frontend-design` source — these are not present in the actual source files. The only adaptation needed is the Mandatory Preparation/Context Gathering references.
 
 ### Phase D: Import 16 Standalone Design Skills
 
-Import each skill with these adaptations:
+**Key finding from source analysis**: The standalone skills are ~95% framework-agnostic. They use pure CSS, web standards, and design principles. The adaptation work is narrower than initially estimated.
 
-1. Add Apache 2.0 header with modification notice
-2. Replace React/Vue/generic references → Hugo/Alpine.js/HTMX equivalents
-3. Replace `{{model}}`, `{{config_file}}`, etc. with Claude-specific values
-4. Update "Mandatory Preparation" blocks to reference `design-frontend` and `design-interview`
-5. Add cross-references to existing project skills where domains overlap
-6. Ensure DaisyUI 5 components and Tailwind CSS 4 utilities are referenced
+**Adaptation checklist per skill** (apply to each of the 16):
+
+1. **Add Apache 2.0 attribution header** (see Contract 2)
+2. **Replace Mandatory Preparation block** — every skill has this pattern:
+   ```markdown
+   ## MANDATORY PREPARATION
+
+   Use the frontend-design skill — it contains design principles,
+   anti-patterns, and the **Context Gathering Protocol**. Follow the
+   protocol before proceeding — if no design context exists yet, you
+   MUST run teach-impeccable first. Additionally gather: {skill-specific}.
+   ```
+   Replace with:
+   ```markdown
+   ## MANDATORY PREPARATION
+
+   Use the `/design-frontend` skill — it contains design principles,
+   anti-patterns, and the **Context Gathering Protocol**. Follow the
+   protocol before proceeding — if no design context exists yet, you
+   MUST run `/design-interview` first. Additionally gather: {skill-specific}.
+   ```
+3. **Replace `{{ask_instruction}}` placeholder** — found in some skills in the pattern `"If any of these are unclear from the codebase, {{ask_instruction}}"`. Replace with `"If any of these are unclear from the codebase, ask the user."` (Claude Code handles this natively)
+4. **No `{{model}}` or `{{config_file}}` replacements needed** — these are not present in standalone skill source files
+5. **Add cross-references** to existing project skills where domains overlap (per Overlap Resolution table below)
+6. **Add DaisyUI/Tailwind mapping notes** where skills reference generic CSS patterns — annotate with equivalent Tailwind utility classes or DaisyUI components
+
+**Skills requiring minimal adaptation** (framework-agnostic, only Mandatory Preparation + header):
+polish, arrange, colorize, typeset, animate, delight, critique, audit, clarify, bolder, quieter, harden, adapt, normalize, onboard, distill
+
+**Skills requiring moderate adaptation** (has some framework-specific examples):
+overdrive — may reference WebGL/advanced APIs; verify examples work in Hugo/Alpine.js context
 
 ### Phase E: Integration & Cross-References
 
-1. Add cross-references from existing skills to new `design-*` skills
-2. Verify no contradictory guidance between old and new skills
-3. Update skill descriptions for discoverability
+1. **Add cross-references from existing skills** to new `design-*` skills:
+   - `tailwind-daisyui-design/SKILL.md` → add: "For color strategy beyond semantic application, see `/design-colorize`. For typography selection and hierarchy, see `/design-typeset`. For layout composition, see `/design-arrange`."
+   - `daisyui-design-system-generator/SKILL.md` → add: "For color strategy guidance before generating themes, see `/design-colorize`. To align existing UI to your generated theme, see `/design-normalize`."
+   - `hugo-copywriting/SKILL.md` → add: "For UX microcopy (labels, error messages, empty states), see `/design-clarify`."
+   - `htmx-pattern-library/SKILL.md` → add: "For motion design guidance on HTMX transitions, see `/design-animate`."
+   - `ui-design-language/SKILL.md` → add: "For design anti-patterns and the AI Slop Test, see `/design-frontend`."
+2. **Verify no contradictions** — spot-check key areas:
+   - Color advice: design-colorize vs daisyui-design-system-generator (strategy vs generation — complementary)
+   - Typography: design-typeset vs tailwind-daisyui-design typography-readability.md (selection vs application — complementary)
+   - Accessibility: design-audit vs tailwind-daisyui-design form-accessibility.md (broad vs form-specific — complementary)
+3. **Update CLAUDE.md skill list** — ensure all new `design-*` skills appear in the available skills section
 
 ### Adaptation Matrix
 
-| Impeccable Reference           | Project Equivalent                         |
-| ------------------------------ | ------------------------------------------ |
-| React components               | Hugo partials + Alpine.js components       |
-| CSS-in-JS / styled-components  | TailwindCSS 4 utility classes              |
-| Design tokens (generic)        | DaisyUI 5 OKLCH theme variables            |
-| Component library (generic)    | DaisyUI 5 components                       |
-| State management (React)       | Alpine.js `x-data` / HTMX `hx-*`           |
-| Client-side routing            | Hugo page routing + HTMX partial swaps     |
-| `{{model}}` placeholder        | "Claude"                                   |
-| `{{config_file}}` placeholder  | "CLAUDE.md"                                |
-| `.impeccable.md`               | `.claude/skills/design-interview/` context |
-| `teach-impeccable`             | `design-interview`                         |
-| `frontend-design` (impeccable) | `design-frontend`                          |
+| Impeccable Reference              | Project Equivalent                            | Frequency                                       |
+| --------------------------------- | --------------------------------------------- | ----------------------------------------------- |
+| `frontend-design` skill ref       | `/design-frontend`                            | Every skill (Mandatory Preparation block)       |
+| `teach-impeccable` skill ref      | `/design-interview`                           | Every skill (Mandatory Preparation block)       |
+| `{{ask_instruction}}` placeholder | "ask the user" (Claude Code handles natively) | Some skills (colorize, bolder, others)          |
+| `.impeccable.md` context file     | CLAUDE.md `## Design Context` section         | frontend-design Context Gathering Protocol only |
+| React components / JSX            | Hugo Go template partials                     | Rare — skills are ~95% framework-agnostic       |
+| CSS-in-JS / styled-components     | TailwindCSS 4 utility classes                 | Rare — skills use pure CSS                      |
+| Design tokens (generic)           | DaisyUI 5 OKLCH theme variables               | Reference docs (add mapping notes)              |
+| Component library (generic)       | DaisyUI 5 component classes                   | Reference docs (add mapping notes)              |
+| State management (React)          | Alpine.js `x-data` / HTMX `hx-*`              | Reference docs (interaction-design.md)          |
+| Client-side routing               | Hugo page routing + HTMX partial swaps        | Reference docs (interaction-design.md)          |
+
+**Key finding**: `{{model}}` and `{{config_file}}` placeholders are NOT present in the source skill files (only in the build system's output). No replacement needed for these.
 
 ### Overlap Resolution
 

@@ -126,16 +126,15 @@ Each phase transition includes a templated prompt so developers don't need to me
 
 ## R8: Template Placeholder Resolution
 
-**Decision**: Resolve all `{{placeholder}}` values at import time to Claude Code-specific values.
+**Decision**: Only `{{ask_instruction}}` needs replacement. `{{model}}` and `{{config_file}}` are NOT present in source skill files.
+
+**Finding from source analysis**: The template placeholders (`{{model}}`, `{{config_file}}`, `{{available_commands}}`) exist only in the build system's output (`.claude/skills/`) and are resolved by `scripts/build.js`. The canonical source files in `source/skills/` contain only `{{ask_instruction}}` in some skills (e.g., colorize, bolder), used in the pattern: "If any of these are unclear from the codebase, {{ask_instruction}}".
 
 **Mapping**:
 
-- `{{model}}` → `Claude`
-- `{{config_file}}` → `CLAUDE.md`
-- `{{ask_instruction}}` → Remove (Claude Code handles user interaction natively)
-- `{{available_commands}}` → Replace with project's `/design-*` skill list
+- `{{ask_instruction}}` → "ask the user" (Claude Code handles user interaction natively)
 
-**Rationale**: The source files are provider-agnostic templates. Since we're doing a one-time import (not maintaining sync), hardcoding the values is simpler and more readable than maintaining a build system.
+**Rationale**: Importing from `source/skills/` (the canonical location) means we only need to handle the one placeholder that exists in the source. This is simpler than initially estimated.
 
 ## R9: Existing Skill Cross-Reference Updates
 
