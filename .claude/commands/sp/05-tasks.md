@@ -58,7 +58,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    **First, find the implement phase task** (created by `/sp:01-specify`):
 
    ```bash
-   IMPLEMENT_TASK_ID=$(br list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
+   IMPLEMENT_TASK_ID=$(br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:07-implement]")) | .id')
    ```
 
    Store this ID - all user story tasks will be created as children of this task.
@@ -125,9 +125,10 @@ You **MUST** consider the user input before proceeding (if not empty).
 6. **Verify Task Hierarchy**:
 
    ```bash
-   br dep tree <epic-id>
+   br dep tree <epic-id> --direction up
    ```
 
+   - Note: `--direction up` shows dependents/children (default `down` shows blockers, which is empty for an epic)
    - Verify the hierarchy: Epic → User Story Tasks → Implementation Sub-tasks
    - Check for any circular dependencies: `br dep cycles`
 
@@ -138,7 +139,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    a. Find the tasks phase task:
 
    ```bash
-   br list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:05-tasks]")) | .id'
+   br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:05-tasks]") and .status == "open") | .id'
    ```
 
    b. Close the task with a completion summary:
@@ -246,7 +247,8 @@ If beads commands fail during task creation:
 1. **Epic not found**: Create a new epic for the feature
 2. **Task creation fails**: Log error, continue with remaining tasks, report failures at end
 3. **Dependency cycle detected**: Remove the problematic dependency, log warning
-4. **br command not found**: Suggest installing br via curl
+4. **DB cache corruption** (`UNIQUE constraint failed: blocked_issues_cache.issue_id`): Run `br doctor` to auto-repair by rebuilding caches from JSONL. Common when creating many tasks/deps rapidly.
+5. **br command not found**: Suggest installing br via curl
 
 If beads commands fail completely, report failures and suggest troubleshooting steps.
 

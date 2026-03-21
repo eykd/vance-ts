@@ -71,35 +71,33 @@ br list [flags]
 
 ### Key Flags
 
-| Flag                            | Description                                                                                      |
-| ------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `-s, --status <string>`         | Filter by status: `open`, `in_progress`, `blocked`, `deferred`, `closed`                         |
-| `-t, --type <string>`           | Filter by type                                                                                   |
-| `-p, --priority <string>`       | Filter by priority (`0-4` or `P0-P4`)                                                            |
-| `--priority-min/max <string>`   | Priority range (inclusive)                                                                       |
-| `-a, --assignee <string>`       | Filter by assignee                                                                               |
-| `-l, --label <strings>`         | Filter by labels (AND logic)                                                                     |
-| `--label-any <strings>`         | Filter by labels (OR logic)                                                                      |
-| `--parent <id>`                 | Show children of specified parent                                                                |
-| `--no-parent`                   | Exclude child issues (top-level only)                                                            |
-| `-n, --limit <int>`             | Limit results (default 50, use 0 for unlimited)                                                  |
-| `--sort <field>`                | Sort by: `priority`, `created`, `updated`, `closed`, `status`, `id`, `title`, `type`, `assignee` |
-| `-r, --reverse`                 | Reverse sort order                                                                               |
-| `--all`                         | Include closed issues                                                                            |
-| `--ready`                       | Status=open only (NOT blocker-aware; use `br ready` instead)                                     |
-| `--overdue`                     | Issues with `due_at` in the past                                                                 |
-| `--deferred`                    | Only issues with `defer_until` set                                                               |
-| `--title <string>`              | Filter by title substring (case-insensitive)                                                     |
-| `--desc-contains <string>`      | Filter by description substring                                                                  |
-| `--created-after/before <date>` | Date range filters (YYYY-MM-DD or RFC3339)                                                       |
-| `--updated-after/before <date>` | Date range filters                                                                               |
-| `--pretty` / `--tree`           | Hierarchical tree format                                                                         |
-| `--long`                        | Detailed multi-line output                                                                       |
-| `--id <string>`                 | Filter by specific IDs (comma-separated)                                                         |
-| `--no-assignee`                 | Issues with no assignee                                                                          |
-| `--no-labels`                   | Issues with no labels                                                                            |
-| `--empty-description`           | Issues with empty/missing description                                                            |
-| `--pinned` / `--no-pinned`      | Filter by pinned status                                                                          |
+| Flag                          | Description                                                              |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| `-s, --status <string>`       | Filter by status: `open`, `in_progress`, `blocked`, `deferred`, `closed` |
+| `-t, --type <string>`         | Filter by type (can be repeated)                                         |
+| `-p, --priority <string>`     | Filter by priority (`0-4` or `P0-P4`, can be repeated)                   |
+| `--priority-min/max <string>` | Priority range (inclusive)                                               |
+| `--assignee <string>`         | Filter by assignee                                                       |
+| `--unassigned`                | Filter for unassigned issues only                                        |
+| `-l, --label <strings>`       | Filter by labels (AND logic, can be repeated)                            |
+| `--label-any <strings>`       | Filter by labels (OR logic, can be repeated)                             |
+| `-n, --limit <int>`           | Limit results (default 50, use 0 for unlimited)                          |
+| `--offset <int>`              | Number of results to skip (for pagination, default 0)                    |
+| `--sort <field>`              | Sort by: `priority`, `created_at`, `updated_at`, `title`                 |
+| `-r, --reverse`               | Reverse sort order                                                       |
+| `-a, --all`                   | Include closed issues                                                    |
+| `--overdue`                   | Issues with `due_at` in the past                                         |
+| `--deferred`                  | Include deferred issues                                                  |
+| `--title-contains <string>`   | Filter by title substring (case-insensitive)                             |
+| `--desc-contains <string>`    | Filter by description substring                                          |
+| `--notes-contains <string>`   | Filter by notes substring                                                |
+| `--pretty`                    | Use tree/pretty output format                                            |
+| `--long`                      | Detailed multi-line output                                               |
+| `--id <string>`               | Filter by specific IDs (can be repeated)                                 |
+
+**Note**: `br list` does NOT support `--parent`, `--no-parent`, or `--ready` flags. To list children, use `br show <parent-id> --json` and parse `.[0].dependents[]`. For ready work, use `br ready`.
+
+**JSON output**: `br list --json` returns `{"issues": [...], "total": N, "limit": N, "offset": N, "has_more": bool}` (paginated envelope), NOT a bare array. Use `.issues[]` in jq, not `.[]`.
 
 ## br show
 
@@ -111,13 +109,13 @@ br show [id...] [--id=<id>...] [flags]
 
 **Aliases:** `show`, `view`
 
-| Flag           | Description                             |
-| -------------- | --------------------------------------- |
-| `--children`   | Show only children of this issue        |
-| `--refs`       | Show issues that reference this issue   |
-| `--short`      | Compact one-line output                 |
-| `--local-time` | Timestamps in local time instead of UTC |
-| `-w, --watch`  | Watch for changes                       |
+| Flag                | Description                                          |
+| ------------------- | ---------------------------------------------------- |
+| `--format <FORMAT>` | Output format: `text` (default), `json`, `toon`      |
+| `--wrap`            | Wrap long lines instead of truncating in text output |
+| `--stats`           | Show token savings stats when using TOON output      |
+
+**Note**: `br show` does NOT support `--children`, `--refs`, `--short`, `--local-time`, or `--watch` flags.
 
 **JSON output note:** `br show <id> --json` returns an array. For a single issue, the object is at `.[0]`. When the issue has children, they appear in the `dependents` array within the object.
 
@@ -202,44 +200,22 @@ br close [id...] [flags]
 
 ## br query
 
-Query issues using a simple query language.
+**Changed**: `br query` now manages saved queries only. It no longer accepts inline query expressions.
 
 ```
-br query [expression] [flags]
+br query <COMMAND>
 ```
 
-### Query Language Syntax
+### Subcommands
 
-| Operator             | Example                                          |
-| -------------------- | ------------------------------------------------ |
-| `=`                  | `status=open`                                    |
-| `!=`                 | `status!=closed`                                 |
-| `>`, `>=`, `<`, `<=` | `priority<=1`, `created>7d`                      |
-| `AND`                | `status=open AND priority<=1`                    |
-| `OR`                 | `type=bug OR type=feature`                       |
-| `NOT`                | `NOT status=closed`                              |
-| `()`                 | `(status=open OR status=blocked) AND priority<2` |
+| Command  | Description                              |
+| -------- | ---------------------------------------- |
+| `save`   | Save current filter set as a named query |
+| `run`    | Run a saved query                        |
+| `list`   | List all saved queries                   |
+| `delete` | Delete a saved query                     |
 
-### Supported Fields
-
-`status`, `priority`, `type`, `assignee`, `owner`, `label`, `title`, `description`, `notes`, `created`, `updated`, `closed`, `id`, `spec`, `pinned`, `ephemeral`, `template`, `parent`, `mol_type`
-
-### Date Values
-
-- Relative: `7d`, `24h`, `2w`
-- Absolute: `2025-01-15`, `2025-01-15T10:00:00Z`
-- Natural: `tomorrow`, `"next monday"`, `"in 3 days"`
-
-### Flags
-
-| Flag                | Description                       |
-| ------------------- | --------------------------------- |
-| `-a, --all`         | Include closed issues             |
-| `-n, --limit <int>` | Limit (default 50, 0 = unlimited) |
-| `--sort <field>`    | Sort by field                     |
-| `-r, --reverse`     | Reverse sort                      |
-| `--long`            | Detailed output                   |
-| `--parse-only`      | Show AST (for debugging)          |
+**To filter issues**, use `br list` flags (`--status`, `--type`, `--priority`, `--title-contains`, etc.) instead of inline query expressions.
 
 ## br search
 
@@ -322,12 +298,16 @@ Epic management commands.
 | ----------- | ----------------------- |
 | `--dry-run` | Preview without closing |
 
-## br children
+## br children (DOES NOT EXIST)
 
-List child issues of a parent. Convenience alias for `br list --parent <id>`.
+**This subcommand does not exist in br.** To list children, use:
 
-```
-br children <parent-id> [--json] [--pretty]
+```bash
+# Get children via br show (includes dependents array in JSON output)
+br show <parent-id> --json | jq '.[0].dependents[]'
+
+# Or view hierarchy via dep tree (--direction up shows children/dependents)
+br dep tree <parent-id> --direction up
 ```
 
 ## br blocked
@@ -335,8 +315,10 @@ br children <parent-id> [--json] [--pretty]
 Show blocked issues.
 
 ```
-br blocked [--parent <epic-id>] [--json]
+br blocked [--json] [--limit N] [--detailed] [--type TYPE] [--priority P]
 ```
+
+**Note**: `br blocked` does NOT support `--parent`. It lists all blocked issues globally.
 
 ## JSON Output Schema
 
@@ -395,8 +377,9 @@ Additional fields on child/dependent objects:
 
 ### List output vs show output
 
-- `br list --json` returns a flat array of objects with count fields (`dependency_count`, `dependent_count`)
-- `br show <id> --json` returns an array with full objects including nested `dependents` array
+- `br list --json` returns a paginated envelope: `{"issues": [...], "total": N, "limit": N, "offset": N, "has_more": bool}` (use `.issues[]` in jq)
+- `br show <id> --json` returns a bare array with full objects including nested `dependents` array (use `.[0]` in jq)
+- `br ready --json`, `br blocked --json`, `br search --json` return bare arrays (use `.[]` in jq)
 
 ## Additional Commands
 

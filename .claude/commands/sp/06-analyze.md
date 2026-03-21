@@ -100,7 +100,7 @@ br stats --json
 c. List all tasks for this feature:
 
 ```bash
-br list --parent <epic-id> --json
+br show <epic-id> --json | jq '.[0].dependents'
 ```
 
 d. Get ready tasks:
@@ -134,7 +134,7 @@ Load only the minimal necessary context from each artifact:
 - Phases
 - Technical constraints
 
-**From beads tasks** (via `br list --parent <epic-id> --json`):
+**From beads tasks** (via `br show <epic-id> --json`, using `.[0].dependents` array):
 
 - Task IDs and titles
 - Task descriptions (containing spec refs, skills, acceptance criteria)
@@ -395,13 +395,13 @@ At end of report, output a concise Next Actions block:
 
 ## Beads Commands Reference
 
-| Action          | Command                             |
-| --------------- | ----------------------------------- |
-| Get statistics  | `br stats --json`                   |
-| List all tasks  | `br list --parent <epic-id> --json` |
-| Get ready tasks | `br ready --json`                   |
-| View hierarchy  | `br dep tree <epic-id>`             |
-| Check cycles    | `br dep cycles`                     |
+| Action          | Command                                       |
+| --------------- | --------------------------------------------- |
+| Get statistics  | `br stats --json`                             |
+| List all tasks  | `br show <epic-id> --json` (dependents array) |
+| Get ready tasks | `br ready --json`                             |
+| View hierarchy  | `br dep tree <epic-id>`                       |
+| Check cycles    | `br dep cycles`                               |
 
 ## Context
 

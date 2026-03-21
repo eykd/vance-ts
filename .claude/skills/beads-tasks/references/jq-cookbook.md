@@ -169,17 +169,11 @@ br list --json --limit 0 | jq '{
 
 ## Complex Queries
 
-### Find Top-Level Tasks (No Parent)
+### Find Tasks by Epic (Children)
 
 ```bash
-br list --json --no-parent | jq -r '.[] | "\(.id): \(.title)"'
-```
-
-### Find Tasks by Epic
-
-```bash
-# List children of a specific parent
-br children <epic-id> --json | jq -r '.[] | "\(.id): \(.title) [\(.status)]"'
+# List children of a specific parent via br show
+br show <epic-id> --json | jq -r '.[0].dependents[] | "\(.id): \(.title) [\(.status)]"'
 ```
 
 ### Find Blocked Tasks with Details

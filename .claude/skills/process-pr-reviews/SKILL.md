@@ -88,7 +88,7 @@ Match the epic by feature name extracted from the branch (e.g. branch `012-auth-
 Find the `[sp:07-implement]` child task of the epic — this is the correct parent for review-generated tasks so they appear in `br ready` and are visible to `ralph`:
 
 ```bash
-br list --parent "$EPIC_ID" --all 2>/dev/null | grep "sp:07-implement"
+br show "$EPIC_ID" --json 2>/dev/null | jq -r '.[0].dependents[] | select(.title | contains("sp:07-implement")) | .id'
 # Use the task ID shown (e.g. tb-ltk.6)
 PARENT_ID="<implement-task-id-from-above>"
 ```

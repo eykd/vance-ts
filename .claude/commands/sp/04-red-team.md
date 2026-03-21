@@ -277,7 +277,7 @@ grep "Beads Epic" $FEATURE_DIR/spec.md | grep -oE 'workspace-[a-z0-9]+|bd-[a-z0-
 b. Find the red team phase task:
 
 ```bash
-br list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:04-red-team]")) | .id'
+br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:04-red-team]")) | .id'
 ```
 
 c. Close the task with summary:

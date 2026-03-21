@@ -189,7 +189,7 @@ Execution steps:
    b. Find the clarify phase task:
 
    ```bash
-   br list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:02-clarify]")) | .id'
+   br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:02-clarify]")) | .id'
    ```
 
    Or retrieve from spec.md front matter if stored under "Beads Phase Tasks".

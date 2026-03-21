@@ -80,7 +80,7 @@ Findings:
 Total: 4 tasks created under epic workspace-abc
 
 Next Steps:
-- Review tasks: br list --parent workspace-abc
+- Review tasks: br show workspace-abc --json | jq '.[0].dependents'
 - Start working: br ready --parent workspace-abc
 ```
 
@@ -504,7 +504,7 @@ Once review.sh completes:
 1. **Check tasks created**:
 
    ```bash
-   br list --parent <epic-id>
+   br show <epic-id> --json | jq '.[0].dependents'
    ```
 
 2. **Start with high-priority**:

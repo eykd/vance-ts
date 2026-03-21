@@ -154,8 +154,8 @@ Conventional commits enforced via commitlint:
   ```
   epic=$(br list --type epic --status open --json | \
     jq -r --arg b "$(git branch --show-current | sed 's/^[0-9]*-//')" \
-    '.[] | select(.title | ascii_downcase | gsub("-";" ") | contains($b | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
-  impl=$(br children "$epic" --json | jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
+    '.issues[] | select(.title | ascii_downcase | gsub("-";" ") | contains($b | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
+  impl=$(br show "$epic" --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:07-implement]")) | .id')
   br create --title "..." --description "..." --parent "$impl"
   ```
   Orphaned tasks are invisible to ralph automation.
