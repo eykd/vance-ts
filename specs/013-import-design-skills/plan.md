@@ -252,3 +252,124 @@ polish, arrange, colorize, typeset, animate, delight, critique, audit, clarify, 
 | `design-adapt`     | `htmx-alpine-templates`                               | design-adapt covers responsive strategy; existing provides implementation templates. Complementary.                                                                                      |
 | `design-normalize` | `daisyui-design-system-generator`                     | design-normalize aligns existing UI to a system; existing generates the system. Sequential.                                                                                              |
 | `design-clarify`   | `hugo-copywriting`                                    | design-clarify handles UX microcopy (labels, errors); copywriting handles long-form content. Different scope.                                                                            |
+
+## Security Considerations
+
+_Added by red team review (sp:04)._
+
+### Third-Party Content Review
+
+Imported skill files are AI instructions that Claude Code executes directly. The source repo (pbakaus/impeccable) is a known public repository under Apache 2.0, but content should still be reviewed for unexpected instructions before committing.
+
+- **Mitigation**: During Phase D, each imported SKILL.md must be read and reviewed for any instructions that could cause unintended behavior (e.g., instructions to modify files outside `.claude/skills/`, instructions to execute shell commands, or instructions that conflict with project security policies in CLAUDE.md).
+- **Verification**: After import, grep all new skill files for patterns like `Bash`, `shell`, `execute`, `run command`, `write file`, `delete` to flag any instruction patterns that warrant manual review.
+
+### License Compliance Integrity
+
+The plan correctly addresses Apache 2.0 attribution (NOTICE file, file headers). No additional security concerns here — the license permits modification and redistribution.
+
+## Edge Cases & Error Handling
+
+_Added by red team review (sp:04)._
+
+### Missing `## Design Context` Section in CLAUDE.md
+
+The plan maps `.impeccable.md` → `CLAUDE.md ## Design Context` section (Phase C, step 3), but **this section does not currently exist** in the root CLAUDE.md. The `design-frontend` skill's Context Gathering Protocol will look for this section and find nothing.
+
+- **Mitigation**: Phase C must include creating a minimal `## Design Context` placeholder section in CLAUDE.md (or in a layer CLAUDE.md) with a note that it will be populated when `/design-interview` is first run. Alternatively, the Context Gathering Protocol should gracefully handle the section's absence by falling back to running `/design-interview`.
+- **Decision needed**: Where should Design Context live — root CLAUDE.md (clutters non-design work) or a dedicated `.claude/design-context.md` file referenced from the skill?
+
+### SKILL.md Frontmatter Name Field After Rename
+
+Phase B renames the directory (`git mv .claude/skills/frontend-design/ .claude/skills/design-interview/`) but does not explicitly mention updating the YAML frontmatter `name: frontend-design` → `name: design-interview` inside SKILL.md. The skill loader may use the frontmatter name for display and matching.
+
+- **Mitigation**: Add to Phase B step 2: "Update SKILL.md frontmatter `name` field to `design-interview` and `description` to reflect the expanded orchestrator role."
+
+### Mandatory Preparation Block Format Variance
+
+Phase D assumes all 16 standalone skills have an identical Mandatory Preparation block. If any skill has a variation (different wording, additional content, or a missing block), the mechanical find-and-replace could fail or produce inconsistent results.
+
+- **Mitigation**: Before batch replacement, grep all 16 source skill files for `MANDATORY PREPARATION` and compare the exact text. Document any variations and handle them individually. Add a post-replacement verification step (grep for any remaining `teach-impeccable` or unmodified `frontend-design` references).
+
+### `{{ask_instruction}}` Placeholder Enumeration
+
+The plan notes this placeholder appears "in some skills" but doesn't enumerate which ones. If the placeholder appears in a context other than the expected pattern, it could be missed.
+
+- **Mitigation**: Before import, grep all source skills for `{{ask_instruction}}` and document every occurrence with its surrounding context. Replace each one specifically rather than using a blind find-and-replace.
+
+### Orchestrator Non-Linear Workflow
+
+The 7-phase orchestrator (Interview → Theme → Components → Implement → Refine → Review → Harden) implies a linear progression. Real design work is iterative — developers frequently jump back to earlier phases, skip phases, or run multiple refinement passes.
+
+- **Mitigation**: The orchestrator SKILL.md must include:
+  1. A "Current Phase" indicator that the developer can override ("Jump to phase: ...")
+  2. Explicit support for re-entering any phase ("Already have a theme? Skip to Components")
+  3. Guidance on when to loop back (e.g., "After Review, if critique reveals color issues, return to Refine → `/design-colorize`")
+  4. A "Quick Mode" path for developers who only need a specific sub-skill without the full workflow
+
+### Reference Document Internal Cross-References
+
+The 7 reference documents imported into `design-frontend/references/` may cross-reference each other or reference skill names using the original impeccable naming (e.g., referencing `optimize` or `extract` which are excluded from import).
+
+- **Mitigation**: After importing reference docs, grep them for:
+  - References to excluded skills (`optimize`, `extract`, `teach-impeccable`)
+  - References to skill names without the `design-` prefix
+  - Internal cross-references between reference docs (update paths if needed)
+
+### Historical Status Docs
+
+`docs/2026-02-25_project_status.md` and `docs/2026-03-19-status.md` list `frontend-design` in their skills inventory. These are historical point-in-time snapshots.
+
+- **Decision**: Do NOT update historical status docs — they accurately reflect the project state at their date. Future status snapshots will reflect the rename.
+
+## Post-Import Verification Checklist
+
+_Added by red team review (sp:04)._
+
+After all phases complete, run these verification checks before committing:
+
+1. **Stale references**: `grep -r "teach-impeccable\|{{ask_instruction}}\|{{model}}\|{{config_file}}\|\.impeccable\.md" .claude/skills/design-*/` — must return zero results
+2. **Incomplete renames**: `grep -r "frontend-design" .claude/skills/` — must return zero results (only `design-frontend` and `design-interview` should exist)
+3. **Attribution coverage**: Every file in `.claude/skills/design-*/SKILL.md` that was imported must have the Apache 2.0 attribution header
+4. **Cross-reference integrity**: Every `design-*` skill mentioned in cross-references must have a corresponding directory in `.claude/skills/`
+5. **Frontmatter validity**: Every new SKILL.md must have valid `name` and `description` frontmatter fields
+6. **Framework references**: `grep -ri "react\|vue\|angular\|styled-components\|css-in-js\|framer.motion" .claude/skills/design-*/` — must return zero results (SC-001)
+
+## Performance Considerations
+
+_Added by red team review (sp:04)._
+
+### Skill Loading Impact
+
+Adding 18 new skill directories has **minimal performance impact**:
+
+- Skills use directory-based auto-discovery with on-demand lazy loading
+- Reference documents are only loaded when a skill is invoked, not at startup
+- Expected size per skill: 20-80 KB (well within normal range)
+
+No mitigation needed — the architecture handles this efficiently.
+
+### Reference Document Context Budget
+
+The 7 reference documents in `design-frontend/references/` will be loaded into Claude Code's context window when `design-frontend` is invoked. If these documents are large, they could consume significant context budget.
+
+- **Mitigation**: During Phase C, review the total size of all 7 reference documents. If combined size exceeds ~50 KB, consider:
+  1. Condensing reference docs to essential guidance only (removing verbose examples)
+  2. Having the skill load specific references on-demand rather than all at once
+  3. Adding a note in the skill to "Read `references/color-and-contrast.md` only when working on color" rather than loading all references upfront
+
+## Accessibility Requirements
+
+_Added by red team review (sp:04)._
+
+### WCAG Version Currency
+
+Imported skills that reference accessibility standards should reference WCAG 2.2 (current) rather than older versions. The existing `tailwind-daisyui-design` skill targets WCAG AAA compliance.
+
+- **Mitigation**: During Phase D adaptation, check all accessibility references in imported skills for WCAG version. Update any references to WCAG 2.0 or 2.1 to note WCAG 2.2 where criteria have changed. Ensure `design-audit` and `design-harden` align with the project's AAA compliance target.
+
+### Consistency with Existing A11y Guidance
+
+The project already has accessibility guidance in `tailwind-daisyui-design` (form-accessibility.md) and `daisyui-design-system-generator` (WCAG AAA color themes). Imported skills (`design-audit`, `design-harden`, `design-adapt`) must not lower the bar.
+
+- **Mitigation**: Imported accessibility guidance must reference the project's AAA target (not just AA). Cross-reference existing accessibility resources in each imported skill that touches a11y.
