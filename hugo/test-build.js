@@ -299,6 +299,21 @@ try {
     }
   }
 
+  // Test 11: Verify 404 page has no inline event handlers
+  logInfo('\nTest 11: Checking 404 page for inline event handlers...');
+  if (fs.existsSync(notFoundPath)) {
+    const notFoundContent = fs.readFileSync(notFoundPath, 'utf-8');
+    const inlineHandlerPattern = /\bon\w+\s*=/i;
+    if (inlineHandlerPattern.test(notFoundContent)) {
+      logError('404.html contains inline event handler(s) — use addEventListener instead');
+      exitCode = 1;
+    } else {
+      logSuccess('404.html has no inline event handlers');
+    }
+  } else {
+    logInfo('Skipping (404.html not found — covered by Test 5)');
+  }
+
   // Summary
   console.log('\n' + '='.repeat(50));
   if (exitCode === 0) {
