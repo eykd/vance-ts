@@ -90,4 +90,27 @@ describe('authLayout', () => {
   it('includes a web app manifest link tag', () => {
     expect(result).toContain('<link rel="manifest" href="/site.webmanifest"');
   });
+
+  describe('branding header', () => {
+    it('renders a link to the home page above the card', () => {
+      expect(result).toContain('href="/"');
+    });
+
+    it('includes the favicon as a logo image', () => {
+      expect(result).toContain('src="/favicon.svg"');
+      expect(result).toContain('alt="ClawTask logo"');
+    });
+
+    it('displays the site name', () => {
+      expect(result).toContain('ClawTask');
+    });
+
+    it('places the branding link before the card', () => {
+      const brandingIndex = result.indexOf('href="/"');
+      const cardIndex = result.indexOf('card w-full');
+      expect(brandingIndex).toBeGreaterThan(-1);
+      expect(cardIndex).toBeGreaterThan(-1);
+      expect(brandingIndex).toBeLessThan(cardIndex);
+    });
+  });
 });

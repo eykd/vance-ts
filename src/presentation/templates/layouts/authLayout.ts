@@ -43,7 +43,11 @@ export function authLayout(props: AuthLayoutProps): string {
         <script src="${safe(HTMX_JS_PATH)}"></script>
         <script defer src="${safe(ALPINE_JS_PATH)}"></script>
       </head>
-      <body class="min-h-screen bg-base-200 flex items-center justify-center">
+      <body class="min-h-screen bg-base-200 flex flex-col items-center justify-center">
+        <a href="/" class="flex items-center gap-2 mb-6">
+          <img src="/favicon.svg" class="size-8" alt="ClawTask logo" />
+          <span class="text-xl font-semibold">ClawTask</span>
+        </a>
         <div class="card w-full max-w-md bg-base-100 shadow-xl">
           <div class="card-body">${safe(props.content)}</div>
         </div>
