@@ -11,6 +11,7 @@ import { isOriginAllowed } from './presentation/middleware/originCheck';
 import { authErrorPage } from './presentation/templates/pages/authError';
 import type { AppEnv } from './presentation/types';
 import { authErrorStatusCode } from './presentation/utils/authErrorStatus';
+import { ensureSecureCookies } from './presentation/utils/ensureSecureCookies';
 import { SECURITY_HEADERS } from './presentation/utils/securityHeaders';
 
 // Durable Object class must be exported from the worker entry point so
@@ -208,7 +209,7 @@ app.on(['GET', 'HEAD', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
         { 'Retry-After': '30' }
       );
     }
-    return new Response(authResponse.body, authResponse);
+    return ensureSecureCookies(new Response(authResponse.body, authResponse));
   } catch (error: unknown) {
     getServiceFactory(c.env).logger.error('auth handler error', error);
     return c.json({ error: { code: 'service_unavailable', message: 'Service unavailable' } }, 503, {

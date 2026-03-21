@@ -915,6 +915,52 @@ describe('Worker', () => {
     });
   });
 
+  describe('/api/auth/* Set-Cookie Secure enforcement', () => {
+    it('adds Secure flag to Set-Cookie headers from authHandler', async () => {
+      const env = mockEnv();
+      const cookieWithoutSecure =
+        '__Host-better-auth.session_token=abc; HttpOnly; Path=/; SameSite=Lax; Max-Age=2592000';
+      mocks.authHandlerFn.mockResolvedValue(
+        new Response('{}', {
+          status: 200,
+          headers: { 'set-cookie': cookieWithoutSecure },
+        })
+      );
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', {
+        method: 'POST',
+        headers: {
+          Origin: SAME_ORIGIN,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: 'a@b.com', password: 'test' }),
+      });
+      const res = await app.fetch(req, env);
+
+      const setCookie = res.headers.get('set-cookie') ?? '';
+      expect(setCookie).toContain('; Secure');
+    });
+
+    it('does not duplicate Secure flag when authHandler already sets it', async () => {
+      const env = mockEnv();
+      const cookieWithSecure =
+        '__Host-better-auth.session_token=abc; HttpOnly; Secure; Path=/; SameSite=Lax';
+      mocks.authHandlerFn.mockResolvedValue(
+        new Response('{}', {
+          status: 200,
+          headers: { 'set-cookie': cookieWithSecure },
+        })
+      );
+
+      const req = new Request('https://example.com/api/auth/session');
+      const res = await app.fetch(req, env);
+
+      const setCookie = res.headers.get('set-cookie') ?? '';
+      const secureCount = (setCookie.match(/Secure/gi) ?? []).length;
+      expect(secureCount).toBe(1);
+    });
+  });
+
   describe('GET /api/auth/callback/* (unconfigured providers)', () => {
     it('returns 404 JSON for an unconfigured provider', async () => {
       const env = mockEnv();
