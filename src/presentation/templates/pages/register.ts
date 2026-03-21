@@ -7,14 +7,19 @@ interface RegisterPageProps {
   readonly csrfToken: string;
   /** Optional general error message displayed above all form inputs. */
   readonly error?: string;
-  /** Optional per-field validation errors keyed by field name (e.g. "email", "password"). */
+  /** Optional per-field validation errors keyed by field name (e.g. "name", "email", "password"). */
   readonly fieldErrors?: Record<string, string>;
+  /** Optional pre-filled name after a failed registration attempt. */
+  readonly name?: string;
   /** Optional pre-filled email address after a failed registration attempt. */
   readonly email?: string;
 }
 
 /** ID for the general error alert container, referenced by aria-describedby. */
 const GENERAL_ERROR_ID = 'register-error';
+
+/** ID for the name field error element, referenced by aria-describedby. */
+const NAME_ERROR_ID = 'name-error';
 
 /** ID for the email field error element, referenced by aria-describedby. */
 const EMAIL_ERROR_ID = 'email-error';
@@ -37,6 +42,7 @@ const PASSWORD_CONFIRM_ERROR_ID = 'password_confirm-error';
  * @returns A complete HTML document string
  */
 export function registerPage(props: RegisterPageProps): string {
+  const nameFieldError: string | undefined = props.fieldErrors?.['name'];
   const emailFieldError: string | undefined = props.fieldErrors?.['email'];
   const passwordFieldError: string | undefined = props.fieldErrors?.['password'];
   const passwordConfirmFieldError: string | undefined = props.fieldErrors?.['password_confirm'];
@@ -45,6 +51,13 @@ export function registerPage(props: RegisterPageProps): string {
     props.error !== undefined
       ? safe(
           `<div role="alert" class="alert alert-error mb-4" id="${GENERAL_ERROR_ID}">${escapeHtml(props.error)}</div>`
+        )
+      : safe('');
+
+  const nameErrorEl =
+    nameFieldError !== undefined
+      ? safe(
+          `<p id="${NAME_ERROR_ID}" class="text-error text-sm mt-1">${escapeHtml(nameFieldError)}</p>`
         )
       : safe('');
 
@@ -68,6 +81,13 @@ export function registerPage(props: RegisterPageProps): string {
           `<p id="${PASSWORD_CONFIRM_ERROR_ID}" class="text-error text-sm mt-1">${escapeHtml(passwordConfirmFieldError)}</p>`
         )
       : safe('');
+
+  // Compute aria-describedby for the name input (omit attribute when no IDs).
+  const nameParts: string[] = [];
+  if (props.error !== undefined) nameParts.push(GENERAL_ERROR_ID);
+  if (nameFieldError !== undefined) nameParts.push(NAME_ERROR_ID);
+  const nameDescribedbyAttr =
+    nameParts.length > 0 ? safe(`aria-describedby="${nameParts.join(' ')}"`) : safe('');
 
   // Compute aria-describedby for the email input (omit attribute when no IDs).
   const emailParts: string[] = [];
@@ -102,6 +122,22 @@ export function registerPage(props: RegisterPageProps): string {
       @submit="submitting = true"
     >
       <input type="hidden" name="_csrf" value="${props.csrfToken}" />
+      <div class="form-control mb-4">
+        <label for="name" class="label">
+          <span class="label-text">Name</span>
+        </label>
+        <input
+          id="name"
+          type="text"
+          name="name"
+          value="${props.name ?? ''}"
+          autocomplete="name"
+          ${nameDescribedbyAttr}
+          class="input input-bordered w-full"
+          required
+        />
+        ${nameErrorEl}
+      </div>
       <div class="form-control mb-4">
         <label for="email" class="label">
           <span class="label-text">Email</span>

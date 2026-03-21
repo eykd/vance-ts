@@ -134,6 +134,7 @@ function makeSignOutPostRequest(options?: {
  * @param options.csrfToken - CSRF token in the form body (default: TEST_CSRF).
  * @param options.csrfCookie - CSRF token value in the Cookie header (default: TEST_CSRF).
  * @param options.email - Email address in the form body.
+ * @param options.name - Display name in the form body.
  * @param options.password - Password in the form body.
  * @param options.passwordConfirm - Confirm password in the form body (defaults to password value).
  * @param options.contentType - Content-Type header value.
@@ -144,6 +145,7 @@ function makeSignUpPostRequest(options?: {
   csrfToken?: string;
   csrfCookie?: string;
   email?: string;
+  name?: string;
   password?: string;
   passwordConfirm?: string;
   contentType?: string;
@@ -153,6 +155,7 @@ function makeSignUpPostRequest(options?: {
     csrfToken = TEST_CSRF,
     csrfCookie = TEST_CSRF,
     email = 'newuser@example.com',
+    name = 'New User',
     password = 'correcthorse12',
     contentType = 'application/x-www-form-urlencoded',
     rawBody,
@@ -162,6 +165,7 @@ function makeSignUpPostRequest(options?: {
   const params = new URLSearchParams({
     _csrf: csrfToken,
     email,
+    name,
     password,
     password_confirm: passwordConfirm,
   });
@@ -802,10 +806,11 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('X-Frame-Options')).toBe('DENY');
     });
 
-    it('renders the sign-up form with email and password inputs', async () => {
+    it('renders the sign-up form with name, email, and password inputs', async () => {
       const req = new Request('https://example.com/auth/sign-up');
       const res = handlers.handleGetSignUp(req);
       const body = await res.text();
+      expect(body).toContain('name="name"');
       expect(body).toContain('name="email"');
       expect(body).toContain('name="password"');
     });
@@ -999,6 +1004,17 @@ describe('AuthPageHandlers', () => {
         expect(body).toContain('alice@example.com');
       });
 
+      it('re-renders the form with the submitted name pre-filled', async () => {
+        const req = makeSignUpPostRequest({
+          name: 'Alice Smith',
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('Alice Smith');
+      });
+
       it('does not render a general error banner for password mismatch', async () => {
         const req = makeSignUpPostRequest({
           password: 'correcthorse12',
@@ -1037,14 +1053,16 @@ describe('AuthPageHandlers', () => {
         expect(res.headers.get('Location')).toBe('/auth/sign-in?registered=true');
       });
 
-      it('passes email, password, and IP to the sign-up use case', async () => {
+      it('passes email, name, password, and IP to the sign-up use case', async () => {
         const req = makeSignUpPostRequest({
           email: 'alice@example.com',
+          name: 'Alice Smith',
           password: 'supersecure12',
         });
         await handlers.handlePostSignUp(req);
         expect(signUpUseCaseMock.execute).toHaveBeenCalledWith({
           email: 'alice@example.com',
+          name: 'Alice Smith',
           password: 'supersecure12',
           ip: 'unknown',
         });
@@ -1233,6 +1251,14 @@ describe('AuthPageHandlers', () => {
         await handlers.handlePostSignUp(req);
         expect(signUpUseCaseMock.execute).toHaveBeenCalledWith(
           expect.objectContaining({ email: 'alice@example.com' })
+        );
+      });
+
+      it('trims whitespace from name before passing to the sign-up use case', async () => {
+        const req = makeSignUpPostRequest({ name: '  Alice Smith  ' });
+        await handlers.handlePostSignUp(req);
+        expect(signUpUseCaseMock.execute).toHaveBeenCalledWith(
+          expect.objectContaining({ name: 'Alice Smith' })
         );
       });
     });

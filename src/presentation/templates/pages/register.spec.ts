@@ -266,6 +266,82 @@ describe('registerPage', () => {
     });
   });
 
+  describe('name field', () => {
+    let result: string;
+
+    beforeEach(() => {
+      result = registerPage({ csrfToken: 'csrf' });
+    });
+
+    it('has label[for="name"] association', () => {
+      expect(result).toContain('for="name"');
+    });
+
+    it('has name input with matching id', () => {
+      expect(result).toContain('id="name"');
+    });
+
+    it('has autocomplete="name" on the name field', () => {
+      expect(result).toContain('autocomplete="name"');
+    });
+
+    it('renders the name field before the email field', () => {
+      const namePos = result.indexOf('id="name"');
+      const emailPos = result.indexOf('id="email"');
+      expect(namePos).toBeGreaterThanOrEqual(0);
+      expect(emailPos).toBeGreaterThan(namePos);
+    });
+
+    it('renders a name input with type text', () => {
+      expect(result).toContain('type="text"');
+      expect(result).toContain('name="name"');
+    });
+  });
+
+  describe('when name is provided', () => {
+    it('pre-fills the name input value', () => {
+      const result = registerPage({ csrfToken: 'csrf', name: 'Alice' });
+      expect(result).toContain('value="Alice"');
+    });
+
+    it('XSS-escapes the name value', () => {
+      const result = registerPage({ csrfToken: 'csrf', name: '"><script>xss</script>' });
+      expect(result).not.toContain('"><script>xss</script>');
+      expect(result).toContain('&quot;&gt;&lt;script&gt;xss&lt;/script&gt;');
+    });
+  });
+
+  describe('when fieldErrors has a name error', () => {
+    let result: string;
+
+    beforeEach(() => {
+      result = registerPage({
+        csrfToken: 'csrf',
+        fieldErrors: { name: 'Name is required' },
+      });
+    });
+
+    it('renders the name field error with an id', () => {
+      expect(result).toContain('id="name-error"');
+      expect(result).toContain('Name is required');
+    });
+
+    it('sets aria-describedby on the name input referencing the field error', () => {
+      const nameInputPos = result.indexOf('id="name"');
+      const nameSection = result.slice(nameInputPos, result.indexOf('>', nameInputPos));
+      expect(nameSection).toContain('aria-describedby="name-error"');
+    });
+
+    it('XSS-escapes the name field error', () => {
+      const xssResult = registerPage({
+        csrfToken: 'csrf',
+        fieldErrors: { name: '<b>bad</b>' },
+      });
+      expect(xssResult).not.toContain('<b>bad</b>');
+      expect(xssResult).toContain('&lt;b&gt;bad&lt;/b&gt;');
+    });
+  });
+
   describe('when email is provided', () => {
     it('pre-fills the email input value', () => {
       const result = registerPage({ csrfToken: 'csrf', email: 'user@example.com' });

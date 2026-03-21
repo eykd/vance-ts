@@ -348,6 +348,7 @@ export class AuthPageHandlers {
     }
 
     const email = (formOrError.get('email') ?? '').toLowerCase().trim();
+    const name = (formOrError.get('name') ?? '').trim();
     const password = formOrError.get('password') ?? '';
     const passwordConfirm = formOrError.get('password_confirm') ?? '';
     const ip = extractClientIp(request);
@@ -356,13 +357,14 @@ export class AuthPageHandlers {
       const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
       const body = registerPage({
         csrfToken,
+        name,
         email,
         fieldErrors: { password_confirm: PASSWORD_MISMATCH_ERROR },
       });
       return new Response(body, { headers: errorHeaders });
     }
 
-    const result = await this.signUpUseCase.execute({ email, password, ip });
+    const result = await this.signUpUseCase.execute({ email, name, password, ip });
 
     if (result.ok || result.kind === 'email_taken') {
       return AuthPageHandlers.buildRedirect('/auth/sign-in?registered=true');
@@ -378,6 +380,7 @@ export class AuthPageHandlers {
     if (result.kind === 'invalid_email') {
       const body = registerPage({
         csrfToken,
+        name,
         email,
         fieldErrors: { email: SIGN_UP_ERROR_MESSAGES[result.kind] },
       });
@@ -388,6 +391,7 @@ export class AuthPageHandlers {
     if (result.kind === 'weak_password' || result.kind === 'password_too_common') {
       const body = registerPage({
         csrfToken,
+        name,
         email,
         fieldErrors: { password: SIGN_UP_ERROR_MESSAGES[result.kind] },
       });
@@ -396,7 +400,7 @@ export class AuthPageHandlers {
 
     // service_error — show as general error banner
     const errorMessage = SIGN_UP_ERROR_MESSAGES[result.kind];
-    const body = registerPage({ csrfToken, email, error: errorMessage });
+    const body = registerPage({ csrfToken, name, email, error: errorMessage });
 
     return new Response(body, { headers: errorHeaders });
   }
