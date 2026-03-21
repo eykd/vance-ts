@@ -76,12 +76,12 @@ export function forgotPasswordPage(props: ForgotPasswordPageProps): string {
           value="${props.email ?? ''}"
           autocomplete="email"
           ${ariaDescribedby}
-          class="input input-bordered"
+          class="input input-bordered w-full"
           required
         />
       </div>
       <div class="form-control mt-2">
-        <button type="submit" class="btn btn-primary" :disabled="submitting">
+        <button type="submit" class="btn btn-primary w-full" :disabled="submitting">
           Send Reset Link
         </button>
       </div>

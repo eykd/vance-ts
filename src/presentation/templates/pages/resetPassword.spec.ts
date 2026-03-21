@@ -48,6 +48,16 @@ describe('resetPasswordPage', () => {
       expect(result).toContain('Reset Password');
     });
 
+    it('renders input with w-full class for full-width layout', () => {
+      expect.assertions(1);
+      expect(result).toContain('input input-bordered w-full');
+    });
+
+    it('renders submit button with w-full class for full-width layout', () => {
+      expect.assertions(1);
+      expect(result).toContain('btn btn-primary w-full');
+    });
+
     it('includes "Back to Sign In" link', () => {
       expect.assertions(2);
       expect(result).toContain('href="/auth/sign-in"');

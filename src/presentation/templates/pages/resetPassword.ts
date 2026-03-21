@@ -79,14 +79,16 @@ export function resetPasswordPage(props: ResetPasswordPageProps): string {
           name="password"
           autocomplete="new-password"
           ${passwordDescribedby}
-          class="input input-bordered"
+          class="input input-bordered w-full"
           required
           minlength="12"
         />
         ${passwordErrorEl}
       </div>
       <div class="form-control mt-2">
-        <button type="submit" class="btn btn-primary" :disabled="submitting">Reset Password</button>
+        <button type="submit" class="btn btn-primary w-full" :disabled="submitting">
+          Reset Password
+        </button>
       </div>
     </form>
     <div class="mt-4 text-center">

@@ -48,6 +48,14 @@ describe('loginPage', () => {
       expect(result).toContain('autocomplete="current-password"');
     });
 
+    it('renders inputs with w-full class for full-width layout', () => {
+      expect(result).toContain('input input-bordered w-full');
+    });
+
+    it('renders submit button with w-full class for full-width layout', () => {
+      expect(result).toContain('btn btn-primary w-full');
+    });
+
     it('does not render an error container', () => {
       expect(result).not.toContain('alert-error');
     });

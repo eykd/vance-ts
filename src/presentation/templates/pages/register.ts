@@ -113,7 +113,7 @@ export function registerPage(props: RegisterPageProps): string {
           value="${props.email ?? ''}"
           autocomplete="email"
           ${emailDescribedbyAttr}
-          class="input input-bordered"
+          class="input input-bordered w-full"
           required
         />
         ${emailErrorEl}
@@ -128,7 +128,7 @@ export function registerPage(props: RegisterPageProps): string {
           name="password"
           autocomplete="new-password"
           ${passwordDescribedbyAttr}
-          class="input input-bordered"
+          class="input input-bordered w-full"
           required
         />
         ${passwordErrorEl}
@@ -143,13 +143,15 @@ export function registerPage(props: RegisterPageProps): string {
           name="password_confirm"
           autocomplete="new-password"
           ${passwordConfirmDescribedbyAttr}
-          class="input input-bordered"
+          class="input input-bordered w-full"
           required
         />
         ${passwordConfirmErrorEl}
       </div>
       <div class="form-control mt-2">
-        <button type="submit" class="btn btn-primary" :disabled="submitting">Create Account</button>
+        <button type="submit" class="btn btn-primary w-full" :disabled="submitting">
+          Create Account
+        </button>
       </div>
     </form>
     <div class="mt-4 text-center">

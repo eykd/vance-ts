@@ -62,6 +62,14 @@ describe('registerPage', () => {
       expect(matches).toHaveLength(2);
     });
 
+    it('renders inputs with w-full class for full-width layout', () => {
+      expect(result).toContain('input input-bordered w-full');
+    });
+
+    it('renders submit button with w-full class for full-width layout', () => {
+      expect(result).toContain('btn btn-primary w-full');
+    });
+
     it('renders the confirm password field after the password field', () => {
       const passwordPos = result.indexOf('id="password"');
       const confirmPos = result.indexOf('id="password_confirm"');

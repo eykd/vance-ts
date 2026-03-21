@@ -80,7 +80,7 @@ export function loginPage(props: LoginPageProps): string {
           value="${props.email ?? ''}"
           autocomplete="email"
           ${ariaDescribedby}
-          class="input input-bordered"
+          class="input input-bordered w-full"
           required
         />
       </div>
@@ -94,7 +94,7 @@ export function loginPage(props: LoginPageProps): string {
           name="password"
           autocomplete="current-password"
           ${ariaDescribedby}
-          class="input input-bordered"
+          class="input input-bordered w-full"
           required
         />
       </div>
@@ -102,7 +102,7 @@ export function loginPage(props: LoginPageProps): string {
         <a href="/auth/forgot-password" class="link link-primary text-sm">Forgot password?</a>
       </div>
       <div class="form-control mt-2">
-        <button type="submit" class="btn btn-primary" :disabled="submitting">Sign In</button>
+        <button type="submit" class="btn btn-primary w-full" :disabled="submitting">Sign In</button>
       </div>
     </form>
     <div class="mt-4 text-center">
