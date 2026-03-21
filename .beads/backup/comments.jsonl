@@ -19,3 +19,5 @@
 {"author":"eykd","created_at":"2026-03-21T01:56:08Z","id":"019d0e1b-603e-7ebb-b8b8-65fb831bac12","issue_id":"clawtask-1y8.1.16","text":"Starting work: replacing spoofable query parameter with server-side session flag for sign-in success banner"}
 {"author":"eykd","created_at":"2026-03-21T02:17:39Z","id":"019d0e2f-1366-7349-abe0-eeaa1615c766","issue_id":"clawtask-1y8.1.14","text":"Starting: adding contact information to privacy, terms, and about pages"}
 {"author":"eykd","created_at":"2026-03-21T02:22:40Z","id":"019d0e33-a9f0-747f-83d8-2f0e7670259a","issue_id":"clawtask-1y8.1.12","text":"Starting: replacing placeholder homepage content with ClawTask product description"}
+{"author":"eykd","created_at":"2026-03-21T02:25:50Z","id":"019d0e36-909a-7eb0-b168-6ca1ea4d54c8","issue_id":"clawtask-1y8.1.11","text":"Starting work on replacing placeholder blog post with ClawTask content"}
+{"author":"eykd","created_at":"2026-03-21T02:29:00Z","id":"019d0e39-7532-77e3-bc88-823bf63da897","issue_id":"clawtask-1y8.1.10","text":"Starting work on robots.txt implementation"}

@@ -279,6 +279,26 @@ try {
     exitCode = 1;
   }
 
+  // Test 10: Verify favicon files exist
+  logInfo('\nTest 10: Checking favicon files...');
+  const requiredFaviconFiles = [
+    'favicon.ico',
+    'favicon.svg',
+    'favicon-96x96.png',
+    'apple-touch-icon.png',
+    'site.webmanifest',
+  ];
+  for (const faviconFile of requiredFaviconFiles) {
+    const faviconPath = path.join(publicDir, faviconFile);
+    if (fs.existsSync(faviconPath)) {
+      const stats = fs.statSync(faviconPath);
+      logSuccess(`${faviconFile} exists (${stats.size} bytes)`);
+    } else {
+      logError(`${faviconFile} not found in public/ — browsers request /favicon.ico on every page load`);
+      exitCode = 1;
+    }
+  }
+
   // Summary
   console.log('\n' + '='.repeat(50));
   if (exitCode === 0) {
