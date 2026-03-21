@@ -679,6 +679,15 @@ describe('AuthPageHandlers', () => {
         expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
       });
 
+      it('links back to sign-in page', async () => {
+        signInUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        const body = await res.text();
+        expect(body).toContain('href="/auth/sign-in"');
+        expect(body).toContain('Back to Sign In');
+      });
+
       it('includes retry seconds in body when retryAfter is provided', async () => {
         signInUseCaseMock.execute.mockResolvedValue({
           ok: false,
@@ -1312,6 +1321,15 @@ describe('AuthPageHandlers', () => {
         const res = await handlers.handlePostSignUp(req);
         expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
       });
+
+      it('links back to sign-up page instead of sign-in', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('href="/auth/sign-up"');
+        expect(body).toContain('Back to Sign Up');
+      });
     });
   });
 
@@ -1655,6 +1673,19 @@ describe('AuthPageHandlers', () => {
       const req = makeForgotPasswordPostRequest();
       const res = await handlers.handlePostForgotPassword(req);
       expect(res.status).toBe(429);
+    });
+
+    it('links back to forgot password page when rate limited', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({
+        ok: false,
+        kind: 'rate_limited',
+        retryAfter: 600,
+      });
+      const req = makeForgotPasswordPostRequest();
+      const res = await handlers.handlePostForgotPassword(req);
+      const body = await res.text();
+      expect(body).toContain('href="/auth/forgot-password"');
+      expect(body).toContain('Back to Forgot Password');
     });
 
     it('returns 403 when CSRF token is invalid', async () => {

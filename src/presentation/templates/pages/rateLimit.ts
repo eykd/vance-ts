@@ -1,10 +1,20 @@
 import { html, safe } from '../../utils/html';
 import { authLayout } from '../layouts/authLayout';
 
+/** Describes the back-navigation link rendered on the rate limit page. */
+interface RateLimitBackLink {
+  /** The URL to navigate back to (e.g. `/auth/sign-up`). */
+  readonly href: string;
+  /** The visible link text (e.g. `Back to Sign Up`). */
+  readonly label: string;
+}
+
 /** Props for the rate limit page template. */
 interface RateLimitPageProps {
   /** Optional seconds until the client may retry, shown in the user message. */
   readonly retryAfter?: number;
+  /** Optional back link override. Defaults to sign-in when omitted. */
+  readonly backLink?: RateLimitBackLink;
 }
 
 /**
@@ -22,6 +32,9 @@ export function rateLimitPage(props: RateLimitPageProps): string {
       ? safe(`<p class="mt-2">Please try again in ${String(props.retryAfter)} seconds.</p>`)
       : safe('');
 
+  const backHref = props.backLink?.href ?? '/auth/sign-in';
+  const backLabel = props.backLink?.label ?? 'Back to Sign In';
+
   const content = html`
     <h1 class="card-title text-2xl font-bold mb-6">Too Many Requests</h1>
     <div role="alert" class="alert alert-warning mb-4">
@@ -31,7 +44,7 @@ export function rateLimitPage(props: RateLimitPageProps): string {
       </div>
     </div>
     <div class="mt-4 text-center">
-      <a href="/auth/sign-in" class="link link-primary">Back to Sign In</a>
+      <a href="${backHref}" class="link link-primary">${backLabel}</a>
     </div>
   `;
 

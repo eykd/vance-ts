@@ -212,9 +212,13 @@ export class AuthPageHandlers {
    * Uses the shared auth layout for consistent branding with other auth error pages.
    *
    * @param retryAfter - Optional seconds until the client may retry.
+   * @param backLink - Optional back link override (href and label). Defaults to sign-in.
    * @returns A styled 429 HTML Response with security headers and optional Retry-After.
    */
-  private static buildRateLimitedResponse(retryAfter?: number): Response {
+  private static buildRateLimitedResponse(
+    retryAfter?: number,
+    backLink?: { readonly href: string; readonly label: string }
+  ): Response {
     const headers = new Headers();
     headers.set('Content-Type', 'text/html; charset=utf-8');
     headers.set('Cache-Control', 'no-store, no-cache');
@@ -222,7 +226,7 @@ export class AuthPageHandlers {
       headers.set('Retry-After', String(retryAfter));
     }
     applySecurityHeaders(headers);
-    const body = rateLimitPage({ retryAfter });
+    const body = rateLimitPage({ retryAfter, backLink });
     return new Response(body, { status: 429, headers });
   }
 
@@ -371,7 +375,10 @@ export class AuthPageHandlers {
     }
 
     if (result.kind === 'rate_limited') {
-      return AuthPageHandlers.buildRateLimitedResponse(result.retryAfter);
+      return AuthPageHandlers.buildRateLimitedResponse(result.retryAfter, {
+        href: '/auth/sign-up',
+        label: 'Back to Sign Up',
+      });
     }
 
     const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
@@ -512,7 +519,10 @@ export class AuthPageHandlers {
     const result = await this.requestPasswordResetUseCase.execute({ email, ip });
 
     if (!result.ok && result.kind === 'rate_limited') {
-      return AuthPageHandlers.buildRateLimitedResponse(result.retryAfter);
+      return AuthPageHandlers.buildRateLimitedResponse(result.retryAfter, {
+        href: '/auth/forgot-password',
+        label: 'Back to Forgot Password',
+      });
     }
 
     // Always redirect to success to prevent email enumeration
