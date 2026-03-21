@@ -17,3 +17,5 @@
 {"author":"eykd","created_at":"2026-03-21T01:33:07Z","id":"019d0e06-4b54-72eb-a118-a21869144108","issue_id":"clawtask-1y8.1.18","text":"Starting investigation: reading better-auth config and cookie handling code"}
 {"author":"eykd","created_at":"2026-03-21T01:48:43Z","id":"019d0e14-9576-7a71-a0e5-7af81518d959","issue_id":"clawtask-1y8.1.17","text":"Starting work: rate limit page needs context-aware back link based on originating page"}
 {"author":"eykd","created_at":"2026-03-21T01:56:08Z","id":"019d0e1b-603e-7ebb-b8b8-65fb831bac12","issue_id":"clawtask-1y8.1.16","text":"Starting work: replacing spoofable query parameter with server-side session flag for sign-in success banner"}
+{"author":"eykd","created_at":"2026-03-21T02:17:39Z","id":"019d0e2f-1366-7349-abe0-eeaa1615c766","issue_id":"clawtask-1y8.1.14","text":"Starting: adding contact information to privacy, terms, and about pages"}
+{"author":"eykd","created_at":"2026-03-21T02:22:40Z","id":"019d0e33-a9f0-747f-83d8-2f0e7670259a","issue_id":"clawtask-1y8.1.12","text":"Starting: replacing placeholder homepage content with ClawTask product description"}
