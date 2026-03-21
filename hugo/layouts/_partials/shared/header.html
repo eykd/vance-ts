@@ -17,7 +17,8 @@
       </div>
       <ul tabindex="0" class="menu menu-sm dropdown-content bg-base-100 rounded-box z-10 mt-3 w-52 p-2 shadow">
         {{ range site.Menus.main }}
-          <li><a href="{{ .URL }}">{{ .Name }}</a></li>
+          {{ $isActive := or ($.IsMenuCurrent "main" .) ($.HasMenuCurrent "main" .) }}
+          <li><a href="{{ .URL }}"{{ if $isActive }} class="active" aria-current="page"{{ end }}>{{ .Name }}</a></li>
         {{ end }}
         {{/* Mobile auth links */}}
         <li class="menu-title lg:hidden">Account</li>
@@ -46,8 +47,9 @@
   <div class="navbar-center hidden lg:flex">
     <ul class="menu menu-horizontal px-1">
       {{ range site.Menus.main }}
+        {{ $isActive := or ($.IsMenuCurrent "main" .) ($.HasMenuCurrent "main" .) }}
         <li>
-          <a class="link link-hover" href="{{ .URL }}">{{ .Name }}</a>
+          <a class="link link-hover{{ if $isActive }} active{{ end }}" href="{{ .URL }}"{{ if $isActive }} aria-current="page"{{ end }}>{{ .Name }}</a>
         </li>
       {{ end }}
     </ul>
