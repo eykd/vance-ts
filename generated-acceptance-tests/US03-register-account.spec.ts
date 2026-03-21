@@ -16,7 +16,7 @@ it("A new visitor can register an account.", async () => {
   // WHEN they submit a valid email address and a strong password.
   const res = await submitAuthForm(
     '/auth/sign-up',
-    { email: 'alice@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'alice@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     csrfToken,
     undefined,
     '198.51.100.1',
@@ -35,7 +35,7 @@ it("Registering with an email already in use silently redirects to sign-in.", as
   const { csrfToken: csrf1 } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'alice@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'alice@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     csrf1,
     undefined,
     '198.51.100.2',
@@ -44,7 +44,7 @@ it("Registering with an email already in use silently redirects to sign-in.", as
   const { csrfToken: csrf2 } = await getAuthForm('/auth/sign-up');
   const res = await submitAuthForm(
     '/auth/sign-up',
-    { email: 'alice@example.com', password: 'AnotherStrongPass!456' },
+    { email: 'alice@example.com', password: 'AnotherStrongPass!456', password_confirm: 'AnotherStrongPass!456' },
     csrf2,
     undefined,
     '198.51.100.2',
@@ -63,7 +63,7 @@ it("A password shorter than 12 characters is rejected.", async () => {
   // WHEN they submit a valid email address and a password shorter than 12 characters.
   const res = await submitAuthForm(
     '/auth/sign-up',
-    { email: 'alice@example.com', password: 'short' },
+    { email: 'alice@example.com', password: 'short', password_confirm: 'short' },
     csrfToken,
     undefined,
     '198.51.100.3',
@@ -84,7 +84,7 @@ it("A commonly used password is rejected.", async () => {
   // 'password1234' is 12 characters and is in the OWASP common-passwords list.
   const res = await submitAuthForm(
     '/auth/sign-up',
-    { email: 'alice@example.com', password: 'password1234' },
+    { email: 'alice@example.com', password: 'password1234', password_confirm: 'password1234' },
     csrfToken,
     undefined,
     '198.51.100.4',
@@ -108,7 +108,7 @@ it("Registration is blocked after too many attempts.", async () => {
     const { csrfToken } = await getAuthForm('/auth/sign-up');
     await submitAuthForm(
       '/auth/sign-up',
-      { email: `attempt${i.toString()}@example.com`, password: 'short' },
+      { email: `attempt${i.toString()}@example.com`, password: 'short', password_confirm: 'short' },
       csrfToken,
       undefined,
       rateLimitIp,
@@ -118,7 +118,7 @@ it("Registration is blocked after too many attempts.", async () => {
   const { csrfToken } = await getAuthForm('/auth/sign-up');
   const res = await submitAuthForm(
     '/auth/sign-up',
-    { email: 'alice@example.com', password: 'short' },
+    { email: 'alice@example.com', password: 'short', password_confirm: 'short' },
     csrfToken,
     undefined,
     rateLimitIp,

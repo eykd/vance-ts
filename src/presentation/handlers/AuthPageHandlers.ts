@@ -38,6 +38,9 @@ import { timingSafeStringEqual } from '../utils/timingSafeEqual.js';
 /** Maximum allowed body size for HTML auth form submissions, in bytes (4 KB). */
 const MAX_BODY_BYTES = 4096;
 
+/** User-facing error message for password confirmation mismatch. */
+const PASSWORD_MISMATCH_ERROR = 'Passwords do not match';
+
 /**
  * Maps sign-up failure kinds to user-facing error messages rendered in the
  * registration form. Covers weak passwords, common passwords, and service errors.
@@ -346,7 +349,18 @@ export class AuthPageHandlers {
 
     const email = (formOrError.get('email') ?? '').toLowerCase().trim();
     const password = formOrError.get('password') ?? '';
+    const passwordConfirm = formOrError.get('password_confirm') ?? '';
     const ip = extractClientIp(request);
+
+    if (password !== passwordConfirm) {
+      const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
+      const body = registerPage({
+        csrfToken,
+        email,
+        fieldErrors: { password_confirm: PASSWORD_MISMATCH_ERROR },
+      });
+      return new Response(body, { headers: errorHeaders });
+    }
 
     const result = await this.signUpUseCase.execute({ email, password, ip });
 

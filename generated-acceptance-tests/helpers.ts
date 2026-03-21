@@ -132,7 +132,7 @@ export async function signInAs(
  */
 export async function setupUser(email: string, ip: string): Promise<string> {
   const { csrfToken } = await getAuthForm('/auth/sign-up');
-  await submitAuthForm('/auth/sign-up', { email, password: 'SuperSecure#Pass789' }, csrfToken, undefined, ip);
+  await submitAuthForm('/auth/sign-up', { email, password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' }, csrfToken, undefined, ip);
   return signInAs(email, 'SuperSecure#Pass789', ip);
 }
 

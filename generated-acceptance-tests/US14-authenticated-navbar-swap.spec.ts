@@ -15,7 +15,7 @@ it("Authenticated users see a Dashboard link in the navbar.", async () => {
   const { csrfToken: regCsrf } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'alice@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'alice@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     regCsrf,
     undefined,
     '198.51.100.1',
@@ -78,7 +78,7 @@ it("The Dashboard link navigates to the dashboard page.", async () => {
   const { csrfToken: regCsrf } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'bob@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'bob@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     regCsrf,
     undefined,
     '198.51.100.2',

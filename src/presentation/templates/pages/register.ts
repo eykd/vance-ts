@@ -22,6 +22,9 @@ const EMAIL_ERROR_ID = 'email-error';
 /** ID for the password field error element, referenced by aria-describedby. */
 const PASSWORD_ERROR_ID = 'password-error';
 
+/** ID for the confirm-password field error element, referenced by aria-describedby. */
+const PASSWORD_CONFIRM_ERROR_ID = 'password_confirm-error';
+
 /**
  * Renders the registration page as a complete HTML document.
  *
@@ -36,6 +39,7 @@ const PASSWORD_ERROR_ID = 'password-error';
 export function registerPage(props: RegisterPageProps): string {
   const emailFieldError: string | undefined = props.fieldErrors?.['email'];
   const passwordFieldError: string | undefined = props.fieldErrors?.['password'];
+  const passwordConfirmFieldError: string | undefined = props.fieldErrors?.['password_confirm'];
 
   const generalErrorBanner =
     props.error !== undefined
@@ -58,6 +62,13 @@ export function registerPage(props: RegisterPageProps): string {
         )
       : safe('');
 
+  const passwordConfirmErrorEl =
+    passwordConfirmFieldError !== undefined
+      ? safe(
+          `<p id="${PASSWORD_CONFIRM_ERROR_ID}" class="text-error text-sm mt-1">${escapeHtml(passwordConfirmFieldError)}</p>`
+        )
+      : safe('');
+
   // Compute aria-describedby for the email input (omit attribute when no IDs).
   const emailParts: string[] = [];
   if (props.error !== undefined) emailParts.push(GENERAL_ERROR_ID);
@@ -71,6 +82,15 @@ export function registerPage(props: RegisterPageProps): string {
   if (passwordFieldError !== undefined) passwordParts.push(PASSWORD_ERROR_ID);
   const passwordDescribedbyAttr =
     passwordParts.length > 0 ? safe(`aria-describedby="${passwordParts.join(' ')}"`) : safe('');
+
+  // Compute aria-describedby for the confirm-password input (omit attribute when no IDs).
+  const passwordConfirmParts: string[] = [];
+  if (props.error !== undefined) passwordConfirmParts.push(GENERAL_ERROR_ID);
+  if (passwordConfirmFieldError !== undefined) passwordConfirmParts.push(PASSWORD_CONFIRM_ERROR_ID);
+  const passwordConfirmDescribedbyAttr =
+    passwordConfirmParts.length > 0
+      ? safe(`aria-describedby="${passwordConfirmParts.join(' ')}"`)
+      : safe('');
 
   const content = html`
     <h1 class="card-title text-2xl font-bold mb-6">Create an Account</h1>
@@ -98,7 +118,7 @@ export function registerPage(props: RegisterPageProps): string {
         />
         ${emailErrorEl}
       </div>
-      <div class="form-control mb-6">
+      <div class="form-control mb-4">
         <label for="password" class="label">
           <span class="label-text">Password</span>
         </label>
@@ -112,6 +132,21 @@ export function registerPage(props: RegisterPageProps): string {
           required
         />
         ${passwordErrorEl}
+      </div>
+      <div class="form-control mb-6">
+        <label for="password_confirm" class="label">
+          <span class="label-text">Confirm Password</span>
+        </label>
+        <input
+          id="password_confirm"
+          type="password"
+          name="password_confirm"
+          autocomplete="new-password"
+          ${passwordConfirmDescribedbyAttr}
+          class="input input-bordered"
+          required
+        />
+        ${passwordConfirmErrorEl}
       </div>
       <div class="form-control mt-2">
         <button type="submit" class="btn btn-primary" :disabled="submitting">Create Account</button>

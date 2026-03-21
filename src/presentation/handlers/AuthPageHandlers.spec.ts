@@ -135,6 +135,7 @@ function makeSignOutPostRequest(options?: {
  * @param options.csrfCookie - CSRF token value in the Cookie header (default: TEST_CSRF).
  * @param options.email - Email address in the form body.
  * @param options.password - Password in the form body.
+ * @param options.passwordConfirm - Confirm password in the form body (defaults to password value).
  * @param options.contentType - Content-Type header value.
  * @param options.rawBody - If set, overrides the computed form body.
  * @returns A fully-formed POST Request for sign-up.
@@ -144,6 +145,7 @@ function makeSignUpPostRequest(options?: {
   csrfCookie?: string;
   email?: string;
   password?: string;
+  passwordConfirm?: string;
   contentType?: string;
   rawBody?: string;
 }): Request {
@@ -155,8 +157,14 @@ function makeSignUpPostRequest(options?: {
     contentType = 'application/x-www-form-urlencoded',
     rawBody,
   } = options ?? {};
+  const passwordConfirm = options?.passwordConfirm ?? password;
 
-  const params = new URLSearchParams({ _csrf: csrfToken, email, password });
+  const params = new URLSearchParams({
+    _csrf: csrfToken,
+    email,
+    password,
+    password_confirm: passwordConfirm,
+  });
 
   return new Request('https://example.com/auth/sign-up', {
     method: 'POST',
@@ -947,6 +955,68 @@ describe('AuthPageHandlers', () => {
         });
         const res = await handlers.handlePostSignUp(req);
         expect(res.status).toBe(403);
+      });
+    });
+
+    describe('password confirmation mismatch', () => {
+      it('returns 200 status when passwords do not match', async () => {
+        const req = makeSignUpPostRequest({
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(200);
+      });
+
+      it('re-renders the form with a password_confirm field error', async () => {
+        const req = makeSignUpPostRequest({
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('id="password_confirm-error"');
+        expect(body).toContain('Passwords do not match');
+      });
+
+      it('does not call the sign-up use case when passwords do not match', async () => {
+        const req = makeSignUpPostRequest({
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        await handlers.handlePostSignUp(req);
+        expect(signUpUseCaseMock.execute).not.toHaveBeenCalled();
+      });
+
+      it('re-renders the form with the submitted email pre-filled', async () => {
+        const req = makeSignUpPostRequest({
+          email: 'alice@example.com',
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('alice@example.com');
+      });
+
+      it('does not render a general error banner for password mismatch', async () => {
+        const req = makeSignUpPostRequest({
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).not.toContain('id="register-error"');
+      });
+
+      it('sets a fresh CSRF cookie on the error response', async () => {
+        const req = makeSignUpPostRequest({
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        const setCookie = res.headers.get('Set-Cookie') ?? '';
+        expect(setCookie).toContain('__Host-csrf=');
       });
     });
 

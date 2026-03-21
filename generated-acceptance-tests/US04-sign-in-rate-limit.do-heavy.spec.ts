@@ -15,7 +15,7 @@ it("Sign-in is blocked after too many failed attempts.", { timeout: 30_000 }, as
   const { csrfToken: regCsrf } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'ratelimit@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'ratelimit@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     regCsrf,
     undefined,
     ip,

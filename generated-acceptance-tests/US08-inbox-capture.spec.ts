@@ -14,7 +14,7 @@ it("Authenticated user can capture an item to their inbox.", async () => {
   const { csrfToken } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'inbox-capture@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'inbox-capture@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     csrfToken,
     undefined,
     '198.51.100.80',
@@ -56,7 +56,7 @@ it("Submitting an empty title is rejected with a descriptive error.", async () =
   const { csrfToken } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'inbox-empty@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'inbox-empty@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     csrfToken,
     undefined,
     '198.51.100.81',
@@ -90,7 +90,7 @@ it("Authenticated user can list their inbox items.", async () => {
   const { csrfToken } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'inbox-list@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'inbox-list@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     csrfToken,
     undefined,
     '198.51.100.82',
