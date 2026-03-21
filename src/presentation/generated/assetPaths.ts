@@ -5,7 +5,7 @@
 
 /** Public URL path to the fingerprinted TailwindCSS stylesheet from the Hugo build. */
 export const STYLES_CSS_PATH =
-  '/css/styles.d39d9be822565d64ea02eab7ea9642e4c59eb928bf83e723adf74d93157afa0f.css';
+  '/css/styles.ebe0872e62b310103fbdceea872be0ed9e6074fede8cb0e680073db5400ff1f4.css';
 
 /** Public URL path to the self-hosted HTMX library. */
 export const HTMX_JS_PATH = '/js/htmx-2.0.8.min.js';
