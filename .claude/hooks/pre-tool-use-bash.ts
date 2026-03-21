@@ -65,35 +65,36 @@ Only use these flags when explicitly requested by the user.
       process.exit(2); // Exit 2 = blocking error
     }
 
-    // Strip quoted string content to avoid false positives (e.g. commit messages mentioning bd init --force)
+    // Strip quoted string content to avoid false positives (e.g. commit messages mentioning br init --force)
     const commandUnquoted = bashCommand
       .replace(/<<'?[A-Z_]+'?\n[\s\S]*?\n[A-Z_]+/gu, '') // heredocs
       .replace(/"(?:[^"\\]|\\.)*"/gu, '""') // double-quoted strings
       .replace(/'[^']*'/gu, "''"); // single-quoted strings
 
-    // Check for bare bd (must use npx bd instead)
-    const bareBdPattern = /(?:^|&&|\|\||[;(|])\s*bd(?:\s|$)/mu;
+    // Check for legacy bd commands (must use br instead)
+    const legacyBdPattern = /(?:^|&&|\|\||[;(|])\s*(?:npx\s+)?bd(?:\s|$)/mu;
 
-    if (bareBdPattern.test(commandUnquoted)) {
-      const errorMsg = `BLOCKED: bare \`bd\` is not permitted. Use \`npx bd\` instead.
+    if (legacyBdPattern.test(commandUnquoted)) {
+      const errorMsg = `BLOCKED: \`bd\` (legacy beads) is not permitted. Use \`br\` (beads_rust) instead.
 
-Running a globally installed bd may use a different version than the project specifies.
+This project has migrated from @beads/bd to beads_rust.
 
 Replace:
+  npx bd <subcommand>
   bd <subcommand>
 
 With:
-  npx bd <subcommand>
+  br <subcommand>
 `;
       process.stderr.write(errorMsg);
       process.exit(2);
     }
 
-    // Check for bd init --force (or -f)
-    const bdInitPattern = /\bbd\s+init\b.*(-f\b|--force\b)/u;
+    // Check for br init --force (or -f)
+    const brInitPattern = /\bbr\s+init\b.*(-f\b|--force\b)/u;
 
-    if (bdInitPattern.test(commandUnquoted)) {
-      const errorMsg = `BLOCKED: bd init --force is not permitted.
+    if (brInitPattern.test(commandUnquoted)) {
+      const errorMsg = `BLOCKED: br init --force is not permitted.
 
 Reinitializing the beads database would destroy all issue history.
 

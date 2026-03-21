@@ -265,13 +265,13 @@ You can address these issues by:
 
 1. **Review tasks in beads:**
    ```bash
-   npx bd list --parent workspace-abc
+   br list --parent workspace-abc
 ````
 
 2. **Start working on high-priority tasks:**
 
    ```bash
-   npx bd ready --parent workspace-abc
+   br ready --parent workspace-abc
    ```
 
 3. **Or ask Claude to fix all Critical and High priority issues:**
@@ -432,7 +432,7 @@ claude auth
 Initialize beads:
 
 ```bash
-npx bd init
+br init
 ```
 
 ### "Permission denied: ./review.sh"
@@ -490,7 +490,7 @@ if [ -n "$staged_files" ]; then
     ./review.sh --files $staged_files
 
     # Fail commit if critical issues found
-    critical_count=$(npx bd list --priority 0 --status open --json | jq 'length')
+    critical_count=$(br list --priority 0 --status open --json | jq 'length')
     if [ "$critical_count" -gt 0 ]; then
         echo "❌ Cannot commit: $critical_count critical issues found"
         exit 1

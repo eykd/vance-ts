@@ -29,7 +29,7 @@ test -d .beads && echo "initialized" || echo "not_initialized"
 #### 2. Initialize beads (if needed)
 
 ```bash
-bd init
+br init
 ```
 
 **Expected Output**: Creates `.beads/` directory
@@ -38,7 +38,7 @@ bd init
 #### 3. Create epic for feature
 
 ```bash
-bd create "Feature: <feature-name>" -t epic -p 0 --description "Spec: specs/<branch>/spec.md" --json
+br create "Feature: <feature-name>" -t epic -p 0 --description "Spec: specs/<branch>/spec.md" --json
 ```
 
 **Input**:
@@ -61,7 +61,7 @@ bd create "Feature: <feature-name>" -t epic -p 0 --description "Spec: specs/<bra
 #### 4. Update existing epic (if re-running)
 
 ```bash
-bd update <epic-id> --title "Feature: <name>" --json
+br update <epic-id> --title "Feature: <name>" --json
 ```
 
 ---
@@ -99,13 +99,13 @@ bd update <epic-id> --title "Feature: <name>" --json
 #### 1. Get epic ID for feature
 
 ```bash
-bd list --type epic --status open --json | jq '.[] | select(.title | contains("<feature-name>"))'
+br list --type epic --status open --json | jq '.[] | select(.title | contains("<feature-name>"))'
 ```
 
 #### 2. Create task for each user story
 
 ```bash
-bd create "US<N>: <title>" -p <priority> --parent <epic-id> --description "<user-story-text>" --json
+br create "US<N>: <title>" -p <priority> --parent <epic-id> --description "<user-story-text>" --json
 ```
 
 **Input**:
@@ -130,24 +130,24 @@ bd create "US<N>: <title>" -p <priority> --parent <epic-id> --description "<user
 #### 3. Create sub-tasks for implementation steps
 
 ```bash
-bd create "<step-description>" -p <priority> --parent <task-id> --json
+br create "<step-description>" -p <priority> --parent <task-id> --json
 ```
 
 #### 4. Add dependencies between tasks
 
 ```bash
 # Setup tasks must complete before implementation
-bd dep add <impl-task-id> <setup-task-id>
+br dep add <impl-task-id> <setup-task-id>
 
 # Sequential user stories (if applicable)
-bd dep add <us2-task-id> <us1-task-id>
+br dep add <us2-task-id> <us1-task-id>
 ```
 
 #### 5. Verify dependency graph
 
 ```bash
-bd dep cycles  # Should return empty
-bd dep tree <epic-id>  # Visual verification
+br dep cycles  # Should return empty
+br dep tree <epic-id>  # Visual verification
 ```
 
 ---
@@ -161,7 +161,7 @@ bd dep tree <epic-id>  # Visual verification
 #### 1. Get ready tasks
 
 ```bash
-bd ready --json
+br ready --json
 ```
 
 **Expected JSON Output**:
@@ -170,7 +170,7 @@ bd ready --json
 [
   {
     "id": "bd-xxxx.1.1",
-    "title": "Install @beads/bd package",
+    "title": "Install beads_rust package",
     "status": "open",
     "priority": 1
   }
@@ -180,19 +180,19 @@ bd ready --json
 #### 2. Mark task in progress
 
 ```bash
-bd update <task-id> --status in_progress --json
+br update <task-id> --status in_progress --json
 ```
 
 #### 3. Mark task complete
 
 ```bash
-bd close <task-id> --reason "<completion-summary>" --json
+br close <task-id> --reason "<completion-summary>" --json
 ```
 
 #### 4. Check remaining work
 
 ```bash
-bd list --parent <epic-id> --status open --json
+br list --parent <epic-id> --status open --json
 ```
 
 ---
@@ -206,13 +206,13 @@ bd list --parent <epic-id> --status open --json
 #### 1. Get task statistics
 
 ```bash
-bd stats --json
+br stats --json
 ```
 
 #### 2. List all tasks for feature
 
 ```bash
-bd list --parent <epic-id> --json
+br list --parent <epic-id> --json
 ```
 
 ---
@@ -226,7 +226,7 @@ bd list --parent <epic-id> --json
 #### 1. Export tasks
 
 ```bash
-bd list --parent <epic-id> --status open --json
+br list --parent <epic-id> --status open --json
 ```
 
 **Output**: JSON array of tasks to convert to GitHub issues
@@ -237,12 +237,12 @@ bd list --parent <epic-id> --status open --json
 
 ### Common Errors
 
-| Error                    | Cause               | Resolution                                    |
-| ------------------------ | ------------------- | --------------------------------------------- |
-| `bd: command not found`  | beads not installed | Run `npm install --save-dev @beads/bd`        |
-| `not a beads repository` | .beads/ missing     | Run `bd init`                                 |
-| `epic not found`         | Invalid parent ID   | Verify epic exists with `bd list --type epic` |
-| `circular dependency`    | Invalid dep chain   | Check with `bd dep cycles`                    |
+| Error                    | Cause               | Resolution                                      |
+| ------------------------ | ------------------- | ----------------------------------------------- |
+| `br: command not found`  | beads not installed | Install via `curl -fsSL https://beads.sh \| sh` |
+| `not a beads repository` | .beads/ missing     | Run `br init`                                   |
+| `epic not found`         | Invalid parent ID   | Verify epic exists with `br list --type epic`   |
+| `circular dependency`    | Invalid dep chain   | Check with `br dep cycles`                      |
 
 ### Graceful Degradation
 

@@ -94,7 +94,7 @@ Orphaned tasks (no epic):
 **Suggestions**:
 
 - Complete in-progress tasks to unblock others
-- Check dependencies: `npx bd dep tree <epic-id>`
+- Check dependencies: `br dep tree <epic-id>`
 - Manually address orphaned tasks
 
 ### P3 Tasks Remaining
@@ -132,13 +132,13 @@ rm .ralph.lock
 ### Beads Not Initialized
 
 ```
-Error: Beads not initialized. Run 'npx bd init' to initialize beads.
+Error: Beads not initialized. Run 'br init' to initialize beads.
 ```
 
 **Fix**:
 
 ```bash
-npx bd init
+br init
 ```
 
 ### No Epic Found

@@ -65,7 +65,7 @@ The following tasks have been created under epic `[epic-id]`:
 View tasks:
 
 ```bash
-npx bd list --parent [epic-id]
+br list --parent [epic-id]
 ```
 
 > **Note**: If epic was closed, note "Epic `[epic-id]` was reopened to track these findings" appears here.
@@ -240,7 +240,7 @@ The following tasks have been created under epic `feat-search-123`:
 View tasks:
 
 ```bash
-npx bd list --parent feat-search-123
+br list --parent feat-search-123
 ```
 
 ## Recommendations

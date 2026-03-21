@@ -64,6 +64,6 @@ acceptance-pipeline/ir/
 reports/
 .stryker-tmp/
 
-# Dolt database files (added by bd init)
+# Beads database files
 .dolt/
 *.db

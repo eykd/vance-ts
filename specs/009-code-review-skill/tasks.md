@@ -201,19 +201,19 @@ Complete all phases in order, leveraging parallel execution after US1.
 
 ```bash
 # View ready tasks (unblocked)
-npx bd ready
+br ready
 
 # Start working on a task
-npx bd update <task-id> --status in-progress
+br update <task-id> --status in-progress
 
 # Complete a task
-npx bd close <task-id>
+br close <task-id>
 
 # View dependency tree
-npx bd dep tree workspace-053
+br dep tree workspace-053
 
 # View all tasks for this feature
-npx bd list --parent workspace-053
+br list --parent workspace-053
 ```
 
 ---

@@ -61,8 +61,8 @@ EPIC_ID=$(echo "$HEAD_REF" | grep -oP 'workspace-\w+' || echo "")
 
 if [ -n "$EPIC_ID" ]; then
   # Query open and ready tasks for this epic
-  npx bd list --parent "$EPIC_ID" --status open --json > known-issues.json
-  npx bd list --parent "$EPIC_ID" --status ready --json >> known-issues.json
+  br list --parent "$EPIC_ID" --status open --json > known-issues.json
+  br list --parent "$EPIC_ID" --status ready --json >> known-issues.json
 fi
 ```
 

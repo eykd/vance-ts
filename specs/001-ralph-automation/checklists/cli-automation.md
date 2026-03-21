@@ -47,7 +47,7 @@
 
 ## Edge Case Coverage
 
-- [ ] CHK027 - Is behavior specified when `bd ready` returns empty but epic has open tasks (orphaned)? [Edge Case, Spec §Edge Cases]
+- [ ] CHK027 - Is behavior specified when `br ready` returns empty but epic has open tasks (orphaned)? [Edge Case, Spec §Edge Cases]
 - [ ] CHK028 - Is behavior specified for stale lock file detection (process no longer running)? [Edge Case, Gap]
 - [ ] CHK029 - Are requirements defined for when sp:next skill fails but Claude exits 0? [Edge Case, Gap]
 - [ ] CHK030 - Is behavior specified when interrupted during Claude invocation vs between iterations? [Edge Case, Spec §FR-006]

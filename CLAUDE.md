@@ -144,7 +144,7 @@ Conventional commits enforced via commitlint:
 
 ### Beads Task Management
 
-- **ALWAYS include `--description`** when creating beads tasks with `npx bd create`
+- **ALWAYS include `--description`** when creating beads tasks with `br create`
 - Descriptions should explain the task's purpose, not just repeat the title
 - **ALWAYS parent ad-hoc tasks to the current branch's epic (non-negotiable).**
   Ralph finds epics by stripping the leading digits from the branch name (e.g.
@@ -152,11 +152,11 @@ Conventional commits enforced via commitlint:
   open epic titles (case-insensitive, hyphens = spaces). Find the epic and its
   implement child, then pass `--parent`:
   ```
-  epic=$(npx bd list --type epic --status open --json | \
+  epic=$(br list --type epic --status open --json | \
     jq -r --arg b "$(git branch --show-current | sed 's/^[0-9]*-//')" \
     '.[] | select(.title | ascii_downcase | gsub("-";" ") | contains($b | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
-  impl=$(npx bd children "$epic" --json | jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
-  npx bd create --title "..." --description "..." --parent "$impl"
+  impl=$(br children "$epic" --json | jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
+  br create --title "..." --description "..." --parent "$impl"
   ```
   Orphaned tasks are invisible to ralph automation.
 - **Epic naming convention**: Epic titles MUST contain the branch feature name

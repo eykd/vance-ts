@@ -118,7 +118,7 @@ Example:
        │                               │
        ▼                               │
 ┌─────────────────────┐                │
-│  Check bd ready     │                │
+│  Check br ready     │                │
 │  for epic tasks     │                │
 └──────┬──────────────┘                │
        │                               │
@@ -187,7 +187,7 @@ Example:
 │                                     │                              │
 │  ┌─────────┐    ready tasks    ┌────▼────┐    /sp:next   ┌───────┐│
 │  │  beads  │◀─────────────────│  loop   │──────────────▶│ claude ││
-│  │  (bd)   │                   └────┬────┘               │  CLI   ││
+│  │  (br)   │                   └────┬────┘               │  CLI   ││
 │  └────┬────┘                        │                    └───┬───┘│
 │       │                             │                        │     │
 │       │ task status                 │ iteration count        │     │

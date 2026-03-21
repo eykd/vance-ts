@@ -10,7 +10,7 @@ Integrate the beads git-backed graph issue tracker into the spec-kit workflow by
 ## Technical Context
 
 **Language/Version**: Markdown (Claude command format) + Bash scripts
-**Primary Dependencies**: `@beads/bd` npm package (beads CLI)
+**Primary Dependencies**: `beads_rust` npm package (beads CLI)
 **Storage**: Git-backed `.beads/` directory (JSONL format with SQLite cache)
 **Testing**: Manual workflow validation + acceptance scenario verification
 **Target Platform**: Claude Code CLI environment (cross-platform: Linux, macOS, Windows)
@@ -29,7 +29,7 @@ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 | II. Type Safety                     | N/A     | No TypeScript code in this feature (markdown command files only).                                |
 | III. Code Quality Standards         | PASS    | Commands will follow existing sp:\* structure and naming conventions.                            |
 | IV. Pre-commit Quality Gates        | PASS    | Standard git workflow applies to command files.                                                  |
-| V. Warning/Deprecation Policy       | PASS    | Will address any npm warnings from @beads/bd installation.                                       |
+| V. Warning/Deprecation Policy       | PASS    | Will address any npm warnings from beads_rust installation.                                      |
 | VI. Cloudflare Workers Target       | N/A     | This feature is developer tooling, not runtime code.                                             |
 | VII. Simplicity and Maintainability | PASS    | Parallel namespace approach is simplest migration path.                                          |
 
@@ -77,10 +77,10 @@ specs/008-beads-integration/
     ├── 08-taskstoissues.md
     └── README.md
 
-.beads/                  # Created by `bd init` (git-tracked)
+.beads/                  # Created by `br init` (git-tracked)
 └── [beads internal files]
 
-package.json             # Updated with @beads/bd devDependency
+package.json             # Updated with beads_rust devDependency
 ```
 
 **Structure Decision**: Single project with parallel command namespaces. The `/bd:*` commands mirror `/sp:*` with beads integration. Final step swaps bd→sp.

@@ -36,13 +36,13 @@ You **MUST** consider the user input before proceeding (if not empty).
    b. Find the plan phase task:
 
    ```bash
-   npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:03-plan]")) | .id'
+   br list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:03-plan]")) | .id'
    ```
 
    c. Close the task with a completion summary:
 
    ```bash
-   npx bd close <plan-task-id> --reason "Plan complete: created plan.md, data-model.md, contracts/, research.md"
+   br close <plan-task-id> --reason "Plan complete: created plan.md, data-model.md, contracts/, research.md"
    ```
 
    d. Report: "Phase [sp:03-plan] complete. Run `/sp:next` or `/sp:04-checklist` to continue."

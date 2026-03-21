@@ -8,34 +8,34 @@
 
 ### 1. How to initialize beads in a repository?
 
-**Decision**: Use `bd init` (default mode, git-committed)
+**Decision**: Use `br init` (default mode, git-committed)
 
 **Rationale**: Default mode commits the `.beads/` directory to git, providing team visibility and cross-machine sync. This aligns with the clarification that tasks should be git-tracked.
 
 **Command**:
 
 ```bash
-bd init
+br init
 ```
 
-**Detection of existing initialization**: Check for `.beads/` directory existence before running `bd init`.
+**Detection of existing initialization**: Check for `.beads/` directory existence before running `br init`.
 
 **Alternatives considered**:
 
-- `bd init --stealth`: Local-only mode, rejected because we want team visibility
-- `bd init --contributor`: Fork workflow, not applicable
-- `bd init --team`: Branch workflow, more complex than needed
+- `br init --stealth`: Local-only mode, rejected because we want team visibility
+- `br init --contributor`: Fork workflow, not applicable
+- `br init --team`: Branch workflow, more complex than needed
 
 ### 2. How to create epics and map to feature specifications?
 
-**Decision**: Use `bd create` with `-t epic` type and `-p 0` (highest priority)
+**Decision**: Use `br create` with `-t epic` type and `-p 0` (highest priority)
 
 **Rationale**: Beads supports an `epic` type specifically for parent-level items. Priority 0 ensures the epic appears prominently.
 
 **Command**:
 
 ```bash
-bd create "Feature: <feature-name>" -t epic -p 0 --json
+br create "Feature: <feature-name>" -t epic -p 0 --json
 ```
 
 **JSON Output** (example):
@@ -55,7 +55,7 @@ bd create "Feature: <feature-name>" -t epic -p 0 --json
 
 ### 3. How to create tasks with parent-child relationships?
 
-**Decision**: Use `bd create` with `--parent <epic-id>` flag
+**Decision**: Use `br create` with `--parent <epic-id>` flag
 
 **Rationale**: The `--parent` flag automatically assigns hierarchical IDs (e.g., `bd-a3f8e9.1`, `bd-a3f8e9.2`).
 
@@ -63,11 +63,11 @@ bd create "Feature: <feature-name>" -t epic -p 0 --json
 
 ```bash
 # Create task under epic
-bd create "User Story 1: Initialize Beads" -p 1 --parent bd-a3f8e9 --json
+br create "User Story 1: Initialize Beads" -p 1 --parent bd-a3f8e9 --json
 # Returns: bd-a3f8e9.1
 
 # Create sub-task under task
-bd create "Install @beads/bd package" -p 1 --parent bd-a3f8e9.1 --json
+br create "Install beads_rust package" -p 1 --parent bd-a3f8e9.1 --json
 # Returns: bd-a3f8e9.1.1
 ```
 
@@ -80,32 +80,32 @@ bd create "Install @beads/bd package" -p 1 --parent bd-a3f8e9.1 --json
 
 ### 4. How to set task dependencies?
 
-**Decision**: Use `bd dep add <child> <parent>` to establish blocking relationships
+**Decision**: Use `br dep add <child> <parent>` to establish blocking relationships
 
-**Rationale**: This creates a dependency where `child` cannot start until `parent` is complete. The `bd ready` command automatically filters to show only unblocked tasks.
+**Rationale**: This creates a dependency where `child` cannot start until `parent` is complete. The `br ready` command automatically filters to show only unblocked tasks.
 
 **Commands**:
 
 ```bash
 # Task bd-a3f8e9.2 depends on bd-a3f8e9.1
-bd dep add bd-a3f8e9.2 bd-a3f8e9.1
+br dep add bd-a3f8e9.2 bd-a3f8e9.1
 
 # View dependency tree
-bd dep tree bd-a3f8e9
+br dep tree bd-a3f8e9
 ```
 
-**Parallel tasks**: Tasks without `bd dep add` relationships are considered parallel and will all appear in `bd ready`.
+**Parallel tasks**: Tasks without `br dep add` relationships are considered parallel and will all appear in `br ready`.
 
 ### 5. How to query ready tasks?
 
-**Decision**: Use `bd ready --json` to get machine-readable list of unblocked tasks
+**Decision**: Use `br ready --json` to get machine-readable list of unblocked tasks
 
 **Rationale**: JSON output enables programmatic parsing in command workflows.
 
 **Command**:
 
 ```bash
-bd ready --json
+br ready --json
 ```
 
 **JSON Output** (example):
@@ -122,11 +122,11 @@ bd ready --json
 ]
 ```
 
-**Filtering by epic**: Use `bd list --parent bd-a3f8e9 --status open --json` to get tasks for a specific feature.
+**Filtering by epic**: Use `br list --parent bd-a3f8e9 --status open --json` to get tasks for a specific feature.
 
 ### 6. How to update task status?
 
-**Decision**: Use `bd update` for in-progress status, `bd close` for completion
+**Decision**: Use `br update` for in-progress status, `br close` for completion
 
 **Rationale**: Separate commands for status update vs. closure provides clear semantic distinction.
 
@@ -134,10 +134,10 @@ bd ready --json
 
 ```bash
 # Mark task as in-progress
-bd update bd-a3f8e9.1 --status in_progress --json
+br update bd-a3f8e9.1 --status in_progress --json
 
 # Mark task as complete
-bd close bd-a3f8e9.1 --reason "Implemented successfully" --json
+br close bd-a3f8e9.1 --reason "Implemented successfully" --json
 ```
 
 **Status values**: `open`, `in_progress`, `closed`
@@ -165,28 +165,28 @@ Epic (feature-level) always gets priority 0.
 **Command**:
 
 ```bash
-npm install --save-dev @beads/bd
+npm install --save-dev beads_rust
 ```
 
 **Verification**:
 
 ```bash
-npx bd --version
+br --version
 ```
 
-**Note**: After npm install, the `bd` command is available via `npx bd` or by adding to PATH.
+**Note**: The CLI binary is named `br`.
 
 ## Key Findings
 
 1. **Beads is agent-optimized**: JSON output on all commands via `--json` flag
 2. **Hash-based IDs prevent merge conflicts**: Safe for multi-agent/multi-branch workflows
-3. **Automatic dependency tracking**: `bd ready` shows only unblocked tasks
+3. **Automatic dependency tracking**: `br ready` shows only unblocked tasks
 4. **Hierarchical structure built-in**: Epic → Task → Sub-task via parent-child relationships
 5. **Git-native storage**: JSONL files in `.beads/` committed to repository
 
 ## Sources
 
-- [Beads GitHub Repository](https://github.com/steveyegge/beads)
-- [Beads Quickstart Guide](https://github.com/steveyegge/beads/blob/main/docs/QUICKSTART.md)
+- [Beads GitHub Repository](https://github.com/Dicklesworthstone/beads_rust)
+- [Beads Quickstart Guide](https://github.com/Dicklesworthstone/beads_rust/blob/main/docs/QUICKSTART.md)
 - [Introducing Beads (Medium)](https://steve-yegge.medium.com/introducing-beads-a-coding-agent-memory-system-637d7d92514a)
 - [The Beads Revolution (Medium)](https://steve-yegge.medium.com/the-beads-revolution-how-i-built-the-todo-system-that-ai-agents-actually-want-to-use-228a5f9be2a9)

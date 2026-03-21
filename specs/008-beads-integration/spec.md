@@ -17,9 +17,9 @@ As a developer starting a new feature, I want the spec-kit workflow to automatic
 
 **Acceptance Scenarios**:
 
-1. **Given** a repository without beads initialized, **When** I run `/bd:01-specify` with a feature description, **Then** beads is initialized (via `bd init`) and the specification is created as an epic in beads.
+1. **Given** a repository without beads initialized, **When** I run `/bd:01-specify` with a feature description, **Then** beads is initialized (via `br init`) and the specification is created as an epic in beads.
 2. **Given** a repository with beads already initialized, **When** I run `/bd:01-specify`, **Then** the existing beads configuration is preserved and a new epic is created.
-3. **Given** a repository where `bd init` has already been run, **When** the workflow attempts initialization, **Then** it detects existing configuration and skips re-initialization gracefully.
+3. **Given** a repository where `br init` has already been run, **When** the workflow attempts initialization, **Then** it detects existing configuration and skips re-initialization gracefully.
 
 ---
 
@@ -50,7 +50,7 @@ As a developer running `/bd:05-tasks`, I want tasks to be created as beads tasks
 **Acceptance Scenarios**:
 
 1. **Given** a feature with a completed specification and plan, **When** I run `/bd:05-tasks`, **Then** tasks are created in beads under the feature epic with proper hierarchy (epic > tasks > sub-tasks).
-2. **Given** tasks with dependencies (e.g., setup before implementation), **When** tasks are generated, **Then** beads dependency relationships are established using `bd dep add`.
+2. **Given** tasks with dependencies (e.g., setup before implementation), **When** tasks are generated, **Then** beads dependency relationships are established using `br dep add`.
 3. **Given** user stories marked P1, P2, P3 in the spec, **When** tasks are generated, **Then** higher-priority user story tasks have appropriate priority values in beads.
 4. **Given** parallel tasks marked with [P] in the old format, **When** tasks are generated, **Then** these tasks have no blocking dependencies between them in beads.
 
@@ -66,7 +66,7 @@ As a developer implementing a feature, I want `/bd:06-implement` to use beads fo
 
 **Acceptance Scenarios**:
 
-1. **Given** tasks created in beads for a feature, **When** I run `/bd:06-implement`, **Then** the workflow shows ready tasks from beads using `bd ready`.
+1. **Given** tasks created in beads for a feature, **When** I run `/bd:06-implement`, **Then** the workflow shows ready tasks from beads using `br ready`.
 2. **Given** a task being worked on, **When** the implementation starts, **Then** the task status is updated in beads.
 3. **Given** a completed task, **When** marked as done, **Then** beads reflects the completed status and dependent tasks become available.
 4. **Given** multiple parallel tasks ready, **When** querying for next work, **Then** beads returns all tasks without blocking dependencies.
@@ -77,7 +77,7 @@ As a developer implementing a feature, I want `/bd:06-implement` to use beads fo
 
 As a developer or project manager, I want to query the current state of tasks for any feature so that I can understand progress without reading markdown files.
 
-**Why this priority**: Nice-to-have for visibility, but the core workflow functions without explicit querying since `bd ready` provides immediate next actions.
+**Why this priority**: Nice-to-have for visibility, but the core workflow functions without explicit querying since `br ready` provides immediate next actions.
 
 **Independent Test**: Can be fully tested by creating tasks and running beads commands to view task status, hierarchies, and dependencies.
 
@@ -117,15 +117,15 @@ As a project maintainer, I want to replace the existing `/sp:*` commands with th
 
 ### Functional Requirements
 
-- **FR-001**: System MUST install `@beads/bd` as a dev dependency when not already present.
-- **FR-002**: System MUST initialize beads in the repository (via `bd init`) before creating any epics or tasks.
+- **FR-001**: System MUST install `beads_rust` as a dev dependency when not already present.
+- **FR-002**: System MUST initialize beads in the repository (via `br init`) before creating any epics or tasks.
 - **FR-003**: System MUST create a new command namespace `/bd:*` that mirrors the existing `/sp:*` commands but uses beads for task tracking.
 - **FR-004**: System MUST create a beads epic when `/bd:01-specify` generates a new specification.
 - **FR-005**: System MUST store the beads epic ID in the feature's spec.md or a dedicated metadata file for reference.
 - **FR-006**: System MUST generate beads tasks (not markdown checkboxes) when `/bd:05-tasks` is executed.
 - **FR-007**: System MUST establish task dependencies in beads when tasks have sequential requirements.
 - **FR-008**: System MUST map user story priorities (P1, P2, P3) to beads task priorities.
-- **FR-009**: System MUST use `bd ready` to determine which tasks are available for implementation.
+- **FR-009**: System MUST use `br ready` to determine which tasks are available for implementation.
 - **FR-010**: System MUST update task status in beads when tasks are completed during `/bd:06-implement`.
 - **FR-011**: System MUST support hierarchical task structure: epic (specification) > task (user story) > sub-task (implementation step).
 - **FR-012**: System MUST gracefully handle the case where beads is already initialized in the repository.
@@ -140,14 +140,14 @@ As a project maintainer, I want to replace the existing `/sp:*` commands with th
 - **Epic**: Top-level beads item representing a feature specification. Contains title (feature name), description (reference to spec.md), and owns all tasks for that feature. ID format: `bd-xxxx`.
 - **Task**: Mid-level beads item representing a user story or major implementation phase. Belongs to an epic, may have dependencies on other tasks. ID format: `bd-xxxx.N`.
 - **Sub-task**: Granular beads item representing a specific implementation step. Belongs to a task, may have dependencies on other sub-tasks. ID format: `bd-xxxx.N.M`.
-- **Dependency**: Relationship between tasks indicating one must complete before another can start. Managed via `bd dep add`.
+- **Dependency**: Relationship between tasks indicating one must complete before another can start. Managed via `br dep add`.
 
 ## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 
 - **SC-001**: All beads-integrated commands (`/bd:01-specify`, `/bd:05-tasks`, `/bd:06-implement`) successfully create and manage items in beads within a single workflow execution.
-- **SC-002**: Task dependencies are correctly reflected in beads such that `bd ready` returns only tasks without blocking incomplete dependencies.
+- **SC-002**: Task dependencies are correctly reflected in beads such that `br ready` returns only tasks without blocking incomplete dependencies.
 - **SC-003**: Users can view feature progress by querying beads without needing to read or parse markdown files.
 - **SC-004**: Existing `/sp:*` commands remain unchanged and functional throughout development of `/bd:*` commands.
 - **SC-005**: After namespace swap, all new features use beads exclusively for task tracking via `/sp:*` commands.
@@ -163,7 +163,7 @@ As a project maintainer, I want to replace the existing `/sp:*` commands with th
 
 ## Assumptions
 
-- The `@beads/bd` npm package is publicly available and installable via npm.
+- The `beads_rust` npm package is publicly available and installable via npm.
 - The beads CLI (`bd`) provides JSON output format for programmatic parsing (confirmed via `--json` flag).
 - Git is available and configured in the repository (required for beads' git-backed storage).
 - The `.beads/` directory will be committed to version control (default beads behavior).
