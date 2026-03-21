@@ -1778,6 +1778,7 @@ describe('AuthPageHandlers', () => {
       options?: Partial<{
         token: string;
         password: string;
+        passwordConfirm: string;
         csrfToken: string;
         csrfCookie: string;
         contentType: string;
@@ -1786,11 +1787,17 @@ describe('AuthPageHandlers', () => {
       const {
         token = 'valid-token-123',
         password = 'newSecurePass123',
+        passwordConfirm = 'newSecurePass123',
         csrfToken = TEST_CSRF,
         csrfCookie = TEST_CSRF,
         contentType = 'application/x-www-form-urlencoded',
       } = options ?? {};
-      const params = new URLSearchParams({ _csrf: csrfToken, token, password });
+      const params = new URLSearchParams({
+        _csrf: csrfToken,
+        token,
+        password,
+        password_confirm: passwordConfirm,
+      });
       return new Request('https://example.com/auth/reset-password', {
         method: 'POST',
         headers: {
@@ -1811,7 +1818,11 @@ describe('AuthPageHandlers', () => {
 
     it('passes token and password to use case', async () => {
       resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: true });
-      const req = makeResetPasswordPostRequest({ token: 'my-token', password: 'myNewPass12345' });
+      const req = makeResetPasswordPostRequest({
+        token: 'my-token',
+        password: 'myNewPass12345',
+        passwordConfirm: 'myNewPass12345',
+      });
       await handlers.handlePostResetPassword(req);
       expect(resetPasswordUseCaseMock.execute).toHaveBeenCalledWith({
         token: 'my-token',
@@ -1855,6 +1866,28 @@ describe('AuthPageHandlers', () => {
       expect(res.status).toBe(400);
       const body = await res.text();
       expect(body).toContain('invalid or has expired');
+    });
+
+    it('re-renders form with password_confirm error when passwords do not match', async () => {
+      expect.assertions(2);
+      const req = makeResetPasswordPostRequest({
+        password: 'newSecurePass123',
+        passwordConfirm: 'differentPassword',
+      });
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('Passwords do not match');
+    });
+
+    it('does not call use case when passwords do not match', async () => {
+      expect.assertions(1);
+      const req = makeResetPasswordPostRequest({
+        password: 'newSecurePass123',
+        passwordConfirm: 'differentPassword',
+      });
+      await handlers.handlePostResetPassword(req);
+      expect(resetPasswordUseCaseMock.execute).not.toHaveBeenCalled();
     });
 
     it('returns 403 when CSRF token is invalid', async () => {

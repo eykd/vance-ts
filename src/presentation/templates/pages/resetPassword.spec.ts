@@ -74,9 +74,27 @@ describe('resetPasswordPage', () => {
       expect(result).not.toContain('id="password-error"');
     });
 
-    it('does not include aria-describedby when no errors', () => {
+    it('does not show password confirm error when not set', () => {
       expect.assertions(1);
-      expect(result).not.toContain('aria-describedby');
+      expect(result).not.toContain('id="password_confirm-error"');
+    });
+
+    it('renders password hint text', () => {
+      expect.assertions(1);
+      expect(result).toContain('Must be at least 12 characters');
+    });
+
+    it('includes confirm password field with label and required', () => {
+      expect.assertions(4);
+      expect(result).toContain('for="password_confirm"');
+      expect(result).toContain('id="password_confirm"');
+      expect(result).toContain('name="password_confirm"');
+      expect(result).toContain('autocomplete="new-password"');
+    });
+
+    it('includes aria-describedby with password hint on password when no errors', () => {
+      expect.assertions(1);
+      expect(result).toContain('aria-describedby="password-hint"');
     });
   });
 
@@ -109,9 +127,9 @@ describe('resetPasswordPage', () => {
       expect(xssResult).toContain('&lt;script&gt;');
     });
 
-    it('includes aria-describedby on password when error is set', () => {
+    it('includes aria-describedby on password with hint and error', () => {
       expect.assertions(1);
-      expect(result).toContain('aria-describedby="reset-password-error"');
+      expect(result).toContain('aria-describedby="reset-password-error password-hint"');
     });
   });
 
@@ -143,14 +161,48 @@ describe('resetPasswordPage', () => {
       expect(xssResult).toContain('&lt;script&gt;');
     });
 
-    it('includes aria-describedby on password when passwordError is set', () => {
+    it('includes aria-describedby on password with hint and passwordError', () => {
       expect.assertions(1);
-      expect(result).toContain('aria-describedby="password-error"');
+      expect(result).toContain('aria-describedby="password-hint password-error"');
+    });
+  });
+
+  describe('when passwordConfirmError is provided', () => {
+    let result: string;
+
+    beforeEach(() => {
+      result = resetPasswordPage({
+        csrfToken: 'csrf',
+        token: 'tok',
+        passwordConfirmError: 'Passwords do not match',
+      });
+    });
+
+    it('shows confirm password field error', () => {
+      expect.assertions(2);
+      expect(result).toContain('id="password_confirm-error"');
+      expect(result).toContain('Passwords do not match');
+    });
+
+    it('escapes passwordConfirmError prop to prevent XSS', () => {
+      expect.assertions(2);
+      const xssResult = resetPasswordPage({
+        csrfToken: 'csrf',
+        token: 'tok',
+        passwordConfirmError: '<script>alert("xss")</script>',
+      });
+      expect(xssResult).not.toContain('<script>alert');
+      expect(xssResult).toContain('&lt;script&gt;');
+    });
+
+    it('includes aria-describedby on confirm password when error is set', () => {
+      expect.assertions(1);
+      expect(result).toContain('aria-describedby="password_confirm-error"');
     });
   });
 
   describe('when both error and passwordError are provided', () => {
-    it('includes aria-describedby with both error IDs on password', () => {
+    it('includes aria-describedby with error, hint, and passwordError on password', () => {
       expect.assertions(1);
       const result = resetPasswordPage({
         csrfToken: 'csrf',
@@ -158,7 +210,9 @@ describe('resetPasswordPage', () => {
         error: 'General error',
         passwordError: 'Field error',
       });
-      expect(result).toContain('aria-describedby="reset-password-error password-error"');
+      expect(result).toContain(
+        'aria-describedby="reset-password-error password-hint password-error"'
+      );
     });
   });
 

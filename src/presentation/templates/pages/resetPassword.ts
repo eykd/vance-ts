@@ -20,6 +20,8 @@ interface ResetPasswordPageProps {
   readonly error?: string;
   /** Optional per-field error for the password input. */
   readonly passwordError?: string;
+  /** Optional per-field error for the confirm password input. */
+  readonly passwordConfirmError?: string;
 }
 
 /** ID for the general error container, referenced by aria-describedby. */
@@ -27,6 +29,12 @@ const ERROR_ID = 'reset-password-error';
 
 /** ID for the password field error, referenced by aria-describedby. */
 const PASSWORD_ERROR_ID = 'password-error';
+
+/** ID for the password requirements hint element, referenced by aria-describedby. */
+const PASSWORD_HINT_ID = 'password-hint';
+
+/** ID for the confirm-password field error element, referenced by aria-describedby. */
+const PASSWORD_CONFIRM_ERROR_ID = 'password_confirm-error';
 
 /**
  * Renders the reset password page as a complete HTML document.
@@ -51,12 +59,29 @@ export function resetPasswordPage(props: ResetPasswordPageProps): string {
         )
       : safe('');
 
-  // Compute aria-describedby for the password input.
+  const passwordConfirmErrorEl =
+    props.passwordConfirmError !== undefined
+      ? safe(
+          `<p id="${PASSWORD_CONFIRM_ERROR_ID}" class="text-error text-sm mt-1">${escapeHtml(props.passwordConfirmError)}</p>`
+        )
+      : safe('');
+
+  // Compute aria-describedby for the password input (always includes hint).
   const passwordParts: string[] = [];
   if (props.error !== undefined) passwordParts.push(ERROR_ID);
+  passwordParts.push(PASSWORD_HINT_ID);
   if (props.passwordError !== undefined) passwordParts.push(PASSWORD_ERROR_ID);
-  const passwordDescribedby =
-    passwordParts.length > 0 ? safe(`aria-describedby="${passwordParts.join(' ')}"`) : safe('');
+  const passwordDescribedby = safe(`aria-describedby="${passwordParts.join(' ')}"`);
+
+  // Compute aria-describedby for the confirm-password input.
+  const passwordConfirmParts: string[] = [];
+  if (props.error !== undefined) passwordConfirmParts.push(ERROR_ID);
+  if (props.passwordConfirmError !== undefined)
+    passwordConfirmParts.push(PASSWORD_CONFIRM_ERROR_ID);
+  const passwordConfirmDescribedby =
+    passwordConfirmParts.length > 0
+      ? safe(`aria-describedby="${passwordConfirmParts.join(' ')}"`)
+      : safe('');
 
   const content = html`
     <h1 class="card-title text-2xl font-bold mb-6">Reset Password</h1>
@@ -69,7 +94,7 @@ export function resetPasswordPage(props: ResetPasswordPageProps): string {
     >
       <input type="hidden" name="_csrf" value="${props.csrfToken}" />
       <input type="hidden" name="token" value="${props.token}" />
-      <div class="form-control mb-6">
+      <div class="form-control mb-4">
         <label for="password" class="label">
           <span class="label-text">New Password</span>
         </label>
@@ -83,7 +108,26 @@ export function resetPasswordPage(props: ResetPasswordPageProps): string {
           required
           minlength="12"
         />
+        <p id="${PASSWORD_HINT_ID}" class="text-base-content/60 text-sm mt-1">
+          Must be at least 12 characters
+        </p>
         ${passwordErrorEl}
+      </div>
+      <div class="form-control mb-6">
+        <label for="password_confirm" class="label">
+          <span class="label-text">Confirm New Password</span>
+        </label>
+        <input
+          id="password_confirm"
+          type="password"
+          name="password_confirm"
+          autocomplete="new-password"
+          ${passwordConfirmDescribedby}
+          class="input input-bordered w-full"
+          required
+          minlength="12"
+        />
+        ${passwordConfirmErrorEl}
       </div>
       <div class="form-control mt-2">
         <button type="submit" class="btn btn-primary w-full" :disabled="submitting">

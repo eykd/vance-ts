@@ -593,6 +593,7 @@ export class AuthPageHandlers {
 
     const token = formOrError.get('token') ?? '';
     const newPassword = formOrError.get('password') ?? '';
+    const passwordConfirm = formOrError.get('password_confirm') ?? '';
 
     if (token === '') {
       const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
@@ -602,6 +603,16 @@ export class AuthPageHandlers {
         error: RESET_PASSWORD_ERROR_MESSAGES.invalid_token,
       });
       return new Response(body, { status: 400, headers: errorHeaders });
+    }
+
+    if (newPassword !== passwordConfirm) {
+      const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();
+      const body = resetPasswordPage({
+        csrfToken,
+        token,
+        passwordConfirmError: PASSWORD_MISMATCH_ERROR,
+      });
+      return new Response(body, { headers: errorHeaders });
     }
 
     const result = await this.resetPasswordUseCase.execute({ token, newPassword });
