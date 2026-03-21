@@ -97,7 +97,7 @@ specs/013-import-design-skills/
 ### Phase B: Rename & Expand `frontend-design` → `design-interview`
 
 1. **Rename**: `git mv .claude/skills/frontend-design/ .claude/skills/design-interview/`
-2. **Preserve existing content**: Keep the current 4-phase workflow (Interview → Color Theme → Components → Implement), design-patterns.md, hugo-templates.md references, anti-pattern guidance, and file edit priority table
+2. **Preserve existing content and update frontmatter**: Keep the current 4-phase workflow (Interview → Color Theme → Components → Implement), design-patterns.md, hugo-templates.md references, anti-pattern guidance, and file edit priority table. Update SKILL.md frontmatter `name` field to `design-interview` and `description` to reflect the expanded orchestrator role. Craft the description to emphasize its role as the **starting point** for design work with trigger words like "Use when starting a new design task, redesigning UI, or needing guidance on which design skill to use next." Verify description stays under the 1024-character skill description limit.
 3. **Fold teach-impeccable context-gathering** into the interview phase. The existing skill already has a 5-question interview; expand it with teach-impeccable's structured approach:
    - **Step 1 (before questions)**: Codebase scan for design signals — README, package.json, existing components, brand assets, CSS variables, style guides. Note what was learned.
    - **Step 2 (questions, skip any answered by codebase scan)**:
@@ -164,7 +164,9 @@ specs/013-import-design-skills/
    - `spatial-design.md` — Add Tailwind spacing scale and DaisyUI layout components
    - `typography.md` — Add `@tailwindcss/typography` prose classes and DaisyUI typography conventions
    - `ux-writing.md` — Cross-reference with existing `hugo-copywriting` skill
-5. **No `{{model}}` or `{{config_file}}` placeholders** in the `frontend-design` source — these are not present in the actual source files. The only adaptation needed is the Mandatory Preparation/Context Gathering references.
+5. **Replace `{{model}}` placeholder** in the Implementation Principles closing section — the source contains "Remember: {{model}} is capable of extraordinary creative work." Replace `{{model}}` with `Claude` or remove the sentence (Claude Code does not need this instruction). Note: `{{config_file}}` is NOT present in `frontend-design` source (only in `teach-impeccable`, which is folded into `design-interview` in Phase B).
+6. **Update source attribution header** — the source file references `NOTICE.md` (wrong extension) and "Based on Anthropic's frontend-design skill" (provenance from impeccable's own chain). Replace with the project's attribution header format (Contract 2) pointing to `.claude/skills/NOTICE`. Preserve the upstream provenance chain (Anthropic → pbakaus/impeccable → this project).
+7. **Craft `design-frontend` description** to emphasize its role as a **reference hub** for design principles and anti-patterns, invoked by other skills rather than directly by users. Use trigger words like "invoked by design-\* skills for principles and anti-patterns" to reduce accidental direct invocation. Verify description stays under the 1024-character skill description limit.
 
 ### Phase D: Import 16 Standalone Design Skills
 
@@ -196,18 +198,50 @@ specs/013-import-design-skills/
    ```
 
 3. **Replace `{{ask_instruction}}` placeholder** — found in some skills in the pattern `"If any of these are unclear from the codebase, {{ask_instruction}}"`. Replace with `"If any of these are unclear from the codebase, ask the user."` (Claude Code handles this natively)
-4. **No `{{model}}` or `{{config_file}}` replacements needed** — these are not present in standalone skill source files
-5. **Add cross-references** to existing project skills where domains overlap (per Overlap Resolution table below)
-6. **Add DaisyUI/Tailwind mapping notes** where skills reference generic CSS patterns — annotate with equivalent Tailwind utility classes or DaisyUI components
+4. **Replace `{{available_commands}}` placeholder** — found in `audit` (2 occurrences) and `critique` (1 occurrence) in recommendation sections like "Prefer these: `{{available_commands}}`". Replace with a curated list of relevant project `design-*` skill names, e.g., `Available skills: /design-colorize, /design-typeset, /design-arrange, /design-animate, /design-polish`.
+5. **Preserve `{{area}}` parameter** — `audit` uses `{{area}}` as an intentional user-facing parameter (audit scope). This is NOT a build-system placeholder — preserve it as-is. Do not replace.
+6. **No `{{model}}` or `{{config_file}}` replacements needed** — `{{model}}` is present only in `frontend-design` source (handled in Phase C). Not present in standalone skill source files.
+7. **Add cross-references** to existing project skills where domains overlap (per Overlap Resolution table below)
+8. **Add DaisyUI/Tailwind mapping notes** where skills reference generic CSS patterns — annotate with equivalent Tailwind utility classes or DaisyUI components
 
 **Skills requiring minimal adaptation** (framework-agnostic, only Mandatory Preparation + header + `{{ask_instruction}}`):
-polish, arrange, colorize, typeset, animate, delight, critique, audit, clarify, bolder, quieter, harden, adapt, normalize, onboard, distill, overdrive
+polish, arrange, colorize, typeset, clarify, bolder, quieter, normalize, distill
+
+**Skills requiring insertion of Mandatory Preparation block** (block is absent in source):
+harden — has no Mandatory Preparation section. ADD the standard template (step 2) rather than replacing one.
+
+**Skills requiring additional framework adaptation** (have React-specific library references):
 
 **Note on overdrive**: Source analysis confirms it is ~95% framework-agnostic, focused on browser-native APIs (View Transitions, scroll-driven animations, WebGL, Canvas, Web Workers, WASM). Only two library references need adaptation:
 
 - "motion (formerly Framer Motion)" → remove or replace with GSAP (already listed in the skill) or Web Animations API
 - "TanStack Virtual" → note as vanilla-compatible or replace with custom approach for Alpine.js
   All CSS and vanilla JS techniques work directly with Hugo + Alpine.js.
+
+**Note on delight**: References Framer Motion, React Spring, use-sound (React hook), and Lottie. Replace: Framer Motion → CSS animations + Alpine.js `x-transition`; React Spring → CSS `spring()` timing or Web Animations API; use-sound → Web Audio API or Howler.js (vanilla); Lottie → keep (framework-agnostic).
+
+**Note on animate**: References "Framer Motion (for React projects)". Replace with CSS animations + Alpine.js `x-transition` + Web Animations API.
+
+**Note on adapt**: Source uses desktop-first responsive strategy with fixed pixel breakpoints (320px/768px/1024px). Adapt to Tailwind CSS 4's mobile-first convention:
+
+- Replace pixel breakpoints with Tailwind responsive prefixes (`sm:640px`, `md:768px`, `lg:1024px`, `xl:1280px`, `2xl:1536px`)
+- Reframe "Desktop → Mobile" adaptation advice as mobile-first progressive enhancement
+- Add note: "This project uses Tailwind's mobile-first responsive system — styles without prefixes apply to mobile, prefixes add larger-screen behaviors"
+- Cross-reference with existing `tailwind-daisyui-design` responsive design section
+
+**Note on distill**: This skill instructs component and code removal. Add project-specific safeguards:
+
+> **Project Safeguard**: In this project's DaisyUI 5 + Hugo stack:
+>
+> - Do NOT remove DaisyUI component variants that support accessibility states
+> - Do NOT simplify Hugo partial structures that enable responsive layouts
+> - Do NOT strip theme variables — the OKLCH color system requires all semantic color pairs
+> - Before removing any component, verify it is not used across multiple templates with `grep -r`
+> - Prefer simplifying custom CSS over removing DaisyUI utility usage
+
+**Note on onboard**: Contains instructions for localStorage-based user tracking and analytics metrics. Add a privacy warning (see Security Considerations → Privacy-Sensitive Skill Instructions).
+
+**Note on audit and critique**: Contain `{{available_commands}}` placeholders requiring replacement (see step 4 above).
 
 ### Phase E: Integration & Cross-References
 
@@ -222,36 +256,43 @@ polish, arrange, colorize, typeset, animate, delight, critique, audit, clarify, 
    - Typography: design-typeset vs tailwind-daisyui-design typography-readability.md (selection vs application — complementary)
    - Accessibility: design-audit vs tailwind-daisyui-design form-accessibility.md (broad vs form-specific — complementary)
 3. **Update CLAUDE.md skill list** — ensure all new `design-*` skills appear in the available skills section
+4. **Update `.claude/skills/README.md`** — add a new "### Design" section under "Frontend & UI" containing catalog entries for all 18 imported `design-*` skills plus `design-interview`. Each entry must follow the existing format: name with link, "Use when" triggers, "Provides" summary, "Cross-references" list. Add a "Design Chain" to the Skill Chains section: `design-interview → design-frontend → daisyui-design-system-generator → tailwind-daisyui-design → design-*/refine → design-*/review → design-*/harden`. Update the `frontend-design` entry to `design-interview` with its new orchestrator description.
+5. **Add cross-references for `design-language-to-daisyui`** — this existing skill overlaps with `design-arrange` (layout) and `design-normalize` (system alignment). Add to `design-language-to-daisyui/SKILL.md`: "For layout composition strategy, see `/design-arrange`. For design system alignment, see `/design-normalize`."
 
 ### Adaptation Matrix
 
-| Impeccable Reference              | Project Equivalent                            | Frequency                                       |
-| --------------------------------- | --------------------------------------------- | ----------------------------------------------- |
-| `frontend-design` skill ref       | `/design-frontend`                            | Every skill (Mandatory Preparation block)       |
-| `teach-impeccable` skill ref      | `/design-interview`                           | Every skill (Mandatory Preparation block)       |
-| `{{ask_instruction}}` placeholder | "ask the user" (Claude Code handles natively) | Some skills (colorize, bolder, others)          |
-| `.impeccable.md` context file     | CLAUDE.md `## Design Context` section         | frontend-design Context Gathering Protocol only |
-| React components / JSX            | Hugo Go template partials                     | Rare — skills are ~95% framework-agnostic       |
-| CSS-in-JS / styled-components     | TailwindCSS 4 utility classes                 | Rare — skills use pure CSS                      |
-| Design tokens (generic)           | DaisyUI 5 OKLCH theme variables               | Reference docs (add mapping notes)              |
-| Component library (generic)       | DaisyUI 5 component classes                   | Reference docs (add mapping notes)              |
-| State management (React)          | Alpine.js `x-data` / HTMX `hx-*`              | Reference docs (interaction-design.md)          |
-| Client-side routing               | Hugo page routing + HTMX partial swaps        | Reference docs (interaction-design.md)          |
+| Impeccable Reference                 | Project Equivalent                            | Frequency                                         |
+| ------------------------------------ | --------------------------------------------- | ------------------------------------------------- |
+| `frontend-design` skill ref          | `/design-frontend`                            | Every skill (Mandatory Preparation block)         |
+| `teach-impeccable` skill ref         | `/design-interview`                           | Every skill (Mandatory Preparation block)         |
+| `{{ask_instruction}}` placeholder    | "ask the user" (Claude Code handles natively) | Some skills (colorize, bolder, others)            |
+| `{{available_commands}}` placeholder | Curated list of project `design-*` skills     | audit (×2), critique (×1)                         |
+| `{{model}}` placeholder              | `Claude` (or remove sentence)                 | frontend-design only (Phase C step 5)             |
+| `{{area}}` placeholder               | **Preserve as-is** (user-facing parameter)    | audit only — intentional, not a build placeholder |
+| `.impeccable.md` context file        | CLAUDE.md `## Design Context` section         | frontend-design Context Gathering Protocol only   |
+| React components / JSX               | Hugo Go template partials                     | Rare — skills are ~95% framework-agnostic         |
+| CSS-in-JS / styled-components        | TailwindCSS 4 utility classes                 | Rare — skills use pure CSS                        |
+| Design tokens (generic)              | DaisyUI 5 OKLCH theme variables               | Reference docs (add mapping notes)                |
+| Component library (generic)          | DaisyUI 5 component classes                   | Reference docs (add mapping notes)                |
+| State management (React)             | Alpine.js `x-data` / HTMX `hx-*`              | Reference docs (interaction-design.md)            |
+| Client-side routing                  | Hugo page routing + HTMX partial swaps        | Reference docs (interaction-design.md)            |
 
-**Key finding**: `{{model}}` and `{{config_file}}` placeholders are NOT present in the source skill files (only in the build system's output). No replacement needed for these.
+**Key finding**: `{{model}}` is present in `frontend-design` source only (handled in Phase C step 5). `{{config_file}}` is NOT present in source skill files. `{{available_commands}}` is present in `audit` and `critique` (handled in Phase D step 4). `{{area}}` in `audit` is an intentional user parameter — preserve it.
 
 ### Overlap Resolution
 
-| Imported Skill     | Existing Skill                                        | Resolution                                                                                                                                                                               |
-| ------------------ | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `design-colorize`  | `daisyui-design-system-generator`                     | design-colorize provides _strategy_ (when/where to add color); existing skill generates _themes_ (OKLCH values). Complementary. design-colorize defers to existing for theme generation. |
-| `design-colorize`  | `tailwind-daisyui-design` (color-usage.md)            | design-colorize adds color strategy layer; existing provides semantic application patterns. Cross-reference both.                                                                        |
-| `design-typeset`   | `tailwind-daisyui-design` (typography-readability.md) | design-typeset provides font selection and hierarchy strategy; existing provides Tailwind prose classes and readability rules. Cross-reference both.                                     |
-| `design-audit`     | `tailwind-daisyui-design` (form-accessibility.md)     | design-audit is broader (all a11y); existing is form-specific. Complementary.                                                                                                            |
-| `design-frontend`  | `design-interview`                                    | design-frontend is the reference hub (guidelines, anti-patterns); design-interview is the workflow orchestrator (routes users through phases). Distinct responsibilities.                |
-| `design-adapt`     | `htmx-alpine-templates`                               | design-adapt covers responsive strategy; existing provides implementation templates. Complementary.                                                                                      |
-| `design-normalize` | `daisyui-design-system-generator`                     | design-normalize aligns existing UI to a system; existing generates the system. Sequential.                                                                                              |
-| `design-clarify`   | `hugo-copywriting`                                    | design-clarify handles UX microcopy (labels, errors); copywriting handles long-form content. Different scope.                                                                            |
+| Imported Skill     | Existing Skill                                        | Resolution                                                                                                                                                                                                                           |
+| ------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `design-colorize`  | `daisyui-design-system-generator`                     | design-colorize provides _strategy_ (when/where to add color); existing skill generates _themes_ (OKLCH values). Complementary. design-colorize defers to existing for theme generation.                                             |
+| `design-colorize`  | `tailwind-daisyui-design` (color-usage.md)            | design-colorize adds color strategy layer; existing provides semantic application patterns. Cross-reference both.                                                                                                                    |
+| `design-typeset`   | `tailwind-daisyui-design` (typography-readability.md) | design-typeset provides font selection and hierarchy strategy; existing provides Tailwind prose classes and readability rules. Cross-reference both.                                                                                 |
+| `design-audit`     | `tailwind-daisyui-design` (form-accessibility.md)     | design-audit is broader (all a11y); existing is form-specific. Complementary.                                                                                                                                                        |
+| `design-frontend`  | `design-interview`                                    | design-frontend is the reference hub (guidelines, anti-patterns); design-interview is the workflow orchestrator (routes users through phases). Distinct responsibilities.                                                            |
+| `design-adapt`     | `htmx-alpine-templates`                               | design-adapt covers responsive strategy; existing provides implementation templates. Complementary.                                                                                                                                  |
+| `design-normalize` | `daisyui-design-system-generator`                     | design-normalize aligns existing UI to a system; existing generates the system. Sequential.                                                                                                                                          |
+| `design-clarify`   | `hugo-copywriting`                                    | design-clarify handles UX microcopy (labels, errors); copywriting handles long-form content. Different scope.                                                                                                                        |
+| `design-arrange`   | `design-language-to-daisyui`                          | design-arrange provides layout strategy; existing translates vocabulary to DaisyUI classes. Cross-reference: design-arrange should note "For translating layout descriptions to DaisyUI classes, see `/design-language-to-daisyui`." |
+| `design-normalize` | `design-language-to-daisyui`                          | design-normalize aligns existing UI to design system; existing translates design vocabulary to DaisyUI. Complementary.                                                                                                               |
 
 ## Security Considerations
 
@@ -267,6 +308,20 @@ Imported skill files are AI instructions that Claude Code executes directly. The
 ### License Compliance Integrity
 
 The plan correctly addresses Apache 2.0 attribution (NOTICE file, file headers). No additional security concerns here — the license permits modification and redistribution.
+
+### Privacy-Sensitive Skill Instructions
+
+The `design-onboard` skill instructs Claude to implement localStorage-based user tracking (`localStorage.setItem('onboarding-completed', 'true')`) and analytics metrics (completion time, drop-off points, skip rates). This effectively instructs Claude to add telemetry code to the application.
+
+- **Risk**: Adding client-side tracking without privacy policy coverage could violate GDPR/ePrivacy regulations (localStorage is covered by consent requirements in EU). The skill could cause Claude to silently add tracking code that the developer doesn't realize has privacy implications.
+- **Mitigation**: During Phase D adaptation, add a prominent warning to `design-onboard/SKILL.md`:
+  ```
+  > **Privacy Notice**: Before implementing onboarding tracking (localStorage, completion
+  > metrics), verify that:
+  > 1. The project's privacy policy covers client-side storage
+  > 2. Cookie/storage consent is implemented if targeting EU users (ePrivacy Directive)
+  > 3. Tracking data is reviewed against the project's PII redaction policies
+  ```
 
 ## Edge Cases & Error Handling
 
@@ -287,9 +342,9 @@ Phase B renames the directory (`git mv .claude/skills/frontend-design/ .claude/s
 
 ### Mandatory Preparation Block Format Variance
 
-Phase D assumes all 16 standalone skills have an identical Mandatory Preparation block. If any skill has a variation (different wording, additional content, or a missing block), the mechanical find-and-replace could fail or produce inconsistent results.
+Phase D assumes all 16 standalone skills have an identical Mandatory Preparation block. Source analysis confirms at least `harden` has NO Mandatory Preparation section at all — it requires insertion rather than replacement.
 
-- **Mitigation**: Before batch replacement, grep all 16 source skill files for `MANDATORY PREPARATION` and compare the exact text. Document any variations and handle them individually. Add a post-replacement verification step (grep for any remaining `teach-impeccable` or unmodified `frontend-design` references).
+- **Mitigation**: Before batch replacement, grep all 16 source skill files for `MANDATORY PREPARATION` and compare the exact text. Document any variations and handle them individually. For skills missing the block entirely (confirmed: `harden`), insert the standard template. Add a post-replacement verification step (grep for any remaining `teach-impeccable` or unmodified `frontend-design` references).
 
 ### `{{ask_instruction}}` Placeholder Enumeration
 
@@ -316,6 +371,36 @@ The 7 reference documents imported into `design-frontend/references/` may cross-
   - References to skill names without the `design-` prefix
   - Internal cross-references between reference docs (update paths if needed)
 
+### React Library References Beyond `overdrive`
+
+Phase D classifies `delight`, `animate`, and others as "minimal adaptation." Source analysis confirms `delight` references Framer Motion, React Spring, use-sound (React hook), and Lottie. `animate` references "Framer Motion (for React projects)." These skills need the same React library replacement treatment as `overdrive`.
+
+- **Mitigation**: See per-skill notes in Phase D. Also update the Post-Import Verification grep (item 6) to catch space-separated form: `framer motion` in addition to `framer.motion`.
+
+### `adapt` Desktop-First vs Tailwind Mobile-First Conflict
+
+The `design-adapt` source skill defines explicit pixel breakpoints (320-767px mobile, 768-1023px tablet, 1024px+ desktop) and uses a desktop-first approach. Tailwind CSS 4 is mobile-first by convention (responsive prefixes apply min-width, building UP from mobile). This philosophical mismatch would produce guidance contradicting how Tailwind responsive design works.
+
+- **Mitigation**: See per-skill notes in Phase D for `adapt`. Reframe the entire responsive strategy direction from desktop-first to mobile-first.
+
+### `design-language-to-daisyui` Vocabulary Conflict
+
+The existing `design-language-to-daisyui` skill has a vocabulary-based system for describing UI (tone, emphasis, size, shape). If `design-arrange` gives layout advice using different terminology (e.g., "rhythm," "visual weight") than the existing design language system uses ("vertical stack," "gap large"), developers will receive conflicting vocabulary.
+
+- **Mitigation**: Add `design-language-to-daisyui` to the Overlap Resolution table and add cross-references in Phase E.
+
+### Skill Description Length Constraint
+
+The `design-interview` orchestrator will have a significantly expanded role (7-phase workflow coordinator routing to 18+ sub-skills). The skill description frontmatter has a 1024-character limit. Writing a description that adequately covers trigger conditions while differentiating from `design-frontend` within this limit is a real constraint.
+
+- **Mitigation**: Craft the `design-interview` description to emphasize its role as the **starting point** for design work, with trigger words like "Use when starting a new design task, redesigning UI, or needing guidance on which design skill to use next." Verify both `design-interview` and `design-frontend` descriptions stay under 1024 characters and are clearly differentiated (orchestrator vs reference hub).
+
+### README.md Skill Catalog Gap
+
+Phase E mentions updating CLAUDE.md and cross-references in existing skills, but `.claude/skills/README.md` is a 384-line catalog with structured entries for every skill. Without updating it, 18 new skills won't appear in the catalog.
+
+- **Mitigation**: See Phase E step 4 for README.md update plan.
+
 ### Historical Status Docs
 
 `docs/2026-02-25_project_status.md` and `docs/2026-03-19-status.md` list `frontend-design` in their skills inventory. These are historical point-in-time snapshots.
@@ -328,12 +413,25 @@ _Added by red team review (sp:04)._
 
 After all phases complete, run these verification checks before committing:
 
-1. **Stale references**: `grep -r "teach-impeccable\|{{ask_instruction}}\|{{model}}\|{{config_file}}\|\.impeccable\.md" .claude/skills/design-*/` — must return zero results
+1. **Stale references**: `grep -r "teach-impeccable\|{{ask_instruction}}\|{{available_commands}}\|{{model}}\|{{config_file}}\|\.impeccable\.md" .claude/skills/design-*/` — must return zero results
 2. **Incomplete renames**: `grep -r "frontend-design" .claude/skills/` — must return zero results (only `design-frontend` and `design-interview` should exist)
 3. **Attribution coverage**: Every file in `.claude/skills/design-*/SKILL.md` that was imported must have the Apache 2.0 attribution header
 4. **Cross-reference integrity**: Every `design-*` skill mentioned in cross-references must have a corresponding directory in `.claude/skills/`
-5. **Frontmatter validity**: Every new SKILL.md must have valid `name` and `description` frontmatter fields
-6. **Framework references**: `grep -ri "react\|vue\|angular\|styled-components\|css-in-js\|framer.motion" .claude/skills/design-*/` — must return zero results (SC-001)
+5. **Frontmatter validity**: Every new SKILL.md must have valid `name` and `description` frontmatter fields; descriptions must be under 1024 characters
+6. **Framework references**: `grep -ri "react\|vue\|angular\|styled-components\|css-in-js\|framer.motion\|framer motion\|react spring\|use-sound" .claude/skills/design-*/` — must return zero results (SC-001)
+7. **Preserved parameters**: `grep -r "{{area}}" .claude/skills/design-audit/` — must return results (intentional user-facing parameter, not to be replaced)
+8. **Privacy warnings**: `design-onboard/SKILL.md` must contain a Privacy Notice warning about localStorage tracking
+9. **README.md completeness**: `.claude/skills/README.md` must contain entries for all 18 imported skills plus `design-interview`
+
+## Misuse & Abuse Considerations
+
+_Added by red team review (sp:04)._
+
+### `design-distill` Instructs Code Removal
+
+Unlike all other imported skills which add or modify, `design-distill` explicitly instructs removal: "Remove unused code: Dead CSS, unused components, orphaned files" and "Reduce variants." In the context of a DaisyUI project, an AI following this skill could recommend removing DaisyUI component variants, stripping theme definitions, or simplifying Hugo partial structures that exist for valid responsive/accessibility reasons.
+
+- **Mitigation**: Project-specific safeguards added to Phase D (see "Note on distill"). The skill must include a "Project Safeguard" block that prevents removing DaisyUI accessibility variants, Hugo responsive partials, and OKLCH theme variables.
 
 ## Performance Considerations
 
