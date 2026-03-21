@@ -212,7 +212,9 @@ export class AuthPageHandlers {
    * Uses the shared auth layout for consistent branding with other auth error pages.
    *
    * @param retryAfter - Optional seconds until the client may retry.
-   * @param backLink - Optional back link override (href and label). Defaults to sign-in.
+   * @param backLink - Optional back link override. Defaults to sign-in.
+   * @param backLink.href - The URL to navigate back to.
+   * @param backLink.label - The visible link text.
    * @returns A styled 429 HTML Response with security headers and optional Retry-After.
    */
   private static buildRateLimitedResponse(
