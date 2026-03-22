@@ -133,6 +133,8 @@ See `references/workflow-patterns.md` for complete workflows.
 
 Integrates with: `hugo-templates`, `design-frontend`, `tailwind-daisyui-design`, `daisyui-design-system-generator`, `htmx-alpine-templates`, `hugo-project-setup`.
 
+For UX microcopy (labels, error messages, empty states), see `/design-clarify`.
+
 **Typical flow:** design-frontend (visual) → hugo-copywriting (voice/style) → hugo-templates (structure) → tailwind-daisyui-design (styling).
 
 ## Documentation Standards

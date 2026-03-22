@@ -73,6 +73,10 @@ Decision order:
 - **[references/form-accessibility.md](references/form-accessibility.md)** - Accessible form structure and validation patterns
 - **[references/color-usage.md](references/color-usage.md)** - Semantic color application and theme integration
 
+## Related Design Skills
+
+For color strategy beyond semantic application, see `/design-colorize`. For typography selection and hierarchy, see `/design-typeset`. For layout composition, see `/design-arrange`.
+
 ## Key Reminders
 
 **Accessibility**
