@@ -60,13 +60,13 @@ All messages prefixed with `[ralph]` for easy filtering.
 
 ## Environment Requirements
 
-| Requirement | Check Command      |
-| ----------- | ------------------ |
-| Claude CLI  | `which claude`     |
-| Beads CLI   | `npx bd --version` |
-| Git         | `git --version`    |
-| jq          | `which jq`         |
-| Bash 5.x    | `bash --version`   |
+| Requirement | Check Command    |
+| ----------- | ---------------- |
+| Claude CLI  | `which claude`   |
+| Beads CLI   | `br --version`   |
+| Git         | `git --version`  |
+| jq          | `which jq`       |
+| Bash 5.x    | `bash --version` |
 
 ## File Artifacts
 
@@ -87,8 +87,8 @@ All messages prefixed with `[ralph]` for easy filtering.
 ### External Commands
 
 - `claude -p "<prompt>"` - Invoke Claude CLI in print mode
-- `npx bd ready --json` - Query ready tasks
-- `npx bd list --parent <id> --json` - List tasks under epic
+- `br ready --json` - Query ready tasks
+- `br list --parent <id> --json` - List tasks under epic
 - `git branch --show-current` - Get current branch name
 - `jq` - JSON parsing
 

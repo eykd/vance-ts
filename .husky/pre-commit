@@ -1,5 +1,5 @@
-npx bd hooks run pre-commit
 npx lint-staged
+npm run lint:unused
 npm run format:check
 npm run test:workers
 npm run test:coverage

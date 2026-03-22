@@ -13,7 +13,7 @@ import type { AuthService } from '../ports/AuthService.js';
 /**
  * Input DTO for the sign-out use case.
  */
-export type SignOutRequest = {
+type SignOutRequest = {
   /** The opaque session token value (extracted from the request cookie by the presenter). */
   sessionToken: string;
 };
@@ -25,7 +25,7 @@ export type SignOutRequest = {
  * is responsible for clearing the session cookie in the browser. On failure:
  * - `service_error` — infrastructure failure (DB unavailable, etc.)
  */
-export type SignOutResult = { ok: true } | { ok: false; kind: 'service_error' };
+type SignOutResult = { ok: true } | { ok: false; kind: 'service_error' };
 
 /**
  * Orchestrates user sign-out by delegating to the AuthService port.

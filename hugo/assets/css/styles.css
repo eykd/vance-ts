@@ -14,6 +14,12 @@ body {
   @apply antialiased;
 }
 
+/* Hide Alpine.js x-cloak elements until Alpine removes the attribute.
+   Prevents flash of unauthenticated content (FOUC) on auth-conditional UI. */
+[x-cloak] {
+  display: none !important;
+}
+
 /* Featured image hero background */
 .hero-featured {
   background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), var(--hero-bg-image);

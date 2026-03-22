@@ -3,7 +3,8 @@
 
 import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
-import { getAuthForm, submitAuthForm, signInAs, extractSessionCookie } from "./helpers";
+
+import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
 
 describe("US05-sign-out", () => {
 

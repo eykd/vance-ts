@@ -2,7 +2,7 @@
   "name": "turtlebased-ts",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.ts",
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
@@ -12,16 +12,20 @@
     "format": "prettier --write --no-error-on-unmatched-pattern \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\" \"tools/**/*.ts\"",
     "format:check": "prettier --check --no-error-on-unmatched-pattern \"src/**/*.ts\" \".claude/memory/**/*.ts\" \".claude/types/**/*.ts\" \"tools/**/*.ts\"",
     "test": "vitest run --project=workers && vitest run --project=node && vitest run --project=acceptance",
+    "test:ci": "vitest run --retry=2 --reporter=default --reporter=json --outputFile=test-results.json",
     "test:workers": "vitest run --project=workers",
     "test:acceptance": "vitest run --project=acceptance",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage --project=node",
+    "test:leak-detect": "DETECT_STATE_LEAKS=true vitest run --project=acceptance",
     "type-check": "tsc --noEmit",
     "check": "npm run type-check && npm run lint && npm run test",
     "validate": "npm run type-check && npm run lint && npm run format:check && npm run test:coverage && npm run build",
     "fix": "npm run format && npm run lint:fix",
     "dev:worker": "wrangler dev",
     "actionlint": "npx -y @tktco/node-actionlint",
+    "test:mutants": "stryker run",
+    "lint:unused": "knip",
     "prepare": "husky"
   },
   "engines": {
@@ -70,38 +74,48 @@
     ]
   },
   "devDependencies": {
-    "@beads/bd": "^0.59.0",
-    "@cloudflare/vitest-pool-workers": "^0.12.20",
-    "@cloudflare/workers-types": "^4.20260307.1",
-    "@commitlint/cli": "^20.4.3",
-    "@commitlint/config-conventional": "^20.4.3",
+    "@cloudflare/vitest-pool-workers": "^0.13.2",
+    "@cloudflare/workers-types": "^4.20260317.1",
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@stryker-mutator/core": "^9.6.0",
+    "@stryker-mutator/typescript-checker": "^9.6.0",
+    "@stryker-mutator/vitest-runner": "^9.6.0",
     "@tktco/node-actionlint": "^1.6.0",
     "@types/node": "^25.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/eslint-plugin": "^8.57.1",
     "@typescript-eslint/parser": "^8.52.0",
-    "@vitest/coverage-v8": "^3.2.4",
-    "better-sqlite3": "^12.6.2",
+    "@vitest/coverage-v8": "^4.1.0",
+    "better-sqlite3": "^12.8.0",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-boundaries": "^6.0.0",
     "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-jsdoc": "^62.7.1",
+    "eslint-plugin-jsdoc": "^62.8.0",
     "eslint-plugin-prettier": "^5.5.5",
     "fast-png": "^8.0.0",
     "husky": "^9.1.7",
-    "lint-staged": "^16.3.2",
+    "knip": "^5.88.1",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
     "prettier-plugin-go-template": "^0.0.15",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "simplex-noise": "^4.0.3",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^3.2.4",
-    "wrangler": "^4.67.0"
+    "vitest": "^4.1.0",
+    "wrangler": "^4.75.0"
   },
   "dependencies": {
     "@noble/hashes": "^2.0.1",
-    "better-auth": "^1.5.4",
+    "better-auth": "1.5.5",
     "drizzle-orm": "^0.45.1",
-    "hono": "^4.12.5"
+    "hono": "^4.12.8"
+  },
+  "overrides": {
+    "@sveltejs/vite-plugin-svelte": {
+      "vite": "^7.3.1"
+    }
   }
 }

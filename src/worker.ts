@@ -6,8 +6,10 @@ import { getServiceFactory } from './di/serviceFactory';
 import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
 import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
 import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandler';
+import { authErrorPage } from './presentation/templates/pages/authError';
 import type { AppEnv } from './presentation/types';
-import { applySecurityHeaders } from './presentation/utils/securityHeaders';
+import { authErrorStatusCode } from './presentation/utils/authErrorStatus';
+import { SECURITY_HEADERS } from './presentation/utils/securityHeaders';
 
 // Durable Object class must be exported from the worker entry point so
 // the Workers runtime can register it as a named DO binding.
@@ -18,24 +20,47 @@ const app = new Hono<AppEnv>();
 /**
  * Middleware: apply security headers after the downstream handler runs.
  *
- * Static assets served via the [assets] config use the _headers file instead.
+ * Uses `c.header()` instead of `c.res = new Response(c.res.body, c.res)` to
+ * avoid Hono's Context `res` setter header-merging logic that can duplicate
+ * headers on HEAD requests (the setter copies headers from both the old and
+ * new response, and Hono's HEAD dispatch wraps the result in yet another
+ * `new Response(null, result)`).
+ *
+ * `c.header()` bypasses the setter by writing directly to the internal
+ * response field, and handles immutable-header responses (e.g. from
+ * ASSETS.fetch) by creating a mutable copy internally.
+ *
+ * Registered globally via `app.use('*', …)` so every new route automatically
+ * receives security headers — no per-prefix registration required.
  *
  * @param c - The Hono context.
  * @param next - The next middleware function in the chain.
  */
 const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<void> => {
   await next();
-  applySecurityHeaders(c.res.headers);
+  for (const [name, value] of SECURITY_HEADERS) {
+    c.header(name, value);
+  }
 };
 
-app.use('/api/*', withSecurityHeaders);
-app.use('/app/_/*', withSecurityHeaders);
-app.use('/auth/*', withSecurityHeaders);
+app.use('*', withSecurityHeaders);
 
-/** Middleware: require authentication for all app routes. */
-app.use('/app/*', async (c, next): Promise<Response | void> => {
+/**
+ * Middleware: require authentication before proceeding.
+ *
+ * Delegates to the ServiceFactory's requireAuthMiddleware which validates
+ * the session cookie and redirects unauthenticated visitors to sign-in.
+ *
+ * @param c - The Hono context.
+ * @param next - The next middleware function in the chain.
+ * @returns A redirect response for unauthenticated visitors, or void if authenticated.
+ */
+const withRequireAuth: MiddlewareHandler<AppEnv> = async (c, next): Promise<Response | void> => {
   return getServiceFactory(c.env).requireAuthMiddleware(c as Context<AppEnv>, next);
-});
+};
+
+app.use('/app/*', withRequireAuth);
+app.use('/dashboard/*', withRequireAuth);
 
 /** Health check endpoint. */
 app.get('/api/health', healthCheck);
@@ -68,6 +93,37 @@ app.use('/api/auth/sign-up/*', async (c, next): Promise<Response | void> => {
 });
 
 /**
+ * Intercepts better-auth's default error page at `/api/auth/error`.
+ *
+ * better-auth renders a styled HTML page with external links (to better-auth.com)
+ * and an "Ask AI" button, revealing the auth framework in use. This route
+ * replaces it with the application's auth layout for consistent branding and
+ * to avoid leaking implementation details.
+ *
+ * Must be registered before the `/api/auth/*` catch-all so that this specific
+ * path is handled here instead of being forwarded to better-auth.
+ */
+app.get('/api/auth/error', (c): Response => {
+  const errorCode = c.req.query('error') ?? null;
+  return new Response(authErrorPage(), {
+    status: authErrorStatusCode(errorCode),
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-cache' },
+  });
+});
+
+/**
+ * Blocks OAuth callback requests for unconfigured providers.
+ *
+ * No OAuth/social providers are currently configured in better-auth. Without
+ * this guard, better-auth's catch-all would process the callback URL and
+ * redirect to `/api/auth/error?state=state_not_found`, leaking information
+ * about the auth infrastructure. Returns a clean 404 instead.
+ *
+ * When OAuth providers are added, replace this with provider-aware routing.
+ */
+app.get('/api/auth/callback/*', apiNotFound);
+
+/**
  * better-auth API pass-through.
  *
  * Delegates all GET/POST requests under `/api/auth/*` to the better-auth
@@ -79,8 +135,13 @@ app.use('/api/auth/sign-up/*', async (c, next): Promise<Response | void> => {
  * are handled here rather than returning 404.
  */
 app.on(['GET', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
-  const authResponse = await getServiceFactory(c.env).authHandler(c.req.raw);
-  return new Response(authResponse.body, authResponse);
+  try {
+    const authResponse = await getServiceFactory(c.env).authHandler(c.req.raw);
+    return new Response(authResponse.body, authResponse);
+  } catch (error: unknown) {
+    getServiceFactory(c.env).logger.error('auth handler error', error);
+    return c.json({ error: 'Service Unavailable' }, 503, { 'Retry-After': '30' });
+  }
 });
 
 /** Catch-all for unimplemented API routes. */
@@ -119,6 +180,24 @@ app.post('/auth/sign-up', async (c): Promise<Response> => {
 /** Terminates the authenticated user's session. */
 app.post('/auth/sign-out', async (c): Promise<Response> => {
   return getServiceFactory(c.env).authPageHandlers.handlePostSignOut(c.req.raw);
+});
+
+/**
+ * Returns 405 Method Not Allowed for unsupported methods on auth page routes.
+ *
+ * Registered after the specific GET/POST handlers so that only unhandled
+ * methods (PUT, DELETE, PATCH, etc.) reach these catch-alls.
+ */
+app.all('/auth/sign-in', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET, POST' });
+});
+
+app.all('/auth/sign-up', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET, POST' });
+});
+
+app.all('/auth/sign-out', (c): Response => {
+  return c.body(null, 405, { Allow: 'POST' });
 });
 
 /** Catch-all for unimplemented app partial routes. */

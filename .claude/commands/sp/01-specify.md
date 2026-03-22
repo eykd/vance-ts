@@ -1,15 +1,3 @@
----
-description: Create or update the feature specification from a natural language description, using an explicit one-question-at-a-time user interview. Creates a beads epic for task tracking.
-handoffs:
-  - label: Build Technical Plan
-    agent: sp:03-plan
-    prompt: Create a plan for the spec. I am building with...
-  - label: Clarify Spec Requirements
-    agent: sp:02-clarify
-    prompt: Clarify specification requirements
-    send: true
----
-
 ## User Input
 
 ```text
@@ -67,11 +55,11 @@ Given that feature description, do this:
    b. If not initialized, initialize beads:
 
    ```bash
-   npx bd init
+   br init
    ```
 
    - This creates the `.beads/` directory for git-backed task tracking
-   - If initialization fails, display error and suggest running `npm install --save-dev @beads/bd` first
+   - If initialization fails, display error and suggest installing br via curl first
 
    c. Verify initialization succeeded:
 
@@ -148,13 +136,13 @@ Given that feature description, do this:
    a. Check if an epic already exists for this feature branch:
 
    ```bash
-   npx bd list --type epic --status open --json 2>/dev/null | grep -i "<feature-name>" || echo "no_existing_epic"
+   br list --type epic --status open --json 2>/dev/null | grep -i "<feature-name>" || echo "no_existing_epic"
    ```
 
    b. If no existing epic, create one:
 
    ```bash
-   npx bd create "Feature: <feature-name>" -t epic -p 0 --description "Spec: specs/<branch>/spec.md" --json
+   br create "Feature: <feature-name>" -t epic -p 0 --description "Spec: specs/<branch>/spec.md" --json
    ```
 
    - `<feature-name>`: The short name generated in step 2
@@ -167,7 +155,7 @@ Given that feature description, do this:
    d. If epic already exists, retrieve its ID:
 
    ```bash
-   npx bd list --type epic --status open --json | jq -r '.[] | select(.title | contains("<feature-name>")) | .id'
+   br list --type epic --status open --json | jq -r '.issues[] | select(.title | contains("<feature-name>")) | .id'
    ```
 
    e. **Store epic ID in spec.md**: Add the epic ID to the spec.md front matter:
@@ -193,63 +181,63 @@ Given that feature description, do this:
    BRANCH="<branch-name-from-step-3>"
 
    # Create phase tasks (store IDs from JSON responses)
-   npx bd create "[sp:02-clarify] Clarify requirements for $FEATURE_NAME" -p 1 --parent <epic-id> \
+   br create "[sp:02-clarify] Clarify requirements for $FEATURE_NAME" -p 1 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md
    **Skills**: None
    **Context**: Interactive clarification - identify ambiguities and resolve through user questions
    **Acceptance**: No [NEEDS CLARIFICATION] markers remain in spec.md" --json
    # Store returned ID as CLARIFY_ID
 
-   npx bd create "[sp:03-plan] Create implementation plan for $FEATURE_NAME" -p 1 --parent <epic-id> \
+   br create "[sp:03-plan] Create implementation plan for $FEATURE_NAME" -p 1 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md
    **Skills**: /prefactoring, /latent-features, /glossary
    **Context**: Generate plan.md with technical architecture, data-model.md if needed
    **Acceptance**: All technical decisions documented, file structure defined" --json
    # Store returned ID as PLAN_ID
 
-   npx bd create "[sp:04-red-team] Perform adversarial review for $FEATURE_NAME" -p 2 --parent <epic-id> \
+   br create "[sp:04-red-team] Perform adversarial review for $FEATURE_NAME" -p 2 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md, plan.md
    **Skills**: None
    **Context**: Adversarial review of spec and plan; enhance plan.md with security, edge cases, performance, accessibility
    **Acceptance**: plan.md enhanced with adversarial findings; red team review complete" --json
    # Store returned ID as RED_TEAM_ID
 
-   npx bd create "[sp:05-tasks] Generate implementation tasks for $FEATURE_NAME" -p 1 --parent <epic-id> \
+   br create "[sp:05-tasks] Generate implementation tasks for $FEATURE_NAME" -p 1 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md, plan.md
    **Skills**: /prefactoring, /glossary
    **Context**: Create beads tasks with skill references and acceptance criteria
    **Acceptance**: All user stories have beads tasks with descriptions" --json
    # Store returned ID as TASKS_ID
 
-   npx bd create "[sp:06-analyze] Analyze artifacts for $FEATURE_NAME" -p 2 --parent <epic-id> \
+   br create "[sp:06-analyze] Analyze artifacts for $FEATURE_NAME" -p 2 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md, plan.md, beads tasks
    **Skills**: None (read-only analysis)
    **Context**: Validate cross-artifact consistency, coverage gaps, constitution alignment
    **Acceptance**: No CRITICAL issues; coverage report shows all requirements mapped" --json
    # Store returned ID as ANALYZE_ID
 
-   npx bd create "[sp:07-implement] Execute implementation for $FEATURE_NAME" -p 1 --parent <epic-id> \
+   br create "[sp:07-implement] Execute implementation for $FEATURE_NAME" -p 1 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md, plan.md
    **Skills**: Per-task (see task descriptions)
    **Context**: TDD implementation - strict red-green-refactor for all tasks
    **Acceptance**: All tasks closed, tests pass, 100% coverage maintained" --json
    # Store returned ID as IMPLEMENT_ID
 
-   npx bd create "[sp:08-security-review] Security review for $FEATURE_NAME" -p 2 --parent <epic-id> \
+   br create "[sp:08-security-review] Security review for $FEATURE_NAME" -p 2 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md, plan.md
    **Skills**: /security-review
    **Context**: Review branch diff (<base>..HEAD) for security vulnerabilities; create remediation tasks as needed
    **Acceptance**: No CRITICAL security findings; remediation tasks filed for any remaining issues" --json
    # Store returned ID as SECURITY_REVIEW_ID
 
-   npx bd create "[sp:09-architecture-review] Architecture review for $FEATURE_NAME" -p 2 --parent <epic-id> \
+   br create "[sp:09-architecture-review] Architecture review for $FEATURE_NAME" -p 2 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md, plan.md
    **Skills**: /clean-architecture-validator
    **Context**: Review branch diff (<base>..HEAD) for architectural compliance; create remediation tasks as needed
    **Acceptance**: No blocking architecture violations; remediation tasks filed for any remaining issues" --json
    # Store returned ID as ARCH_REVIEW_ID
 
-   npx bd create "[sp:10-code-quality-review] Code quality review for $FEATURE_NAME" -p 2 --parent <epic-id> \
+   br create "[sp:10-code-quality-review] Code quality review for $FEATURE_NAME" -p 2 --parent <epic-id> \
      --description "**Spec**: specs/$BRANCH/spec.md, plan.md
    **Skills**: /quality-review
    **Context**: Review branch diff (<base>..HEAD) for general code quality; create remediation tasks as needed
@@ -260,14 +248,14 @@ Given that feature description, do this:
    b. Create the dependency chain (each phase depends on the previous):
 
    ```bash
-   npx bd dep add <PLAN_ID> <CLARIFY_ID>
-   npx bd dep add <RED_TEAM_ID> <PLAN_ID>
-   npx bd dep add <TASKS_ID> <RED_TEAM_ID>
-   npx bd dep add <ANALYZE_ID> <TASKS_ID>
-   npx bd dep add <IMPLEMENT_ID> <ANALYZE_ID>
-   npx bd dep add <SECURITY_REVIEW_ID> <IMPLEMENT_ID>
-   npx bd dep add <ARCH_REVIEW_ID> <SECURITY_REVIEW_ID>
-   npx bd dep add <QUALITY_REVIEW_ID> <ARCH_REVIEW_ID>
+   br dep add <PLAN_ID> <CLARIFY_ID>
+   br dep add <RED_TEAM_ID> <PLAN_ID>
+   br dep add <TASKS_ID> <RED_TEAM_ID>
+   br dep add <ANALYZE_ID> <TASKS_ID>
+   br dep add <IMPLEMENT_ID> <ANALYZE_ID>
+   br dep add <SECURITY_REVIEW_ID> <IMPLEMENT_ID>
+   br dep add <ARCH_REVIEW_ID> <SECURITY_REVIEW_ID>
+   br dep add <QUALITY_REVIEW_ID> <ARCH_REVIEW_ID>
    ```
 
    c. Store phase task IDs in spec.md front matter for reference:
@@ -287,8 +275,10 @@ Given that feature description, do this:
    d. Verify the dependency chain:
 
    ```bash
-   npx bd dep tree <epic-id>
+   br dep tree <epic-id> --direction up
    ```
+
+   - Note: `--direction up` shows dependents/children (default `down` shows blockers, which is empty for an epic)
 
    Expected output shows the chain: clarify → plan → red-team → tasks → analyze → implement → security-review → architecture-review → code-quality-review
 
@@ -410,7 +400,7 @@ e. This step must not block spec creation — if the pin update fails, log a war
 - Spec file path
 - **Beads epic ID** (if created successfully)
 - **Phase tasks created** (list all 7 phase task IDs)
-- **Dependency chain visualization** (from `bd dep tree`)
+- **Dependency chain visualization** (from `br dep tree`)
 - Checklist results
 - **Next step**: Run `/sp:next` to start the workflow, or `/sp:02-clarify` directly
 
@@ -483,7 +473,7 @@ Success criteria must be:
 
 If beads commands fail during execution:
 
-1. **bd init fails**: Display error, suggest `npm install --save-dev @beads/bd`, continue without beads
+1. **br init fails**: Display error, suggest installing br via curl, continue without beads
 2. **Epic creation fails**: Log warning, continue with spec creation, note in completion report
 3. **Epic lookup fails**: Create new epic (may result in duplicate if lookup was false negative)
 

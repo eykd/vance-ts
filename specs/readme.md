@@ -106,9 +106,9 @@ Spec: specs/007-hugo-project-setup/spec.md
 
 ## Beads Integration
 
-Keywords: beads, bd, task tracking, epic, task hierarchy, dependency graph, bd init,
-bd create, bd ready, bd close, bd dep, bd list, spec-kit, /sp:01-specify, namespace
-swap, task status, git-backed, issue tracker, epic ID, sub-task, phase tasks, dolt
+Keywords: beads, br, task tracking, epic, task hierarchy, dependency graph, br init,
+br create, br ready, br close, br dep, br list, spec-kit, /sp:01-specify, namespace
+swap, task status, git-backed, issue tracker, epic ID, sub-task, phase tasks
 Spec: specs/008-beads-integration/spec.md
 
 ---
@@ -139,6 +139,26 @@ limiting, brute force, email enumeration, password strength, protected routes, m
 access control, OAuth, Google login, social login, CSRF, security headers, Hono, D1,
 KV, credential, hashed password, route protection, redirect after login
 Spec: specs/011-better-auth/spec.md
+
+---
+
+## Auth-Static Site Integration
+
+Keywords: auth integration, static site auth, navbar auth, sign in link, sign up button,
+dashboard, auth status, session check, authenticated navbar, HTMX swap, Alpine.js store,
+progressive enhancement, auth guard, client-side redirect, auth endpoint, hypermedia auth,
+Get Started replacement, nav auth area, auth state, fail-closed
+Spec: specs/012-auth-static-integration/spec.md
+
+---
+
+## Import Impeccable Design Skills
+
+Keywords: impeccable, design skills, import, adapt, fork, Apache 2.0, license, attribution,
+NOTICE, pbakaus, frontend design, style, polish, critique, audit, animate, arrange, colorize,
+typeset, clarify, delight, distill, harden, normalize, bolder, quieter, onboard, optimize,
+overdrive, extract, design-prefix, skill namespace, DaisyUI adaptation, Tailwind adaptation
+Spec: specs/013-import-design-skills/spec.md
 
 ---
 

@@ -3,7 +3,8 @@
 
 import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
-import { getAuthForm, submitAuthForm } from "./helpers";
+
+import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
 
 describe("US03-register-account", () => {
 

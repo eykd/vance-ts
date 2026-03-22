@@ -125,24 +125,24 @@ ENVIRONMENT = "development"
   "exclude": ["node_modules", "dist"]
 }''')
 
-    create_file(root / "vitest.config.ts", '''import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
+    create_file(root / "vitest.config.ts", '''import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+import { defineConfig } from "vitest/config";
 
-export default defineWorkersConfig({
+export default defineConfig({
+  plugins: [
+    cloudflareTest({
+      wrangler: {
+        configPath: "./wrangler.toml"
+      },
+      miniflare: {
+        compatibilityDate: "''' + today + '''",
+        compatibilityFlags: ["nodejs_compat"]
+      }
+    })
+  ],
   test: {
     globals: true,
     include: ["src/**/*.{spec,test}.ts", "tests/**/*.test.ts"],
-
-    poolOptions: {
-      workers: {
-        wrangler: {
-          configPath: "./wrangler.toml"
-        },
-        miniflare: {
-          compatibilityDate: "''' + today + '''",
-          compatibilityFlags: ["nodejs_compat"]
-        }
-      }
-    },
 
     coverage: {
       provider: "v8",

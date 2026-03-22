@@ -1,7 +1,3 @@
----
-description: Execute the implementation plan by processing tasks from beads. Uses bd ready to get available tasks and bd close to mark completion.
----
-
 ## User Input
 
 ```text
@@ -33,7 +29,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    b. If not found, search beads for the epic:
 
    ```bash
-   npx bd list --type epic --status open --json
+   br list --type epic --status open --json
    ```
 
    c. Store epic ID for task queries
@@ -43,7 +39,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    a. Query beads for tasks ready to work on:
 
    ```bash
-   npx bd ready --json
+   br ready --json
    ```
 
    - This returns tasks with no blocking dependencies
@@ -52,7 +48,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    b. If no ready tasks, check remaining open tasks:
 
    ```bash
-   npx bd list --parent <epic-id> --status open --json
+   br show <epic-id> --json | jq '.[0].dependents[] | select(.status == "open")'
    ```
 
    - If all tasks complete, report completion
@@ -78,12 +74,12 @@ You **MUST** consider the user input before proceeding (if not empty).
    a. **Mark task in progress**:
 
    ```bash
-   npx bd update <task-id> --status in_progress --json
+   br update <task-id> --claim
    ```
 
    b. **Execute the task implementation**:
 
-   **REQUIRED — Read constraints before writing code**: Before writing any code, read the full description of both the current task AND its parent US story task (`npx bd show <parent-id>`). If the US story contains an `## Implementation Constraints` section, those constraints define how the code must be written correctly from the start. Apply them during initial implementation — do NOT implement the code first and fix it later as a separate task.
+   **REQUIRED — Read constraints before writing code**: Before writing any code, read the full description of both the current task AND its parent US story task (`br show <parent-id>`). If the US story contains an `## Implementation Constraints` section, those constraints define how the code must be written correctly from the start. Apply them during initial implementation — do NOT implement the code first and fix it later as a separate task.
 
    **For TypeScript code changes** - Apply strict red-green-refactor TDD:
    - **RED**: Write a failing test FIRST (create `.spec.ts` file if needed)
@@ -111,7 +107,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    d. **Mark task complete**:
 
    ```bash
-   npx bd close <task-id> --reason "<brief-completion-summary>" --json
+   br close <task-id> --reason "<brief-completion-summary>" --json
    ```
 
    - Provide a brief summary of what was done
@@ -119,7 +115,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    e. **Check for newly ready tasks**:
 
    ```bash
-   npx bd ready --json
+   br ready --json
    ```
 
    - Completing a task may unblock dependent tasks
@@ -134,7 +130,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 8. **Progress tracking and error handling**:
    - Report progress after each completed task
-   - Show beads task status: `npx bd stats --json`
+   - Show beads task status: `br stats --json`
    - Halt execution if any critical task fails
    - For parallel tasks, continue with successful tasks, report failed ones
    - Provide clear error messages with context for debugging
@@ -145,39 +141,39 @@ You **MUST** consider the user input before proceeding (if not empty).
    a. Find the implement phase task ID:
 
    ```bash
-   IMPLEMENT_TASK_ID=$(npx bd list --parent <epic-id> --json | jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
+   IMPLEMENT_TASK_ID=$(br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:07-implement]")) | .id')
    ```
 
    b. Check remaining sub-tasks under the implement phase task:
 
    ```bash
-   npx bd list --parent $IMPLEMENT_TASK_ID --status open --json
+   br show $IMPLEMENT_TASK_ID --json | jq '.[0].dependents[] | select(.status == "open")'
    ```
 
    c. If open sub-tasks remain:
    - Report remaining work count and next ready task
-   - Suggest next ready task via `bd ready`
+   - Suggest next ready task via `br ready`
    - Do NOT close the implement phase task
 
    d. If ALL sub-tasks under implement are closed:
 
    ```bash
    # Verify all sub-tasks complete
-   OPEN_COUNT=$(npx bd list --parent $IMPLEMENT_TASK_ID --status open --json | jq 'length')
+   OPEN_COUNT=$(br show $IMPLEMENT_TASK_ID --json | jq '[.[0].dependents[] | select(.status == "open")] | length')
    if [ "$OPEN_COUNT" -eq 0 ]; then
      # Verify implemented features match the original specification
      # Validate that tests pass and coverage meets requirements
      # Confirm the implementation follows the technical plan
 
      # Close the implement phase task
-     npx bd close $IMPLEMENT_TASK_ID --reason "All implementation tasks complete"
+     br close $IMPLEMENT_TASK_ID --reason "All implementation tasks complete"
    fi
    ```
 
    e. After closing implement task, the [sp:08-security-review] task becomes ready:
 
    ```bash
-   npx bd ready --json | jq '.[] | select(.title | contains("[sp:08-security-review]"))'
+   br ready --json | jq '.[] | select(.title | contains("[sp:08-security-review]"))'
    ```
 
    f. Report: "Implementation complete. Run `/sp:next` (security → architecture → quality review) for code review."
@@ -185,39 +181,40 @@ You **MUST** consider the user input before proceeding (if not empty).
    g. Display final beads summary:
 
    ```bash
-   npx bd stats --json
-   npx bd dep tree <epic-id>
+   br stats --json
+   br dep tree <epic-id> --direction up
    ```
+
+   - Note: `--direction up` shows dependents/children (default `down` shows blockers, which is empty for an epic)
 
 Note: This command uses beads exclusively for task tracking. Run `/sp:05-tasks` if beads tasks do not exist.
 
 ## Beads Task Lifecycle
 
 ```text
-┌──────────┐     bd update      ┌─────────────┐     bd close     ┌────────┐
+┌──────────┐     br update      ┌─────────────┐     br close     ┌────────┐
 │   open   │ ────────────────→  │ in_progress │ ──────────────→  │ closed │
-└──────────┘   --status         └─────────────┘    --reason       └────────┘
-                in_progress
+└──────────┘     --claim        └─────────────┘    --reason       └────────┘
 ```
 
 ## Beads Commands Reference
 
-| Action               | Command                                               |
-| -------------------- | ----------------------------------------------------- |
-| Get ready tasks      | `npx bd ready --json`                                 |
-| Mark in progress     | `npx bd update <id> --status in_progress`             |
-| Mark complete        | `npx bd close <id> --reason "summary"`                |
-| View task            | `npx bd show <id>`                                    |
-| List open tasks      | `npx bd list --parent <epic-id> --status open --json` |
-| View statistics      | `npx bd stats --json`                                 |
-| View dependency tree | `npx bd dep tree <epic-id>`                           |
+| Action               | Command                                                 |
+| -------------------- | ------------------------------------------------------- |
+| Get ready tasks      | `br ready --json`                                       |
+| Claim task           | `br update <id> --claim`                                |
+| Mark complete        | `br close <id> --reason "summary"`                      |
+| View task            | `br show <id>`                                          |
+| List open tasks      | `br show <epic-id> --json` (filter `.[0].dependents[]`) |
+| View statistics      | `br stats --json`                                       |
+| View dependency tree | `br dep tree <epic-id> --direction up`                  |
 
 ## Error Handling
 
 If beads commands fail:
 
-1. **bd: command not found**: Suggest `npm install --save-dev @beads/bd`
-2. **No ready tasks but open tasks exist**: Check dependencies with `bd dep tree`
+1. **br: command not found**: Suggest installing br via curl
+2. **No ready tasks but open tasks exist**: Check dependencies with `br dep tree`
 3. **Task update fails**: Log error, continue with next task, report at end
 4. **Epic not found**: Run `/sp:05-tasks` to create beads tasks
 

@@ -51,6 +51,10 @@ Screen: Dashboard
 4. **Sentences are specs** — each resolves to exactly one visual result on any platform.
 5. **Responsive via context** — optionally: "size small on mobile, size large on desktop."
 
+## Related Design Skills
+
+For layout composition strategy, see `/design-arrange`. For UX evaluation, see `/design-critique`. For design anti-patterns and the AI Slop Test, see `/design-frontend`.
+
 ## Reference Navigation
 
 Load these on demand as needed:

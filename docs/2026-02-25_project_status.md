@@ -175,7 +175,7 @@ Existing specs: US01 (health), US02 (API 404). Stubs generated, then manually bo
 
 ### Pre-commit Gate (Husky)
 
-1. `npx bd hooks run pre-commit` (beads validation)
+1. `br hooks run pre-commit` (beads validation)
 2. `npx lint-staged` (prettier, eslint, tsc, vitest per file)
 3. `npm run format:check`
 4. `npm run test:coverage` (100% threshold)
@@ -189,7 +189,7 @@ Existing specs: US01 (health), US02 (API 404). Stubs generated, then manually bo
 SQLite-backed task tracker in `.beads/`. Integrates with the spec-kit workflow.
 
 **Hierarchy:** Epic > Phase tasks > User story tasks > Sub-tasks
-**Commands:** `bd create`, `bd list`, `bd ready`, `bd close`, `bd dep add/tree`, `bd stats`
+**Commands:** `br create`, `br list`, `br ready`, `br close`, `br dep add/tree`, `br stats`
 **Branch convention:** Feature branches encode epic ID for CI context.
 
 ---
@@ -212,11 +212,11 @@ SQLite-backed task tracker in `.beads/`. Integrates with the spec-kit workflow.
 | `sp:09` | architecture-review | Architecture compliance check             |
 | `sp:10` | code-quality-review | General code quality review               |
 
-`/sp:next` queries `bd ready` and dispatches to the correct phase skill.
+`/sp:next` queries `br ready` and dispatches to the correct phase skill.
 
 ### Ralph (ralph.sh, 1951 lines)
 
-Automated loop: queries `bd ready`, invokes `/sp:next`, polls for completion, repeats.
+Automated loop: queries `br ready`, invokes `/sp:next`, polls for completion, repeats.
 Handles phases 03-09 (01-02 are manual). Up to 50 iterations, 30-min Claude timeout,
 10 retries with exponential backoff. Lock file prevents concurrent runs.
 

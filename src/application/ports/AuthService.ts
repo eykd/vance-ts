@@ -93,7 +93,8 @@ export interface AuthService {
     name: string;
   }): Promise<
     | { ok: true }
-    | { ok: false; kind: 'email_taken' | 'weak_password' | 'rate_limited' | 'service_error' }
+    | { ok: false; kind: 'email_taken' | 'weak_password' | 'service_error' }
+    | { ok: false; kind: 'rate_limited'; retryAfter?: number }
   >;
 
   /**
@@ -130,16 +131,4 @@ export interface AuthService {
    * @param password - The submitted plaintext password to verify against the dummy hash.
    */
   verifyDummyPassword(password: string): Promise<void>;
-
-  /**
-   * Checks whether the given cookie header contains an active session cookie.
-   *
-   * Delegates the knowledge of the session cookie naming convention to the
-   * auth service so that presentation handlers carry no awareness of the
-   * underlying cookie name format.
-   *
-   * @param cookieHeader - The raw `Cookie` header value from the request.
-   * @returns `true` if a session cookie is present, `false` otherwise.
-   */
-  hasSession(cookieHeader: string): boolean;
 }

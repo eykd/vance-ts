@@ -18,6 +18,10 @@ lint:
 lint-fix:
     npx eslint src --ext .ts --fix
 
+# Check for unused code, exports, and dependencies
+lint-unused:
+    npx knip
+
 # Check code formatting
 format-check:
     npx prettier --check "src/**/*.ts"
@@ -64,12 +68,16 @@ validate: check build
 fix: format lint-fix
     @echo "✅ Auto-fixes applied!"
 
+# Run Workers and acceptance tests (requires hugo/public from a prior build)
+test-workers:
+    npm run test:workers
+
 # Run the full CI pipeline locally
-ci: clean install type-check lint format-check test-coverage build hugo-install hugo-test
+ci: clean install type-check lint lint-unused format-check test-coverage build hugo-install hugo-test test-workers
     @echo "✅ CI pipeline completed successfully!"
 
-# Watch mode for development
-dev:
+# Watch mode for TypeScript compilation
+build-watch:
     npx tsc --watch
 
 # Run security audit
@@ -126,6 +134,9 @@ hugo-check:
 # Worker Development Commands
 # ============================================================================
 
+# Build Hugo + start Workers dev server (production-like, single port)
+dev: hugo-build dev-worker
+
 # Start local dev server with Workers runtime + static assets
 dev-worker:
     npx wrangler dev
@@ -172,6 +183,18 @@ acceptance-regen:
     rm -rf acceptance-pipeline/ir/ generated-acceptance-tests/*.spec.ts
     npx tsx acceptance/pipeline.ts --action=run
 
+# Run acceptance tests with state leak detection enabled
+test-leak-detect:
+    DETECT_STATE_LEAKS=true npx vitest run --project=acceptance
+
+# Run acceptance tests 10 times to verify no flakiness
+test-stability:
+    bash scripts/verify-test-stability.sh
+
+# Run mutation testing on domain and application layers (slow — CI only)
+test-mutants:
+    npx stryker run
+
 # Run both unit tests and acceptance tests
 test-all: test acceptance-run
 
@@ -183,16 +206,12 @@ test-all: test acceptance-run
 beads-init:
     #!/usr/bin/env bash
     set -euo pipefail
-    # Ensure dolt is installed
-    if ! command -v dolt &>/dev/null; then
-        echo "Installing dolt..."
-        curl -fsSL https://github.com/dolthub/dolt/releases/latest/download/install.sh | sudo bash
+    # Ensure br (beads_rust) is installed
+    if ! command -v br &>/dev/null; then
+        echo "Installing beads_rust..."
+        curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
     fi
-    # Skip if already initialized and healthy
-    if npx bd dolt test --quiet 2>/dev/null && npx bd list --json --quiet 2>/dev/null | grep -q '"id"'; then
-        echo "✅ Beads already initialized and healthy — nothing to do."
-        exit 0
-    fi
-    # Hydrate dolt database from the JSONL that travels with the repo
-    npx bd init --from-jsonl --server-port 14080
-    echo "✅ Beads initialized from issues.jsonl"
+    # Initialize and import
+    br init
+    br sync --import-only
+    echo "✅ Beads initialized"

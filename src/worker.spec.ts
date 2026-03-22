@@ -1,5 +1,7 @@
+import type { Context, Next } from 'hono';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { AppEnv } from './presentation/types';
 import type { Env } from './shared/env';
 import app from './worker';
 
@@ -8,24 +10,26 @@ import app from './worker';
  * factory functions, which run before module imports.
  */
 const mocks = vi.hoisted(() => {
-  const authHandlerFn = vi.fn<[Request], Promise<Response>>();
-  const handleGetSignIn = vi.fn<[Request], Response>();
-  const handlePostSignIn = vi.fn<[Request], Promise<Response>>();
-  const handleGetSignUp = vi.fn<[Request], Response>();
-  const handlePostSignUp = vi.fn<[Request], Promise<Response>>();
-  const handlePostSignOut = vi.fn<[Request], Promise<Response>>();
+  const authHandlerFn = vi.fn<(req: Request) => Promise<Response>>();
+  const handleGetSignIn = vi.fn<(req: Request) => Response>();
+  const handlePostSignIn = vi.fn<(req: Request) => Promise<Response>>();
+  const handleGetSignUp = vi.fn<(req: Request) => Response>();
+  const handlePostSignUp = vi.fn<(req: Request) => Promise<Response>>();
+  const handlePostSignOut = vi.fn<(req: Request) => Promise<Response>>();
   /** Default: passes through by calling next() (authenticated). */
   const requireAuthMiddlewareFn = vi.fn(
-    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+    async (_c: Context<AppEnv>, next: Next): Promise<Response | void> => next()
   );
   /** Default: passes through by calling next() (not rate limited). */
   const signInApiRateLimitMiddlewareFn = vi.fn(
-    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+    async (_c: Context<AppEnv>, next: Next): Promise<Response | void> => next()
   );
   /** Default: passes through by calling next() (not rate limited). */
   const signUpApiRateLimitMiddlewareFn = vi.fn(
-    async (_c: unknown, next: unknown): Promise<Response | void> => (next as () => Promise<void>)()
+    async (_c: Context<AppEnv>, next: Next): Promise<Response | void> => next()
   );
+
+  const loggerError = vi.fn();
 
   const mockFactory = {
     authHandler: authHandlerFn,
@@ -36,6 +40,7 @@ const mocks = vi.hoisted(() => {
       handlePostSignUp,
       handlePostSignOut,
     },
+    logger: { error: loggerError },
     requireAuthMiddleware: requireAuthMiddlewareFn,
     signInApiRateLimitMiddleware: signInApiRateLimitMiddlewareFn,
     signUpApiRateLimitMiddleware: signUpApiRateLimitMiddlewareFn,
@@ -48,6 +53,7 @@ const mocks = vi.hoisted(() => {
     handleGetSignUp,
     handlePostSignUp,
     handlePostSignOut,
+    loggerError,
     requireAuthMiddlewareFn,
     signInApiRateLimitMiddlewareFn,
     signUpApiRateLimitMiddlewareFn,
@@ -101,6 +107,46 @@ describe('Worker', () => {
       expect(res.headers.get('X-Frame-Options')).toBe('DENY');
       expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
       expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+  });
+
+  describe('HEAD /api/health', () => {
+    it('does not duplicate response headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/health', { method: 'HEAD' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(200);
+      // Count occurrences of each header name — duplicates would appear as multiple entries
+      const headerCounts = new Map<string, number>();
+      res.headers.forEach((_value, name) => {
+        headerCounts.set(name, (headerCounts.get(name) ?? 0) + 1);
+      });
+      for (const [name, count] of headerCounts) {
+        expect(count, `header "${name}" appeared ${count} times`).toBe(1);
+      }
+    });
+
+    it('includes security headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/health', { method: 'HEAD' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+
+    it('returns an empty body', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/health', { method: 'HEAD' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.body).toBeNull();
     });
   });
 
@@ -169,7 +215,28 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
 
       expect(fetchSpy).toHaveBeenCalledWith(req);
-      expect(res).toBe(assetResponse);
+      expect(await res.text()).toBe('<html>homepage</html>');
+    });
+
+    it('applies security headers to static asset responses', async () => {
+      const assetResponse = new Response('<html>page</html>', {
+        headers: { 'Content-Type': 'text/html' },
+      });
+      const fetchSpy = vi.fn().mockResolvedValue(assetResponse);
+      const env: Env = {
+        ASSETS: {
+          fetch: fetchSpy,
+          connect: vi.fn(),
+        } as unknown as Fetcher,
+      } as unknown as Env;
+      const req = new Request('https://example.com/about');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
     });
   });
 
@@ -329,6 +396,138 @@ describe('Worker', () => {
     });
   });
 
+  describe('405 Method Not Allowed on auth page routes', () => {
+    it.each([
+      { path: '/auth/sign-in', method: 'PUT', allow: 'GET, POST' },
+      { path: '/auth/sign-in', method: 'DELETE', allow: 'GET, POST' },
+      { path: '/auth/sign-in', method: 'PATCH', allow: 'GET, POST' },
+      { path: '/auth/sign-up', method: 'PUT', allow: 'GET, POST' },
+      { path: '/auth/sign-up', method: 'DELETE', allow: 'GET, POST' },
+      { path: '/auth/sign-up', method: 'PATCH', allow: 'GET, POST' },
+      { path: '/auth/sign-out', method: 'GET', allow: 'POST' },
+      { path: '/auth/sign-out', method: 'PUT', allow: 'POST' },
+      { path: '/auth/sign-out', method: 'DELETE', allow: 'POST' },
+      { path: '/auth/sign-out', method: 'PATCH', allow: 'POST' },
+    ])('returns 405 for $method $path with Allow: $allow', async ({ path, method, allow }) => {
+      const env = mockEnv();
+      const req = new Request(`https://example.com${path}`, { method });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(405);
+      expect(res.headers.get('Allow')).toBe(allow);
+    });
+
+    it('includes security headers on 405 responses', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/auth/sign-out', { method: 'PUT' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(405);
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    });
+
+    it('does not delegate to auth page handlers for unsupported methods', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/auth/sign-out', { method: 'DELETE' });
+
+      await app.fetch(req, env);
+
+      expect(mocks.handlePostSignOut).not.toHaveBeenCalled();
+      expect(mocks.handleGetSignIn).not.toHaveBeenCalled();
+      expect(mocks.handlePostSignIn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /api/auth/error', () => {
+    it('returns a styled HTML error page instead of better-auth default', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(400);
+      expect(res.headers.get('Content-Type')).toContain('text/html');
+      const body = await res.text();
+      expect(body).toMatch(/^<!DOCTYPE html>/);
+      expect(body).toContain('Authentication Error');
+    });
+
+    it('does not delegate to authHandler', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      await app.fetch(req, env);
+
+      expect(mocks.authHandlerFn).not.toHaveBeenCalled();
+    });
+
+    it('does not reveal the auth framework name', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+      const body = await res.text();
+
+      expect(body.toLowerCase()).not.toContain('better-auth');
+    });
+
+    it('does not contain external links', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+      const body = await res.text();
+
+      expect(body).not.toMatch(/href="https?:\/\//);
+    });
+
+    it('includes security headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+
+    it('includes Cache-Control: no-store, no-cache to prevent caching error pages', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+    });
+
+    it('renders the page with query parameters (e.g. ?error=state_not_found)', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error?error=state_not_found');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(400);
+      const body = await res.text();
+      expect(body).toContain('Authentication Error');
+    });
+
+    it('returns 500 for internal_server_error', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error?error=internal_server_error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(500);
+      const body = await res.text();
+      expect(body).toContain('Authentication Error');
+    });
+  });
+
   describe('GET /api/auth/*', () => {
     it('delegates to authHandler before /api/* catch-all', async () => {
       const env = mockEnv();
@@ -374,20 +573,104 @@ describe('Worker', () => {
     });
   });
 
-  describe('OAuth callback routing (US-5 extensibility)', () => {
-    it('routes GET /api/auth/callback/:provider to authHandler via the /api/auth/* wildcard (no dedicated route needed)', async () => {
+  describe('/api/auth/* error handling', () => {
+    it('returns 503 JSON when authHandler throws', async () => {
       const env = mockEnv();
-      const callbackRedirect = new Response(null, {
-        status: 302,
-        headers: { Location: '/app' },
-      });
-      mocks.authHandlerFn.mockResolvedValue(callbackRedirect);
+      mocks.authHandlerFn.mockRejectedValue(new Error('D1 unavailable'));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(503);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
+      expect(await res.json()).toEqual({ error: 'Service Unavailable' });
+    });
+
+    it('includes Retry-After header when authHandler throws', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockRejectedValue(new Error('D1 unavailable'));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('Retry-After')).toBe('30');
+    });
+
+    it('applies security headers when authHandler throws', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockRejectedValue(new Error('D1 unavailable'));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    });
+
+    it('returns 503 JSON when authHandler throws on GET', async () => {
+      const env = mockEnv();
+      mocks.authHandlerFn.mockRejectedValue(new Error('connection error'));
+
+      const req = new Request('https://example.com/api/auth/session');
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ error: 'Service Unavailable' });
+    });
+
+    it('logs the underlying exception via the Logger port', async () => {
+      const env = mockEnv();
+      const error = new Error('D1 unavailable');
+      mocks.authHandlerFn.mockRejectedValue(error);
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      await app.fetch(req, env);
+
+      expect(mocks.loggerError).toHaveBeenCalledWith('auth handler error', error);
+    });
+  });
+
+  describe('GET /api/auth/callback/* (unconfigured providers)', () => {
+    it('returns 404 JSON for an unconfigured provider', async () => {
+      const env = mockEnv();
 
       const req = new Request('https://example.com/api/auth/callback/google');
       const res = await app.fetch(req, env);
 
-      expect(mocks.authHandlerFn).toHaveBeenCalledWith(req);
-      expect(res.status).toBe(302);
+      expect(res.status).toBe(404);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
+      expect(await res.json()).toEqual({ error: 'Not found' });
+    });
+
+    it('does not delegate to authHandler', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/callback/google');
+      await app.fetch(req, env);
+
+      expect(mocks.authHandlerFn).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 for any provider name', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/callback/github');
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: 'Not found' });
+    });
+
+    it('includes security headers', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/api/auth/callback/google');
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
     });
   });
 
@@ -497,6 +780,50 @@ describe('Worker', () => {
       await app.fetch(req, env);
 
       expect(mocks.signUpApiRateLimitMiddlewareFn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('/dashboard/* requireAuth middleware', () => {
+    it('invokes requireAuthMiddleware for /dashboard/ requests', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/dashboard/');
+      await app.fetch(req, env);
+
+      expect(mocks.requireAuthMiddlewareFn).toHaveBeenCalled();
+    });
+
+    it('applies security headers to /dashboard/ responses', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/dashboard/');
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+
+    it('invokes requireAuthMiddleware for /dashboard (no trailing slash)', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/dashboard');
+      await app.fetch(req, env);
+
+      expect(mocks.requireAuthMiddlewareFn).toHaveBeenCalled();
+    });
+
+    it('applies security headers to /dashboard (no trailing slash)', async () => {
+      const env = mockEnv();
+
+      const req = new Request('https://example.com/dashboard');
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
     });
   });
 

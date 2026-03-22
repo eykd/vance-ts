@@ -15,38 +15,36 @@ Full vitest config with D1 migrations:
 
 ```typescript
 // vitest.config.ts
-import { defineWorkersConfig, readD1Migrations } from '@cloudflare/vitest-pool-workers/config';
+import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-workers';
+import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 
-export default defineWorkersConfig(async () => {
-  const migrationsPath = path.join(__dirname, 'migrations');
-  const migrations = await readD1Migrations(migrationsPath);
+const migrationsPath = path.join(__dirname, 'migrations');
+const migrations = await readD1Migrations(migrationsPath);
 
-  return {
-    test: {
-      globals: true,
-      include: ['src/**/*.{spec,test}.ts', 'tests/**/*.test.ts'],
-      setupFiles: ['./tests/setup.ts'],
-
-      poolOptions: {
-        workers: {
-          wrangler: { configPath: './wrangler.toml' },
-          miniflare: {
-            d1Databases: { DB: {} },
-            kvNamespaces: ['SESSIONS'],
-            bindings: { MIGRATIONS: migrations },
-          },
-          isolatedStorage: true, // Critical: each test gets fresh D1/KV state
-        },
+export default defineConfig({
+  plugins: [
+    cloudflareTest({
+      wrangler: { configPath: './wrangler.toml' },
+      miniflare: {
+        d1Databases: { DB: {} },
+        kvNamespaces: ['SESSIONS'],
+        bindings: { MIGRATIONS: migrations },
       },
+      isolatedStorage: true, // Critical: each test gets fresh D1/KV state
+    }),
+  ],
+  test: {
+    globals: true,
+    include: ['src/**/*.{spec,test}.ts', 'tests/**/*.test.ts'],
+    setupFiles: ['./tests/setup.ts'],
 
-      coverage: {
-        provider: 'v8',
-        reporter: ['text', 'json', 'html'],
-        thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
-      },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
-  };
+  },
 });
 ```
 
@@ -74,7 +72,7 @@ const session = await env.SESSIONS.get('session:123');
 ```typescript
 // tests/setup.ts
 import { env } from 'cloudflare:test';
-import { applyD1Migrations } from '@cloudflare/vitest-pool-workers/config';
+import { applyD1Migrations } from '@cloudflare/vitest-pool-workers';
 import { beforeAll, afterEach, vi } from 'vitest';
 
 beforeAll(async () => {

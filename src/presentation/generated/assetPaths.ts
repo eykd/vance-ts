@@ -5,10 +5,10 @@
 
 /** Public URL path to the fingerprinted TailwindCSS stylesheet from the Hugo build. */
 export const STYLES_CSS_PATH =
-  '/css/styles.aa58ee0ced2c167bb4c8440d183e923d965ab31d3669257810a2ef455b81ed83.css';
+  '/css/styles.d39d9be822565d64ea02eab7ea9642e4c59eb928bf83e723adf74d93157afa0f.css';
 
 /** Public URL path to the self-hosted HTMX library. */
 export const HTMX_JS_PATH = '/js/htmx-2.0.8.min.js';
 
 /** Public URL path to the self-hosted Alpine.js library. */
-export const ALPINE_JS_PATH = '/js/alpine-3.15.8.min.js';
+export const ALPINE_JS_PATH = '/js/alpine-csp-3.15.8.min.js';

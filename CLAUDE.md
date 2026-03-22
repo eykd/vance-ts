@@ -145,12 +145,23 @@ Conventional commits enforced via commitlint:
 
 ### Beads Task Management
 
-- **ALWAYS include `--description`** when creating beads tasks with `npx bd create`
+- **ALWAYS include `--description`** when creating beads tasks with `br create`
 - Descriptions should explain the task's purpose, not just repeat the title
-- When creating beads tasks ad hoc (during planning, reviews, or mid-implementation discovery),
-  check `npx bd list --status=in_progress --type=epic` for the active epic. If one exists, always pass
-  `--parent <implement-task-id>` (the `[sp:07-implement]` child of the epic, not the epic root
-  itself). Orphaned tasks are invisible to `ralph` automation.
+- **ALWAYS parent ad-hoc tasks to the current branch's epic (non-negotiable).**
+  Ralph finds epics by stripping the leading digits from the branch name (e.g.
+  `012-auth-static-integration` → `auth-static-integration`) and matching against
+  open epic titles (case-insensitive, hyphens = spaces). Find the epic and its
+  implement child, then pass `--parent`:
+  ```
+  epic=$(br list --type epic --status open --json | \
+    jq -r --arg b "$(git branch --show-current | sed 's/^[0-9]*-//')" \
+    '.issues[] | select(.title | ascii_downcase | gsub("-";" ") | contains($b | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
+  impl=$(br show "$epic" --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:07-implement]")) | .id')
+  br create --title "..." --description "..." --parent "$impl"
+  ```
+  Orphaned tasks are invisible to ralph automation.
+- **Epic naming convention**: Epic titles MUST contain the branch feature name
+  (the part after stripping leading digits). Hyphens vs spaces and case don't matter.
 
 ### Warnings and Deprecations
 
@@ -173,6 +184,39 @@ Always use these skills when working in their domains:
 - `/portable-datetime` — when working with dates/times (see layer CLAUDE.md files)
 - `/glossary` — when naming or reviewing domain terminology
 
+## Design Skills
+
+Start with `/design-interview` for guided design workflows. Use `/design-frontend` as the reference hub for design principles and the AI Slop Test.
+
+### Workflow & Reference
+
+- `/design-interview` — starting point for all design work; orchestrates the full design workflow
+- `/design-frontend` — reference hub for design principles, anti-patterns, and the AI Slop Test
+- `/design-onboard` — design onboarding flows, empty states, and first-time user experiences
+- `/design-language-to-daisyui` — map natural-language UI descriptions to DaisyUI 5 + Tailwind CSS 4 classes
+
+### Refinement
+
+- `/design-arrange` — improve layout, spacing, and visual rhythm
+- `/design-bolder` — amplify safe or boring designs to increase visual impact
+- `/design-clarify` — improve UX copy, error messages, microcopy, and labels
+- `/design-colorize` — add strategic color to monochromatic interfaces
+- `/design-delight` — add moments of joy and personality to functional interfaces
+- `/design-distill` — strip designs to their essence by removing unnecessary complexity
+- `/design-normalize` — align features to established design system patterns
+- `/design-overdrive` — push interfaces past conventional limits with ambitious implementations
+- `/design-polish` — final quality pass for alignment, spacing, and consistency
+- `/design-quieter` — tone down overly bold or visually aggressive designs
+- `/design-typeset` — improve typography, font choices, hierarchy, and readability
+- `/design-adapt` — adapt designs across screen sizes, devices, and platforms
+- `/design-animate` — enhance with purposeful animations and micro-interactions
+
+### Review & Hardening
+
+- `/design-audit` — comprehensive audit across accessibility, performance, theming, and responsive design
+- `/design-critique` — evaluate design effectiveness from a UX perspective
+- `/design-harden` — improve resilience through error handling, i18n, and edge case management
+
 ## TDD Workflow
 
 Strict red-green-refactor TDD for all TypeScript code. See `/test-driven-development` skill for the full process. Run `npx vitest run --coverage` to verify 100% coverage before committing.
@@ -188,3 +232,15 @@ Before implementing any feature, read `specs/readme.md` first. It lists all spec
 ---
 
 Always use subagents liberally and aggressively to conserve the main context window.
+
+## Active Technologies
+
+- Markdown (skill definition files) — no application code + Claude Code skill system (`.claude/skills/*/SKILL.md`) (013-import-design-skills)
+- N/A (file-based skill definitions only) (013-import-design-skills)
+
+- TypeScript (ES2022) + Hugo Go templates + Hono (HTTP), Alpine.js 3.15.8, DaisyUI 5, better-auth (012-auth-static-integration)
+- D1 (sessions via better-auth), indicator cookie (client-side only) (012-auth-static-integration)
+
+## Recent Changes
+
+- 012-auth-static-integration: Added TypeScript (ES2022) + Hugo Go templates + Hono (HTTP), Alpine.js 3.15.8, DaisyUI 5, better-auth

@@ -45,6 +45,6 @@ Use these guidelines when communicating with non-technical users (corporate mana
 For excellent examples of non-technical communication, see:
 
 - `.claude/skills/deploy-your-app/SKILL.md` (comprehensive guidance)
-- `.claude/commands/start.md` (deployment workflow)
+- `.claude/skills/start/SKILL.md` (deployment workflow)
 
 These files demonstrate proper audience awareness, plain language, and step-by-step guidance.

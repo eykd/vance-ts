@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# --- BEGIN QUALITY GATES ---
+# Mirrors .husky/commit-msg — enforce conventional commits.
+npx --no -- commitlint --edit ${1}
+# --- END QUALITY GATES ---

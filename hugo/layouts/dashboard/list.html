@@ -1,0 +1,19 @@
+{{ define "main" }}
+<div
+  x-data="dashboardGuard"
+  data-redirect-url="{{ .RelPermalink }}"
+>
+  {{/* Screen reader announcement for redirect */}}
+  <p role="status" class="sr-only"></p>
+  <div class="container mx-auto p-8" x-cloak :class="{ 'hidden': !$store.auth.isAuthenticated }">
+    <h1 class="text-3xl font-bold">{{ .Title }}</h1>
+    {{ .Content }}
+  </div>
+  <noscript>
+    <div class="container mx-auto p-8">
+      <h1 class="text-3xl font-bold">{{ .Title }}</h1>
+      <p>JavaScript is required to access the dashboard. Please <a href="/auth/sign-in">sign in</a>.</p>
+    </div>
+  </noscript>
+</div>
+{{ end }}

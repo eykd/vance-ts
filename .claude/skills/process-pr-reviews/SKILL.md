@@ -73,23 +73,39 @@ If the filtered list is empty: print "No unprocessed review comments found." and
 
 ### 4. Resolve parent task ID
 
-Branch naming convention for this project uses the pattern `NNN-kebab-title` (e.g. `011-better-auth`), not `workspace-\w+`. Extract the epic from the branch by searching beads:
+Branch naming convention for this project uses the pattern `NNN-kebab-title` (e.g. `011-better-auth`), not `workspace-\w+`. Extract the epic from the branch by searching beads.
+
+**Important**: Reviews often arrive after the epic and its tasks have been closed. Search **all** epics (including closed) to find the match:
 
 ```bash
 BRANCH=$(git branch --show-current)
-# Show all in_progress epics to identify the active one
-npx bd list --status=open --type=epic 2>/dev/null | head -5
+# Search ALL epics (including closed) — reviews arrive after implementation is "done"
+br list --type=epic --all 2>/dev/null | head -10
 ```
 
-Find the `[sp:07-implement]` child task of the epic — this is the correct parent for review-generated tasks so they appear in `bd ready` and are visible to `ralph`:
+Match the epic by feature name extracted from the branch (e.g. branch `012-auth-static-integration` → feature `auth-static-integration` → epic title containing that string).
+
+Find the `[sp:07-implement]` child task of the epic — this is the correct parent for review-generated tasks so they appear in `br ready` and are visible to `ralph`:
 
 ```bash
-npx bd list --parent "$EPIC_ID" 2>/dev/null | grep "sp:07-implement"
+br show "$EPIC_ID" --json 2>/dev/null | jq -r '.[0].dependents[] | select(.title | contains("sp:07-implement")) | .id'
 # Use the task ID shown (e.g. tb-ltk.6)
 PARENT_ID="<implement-task-id-from-above>"
 ```
 
-**Note**: The `[sp:07-implement]` task may already be closed (✓) — that's fine. New review tasks still belong under it to maintain the hierarchy. Use the closed sp:07-implement ID as `--parent`.
+### 4a. Reopen epic and implement task if closed
+
+Reviews create new work, so the epic and its `[sp:07-implement]` task must be open for `ralph` to find them. If either is closed, reopen them:
+
+```bash
+# Reopen epic if closed (ralph searches --status=open epics only)
+br update "$EPIC_ID" --status open 2>/dev/null
+
+# Reopen sp:07-implement if closed (ralph needs it open to find ready tasks)
+br update "$PARENT_ID" --status open 2>/dev/null
+```
+
+**Why**: `ralph.sh` queries `br list --type epic --status open` to detect the active epic. If the epic stays closed after review tasks are created, ralph will error with "No epic found" and the new tasks will never be processed. Reopening is safe — ralph will re-close them when all child tasks are complete.
 
 If no epic found, create tasks without `--parent` and warn the user.
 
@@ -106,7 +122,7 @@ Or in a table/list format with File, Line, Severity, Problem, Fix.
 For each finding:
 
 ```bash
-npx bd create \
+br create \
   --title "[review-type] Finding title" \
   --description "File: path
 Line: N
@@ -193,7 +209,7 @@ PR: #42 | Branch: 011-better-auth
 
 3 tasks created under workspace-abc → beads-xyz ([sp:07-implement])
 
-Run `npx bd ready` to see new tasks.
+Run `br ready` to see new tasks.
 ```
 
 ## Edge Cases
@@ -223,7 +239,7 @@ Run `npx bd ready` to see new tasks.
 - **HTML comment strings and zsh history expansion**: Never use `<!--` in any shell command argument, even inside single quotes — in an interactive zsh session the `!` can still be escaped to `\!`, producing malformed `<\!-- processed -->` banners. Use Python scripts written to temp files for both filtering (Step 3) and banner construction (Step 6).
 - **Malformed processed banner (`<\!-- processed -->`)**: The idempotency check treats both `<!-- processed -->` and `<\!-- processed -->` as processed. If you encounter comments with the backslash variant from a previous run, they will be correctly skipped.
 - **Deduplication**: Before creating a beads task, scan existing open tasks for the same file/line/finding. Note duplicates in the processed banner but do not create them again. Reference the existing task ID instead.
-- **Closed sp:07-implement parent**: The `[sp:07-implement]` task may be closed (✓) by the time reviews arrive. Still use it as `--parent` — tasks need the hierarchy for `ralph` visibility, and beads allows children under closed parents.
+- **Reopening closed epic/implement**: Reviews typically arrive after the epic is closed. Step 4a reopens the epic and `[sp:07-implement]` task so `ralph` can discover the new review tasks. Without this, `ralph.sh` errors with "No epic found matching feature" because it queries `--status open` epics only.
 - Write task IDs to a temp accumulator as you create them to build the final summary table.
 - The `<!-- processed -->` sentinel is an HTML comment — invisible in rendered GitHub markdown.
 - The `<!-- reviewer: ... -->` sentinel is injected by `.github/workflows/claude-code-review.yml` at the top of each review comment's body.

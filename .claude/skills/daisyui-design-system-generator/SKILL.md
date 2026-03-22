@@ -67,6 +67,10 @@ Generate documentation using [references/documentation-template.md](references/d
 
 **Color Harmony:** Keep hue (H) consistent or complementary across semantic colors. Vary chroma (C) for visual hierarchy.
 
+## Related Design Skills
+
+For color strategy guidance before generating themes, see `/design-colorize`. To align existing UI to your generated theme, see `/design-normalize`.
+
 ## Files
 
 - [references/theme-template.md](references/theme-template.md) - DaisyUI 5 CSS theme structure with all variables

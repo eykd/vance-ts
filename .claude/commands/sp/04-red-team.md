@@ -1,7 +1,3 @@
----
-description: Perform adversarial review of spec and plan to identify security, edge cases, performance, and accessibility concerns. Enhances plan.md with findings before task generation.
----
-
 ## Red Team Purpose: Adversarial Plan Enhancement
 
 **CRITICAL CONCEPT**: This phase performs **ADVERSARIAL REVIEW** of requirements and design to strengthen the plan BEFORE implementation tasks are generated.
@@ -281,13 +277,13 @@ grep "Beads Epic" $FEATURE_DIR/spec.md | grep -oE 'workspace-[a-z0-9]+|bd-[a-z0-
 b. Find the red team phase task:
 
 ```bash
-npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:04-red-team]")) | .id'
+br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:04-red-team]")) | .id'
 ```
 
 c. Close the task with summary:
 
 ```bash
-npx bd close <red-team-task-id> --reason "Red team review complete: Enhanced plan with <N> findings (<Critical>C/<High>H/<Medium>M/<Low>L) across <X> categories"
+br close <red-team-task-id> --reason "Red team review complete: Enhanced plan with <N> findings (<Critical>C/<High>H/<Medium>M/<Low>L) across <X> categories"
 ```
 
 ### 8. Report Completion
@@ -434,7 +430,7 @@ Output a comprehensive summary:
 If user skips red team generation:
 
 ```bash
-npx bd close <red-team-task-id> --reason "Skipped: Red team review deferred"
+br close <red-team-task-id> --reason "Skipped: Red team review deferred"
 ```
 
 Note: Skipping red team means the plan will not be enhanced with adversarial considerations. Implementation tasks will be generated from the original plan, which may miss security, edge case, performance, or accessibility concerns.

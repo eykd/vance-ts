@@ -1,4 +1,4 @@
-import { applySecurityHeaders, buildCspHeaderValue } from './securityHeaders';
+import { SECURITY_HEADERS, applySecurityHeaders, buildCspHeaderValue } from './securityHeaders';
 
 describe('buildCspHeaderValue', () => {
   let csp: string;
@@ -24,8 +24,12 @@ describe('buildCspHeaderValue', () => {
     expect(scriptDirective).toBe("script-src 'self'");
   });
 
-  it("includes style-src 'self' 'unsafe-inline': accepted trade-off for Alpine.js x-show (nonces/hashes cannot replace this; see securityHeaders.ts for full rationale)", () => {
-    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+  it("includes style-src 'self' without unsafe-inline (x-show replaced by x-bind:class)", () => {
+    const styleDirective = csp
+      .split(';')
+      .map((d) => d.trim())
+      .find((d) => d.startsWith('style-src'));
+    expect(styleDirective).toBe("style-src 'self'");
   });
 
   it("includes object-src 'none' to block plugin content", () => {
@@ -48,6 +52,21 @@ describe('buildCspHeaderValue', () => {
     expect(csp).not.toContain('cdn.tailwindcss.com');
     expect(csp).not.toContain('unpkg.com');
     expect(csp).not.toContain('cdn.jsdelivr.net');
+  });
+});
+
+describe('SECURITY_HEADERS', () => {
+  it('contains the same headers that applySecurityHeaders sets', () => {
+    const headers = new Headers();
+    applySecurityHeaders(headers);
+
+    for (const [name, value] of SECURITY_HEADERS) {
+      expect(headers.get(name)).toBe(value);
+    }
+  });
+
+  it('has 8 entries', () => {
+    expect(SECURITY_HEADERS).toHaveLength(8);
   });
 });
 
@@ -93,6 +112,16 @@ describe('applySecurityHeaders', () => {
 
   it('sets Cross-Origin-Opener-Policy to same-origin', () => {
     expect(headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
+  });
+
+  it('does not set Cache-Control (handlers own their own caching policy)', () => {
+    expect(headers.has('Cache-Control')).toBe(false);
+  });
+
+  it('preserves existing Cache-Control set by the handler', () => {
+    const existing = new Headers({ 'Cache-Control': 'no-store, no-cache' });
+    applySecurityHeaders(existing);
+    expect(existing.get('Cache-Control')).toBe('no-store, no-cache');
   });
 
   it('preserves existing headers', () => {

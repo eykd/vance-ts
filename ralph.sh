@@ -37,6 +37,8 @@ readonly TDD_STEP_RETRY_MAX_DELAY=60   # cap for Claude invocation backoff
 readonly TDD_MAX_CYCLES=5         # max R-G-R-Review cycles per task
 readonly ATDD_MAX_INNER_CYCLES=15
 readonly ACCEPTANCE_OUTPUT_FILE=".ralph-acceptance.json"
+readonly MAX_AUTO_DEFERRALS=3       # escalate after this many transient triage failures
+readonly FALLBACK_DEFER="+4h"       # deferral for transient failures (shorter than +1d)
 
 # Exit codes
 readonly EXIT_SUCCESS=0
@@ -298,7 +300,7 @@ check_claude_cli() {
 check_beads_init() {
     log DEBUG "Checking for beads initialization..."
     if [[ ! -d ".beads" ]]; then
-        log ERROR "Beads not initialized. Run 'npx bd init' to initialize beads."
+        log ERROR "Beads not initialized. Run 'br init' to initialize beads."
         return 1
     fi
     log DEBUG "Beads initialized"
@@ -314,7 +316,7 @@ detect_task_source() {
     log DEBUG "Detecting task source mode for epic $epic_id..."
 
     # Query all tasks under the epic
-    all_tasks=$(npx bd list --parent "$epic_id" --all --json 2>/dev/null) || {
+    all_tasks=$(br show "$epic_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child")]') || {
         log DEBUG "Failed to query tasks, defaulting to generic mode"
         echo "generic"
         return 0
@@ -349,8 +351,8 @@ check_clarify_complete() {
 
     # Find the clarify task for this epic (title contains [sp:02-clarify])
     # Must use --status closed since we're checking for completed phase tasks
-    clarify_task=$(npx bd list --parent "$epic_id" --status closed --json 2>/dev/null | \
-        jq -c 'first(.[] | select(.title | contains("[sp:02-clarify]"))) | {id, status}')
+    clarify_task=$(br show "$epic_id" --json 2>/dev/null | \
+        jq -c '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "closed")] | first(.[] | select(.title | contains("[sp:02-clarify]"))) | {id, status}')
 
     if [[ -z "$clarify_task" ]]; then
         log DEBUG "No clarify task found for epic $epic_id"
@@ -384,8 +386,8 @@ check_tasks_generated() {
 
     # Find the tasks phase task for this epic (title contains [sp:05-tasks])
     # Must use --status closed since we're checking for completed phase tasks
-    tasks_task=$(npx bd list --parent "$epic_id" --status closed --json 2>/dev/null | \
-        jq -c 'first(.[] | select(.title | contains("[sp:05-tasks]"))) | {id, status}')
+    tasks_task=$(br show "$epic_id" --json 2>/dev/null | \
+        jq -c '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "closed")] | first(.[] | select(.title | contains("[sp:05-tasks]"))) | {id, status}')
 
     if [[ -z "$tasks_task" ]]; then
         log DEBUG "No tasks phase found for epic $epic_id"
@@ -460,7 +462,7 @@ validate_prerequisites() {
         log INFO "Validating generic task workflow prerequisites..."
 
         # For generic mode, just verify epic has at least one task
-        all_tasks=$(npx bd list --parent "$epic_id" --json 2>/dev/null) || {
+        all_tasks=$(br show "$epic_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status != "closed")]') || {
             log ERROR "Failed to query tasks for epic $epic_id"
             return 1
         }
@@ -586,7 +588,7 @@ find_epic_id() {
     local feature_name="$1"
     local epics_json
 
-    epics_json=$(npx bd list --type epic --status open --json 2>/dev/null) || {
+    epics_json=$(br list --type epic --status open --json 2>/dev/null) || {
         echo "Error: Failed to query beads for epics" >&2
         return 1
     }
@@ -595,7 +597,7 @@ find_epic_id() {
     # Normalize hyphens to spaces so "linemark-mvp" matches "Linemark MVP"
     local epic_id
     epic_id=$(echo "$epics_json" | jq -r --arg name "$feature_name" \
-        '.[] | select(.title | ascii_downcase | gsub("-"; " ") | contains($name | ascii_downcase | gsub("-"; " "))) | .id' | head -n1)
+        '.issues[] | select(.title | ascii_downcase | gsub("-"; " ") | contains($name | ascii_downcase | gsub("-"; " "))) | .id' | head -n1)
 
     if [[ -z "$epic_id" ]]; then
         echo "Error: No epic found matching feature '$feature_name'" >&2
@@ -615,8 +617,8 @@ validate_epic_exists() {
     log DEBUG "Validating epic: $epic_id"
 
     # Query beads for this epic ID
-    epic_data=$(npx bd list --type epic --json 2>/dev/null | \
-        jq -r --arg id "$epic_id" '.[] | select(.id == $id)') || {
+    epic_data=$(br list --type epic --json 2>/dev/null | \
+        jq -r --arg id "$epic_id" '.issues[] | select(.id == $id)') || {
         log ERROR "Failed to query beads for epics"
         return 1
     }
@@ -688,8 +690,8 @@ get_in_progress_tasks() {
     local epic_id="$1"
     local in_progress_json
 
-    in_progress_json=$(npx bd list --status=in_progress --json 2>/dev/null | \
-        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))]') || {
+    in_progress_json=$(br list --status=in_progress --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." '[.issues[] | select(.id | startswith($prefix))]') || {
         echo "Error: Failed to query beads for in-progress tasks" >&2
         return 1
     }
@@ -702,32 +704,14 @@ get_in_progress_tasks() {
 # Check if a task has any active (open or in-progress) children
 task_has_active_children() {
     local task_id="$1"
-    local open_count in_progress_count
+    local active_count
 
-    open_count=$(npx bd list --status=open --parent "$task_id" --json 2>/dev/null | \
-        jq '[.[] | select(.issue_type != "event")] | length' 2>/dev/null || echo "0")
-    in_progress_count=$(npx bd list --status=in_progress --parent "$task_id" --json 2>/dev/null | \
-        jq '[.[] | select(.issue_type != "event")] | length' 2>/dev/null || echo "0")
+    active_count=$(br show "$task_id" --json 2>/dev/null | \
+        jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and (.status == "open" or .status == "in_progress") and .issue_type != "event")] | length' 2>/dev/null || echo "0")
 
-    [[ "$((open_count + in_progress_count))" -gt 0 ]]
+    [[ "$active_count" -gt 0 ]]
 }
 
-# Check if a task has children (is a parent container)
-task_has_children() {
-    local task_id="$1"
-    local child_count
-    child_count=$(npx bd list --parent "$task_id" --limit 1 --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
-    [[ "$child_count" -gt 0 ]]
-}
-
-# Check if all direct children of a task are closed
-all_children_closed() {
-    local task_id="$1"
-    local non_closed_count
-    non_closed_count=$(npx bd list --parent "$task_id" --json 2>/dev/null | \
-        jq '[.[] | select(.status != "closed")] | length' 2>/dev/null) || return 1
-    [[ "$non_closed_count" -eq 0 ]]
-}
 
 # Auto-close parent container tasks when all their children are completed.
 # Walks up from the given task ID, closing ancestors bottom-up.
@@ -747,7 +731,7 @@ auto_close_completed_parents() {
         # Check if parent has children and all are closed
         if task_has_children "$parent_id" && all_children_closed "$parent_id"; then
             log INFO "Auto-closing completed parent task: $parent_id"
-            npx bd close "$parent_id" 2>/dev/null || {
+            br close "$parent_id" 2>/dev/null || {
                 log WARN "Failed to auto-close parent task: $parent_id"
                 break
             }
@@ -767,9 +751,9 @@ sweep_completed_parents() {
     local closed_any=false
     local open_tasks
 
-    open_tasks=$(npx bd list --status open --json 2>/dev/null | \
+    open_tasks=$(br list --status open --json 2>/dev/null | \
         jq --arg prefix "$epic_id." --arg epic "$epic_id" \
-        '[.[] | select(.id | startswith($prefix)) | select(.id != $epic and .issue_type != "event")]') || return 1
+        '[.issues[] | select(.id | startswith($prefix)) | select(.id != $epic and .issue_type != "event")]') || return 1
 
     local task_count
     task_count=$(echo "$open_tasks" | jq 'length')
@@ -779,7 +763,7 @@ sweep_completed_parents() {
     while read -r task_id; do
         if task_has_children "$task_id" && all_children_closed "$task_id"; then
             log INFO "Sweep: auto-closing completed parent: $task_id"
-            if npx bd close "$task_id" 2>/dev/null; then
+            if br close "$task_id" 2>/dev/null; then
                 closed_any=true
             fi
         fi
@@ -812,16 +796,16 @@ get_in_progress_task() {
 task_has_children() {
     local task_id="$1"
     local child_count
-    child_count=$(npx bd list --parent "$task_id" --limit 1 --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    child_count=$(br show "$task_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child")] | length' 2>/dev/null) || return 1
     [[ "$child_count" -gt 0 ]]
 }
 
 # Check if all direct children of a task are closed
 all_children_closed() {
     local task_id="$1"
-    local open_count
-    open_count=$(npx bd list --parent "$task_id" --status open --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
-    [[ "$open_count" -eq 0 ]]
+    local non_closed_count
+    non_closed_count=$(br show "$task_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status != "closed")] | length' 2>/dev/null) || return 1
+    [[ "$non_closed_count" -eq 0 ]]
 }
 
 # Auto-close parent container tasks when all their children are completed.
@@ -842,7 +826,7 @@ auto_close_completed_parents() {
         # Check if parent has children and all are closed
         if task_has_children "$parent_id" && all_children_closed "$parent_id"; then
             log INFO "Auto-closing completed parent task: $parent_id"
-            npx bd close "$parent_id" 2>/dev/null || {
+            br close "$parent_id" 2>/dev/null || {
                 log WARN "Failed to auto-close parent task: $parent_id"
                 break
             }
@@ -859,7 +843,7 @@ get_ready_tasks() {
     local epic_id="$1"
     local ready_json
 
-    ready_json=$(npx bd ready --limit 1000 --json 2>/dev/null | \
+    ready_json=$(br ready --limit 1000 --json 2>/dev/null | \
         jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))]') || {
         echo "Error: Failed to query beads for ready tasks" >&2
         return 1
@@ -926,8 +910,8 @@ find_leaf_task() {
 
     # First: check for in-progress tasks at this level (prefer resuming)
     local in_progress_json
-    in_progress_json=$(npx bd list --status=in_progress --parent "$parent_id" --json 2>/dev/null | \
-        jq --arg p "$parent_id" '[.[] | select(.id != $p and .issue_type != "event")]')
+    in_progress_json=$(br show "$parent_id" --json 2>/dev/null | \
+        jq --arg p "$parent_id" '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "in_progress" and .id != $p and .issue_type != "event")]')
 
     local count
     count=$(echo "$in_progress_json" | jq 'length')
@@ -948,8 +932,14 @@ find_leaf_task() {
 
     # Second: check for ready tasks at this level
     local ready_json
-    ready_json=$(npx bd ready --parent "$parent_id" --limit 1000 --json 2>/dev/null | \
-        jq --arg p "$parent_id" '[.[] | select(.id != $p and .issue_type != "event")]')
+    # Get children of parent, then intersect with globally ready tasks
+    local children_ids ready_all
+    children_ids=$(br show "$parent_id" --json 2>/dev/null | \
+        jq -r '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child")] | .[].id')
+    ready_all=$(br ready --limit 1000 --json 2>/dev/null || echo '[]')
+    ready_json=$(echo "$ready_all" | \
+        jq --arg p "$parent_id" --argjson kids "$(echo "$children_ids" | jq -R -s 'split("\n") | map(select(length > 0))')" \
+        '[.[] | select(.id as $id | $kids | index($id)) | select(.id != $p and .issue_type != "event")]')
 
     count=$(echo "$ready_json" | jq 'length')
     if [[ "$count" -gt 0 ]]; then
@@ -973,7 +963,7 @@ find_leaf_task() {
     # not that the epic is simply complete).
     if [[ "$parent_id" == "$EPIC_ID" ]] && has_open_tasks "$EPIC_ID"; then
         local orphan_ready
-        orphan_ready=$(npx bd ready --json 2>/dev/null | \
+        orphan_ready=$(br ready --json 2>/dev/null | \
             jq --arg p "$EPIC_ID" \
                '[.[] | select(.id != $p and .issue_type != "event" and ((.priority // 4) | tonumber) <= 2)]')
         local orphan_count
@@ -994,8 +984,8 @@ get_open_tasks() {
     local epic_id="$1"
     local open_json
 
-    open_json=$(npx bd list --status open --json 2>/dev/null | \
-        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))]') || {
+    open_json=$(br list --status open --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." '[.issues[] | select(.id | startswith($prefix))]') || {
         echo "Error: Failed to query beads for open tasks" >&2
         return 1
     }
@@ -1044,11 +1034,11 @@ generate_focused_prompt() {
     task_status=$(echo "$task_json" | jq -r '.status // "unknown"')
 
     # Fetch full task details including comments
-    task_details=$(npx bd show "$task_id" --json 2>/dev/null) || task_details=""
+    task_details=$(br show "$task_id" --json 2>/dev/null) || task_details=""
 
     # Extract and format comments if they exist
     if [[ -n "$task_details" ]]; then
-        # Normalize to object (handle both array and object responses from bd show)
+        # Normalize to object (handle both array and object responses from br show)
         comments_json=$(echo "$task_details" | jq -r '(if type == "array" then .[0] else . end) | .comments // []')
         comments_text=$(echo "$comments_json" | jq -r '.[] | "- \(.timestamp // "unknown"): \(.text // "")"' 2>/dev/null)
     else
@@ -1060,7 +1050,7 @@ generate_focused_prompt() {
     local parent_id="${task_id%.*}"
     if [[ "$parent_id" != "$task_id" ]]; then
         local parent_desc
-        parent_desc=$(npx bd show "$parent_id" --json 2>/dev/null | \
+        parent_desc=$(br show "$parent_id" --json 2>/dev/null | \
             jq -r '(if type == "array" then .[0] else . end) | .description // ""')
         # Extract the ## Implementation Constraints section
         parent_constraints=$(echo "$parent_desc" | awk \
@@ -1128,10 +1118,10 @@ Do NOT explore unrelated code or work on other tasks.
 Before searching for a spec or existing feature, check specs/readme.md first.
 
 ## Bead Lifecycle Management (REQUIRED)
-1. Start task: npx bd start $task_id
-2. Track progress: npx bd comment $task_id "status update message"
-3. Complete task: npx bd close $task_id
-4. If blocked: npx bd comment $task_id "BLOCKED: reason" (do NOT close)
+1. Start task: br start $task_id
+2. Track progress: br comments add $task_id "status update message"
+3. Complete task: br close $task_id
+4. If blocked: br comments add $task_id "BLOCKED: reason" (do NOT close)
 
 CRITICAL: You MUST close the bead when the task is complete.
 If you do not close it, ralph will run this task again.
@@ -1175,7 +1165,7 @@ Without a successful commit:
 
 ### Exact Commit Sequence (REQUIRED)
 
-1. **Close bead FIRST**: \`npx bd close $task_id\`
+1. **Close bead FIRST**: \`br close $task_id\`
    - This updates .beads state which MUST be included in the commit
    - Marks task as complete in beads tracking
 
@@ -1212,7 +1202,7 @@ Without a successful commit:
 ### Success Criteria
 
 The task is ONLY complete when:
-1. ✓ Bead is closed (\`npx bd close $task_id\`)
+1. ✓ Bead is closed (\`br close $task_id\`)
 2. ✓ All changes are committed (including .beads/)
 3. ✓ Pre-commit hooks passed (100% tests, no lint errors, type-check passed)
 4. ✓ Commit succeeded (you saw success message)
@@ -1687,12 +1677,12 @@ execute_unit_tdd_cycle() {
         local prev_output="${LAST_STEP_OUTPUT:0:2000}"
         if (( red_exit == 2 )); then
             log WARN "RED circuit-breaker: all unit tests pass and no spec to check — closing task as complete"
-            npx bd comment "$task_id" "Circuit-breaker: all unit tests pass and no failing test could be written after 2 consecutive attempts. Feature appears complete." 2>/dev/null || true
-            npx bd close "$task_id" 2>/dev/null || true
+            br comments add "$task_id" "Circuit-breaker: all unit tests pass and no failing test could be written after 2 consecutive attempts. Feature appears complete." 2>/dev/null || true
+            br close "$task_id" 2>/dev/null || true
             return 0
         elif (( red_exit != 0 )); then
             log ERROR "TDD step $STEP_RED failed in unit cycle $cycle"
-            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_RED failed after retries in unit cycle $cycle" 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: TDD step $STEP_RED failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
 
@@ -1701,7 +1691,7 @@ execute_unit_tdd_cycle() {
         head_before=$(git rev-parse HEAD 2>/dev/null)
         if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_GREEN failed in unit cycle $cycle"
-            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed after retries in unit cycle $cycle" 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: TDD step $STEP_GREEN failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
         prev_output="${LAST_STEP_OUTPUT:0:2000}"
@@ -1739,7 +1729,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
         # REFACTOR step (receives GREEN output)
         if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_REFACTOR failed in unit cycle $cycle"
-            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed after retries in unit cycle $cycle" 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
         prev_output="${LAST_STEP_OUTPUT:0:2000}"
@@ -1747,7 +1737,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
         # REVIEW step (receives REFACTOR output)
         if ! execute_tdd_step "$STEP_REVIEW" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_REVIEW failed in unit cycle $cycle"
-            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REVIEW failed after retries in unit cycle $cycle" 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: TDD step $STEP_REVIEW failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
 
@@ -1769,16 +1759,16 @@ After $cycle unit TDD cycle(s), check if this task is complete:
 1. Run: npx vitest run src/
 2. Run: npx vitest run --coverage 2>&1 | tail -20
 3. If all tests pass with 100% coverage AND the implementation satisfies the task description:
-   - Close the bead: npx bd close $task_id
+   - Close the bead: br close $task_id
    - Run /commit
-4. If NOT complete, add a comment explaining what remains: npx bd comment $task_id "Cycle $cycle complete. Remaining: ..."
+4. If NOT complete, add a comment explaining what remains: br comments add $task_id "Cycle $cycle complete. Remaining: ..."
    Do NOT close the bead.
 PROMPT
 )
         if invoke_claude_with_retry "$check_prompt"; then
             # Check if task was closed
             local task_status
-            task_status=$(npx bd show "$task_id" --json 2>/dev/null | jq -r '(if type == "array" then .[0] else . end) | .status // "unknown"')
+            task_status=$(br show "$task_id" --json 2>/dev/null | jq -r '(if type == "array" then .[0] else . end) | .status // "unknown"')
             if [[ "$task_status" == "completed" ]] || [[ "$task_status" == "closed" ]]; then
                 log INFO "Task $task_id completed after $cycle unit TDD cycles"
                 return 0
@@ -1787,7 +1777,7 @@ PROMPT
     done
 
     log WARN "Unit TDD cycle limit reached for task $task_id"
-    npx bd comment "$task_id" "BLOCKED: Unit TDD cycle limit ($TDD_MAX_CYCLES) reached without task completion" 2>/dev/null || true
+    br comments add "$task_id" "BLOCKED: Unit TDD cycle limit ($TDD_MAX_CYCLES) reached without task completion" 2>/dev/null || true
     return 1
 }
 
@@ -1803,7 +1793,7 @@ execute_atdd_cycle() {
     log_section "ATDD CYCLE: $task_id"
 
     # Mark task as in-progress
-    npx bd update "$task_id" --status=in_progress 2>/dev/null || true
+    br update "$task_id" --status=in_progress 2>/dev/null || true
 
     # Step 1: Find spec file
     local spec_file
@@ -1820,7 +1810,7 @@ execute_atdd_cycle() {
     # Step 2: Check if acceptance tests already pass
     if run_acceptance_check "$spec_file"; then
         log INFO "Acceptance tests already pass for $task_id — closing task"
-        npx bd close "$task_id" 2>/dev/null || true
+        br close "$task_id" 2>/dev/null || true
         # Invoke Claude to commit
         local commit_prompt
         commit_prompt=$(cat <<PROMPT
@@ -1829,7 +1819,7 @@ execute_atdd_cycle() {
 Commit message: feat: complete $(echo "$task_json" | jq -r '.title // "task"')
 
 The acceptance tests for this user story already pass. Close the bead and commit.
-- npx bd close $task_id (if not already closed)
+- br close $task_id (if not already closed)
 - Run /commit
 PROMPT
 )
@@ -1846,7 +1836,7 @@ PROMPT
     else
         if ! execute_tdd_step "$STEP_BIND" "$task_json" 1 "" "$spec_file" ""; then
             log ERROR "BIND step failed for task $task_id"
-            npx bd comment "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
             return 1
         fi
     fi
@@ -1863,7 +1853,7 @@ PROMPT
             log WARN "RED circuit-breaker triggered in ATDD cycle $cycle — checking acceptance tests"
             if run_acceptance_check "$spec_file"; then
                 log INFO "Feature complete — acceptance tests pass. Closing task $task_id"
-                npx bd close "$task_id" 2>/dev/null || true
+                br close "$task_id" 2>/dev/null || true
                 local commit_prompt
                 commit_prompt=$(cat <<PROMPT
 /commit
@@ -1871,7 +1861,7 @@ PROMPT
 Commit message: feat: complete $(echo "$task_json" | jq -r '.title // "task"')
 
 The feature was already implemented. RED circuit-breaker detected all unit tests passing. Acceptance tests confirm feature complete.
-- npx bd close $task_id (if not already closed)
+- br close $task_id (if not already closed)
 - Run /commit
 PROMPT
 )
@@ -1879,12 +1869,12 @@ PROMPT
                 return 0
             else
                 log ERROR "RED circuit-breaker: unit tests pass but acceptance tests still fail — task needs human review"
-                npx bd comment "$task_id" "BLOCKED: RED circuit-breaker triggered in cycle $cycle. All unit tests pass but no failing test could be written, AND acceptance tests still fail. Feature may be partially implemented. Needs human review." 2>/dev/null || true
+                br comments add "$task_id" "BLOCKED: RED circuit-breaker triggered in cycle $cycle. All unit tests pass but no failing test could be written, AND acceptance tests still fail. Feature may be partially implemented. Needs human review." 2>/dev/null || true
                 return 1
             fi
         elif (( red_exit != 0 )); then
             log ERROR "TDD step $STEP_RED failed in ATDD cycle $cycle for task $task_id"
-            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_RED failed in ATDD cycle $cycle" 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: TDD step $STEP_RED failed in ATDD cycle $cycle" 2>/dev/null || true
             return 1
         fi
 
@@ -1893,7 +1883,7 @@ PROMPT
         head_before=$(git rev-parse HEAD 2>/dev/null)
         if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "$spec_file" "$prev_output"; then
             log ERROR "TDD step $STEP_GREEN failed in ATDD cycle $cycle for task $task_id"
-            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed in ATDD cycle $cycle" 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: TDD step $STEP_GREEN failed in ATDD cycle $cycle" 2>/dev/null || true
             return 1
         fi
         prev_output="${LAST_STEP_OUTPUT:0:2000}"
@@ -1933,14 +1923,14 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
         # REFACTOR step (receives GREEN output)
         if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "$spec_file" "$prev_output"; then
             log ERROR "TDD step $STEP_REFACTOR failed in ATDD cycle $cycle for task $task_id"
-            npx bd comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed in ATDD cycle $cycle" 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed in ATDD cycle $cycle" 2>/dev/null || true
             return 1
         fi
 
         # Check if acceptance tests now pass
         if run_acceptance_check "$spec_file"; then
             log INFO "Acceptance tests PASS after ATDD cycle $cycle — task $task_id complete"
-            npx bd close "$task_id" 2>/dev/null || true
+            br close "$task_id" 2>/dev/null || true
             # Commit
             local commit_prompt
             commit_prompt=$(cat <<PROMPT
@@ -1951,7 +1941,7 @@ Task complete: $(echo "$task_json" | jq -r '.title // "task"') ($task_id)
 The acceptance tests now pass after $cycle ATDD inner cycle(s).
 
 Steps:
-1. npx bd close $task_id (if not already closed)
+1. br close $task_id (if not already closed)
 2. Run /commit to commit all changes including .beads state
 PROMPT
 )
@@ -1964,7 +1954,7 @@ PROMPT
 
     # All cycles exhausted
     log WARN "ATDD inner cycle limit ($ATDD_MAX_INNER_CYCLES) reached for task $task_id"
-    npx bd comment "$task_id" "BLOCKED: ATDD cycle limit ($ATDD_MAX_INNER_CYCLES) reached without acceptance tests passing" 2>/dev/null || true
+    br comments add "$task_id" "BLOCKED: ATDD cycle limit ($ATDD_MAX_INNER_CYCLES) reached without acceptance tests passing" 2>/dev/null || true
     return 1
 }
 
@@ -2172,7 +2162,7 @@ generate_triage_prompt() {
 
     # Fetch BLOCKED comments from task
     local task_details blocked_comments
-    task_details=$(npx bd show "$task_id" --json 2>/dev/null) || task_details=""
+    task_details=$(br show "$task_id" --json 2>/dev/null) || task_details=""
     if [[ -n "$task_details" ]]; then
         blocked_comments=$(echo "$task_details" | jq -r \
             '(if type == "array" then .[0] else . end) | .comments // [] | .[] | select(.text | startswith("BLOCKED:")) | "- \(.timestamp // "unknown"): \(.text)"' 2>/dev/null) || blocked_comments=""
@@ -2186,8 +2176,8 @@ generate_triage_prompt() {
 
     # Epic open task count
     local open_count
-    open_count=$(npx bd list --status=open --json 2>/dev/null | \
-        jq --arg prefix "$epic_id." '[.[] | select(.id | startswith($prefix))] | length' 2>/dev/null) || open_count="unknown"
+    open_count=$(br list --status=open --json 2>/dev/null | \
+        jq --arg prefix "$epic_id." '[.issues[] | select(.id | startswith($prefix))] | length' 2>/dev/null) || open_count="unknown"
 
     cat <<EOF
 You are triaging a BLOCKED task in ralph's automation loop.
@@ -2224,10 +2214,18 @@ RALPH_SIGNAL:{"action":"<close|decompose|defer>","reason":"<brief explanation>",
 Rules:
 - Choose exactly ONE action
 - For decompose: provide title and description for the new sibling task
-- For defer: provide defer_duration (default +1d if unsure)
+- For defer: provide defer_duration (e.g. +4h for transient issues, +1d for external dependencies)
 - For close: just provide the reason
 - Do NOT run any tests or tools — this is analysis only
 EOF
+}
+
+# Count how many times a task has been auto-deferred due to transient triage failures
+count_auto_deferrals() {
+    local task_id="$1"
+    local comments
+    comments=$(br comments "$task_id" --json 2>/dev/null) || { echo "0"; return; }
+    echo "$comments" | jq '[.[] | select(.text | test("^BLOCKED: Triage (invocation failed|produced no signal)"))] | length' 2>/dev/null || echo "0"
 }
 
 # Triage a blocked task by invoking Claude for diagnostic analysis
@@ -2246,17 +2244,33 @@ triage_blocked_task() {
 
     # Invoke Claude
     if ! invoke_claude_with_retry "$triage_prompt"; then
-        log WARN "Triage invocation failed for $task_id — falling back to defer +1d"
-        npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
-        npx bd comment "$task_id" "BLOCKED: Triage invocation failed, auto-deferred +1d" 2>/dev/null || true
+        local defer_count
+        defer_count=$(count_auto_deferrals "$task_id")
+        if (( defer_count >= MAX_AUTO_DEFERRALS )); then
+            log WARN "Task $task_id auto-deferred $defer_count times — escalating to P1"
+            br update "$task_id" --status=open --priority 1 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: Triage invocation failed $((defer_count + 1)) times. Escalated to P1 for human review." 2>/dev/null || true
+        else
+            log WARN "Triage invocation failed for $task_id — deferring $FALLBACK_DEFER"
+            br update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: Triage invocation failed, auto-deferred $FALLBACK_DEFER" 2>/dev/null || true
+        fi
         return 0
     fi
 
     # Parse RALPH_SIGNAL from Claude output
     if ! parse_ralph_signal "$LAST_CLAUDE_OUTPUT"; then
-        log WARN "No RALPH_SIGNAL in triage output for $task_id — falling back to defer +1d"
-        npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
-        npx bd comment "$task_id" "BLOCKED: Triage produced no signal, auto-deferred +1d" 2>/dev/null || true
+        local defer_count
+        defer_count=$(count_auto_deferrals "$task_id")
+        if (( defer_count >= MAX_AUTO_DEFERRALS )); then
+            log WARN "Task $task_id auto-deferred $defer_count times — escalating to P1"
+            br update "$task_id" --status=open --priority 1 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: Triage produced no signal $((defer_count + 1)) times. Escalated to P1 for human review." 2>/dev/null || true
+        else
+            log WARN "No RALPH_SIGNAL in triage output for $task_id — deferring $FALLBACK_DEFER"
+            br update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
+            br comments add "$task_id" "BLOCKED: Triage produced no signal, auto-deferred $FALLBACK_DEFER" 2>/dev/null || true
+        fi
         return 0
     fi
 
@@ -2269,28 +2283,44 @@ triage_blocked_task() {
     case "$action" in
         close)
             log INFO "Triage closing task $task_id: $reason"
-            npx bd comment "$task_id" "TRIAGE: Closing — $reason" 2>/dev/null || true
-            npx bd close "$task_id" 2>/dev/null || true
+            br comments add "$task_id" "TRIAGE: Closing — $reason" 2>/dev/null || true
+            br close "$task_id" 2>/dev/null || true
             auto_close_completed_parents "$task_id" "$epic_id"
             ;;
         decompose)
-            local new_title new_description parent_id
+            local new_title new_description parent_id sibling_id
             new_title=$(get_signal "title" "Follow-up for $task_id")
             new_description=$(get_signal "description" "Decomposed from blocked task $task_id")
-            # Create sibling under the same parent (implement task)
-            parent_id="${task_id%.*}"
+            # Query the actual parent from beads — string manipulation (${task_id%.*})
+            # fails for IDs without dots (e.g. turtlebased-ts-852), creating children
+            # of the blocked task instead of siblings. Children of a blocked parent
+            # are unreachable by `br ready`.
+            parent_id=$(br show "$task_id" --json 2>/dev/null | jq -r '.[0].parent // empty' 2>/dev/null)
+            if [[ -z "$parent_id" ]]; then
+                parent_id="$EPIC_ID"
+            fi
             log INFO "Triage decomposing: creating sibling task under $parent_id"
-            npx bd create "$new_title" --parent "$parent_id" --description "$new_description" 2>/dev/null || true
-            npx bd comment "$task_id" "TRIAGE: Decomposed — $reason. New sibling task created under $parent_id" 2>/dev/null || true
-            npx bd update "$task_id" --status=open --defer=+1d 2>/dev/null || true
+            sibling_id=$(br create "$new_title" --parent "$parent_id" --description "$new_description" --silent 2>/dev/null) || true
+            if [[ -n "$sibling_id" ]]; then
+                br dep add "$task_id" "$sibling_id" --type blocks 2>/dev/null || true
+                # Reset to open so find_leaf_task's in_progress fast-path
+                # doesn't bypass the dependency check (br ready respects deps)
+                br update "$task_id" --status=open 2>/dev/null || true
+                br comments add "$task_id" "TRIAGE: Decomposed — $reason. Blocked by sibling $sibling_id" 2>/dev/null || true
+                log INFO "Created sibling $sibling_id blocking $task_id"
+            else
+                br update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
+                br comments add "$task_id" "TRIAGE: Decomposed — $reason. Sibling creation failed, deferred $FALLBACK_DEFER" 2>/dev/null || true
+                log WARN "Could not capture sibling ID for $task_id — fell back to $FALLBACK_DEFER defer"
+            fi
             ;;
         *)
             # defer (explicit or unknown action fallback)
             local duration
-            duration=$(get_signal "defer_duration" "+1d")
+            duration=$(get_signal "defer_duration" "$FALLBACK_DEFER")
             log INFO "Triage deferring task $task_id for $duration: $reason"
-            npx bd comment "$task_id" "TRIAGE: Deferring $duration — $reason" 2>/dev/null || true
-            npx bd update "$task_id" --status=open --defer="$duration" 2>/dev/null || true
+            br comments add "$task_id" "TRIAGE: Deferring $duration — $reason" 2>/dev/null || true
+            br update "$task_id" --status=open --defer="$duration" 2>/dev/null || true
             ;;
     esac
 
