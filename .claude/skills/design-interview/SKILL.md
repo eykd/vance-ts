@@ -3,25 +3,32 @@ name: design-interview
 description: Starting point for all design work. Use when starting a new design task, redesigning UI, planning a site's visual direction, or needing guidance on which design skill to use next. Conducts a structured design interview to establish aesthetic direction, then orchestrates the full design workflow by routing to the right design-* sub-skills at each phase (theme, components, implementation, refinement, review, hardening).
 ---
 
-# Hugo + TailwindCSS + DaisyUI Design
+# Design Workflow Orchestrator
 
-Design distinctive, accessible Hugo sites. This skill interviews the user to establish design direction, then coordinates implementation with companion skills.
+Starting point for all design work. Interviews the user to establish design direction, then routes through 7 phases — each delegating to specialized `design-*` skills.
 
 ## Workflow Overview
 
 ```
-1. INTERVIEW    → Establish aesthetic direction (this skill)
-2. COLOR THEME  → Generate OKLCH theme (invoke: daisyui-design-system-generator)
-3. COMPONENTS   → Build layouts/partials (invoke: tailwind-daisyui-design)
-4. IMPLEMENT    → Create Hugo templates (this skill)
+Phase 1: INTERVIEW    → Establish aesthetic direction (this skill)
+Phase 2: THEME        → Generate OKLCH theme (daisyui-design-system-generator)
+Phase 3: COMPONENTS   → Build accessible components (tailwind-daisyui-design)
+Phase 4: IMPLEMENT    → Create Hugo/HTMX/Alpine templates
+Phase 5: REFINE       → Adjust visual intensity and character
+Phase 6: REVIEW       → Evaluate quality, polish, and copy
+Phase 7: HARDEN       → Production resilience and cross-device
 ```
+
+**Non-linear workflow**: Phases can be skipped, re-entered, or run in parallel. Jump to the phase that matches the current need — the sequence above is a guide, not a gate.
+
+**Quick Mode**: For small tasks or when Design Context already exists in CLAUDE.md, skip the interview — jump directly to the relevant phase using the routing table below.
 
 ### Anti-Patterns to Avoid
 
 **CRITICAL:** Avoid converging toward generic "AI slop" aesthetics:
 
 - **Typography**: Never default to Inter, Roboto, Arial, system fonts, or Space Grotesk. Choose distinctive, beautiful fonts that elevate the design.
-- **Colors**: Avoid purple gradients on white backgrounds and other clichéd schemes. Commit to cohesive, bold palettes—dominant colors with sharp accents outperform timid, evenly-distributed palettes.
+- **Colors**: Avoid purple gradients on white backgrounds and other cliched schemes. Commit to cohesive, bold palettes — dominant colors with sharp accents outperform timid, evenly-distributed palettes.
 - **Layouts**: Resist predictable component patterns. Make unexpected choices that feel genuinely designed for the context.
 - **Variation**: Think outside the box for EACH project. Vary between light/dark themes, different font families, different aesthetics. Never reuse the same aesthetic twice.
 
@@ -72,48 +79,18 @@ Creativity Checkpoint: [how will this avoid looking generic?]
 
 **Before finalizing:** Verify you're not reusing fonts/aesthetics from previous projects. Ensure bold, distinctive choices.
 
-## Phase 2: Coordinate Theme Generation
+## Phases 2-7: Skill Routing
 
-With direction established, invoke `daisyui-design-system-generator`:
+See [references/phases.md](references/phases.md) for detailed phase definitions, skill descriptions, and templated prompts for each transition.
 
-> "Create a DaisyUI 5 OKLCH theme for a [aesthetic] [site-type]. Primary color: [color/direction]. Include light and dark modes. Target WCAG AAA contrast."
-
-The theme skill will produce CSS for `assets/css/styles.css`.
-
-## Phase 3: Coordinate Component Patterns
-
-Invoke `tailwind-daisyui-design` for specific components:
-
-- **Navigation**: navbar patterns from component-patterns.md
-- **Forms**: accessibility patterns from form-accessibility.md
-- **Content**: prose styling from typography-readability.md
-- **Colors**: semantic usage from color-usage.md
-
-## Phase 4: Hugo Implementation
-
-See [references/hugo-templates.md](references/hugo-templates.md) for:
-
-- File responsibilities and edit priorities
-- baseof.html structure
-- Layout template patterns
-- Partial organization
-
-### Motion Hierarchy
-
-Prioritize in this order:
-
-1. **CSS animations** - Default choice for all motion on HTML
-2. **Alpine.js transitions** - When CSS isn't sufficient for interactivity
-3. **Vanilla JavaScript** - Only when Alpine.js capabilities are exceeded
-
-Focus on high-impact moments: one well-orchestrated page load with staggered reveals creates more delight than scattered micro-interactions.
-
-See [references/design-patterns.md](references/design-patterns.md) for:
-
-- Hero section variations
-- Card grid layouts
-- Typography integration
-- Motion and atmosphere techniques
+| Phase         | Skills                                                                                                                       | When to Use                                                     |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 2. Theme      | `daisyui-design-system-generator`                                                                                            | Generate OKLCH color theme after interview                      |
+| 3. Components | `tailwind-daisyui-design`                                                                                                    | Build accessible component patterns                             |
+| 4. Implement  | `hugo-templates`, `htmx-alpine-templates`, `typescript-html-templates`                                                       | Create Hugo layouts and interactive templates                   |
+| 5. Refine     | `design-bolder`, `design-quieter`, `design-colorize`, `design-typeset`, `design-arrange`, `design-animate`, `design-delight` | Adjust intensity, color, typography, motion                     |
+| 6. Review     | `design-critique`, `design-audit`, `design-polish`, `design-clarify`                                                         | Evaluate UX, audit quality, polish, improve copy                |
+| 7. Harden     | `design-harden`, `design-adapt`, `design-normalize`, `design-onboard`                                                        | Production resilience, responsive, system alignment, onboarding |
 
 ## Quick Reference: File Edit Priority
 
@@ -133,3 +110,9 @@ See [references/design-patterns.md](references/design-patterns.md) for:
 - **DaisyUI 5** themes: OKLCH colors, `@plugin "daisyui/theme"` syntax
 - **Hugo pipes**: CSS processed via `resources.PostCSS`
 - **Semantic colors only**: Never raw Tailwind colors (`bg-blue-500`), always DaisyUI (`bg-primary`)
+
+## References
+
+- [references/phases.md](references/phases.md) — Detailed phase definitions and templated prompts
+- [references/design-patterns.md](references/design-patterns.md) — Hero sections, card grids, motion techniques
+- [references/hugo-templates.md](references/hugo-templates.md) — File responsibilities, baseof.html, layout patterns
