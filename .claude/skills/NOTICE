@@ -31,6 +31,7 @@ The following files were adapted from the above source:
   .claude/skills/design-audit/SKILL.md (from: audit)
   .claude/skills/design-critique/SKILL.md (from: critique)
   .claude/skills/design-harden/SKILL.md (from: harden)
+  .claude/skills/design-onboard/SKILL.md (from: onboard)
 
 Modifications:
 - All skills adapted for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX
