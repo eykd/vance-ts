@@ -29,36 +29,45 @@ Design distinctive, accessible Hugo sites. This skill interviews the user to est
 
 ## Phase 1: Design Interview
 
-On invocation, review any context the user provides, then interview to fill gaps. Ask **one question at a time**. Stop when direction is clear.
+Three steps: scan the codebase, ask structured questions (skipping what the scan already answered), then synthesize a Design Context.
 
-### Interview Framework
+### Step 1: Codebase Scan
 
-**Question priority** (ask in order, skip if already known):
+Before asking any questions, scan for existing design signals:
 
-1. **Purpose**: "What is this site for—blog, portfolio, product, documentation, or something else?"
-2. **Tone**: "Pick a word: professional, playful, minimal, bold, elegant, technical, or describe your own."
-3. **Reference**: "Any sites or styles you admire? Even a vague 'like Apple' or 'like a newspaper' helps."
-4. **Colors**: "Do you have brand colors, or should I propose a palette based on the tone?"
-5. **Typography**: "What feeling should the typography convey—elegant, technical, bold, friendly, unconventional? I'll choose distinctive fonts that elevate the design (avoiding generic defaults like Inter or Roboto)."
+- **README / CLAUDE.md** — project description, `## Design Context` section
+- **package.json / hugo.toml** — dependencies, theme config, font imports
+- **CSS / theme files** — `assets/css/styles.css`, DaisyUI theme variables, custom properties
+- **Existing components** — Hugo layouts/partials, Alpine.js components, DaisyUI usage patterns
+- **Brand assets** — logos, favicons, color palettes in `static/` or `assets/`
+- **Style guides** — any design documentation in `docs/`
 
-**Interview rules:**
+Document what was learned. These findings pre-fill the interview — skip questions already answered.
 
-- If user provides detailed input upfront, acknowledge it and skip covered questions
-- Accept short answers ("minimal", "blue", "no preference")
-- After 3-4 answers, summarize direction and confirm before proceeding
-- If user says "surprise me" or similar, make opinionated choices and explain them
+### Step 2: Structured Questions
 
-### Capturing Direction
+Ask **one question at a time**. Skip any category fully answered by the codebase scan.
 
-After interview, produce a brief **Design Direction Summary**:
+- **Users & Purpose**: Who uses this? What context? What job does the site do? What emotions to evoke?
+- **Brand & Personality**: 3-word personality? Reference sites/apps? Anti-references (sites to avoid resembling)?
+- **Aesthetic Preferences**: Visual direction (minimal/bold/elegant/playful/technical)? Light/dark/both? Colors to use or avoid? Typography feeling (elegant/technical/bold/friendly/unconventional — distinctive fonts only, no Inter/Roboto)?
+- **Accessibility**: Target WCAG level (AA or AAA)? Reduced motion, color blindness, screen reader accommodations?
+
+**Interview rules:** Accept short answers. After 3-4 answers, summarize and confirm. If user says "surprise me," make opinionated choices and explain them.
+
+### Step 3: Design Context Synthesis
+
+After the interview, produce a **Design Context** summary:
 
 ```
-Site type: [blog/portfolio/product/docs/other]
-Aesthetic: [1-3 descriptive words]
-Color approach: [brand colors / proposed palette / defer to theme skill]
-Typography: [font strategy - specify UNIQUE fonts, not defaults]
-Key differentiator: [what makes this memorable and unlike other sites]
-Creativity checkpoint: [how will this avoid looking generic?]
+Users: [who they are, what emotions the experience should evoke]
+Brand Personality: [3 words, reference sites, anti-references]
+Aesthetic Direction: [visual strategy, light/dark, color approach]
+Typography: [font strategy — specify UNIQUE fonts, not defaults]
+Accessibility: [WCAG level, specific accommodations]
+Design Principles: [3-5 principles derived from the above]
+Key Differentiator: [what makes this memorable and unlike other sites]
+Creativity Checkpoint: [how will this avoid looking generic?]
 ```
 
 **Before finalizing:** Verify you're not reusing fonts/aesthetics from previous projects. Ensure bold, distinctive choices.
