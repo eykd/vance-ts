@@ -1,6 +1,6 @@
 ---
-name: frontend-design
-description: Design frontend for Hugo static sites using TailwindCSS 4 + DaisyUI 5. Use when creating or redesigning Hugo site themes, layouts, or components. Conducts a focused design interview, then coordinates with daisyui-design-system-generator (for OKLCH color themes) and tailwind-daisyui-design (for component patterns). Covers baseof.html, styles.css, page layouts, partials, and hero sections.
+name: design-interview
+description: Starting point for all design work. Use when starting a new design task, redesigning UI, planning a site's visual direction, or needing guidance on which design skill to use next. Conducts a structured design interview to establish aesthetic direction, then orchestrates the full design workflow by routing to the right design-* sub-skills at each phase (theme, components, implementation, refinement, review, hardening).
 ---
 
 # Hugo + TailwindCSS + DaisyUI Design
