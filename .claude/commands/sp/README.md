@@ -138,7 +138,7 @@ br ready
 br show <epic-id> --json  # use .[0].dependents array for child tasks
 
 # View dependency tree (shows phase chain)
-br dep tree <epic-id>
+br dep tree <epic-id> --direction up
 
 # Get statistics
 br stats

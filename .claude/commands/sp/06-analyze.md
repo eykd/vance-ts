@@ -112,8 +112,10 @@ br ready --json
 e. View dependency tree:
 
 ```bash
-br dep tree <epic-id>
+br dep tree <epic-id> --direction up
 ```
+
+- Note: `--direction up` shows dependents/children (default `down` shows blockers, which is empty for an epic)
 
 ### 3. Load Artifacts (Progressive Disclosure)
 
@@ -400,7 +402,7 @@ At end of report, output a concise Next Actions block:
 | Get statistics  | `br stats --json`                             |
 | List all tasks  | `br show <epic-id> --json` (dependents array) |
 | Get ready tasks | `br ready --json`                             |
-| View hierarchy  | `br dep tree <epic-id>`                       |
+| View hierarchy  | `br dep tree <epic-id> --direction up`        |
 | Check cycles    | `br dep cycles`                               |
 
 ## Context

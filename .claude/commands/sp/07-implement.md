@@ -182,8 +182,10 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    ```bash
    br stats --json
-   br dep tree <epic-id>
+   br dep tree <epic-id> --direction up
    ```
+
+   - Note: `--direction up` shows dependents/children (default `down` shows blockers, which is empty for an epic)
 
 Note: This command uses beads exclusively for task tracking. Run `/sp:05-tasks` if beads tasks do not exist.
 
@@ -205,7 +207,7 @@ Note: This command uses beads exclusively for task tracking. Run `/sp:05-tasks` 
 | View task            | `br show <id>`                                          |
 | List open tasks      | `br show <epic-id> --json` (filter `.[0].dependents[]`) |
 | View statistics      | `br stats --json`                                       |
-| View dependency tree | `br dep tree <epic-id>`                                 |
+| View dependency tree | `br dep tree <epic-id> --direction up`                  |
 
 ## Error Handling
 

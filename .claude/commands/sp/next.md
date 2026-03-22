@@ -224,7 +224,7 @@ Invoke the corresponding command:
 | Claim task           | `br update <id> --claim`                      |
 | Close (skip)         | `br close <id> --reason "..."`                |
 | View all phases      | `br show <epic-id> --json` (dependents array) |
-| View dependency tree | `br dep tree <epic-id>`                       |
+| View dependency tree | `br dep tree <epic-id> --direction up`        |
 
 ## Example Usage
 
