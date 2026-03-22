@@ -35,7 +35,7 @@ feature=$(git branch --show-current | sed 's/^[0-9]*-//')
 #    (ralph uses: ascii_downcase, hyphens→spaces, substring match)
 epic_id=$(br list --type epic --status open --json | \
   jq -r --arg f "$feature" \
-  '.[] | select(.title | ascii_downcase | gsub("-";" ") | contains($f | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
+  '.issues[] | select(.title | ascii_downcase | gsub("-";" ") | contains($f | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
 
 # 3. Find the [sp:07-implement] child of that epic
 implement_id=$(br show "$epic_id" --json | \
@@ -56,7 +56,7 @@ br dep add <new-task> <prerequisite>
 feature=$(git branch --show-current | sed 's/^[0-9]*-//')
 epic_id=$(br list --type epic --status open --json | \
   jq -r --arg f "$feature" \
-  '.[] | select(.title | ascii_downcase | gsub("-";" ") | contains($f | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
+  '.issues[] | select(.title | ascii_downcase | gsub("-";" ") | contains($f | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
 impl_id=$(br show "$epic_id" --json | \
   jq -r '.[0].dependents[] | select(.title | contains("[sp:07-implement]")) | .id')
 br create --title "Bug: describe the issue" \

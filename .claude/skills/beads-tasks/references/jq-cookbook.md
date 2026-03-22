@@ -19,23 +19,23 @@ br show <id> --json
 ### Get All Task IDs
 
 ```bash
-br list --json | jq -r '.[].id'
+br list --json | jq -r '.issues[].id'
 ```
 
 ### Get Task Titles and IDs
 
 ```bash
-br list --json | jq -r '.[] | "\(.id): \(.title)"'
+br list --json | jq -r '.issues[] | "\(.id): \(.title)"'
 ```
 
 ### Extract Specific Fields
 
 ```bash
 # Just titles
-br list --json | jq -r '.[].title'
+br list --json | jq -r '.issues[].title'
 
 # Title, status, and priority
-br list --json | jq -r '.[] | "\(.title) | \(.status) | P\(.priority)"'
+br list --json | jq -r '.issues[] | "\(.title) | \(.status) | P\(.priority)"'
 ```
 
 ## Filtering Patterns
@@ -44,39 +44,39 @@ br list --json | jq -r '.[] | "\(.title) | \(.status) | P\(.priority)"'
 
 ```bash
 # All open tasks
-br list --json | jq '.[] | select(.status == "open")'
+br list --json | jq '.issues[] | select(.status == "open")'
 
 # All closed tasks (need --all to include closed in list output)
-br list --json --all | jq '.[] | select(.status == "closed")'
+br list --json --all | jq '.issues[] | select(.status == "closed")'
 
 # In-progress tasks
-br list --json | jq '.[] | select(.status == "in_progress")'
+br list --json | jq '.issues[] | select(.status == "in_progress")'
 ```
 
 ### Filter by Multiple Conditions
 
 ```bash
 # High priority tasks that are open (priority 0 or 1)
-br list --json | jq '.[] | select(.priority <= 1 and .status == "open")'
+br list --json | jq '.issues[] | select(.priority <= 1 and .status == "open")'
 
 # Open tasks of a specific type
-br list --json | jq '.[] | select(.status == "open" and .issue_type == "task")'
+br list --json | jq '.issues[] | select(.status == "open" and .issue_type == "task")'
 
 # Tasks with no dependencies
-br list --json | jq '.[] | select(.dependency_count == 0)'
+br list --json | jq '.issues[] | select(.dependency_count == 0)'
 ```
 
 ### Filter by Label Presence
 
 ```bash
 # Tasks with a specific label (use br list --label flag instead when possible)
-br list --json --label "bug" | jq -r '.[] | .id'
+br list --json --label "bug" | jq -r '.issues[] | .id'
 
 # Tasks with any labels
-br list --json | jq '.[] | select(.labels != null and (.labels | length > 0))'
+br list --json | jq '.issues[] | select(.labels != null and (.labels | length > 0))'
 
 # Tasks without labels
-br list --json | jq '.[] | select(.labels == null or (.labels | length == 0))'
+br list --json | jq '.issues[] | select(.labels == null or (.labels | length == 0))'
 ```
 
 ## Aggregation Patterns
@@ -85,7 +85,7 @@ br list --json | jq '.[] | select(.labels == null or (.labels | length == 0))'
 
 ```bash
 br list --json --limit 0 | jq -r '
-  group_by(.status) |
+  .issues | group_by(.status) |
   map({status: .[0].status, count: length}) |
   .[] |
   "\(.status): \(.count)"
@@ -96,7 +96,7 @@ br list --json --limit 0 | jq -r '
 
 ```bash
 br list --json --limit 0 | jq -r '
-  group_by(.priority) |
+  .issues | group_by(.priority) |
   map({priority: .[0].priority, count: length}) |
   .[] |
   "P\(.priority): \(.count)"
@@ -107,7 +107,7 @@ br list --json --limit 0 | jq -r '
 
 ```bash
 br list --json --limit 0 | jq -r '
-  group_by(.issue_type) |
+  .issues | group_by(.issue_type) |
   map({type: .[0].issue_type, count: length}) |
   .[] |
   "\(.type): \(.count)"
@@ -119,19 +119,19 @@ br list --json --limit 0 | jq -r '
 ### Sort by Created Date (Newest First)
 
 ```bash
-br list --json | jq 'sort_by(.created_at) | reverse | .[]'
+br list --json | jq '.issues | sort_by(.created_at) | reverse | .[]'
 ```
 
 ### Sort by Priority (Highest First, 0 = Highest)
 
 ```bash
-br list --json | jq 'sort_by(.priority) | .[]'
+br list --json | jq '.issues | sort_by(.priority) | .[]'
 ```
 
 ### Sort by Title (Alphabetical)
 
 ```bash
-br list --json | jq 'sort_by(.title) | .[]'
+br list --json | jq '.issues | sort_by(.title) | .[]'
 ```
 
 ## Transformation Patterns
@@ -150,7 +150,7 @@ echo "ID,Title,Status,Priority"
 
 # Data rows
 br list --json | jq -r '
-  .[] |
+  .issues[] |
   [.id, .title, .status, .priority] |
   @csv
 '
@@ -159,7 +159,7 @@ br list --json | jq -r '
 ### Create JSON Summary Object
 
 ```bash
-br list --json --limit 0 | jq '{
+br list --json --limit 0 | jq '.issues | {
   total: length,
   by_status: (group_by(.status) | map({(.[0].status): length}) | add),
   open_count: ([.[] | select(.status == "open")] | length),
@@ -190,10 +190,10 @@ br blocked --json | jq -r '
 
 ```bash
 # Use "none" if assignee is null
-br list --json | jq -r '.[] | .assignee // "unassigned"'
+br list --json | jq -r '.issues[] | .assignee // "unassigned"'
 
 # Default for missing fields
-br list --json | jq '.[] | .labels // []'
+br list --json | jq '.issues[] | .labels // []'
 ```
 
 ### Conditional Field Selection
@@ -201,7 +201,7 @@ br list --json | jq '.[] | .labels // []'
 ```bash
 # Show different output based on status
 br list --json | jq -r '
-  .[] |
+  .issues[] |
   if .status == "closed" then
     "DONE \(.title)"
   elif .status == "in_progress" then
@@ -231,7 +231,7 @@ done
 
 ```bash
 # Check if any tasks are in progress
-in_progress=$(br list --json --status=in_progress | jq 'length')
+in_progress=$(br list --json --status=in_progress | jq '.issues | length')
 
 if [ "$in_progress" -gt 0 ]; then
   echo "Tasks in progress: $in_progress"
@@ -265,20 +265,20 @@ br list --json | jq '.'
 ### View Array Length
 
 ```bash
-br list --json | jq 'length'
+br list --json | jq '.issues | length'
 ```
 
 ### Inspect First Item (see actual field names)
 
 ```bash
-br list --json | jq '.[0]'
+br list --json | jq '.issues[0]'
 ```
 
 ### Test Filter Without Processing
 
 ```bash
 # See how many would be selected
-br list --json | jq '[.[] | select(.status == "open")] | length'
+br list --json | jq '[.issues[] | select(.status == "open")] | length'
 ```
 
 ## Common Pitfalls
@@ -323,10 +323,10 @@ jq '.[] | .assignee?'
 br list --json | jq '.'
 
 # Step 2: See first task structure (verify field names)
-br list --json | jq '.[0]'
+br list --json | jq '.issues[0]'
 
 # Step 3: Test filter
-br list --json | jq '.[] | select(.status == "open")'
+br list --json | jq '.issues[] | select(.status == "open")'
 ```
 
 Remember: fields are **snake_case** (`created_at`, `issue_type`, `dependency_count`), NOT camelCase.
@@ -351,10 +351,10 @@ jq '.[] | select(.priority <= 1)'  # P0 and P1 (highest)
 
 ```bash
 # See type of a field
-br list --json | jq '.[0].labels | type'
+br list --json | jq '.issues[0].labels | type'
 
 # Handle arrays vs strings
-br list --json | jq '.[] | .labels[]?'  # Iterate array safely
+br list --json | jq '.issues[] | .labels[]?'  # Iterate array safely
 ```
 
 ## Performance Tips
@@ -367,12 +367,12 @@ br list --json | jq '.[] | .labels[]?'  # Iterate array safely
 ```bash
 # Good: Query once
 tasks=$(br list --json --limit 0)
-echo "$tasks" | jq 'filter expression 1'
-echo "$tasks" | jq 'filter expression 2'
+echo "$tasks" | jq '.issues | filter expression 1'
+echo "$tasks" | jq '.issues | filter expression 2'
 
 # Bad: Query multiple times
-br list --json | jq 'filter expression 1'
-br list --json | jq 'filter expression 2'
+br list --json | jq '.issues | filter expression 1'
+br list --json | jq '.issues | filter expression 2'
 ```
 
 ## Reference

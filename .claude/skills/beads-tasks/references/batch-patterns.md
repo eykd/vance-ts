@@ -105,7 +105,7 @@ echo "Task Counts by Status:"
 br list --json --limit 0 | jq -r '
   .issues | group_by(.status) |
   map({status: .[0].status, count: length}) |
-  .[] |
+  .issues[] |
   "  \(.status): \(.count)"
 '
 
@@ -120,7 +120,7 @@ br list --json --status=in_progress | jq -r '.issues[] | "  - [\(.id)] \(.title)
 echo
 echo "Recently Closed (last 5):"
 br list --json --all --sort=closed --reverse --limit 5 | jq -r '
-  .[] |
+  .issues[] |
   select(.status == "closed") |
   "  - [\(.id)] \(.title)"
 '
@@ -142,7 +142,7 @@ br list --status open --priority-max 1 --json | jq -r '
 echo
 echo "Tasks Labeled 'security':"
 br list --json --label security | jq -r '
-  .[] | "  [\(.id)] \(.title)"
+  .issues[] | "  [\(.id)] \(.title)"
 '
 ```
 
