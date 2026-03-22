@@ -24,6 +24,10 @@ The following files were adapted from the above source:
   .claude/skills/design-quieter/SKILL.md (from: quieter)
   .claude/skills/design-normalize/SKILL.md (from: normalize)
   .claude/skills/design-distill/SKILL.md (from: distill)
+  .claude/skills/design-animate/SKILL.md (from: animate)
+  .claude/skills/design-delight/SKILL.md (from: delight)
+  .claude/skills/design-overdrive/SKILL.md (from: overdrive)
+  .claude/skills/design-adapt/SKILL.md (from: adapt)
 
 Modifications:
 - All skills adapted for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX
