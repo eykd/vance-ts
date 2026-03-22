@@ -1,6 +1,6 @@
 <!--
   Original source: https://github.com/pbakaus/impeccable
-  Original skill: frontend-design
+  Original skill: design-frontend
   Original author: Paul Bakaus
   License: Apache License 2.0
   Adapted: 2026-03-21 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack

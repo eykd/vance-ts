@@ -7,14 +7,14 @@ License: https://www.apache.org/licenses/LICENSE-2.0
 
 The following files were adapted from the above source:
 
-  .claude/skills/design-frontend/SKILL.md (from: frontend-design)
-  .claude/skills/design-frontend/references/color-and-contrast.md (from: frontend-design/reference/)
-  .claude/skills/design-frontend/references/interaction-design.md (from: frontend-design/reference/)
-  .claude/skills/design-frontend/references/motion-design.md (from: frontend-design/reference/)
-  .claude/skills/design-frontend/references/responsive-design.md (from: frontend-design/reference/)
-  .claude/skills/design-frontend/references/spatial-design.md (from: frontend-design/reference/)
-  .claude/skills/design-frontend/references/typography.md (from: frontend-design/reference/)
-  .claude/skills/design-frontend/references/ux-writing.md (from: frontend-design/reference/)
+  .claude/skills/design-frontend/SKILL.md (from: design-frontend)
+  .claude/skills/design-frontend/references/color-and-contrast.md (from: design-frontend/reference/)
+  .claude/skills/design-frontend/references/interaction-design.md (from: design-frontend/reference/)
+  .claude/skills/design-frontend/references/motion-design.md (from: design-frontend/reference/)
+  .claude/skills/design-frontend/references/responsive-design.md (from: design-frontend/reference/)
+  .claude/skills/design-frontend/references/spatial-design.md (from: design-frontend/reference/)
+  .claude/skills/design-frontend/references/typography.md (from: design-frontend/reference/)
+  .claude/skills/design-frontend/references/ux-writing.md (from: design-frontend/reference/)
   .claude/skills/design-polish/SKILL.md (from: polish)
   .claude/skills/design-arrange/SKILL.md (from: arrange)
   .claude/skills/design-colorize/SKILL.md (from: colorize)
