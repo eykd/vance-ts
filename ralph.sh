@@ -704,14 +704,12 @@ get_in_progress_tasks() {
 # Check if a task has any active (open or in-progress) children
 task_has_active_children() {
     local task_id="$1"
-    local open_count in_progress_count
+    local active_count
 
-    open_count=$(br show "$task_id" --json 2>/dev/null | \
-        jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "open" and .issue_type != "event")] | length' 2>/dev/null || echo "0")
-    in_progress_count=$(br show "$task_id" --json 2>/dev/null | \
-        jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "in_progress" and .issue_type != "event")] | length' 2>/dev/null || echo "0")
+    active_count=$(br show "$task_id" --json 2>/dev/null | \
+        jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and (.status == "open" or .status == "in_progress") and .issue_type != "event")] | length' 2>/dev/null || echo "0")
 
-    [[ "$((open_count + in_progress_count))" -gt 0 ]]
+    [[ "$active_count" -gt 0 ]]
 }
 
 
