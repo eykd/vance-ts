@@ -155,7 +155,7 @@ Given that feature description, do this:
    d. If epic already exists, retrieve its ID:
 
    ```bash
-   br list --type epic --status open --json | jq -r '.[] | select(.title | contains("<feature-name>")) | .id'
+   br list --type epic --status open --json | jq -r '.issues[] | select(.title | contains("<feature-name>")) | .id'
    ```
 
    e. **Store epic ID in spec.md**: Add the epic ID to the spec.md front matter:

@@ -714,22 +714,6 @@ task_has_active_children() {
     [[ "$((open_count + in_progress_count))" -gt 0 ]]
 }
 
-# Check if a task has children (is a parent container)
-task_has_children() {
-    local task_id="$1"
-    local child_count
-    child_count=$(br show "$task_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child")] | length' 2>/dev/null) || return 1
-    [[ "$child_count" -gt 0 ]]
-}
-
-# Check if all direct children of a task are closed
-all_children_closed() {
-    local task_id="$1"
-    local non_closed_count
-    non_closed_count=$(br show "$task_id" --json 2>/dev/null | \
-        jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status != "closed")] | length' 2>/dev/null) || return 1
-    [[ "$non_closed_count" -eq 0 ]]
-}
 
 # Auto-close parent container tasks when all their children are completed.
 # Walks up from the given task ID, closing ancestors bottom-up.
@@ -821,9 +805,9 @@ task_has_children() {
 # Check if all direct children of a task are closed
 all_children_closed() {
     local task_id="$1"
-    local open_count
-    open_count=$(br show "$task_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status == "open")] | length' 2>/dev/null) || return 1
-    [[ "$open_count" -eq 0 ]]
+    local non_closed_count
+    non_closed_count=$(br show "$task_id" --json 2>/dev/null | jq '.[0].dependents // [] | [.[] | select(.dependency_type == "parent-child" and .status != "closed")] | length' 2>/dev/null) || return 1
+    [[ "$non_closed_count" -eq 0 ]]
 }
 
 # Auto-close parent container tasks when all their children are completed.

@@ -127,7 +127,7 @@ Show ready work — open issues with no active blockers.
 br ready [flags]
 ```
 
-**Important:** `br ready` is NOT equivalent to `br list --ready`. It uses the `GetReadyWork` API which applies blocker-aware semantics. `br list --ready` only filters `status=open` and misses dependency-blocked issues.
+**Important:** `br ready` is the only way to get blocker-aware ready work. `br list` does NOT have a `--ready` flag — filtering by `--status open` alone misses dependency-blocked issues. Always use `br ready` for task selection.
 
 | Flag                      | Description                                    |
 | ------------------------- | ---------------------------------------------- |

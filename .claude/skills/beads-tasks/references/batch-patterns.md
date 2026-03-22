@@ -105,7 +105,7 @@ echo "Task Counts by Status:"
 br list --json --limit 0 | jq -r '
   .issues | group_by(.status) |
   map({status: .[0].status, count: length}) |
-  .issues[] |
+  .[] |
   "  \(.status): \(.count)"
 '
 
@@ -120,7 +120,7 @@ br list --json --status=in_progress | jq -r '.issues[] | "  - [\(.id)] \(.title)
 echo
 echo "Recently Closed (last 5):"
 br list --json --all --sort=closed --reverse --limit 5 | jq -r '
-  .issues[] |
+  .[] |
   select(.status == "closed") |
   "  - [\(.id)] \(.title)"
 '
@@ -135,14 +135,14 @@ set -euo pipefail
 # Find high-priority open tasks (priority 0 or 1)
 echo "High Priority Open Tasks:"
 br list --status open --priority-max 1 --json | jq -r '
-  .issues[] | "  [\(.id)] P\(.priority) \(.title)"
+  .[] | "  [\(.id)] P\(.priority) \(.title)"
 '
 
 # Find tasks with specific labels
 echo
 echo "Tasks Labeled 'security':"
 br list --json --label security | jq -r '
-  .issues[] | "  [\(.id)] \(.title)"
+  .[] | "  [\(.id)] \(.title)"
 '
 ```
 
