@@ -1,6 +1,6 @@
 ---
 name: hugo-copywriting
-description: 'Analyze and guide Hugo site copywriting with readability metrics and style presets (advisory mode). Use when: (1) analyzing existing Hugo content for style compliance, (2) writing new Hugo content with style guidance, (3) choosing/documenting style guides (checked every invocation), (4) evaluating configuration copy (params.yaml, menus.yaml, data), (5) analyzing readability metrics, (6) providing suggestions to match copywriter voice presets. Advisory mode: provides examples and suggestions rather than automatic rewrites. Integrates with hugo-templates, frontend-design, and tailwind-daisyui-design skills.'
+description: 'Analyze and guide Hugo site copywriting with readability metrics and style presets (advisory mode). Use when: (1) analyzing existing Hugo content for style compliance, (2) writing new Hugo content with style guidance, (3) choosing/documenting style guides (checked every invocation), (4) evaluating configuration copy (params.yaml, menus.yaml, data), (5) analyzing readability metrics, (6) providing suggestions to match copywriter voice presets. Advisory mode: provides examples and suggestions rather than automatic rewrites. Integrates with hugo-templates, design-frontend, and tailwind-daisyui-design skills.'
 ---
 
 # Hugo Copywriting Skill
@@ -131,9 +131,9 @@ See `references/workflow-patterns.md` for complete workflows.
 
 ## Related Skills
 
-Integrates with: `hugo-templates`, `frontend-design`, `tailwind-daisyui-design`, `daisyui-design-system-generator`, `htmx-alpine-templates`, `hugo-project-setup`.
+Integrates with: `hugo-templates`, `design-frontend`, `tailwind-daisyui-design`, `daisyui-design-system-generator`, `htmx-alpine-templates`, `hugo-project-setup`.
 
-**Typical flow:** frontend-design (visual) → hugo-copywriting (voice/style) → hugo-templates (structure) → tailwind-daisyui-design (styling).
+**Typical flow:** design-frontend (visual) → hugo-copywriting (voice/style) → hugo-templates (structure) → tailwind-daisyui-design (styling).
 
 ## Documentation Standards
 
