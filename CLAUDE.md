@@ -183,6 +183,39 @@ Always use these skills when working in their domains:
 - `/portable-datetime` — when working with dates/times (see layer CLAUDE.md files)
 - `/glossary` — when naming or reviewing domain terminology
 
+## Design Skills
+
+Start with `/design-interview` for guided design workflows. Use `/design-frontend` as the reference hub for design principles and the AI Slop Test.
+
+### Workflow & Reference
+
+- `/design-interview` — starting point for all design work; orchestrates the full design workflow
+- `/design-frontend` — reference hub for design principles, anti-patterns, and the AI Slop Test
+- `/design-onboard` — design onboarding flows, empty states, and first-time user experiences
+- `/design-language-to-daisyui` — map natural-language UI descriptions to DaisyUI 5 + Tailwind CSS 4 classes
+
+### Refinement
+
+- `/design-arrange` — improve layout, spacing, and visual rhythm
+- `/design-bolder` — amplify safe or boring designs to increase visual impact
+- `/design-clarify` — improve UX copy, error messages, microcopy, and labels
+- `/design-colorize` — add strategic color to monochromatic interfaces
+- `/design-delight` — add moments of joy and personality to functional interfaces
+- `/design-distill` — strip designs to their essence by removing unnecessary complexity
+- `/design-normalize` — align features to established design system patterns
+- `/design-overdrive` — push interfaces past conventional limits with ambitious implementations
+- `/design-polish` — final quality pass for alignment, spacing, and consistency
+- `/design-quieter` — tone down overly bold or visually aggressive designs
+- `/design-typeset` — improve typography, font choices, hierarchy, and readability
+- `/design-adapt` — adapt designs across screen sizes, devices, and platforms
+- `/design-animate` — enhance with purposeful animations and micro-interactions
+
+### Review & Hardening
+
+- `/design-audit` — comprehensive audit across accessibility, performance, theming, and responsive design
+- `/design-critique` — evaluate design effectiveness from a UX perspective
+- `/design-harden` — improve resilience through error handling, i18n, and edge case management
+
 ## TDD Workflow
 
 Strict red-green-refactor TDD for all TypeScript code. See `/test-driven-development` skill for the full process. Run `npx vitest run --coverage` to verify 100% coverage before committing.
