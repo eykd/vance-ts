@@ -155,7 +155,7 @@ Given that feature description, do this:
    d. If epic already exists, retrieve its ID:
 
    ```bash
-   br list --type epic --status open --json | jq -r '.[] | select(.title | contains("<feature-name>")) | .id'
+   br list --type epic --status open --json | jq -r '.issues[] | select(.title | contains("<feature-name>")) | .id'
    ```
 
    e. **Store epic ID in spec.md**: Add the epic ID to the spec.md front matter:
@@ -275,8 +275,10 @@ Given that feature description, do this:
    d. Verify the dependency chain:
 
    ```bash
-   br dep tree <epic-id>
+   br dep tree <epic-id> --direction up
    ```
+
+   - Note: `--direction up` shows dependents/children (default `down` shows blockers, which is empty for an epic)
 
    Expected output shows the chain: clarify → plan → red-team → tasks → analyze → implement → security-review → architecture-review → code-quality-review
 

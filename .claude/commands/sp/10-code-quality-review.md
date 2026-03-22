@@ -48,8 +48,8 @@ If no epic id is found, ERROR with: "No Beads Epic found for this feature. Run `
 3. List current open + in_progress tasks for the epic (for de-duplication):
 
 ```bash
-br list --parent <epic-id> --status open --json
-br list --parent <epic-id> --status in_progress --json
+br show <epic-id> --json | jq '.[0].dependents[] | select(.status == "open")'
+br show <epic-id> --json | jq '.[0].dependents[] | select(.status == "in_progress")'
 ```
 
 4. Identify changed files and summary:
@@ -92,7 +92,7 @@ git show HEAD:<file-path> 2>/dev/null && echo "exists" || echo "not-yet-written"
 - **File does NOT exist on HEAD** → This is a **design constraint**, not an independent fixable issue. The code hasn't been written yet; implementing a standalone task forces a build-wrong-then-fix cycle.
   - Identify the US story task that will own this code:
     ```bash
-    br list --parent <epic-id> --json | jq -r '.[] | select(.title | test("^US[0-9]+:")) | {id, title}'
+    br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | test("^US[0-9]+:")) | {id, title}'
     ```
   - Append the finding to that US story's description as an `## Implementation Constraints` entry:
     ```bash

@@ -4,15 +4,22 @@ Workflow guide for creating, querying, updating, and closing beads tasks with `b
 
 ## Gotchas — Read First
 
-| Trap                  | Wrong                                | Correct                                                                                                  |
-| --------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| JSON output flag      | `--format json`                      | `--json` (global flag, before or after subcommand)                                                       |
-| Start/claim a task    | `br start <id>`                      | `br update <id> --claim` (atomic assign + in_progress)                                                   |
-| Priority values       | `"high"`, `"medium"`, `"low"`        | `0-4` or `P0-P4` (integers, 0 = highest; default 2)                                                      |
-| JSON field names      | camelCase (`createdAt`, `blockedBy`) | snake_case (`created_at`, `dependency_count`)                                                            |
-| Issue type field      | `type`                               | `issue_type` in JSON output                                                                              |
-| Ready vs list --ready | `br list --ready` = `br ready`       | **NOT equivalent** — `br ready` uses blocker-aware semantics; `br list --ready` only filters status=open |
-| Close reason          | `--close-reason`                     | `br close <id> --reason "..."`                                                                           |
+| Trap                  | Wrong                                | Correct                                                                                              |
+| --------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| JSON output flag      | `--format json`                      | `--json` (global flag, before or after subcommand)                                                   |
+| Start/claim a task    | `br start <id>`                      | `br update <id> --claim` (atomic assign + in_progress)                                               |
+| Priority values       | `"high"`, `"medium"`, `"low"`        | `0-4` or `P0-P4` (integers, 0 = highest; default 2)                                                  |
+| JSON field names      | camelCase (`createdAt`, `blockedBy`) | snake_case (`created_at`, `dependency_count`)                                                        |
+| Issue type field      | `type`                               | `issue_type` in JSON output                                                                          |
+| Ready vs list --ready | `br list --ready` = `br ready`       | **NOT equivalent** — `br ready` uses blocker-aware semantics; `br list` has no `--ready` flag at all |
+| List children         | `br list --parent <id>`              | `br show <id> --json` then parse `.[0].dependents[]`; `br list` has no `--parent` flag               |
+| Children subcommand   | `br children <id>`                   | Does not exist; use `br show <id> --json` and parse `.[0].dependents[]`                              |
+| Query expressions     | `br query "status=open AND ..."`     | `br query` now manages saved queries only (save/run/list/delete); use `br list` flags to filter      |
+| Close reason          | `--close-reason`                     | `br close <id> --reason "..."`                                                                       |
+| Sync import           | `br sync --import`                   | `br sync --import-only` (full flag name required)                                                    |
+| DB cache corruption   | Retry the command                    | Run `br doctor` to auto-repair; common with rapid create/dep operations                              |
+| List JSON output      | `br list --json` = bare array        | Returns `{"issues": [...], "total": N, ...}`; access items via `.issues[]` in jq                     |
+| Dep tree direction    | `br dep tree <id>` shows children    | Default `--direction down` shows blockers; use `--direction up` to see children/dependents           |
 
 ## Task Parenting (ralph automation)
 
@@ -28,11 +35,11 @@ feature=$(git branch --show-current | sed 's/^[0-9]*-//')
 #    (ralph uses: ascii_downcase, hyphens→spaces, substring match)
 epic_id=$(br list --type epic --status open --json | \
   jq -r --arg f "$feature" \
-  '.[] | select(.title | ascii_downcase | gsub("-";" ") | contains($f | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
+  '.issues[] | select(.title | ascii_downcase | gsub("-";" ") | contains($f | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
 
 # 3. Find the [sp:07-implement] child of that epic
-implement_id=$(br children "$epic_id" --json | \
-  jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
+implement_id=$(br show "$epic_id" --json | \
+  jq -r '.[0].dependents[] | select(.title | contains("[sp:07-implement]")) | .id')
 
 # 4. Create with parent
 br create --title "Fix edge case in auth" \
@@ -49,9 +56,9 @@ br dep add <new-task> <prerequisite>
 feature=$(git branch --show-current | sed 's/^[0-9]*-//')
 epic_id=$(br list --type epic --status open --json | \
   jq -r --arg f "$feature" \
-  '.[] | select(.title | ascii_downcase | gsub("-";" ") | contains($f | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
-impl_id=$(br children "$epic_id" --json | \
-  jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
+  '.issues[] | select(.title | ascii_downcase | gsub("-";" ") | contains($f | ascii_downcase | gsub("-";" "))) | .id' | head -n1)
+impl_id=$(br show "$epic_id" --json | \
+  jq -r '.[0].dependents[] | select(.title | contains("[sp:07-implement]")) | .id')
 br create --title "Bug: describe the issue" \
   --description "Steps to reproduce and expected behavior" \
   --parent "$impl_id" --priority 1 --add-label "bug"
@@ -68,18 +75,18 @@ If no matching epic exists, create the task normally and consider starting one w
 | List open       | `br list` (default: open, limit 50)                                                        |
 | List filtered   | `br list --status=in_progress --type=task --assignee=me`                                   |
 | Show ready work | `br ready` (blocker-aware, not same as `list --ready`)                                     |
-| Show details    | `br show <id> [--children] [--refs] [--json]`                                              |
-| Query (DSL)     | `br query "status=open AND priority<=1 AND type=task"`                                     |
+| Show details    | `br show <id> [--json]`                                                                    |
+| Show children   | `br show <id> --json \| jq '.[0].dependents[]'`                                            |
 | Text search     | `br search "keyword" [--status open] [--limit 20]`                                         |
 | Claim task      | `br update <id> --claim`                                                                   |
 | Update fields   | `br update <id> --status open --priority 1 --add-label "bug"`                              |
 | Close           | `br close <id> [--reason "..."] [--suggest-next]`                                          |
 | Close multiple  | `br close id1 id2 id3`                                                                     |
 | Add dependency  | `br dep add <blocked> <blocker>`                                                           |
-| Dep tree        | `br dep tree <id> [--direction=up\|down\|both]`                                            |
+| Dep tree        | `br dep tree <id> [--direction=up\|down\|both]` (default: down=blockers, up=children)      |
 | Epic status     | `br epic status [--eligible-only]`                                                         |
-| Children        | `br children <parent-id>`                                                                  |
-| Blocked         | `br blocked [--parent <epic-id>]`                                                          |
+| Children        | `br show <parent-id> --json \| jq '.[0].dependents[]'`                                     |
+| Blocked         | `br blocked`                                                                               |
 | Count           | `br count [--status=open] [--type=task]`                                                   |
 
 ## Batch Operations
@@ -127,7 +134,7 @@ br close task-1 task-2 task-3 --reason "Sprint cleanup"
 ```bash
 tasks=$(br list --json --limit 0)
 echo "$tasks" | jq -r '
-  group_by(.status) |
+  .issues | group_by(.status) |
   map({status: .[0].status, count: length}) |
   .[] | "  \(.status): \(.count)"
 '
@@ -138,11 +145,14 @@ echo "$tasks" | jq -r '
 Always use the `--json` global flag (not `--format json`):
 
 ```bash
-br list --json                    # Array of task objects
-br show <id> --json               # Array with single object (+ dependents)
-br ready --json                   # Array of ready tasks
+br list --json                    # {"issues": [...], "total": N, "limit": N, "offset": N, "has_more": bool}
+br show <id> --json               # Bare array with single object (+ dependents)
+br ready --json                   # Bare array of ready tasks
+br blocked --json                 # Bare array of blocked tasks
 br create --title "..." --json    # Created task object
 ```
+
+**Important**: `br list --json` wraps results in `{"issues": [...]}` (paginated). Other commands (`br show`, `br ready`, `br blocked`, `br search`) return bare arrays. Access items from `br list` via `.issues[]`, not `.[]`.
 
 **Actual field names** (snake_case, from live CLI output):
 
@@ -156,20 +166,23 @@ comment_count, parent_id, labels, metadata
 ### Common jq patterns
 
 ```bash
-# Extract IDs
-br list --json | jq -r '.[].id'
+# Extract IDs (note: br list wraps in .issues, other commands return bare arrays)
+br list --json | jq -r '.issues[].id'
 
 # Filter by status
-br list --json | jq '.[] | select(.status == "in_progress")'
+br list --json | jq '.issues[] | select(.status == "in_progress")'
 
 # Count by status
-br list --json | jq 'group_by(.status) | map({s: .[0].status, n: length}) | .[]'
+br list --json | jq '.issues | group_by(.status) | map({s: .[0].status, n: length}) | .[]'
 
 # Sort by priority (0 = highest)
-br list --json | jq 'sort_by(.priority)'
+br list --json | jq '.issues | sort_by(.priority)'
 
-# Markdown checklist
+# Markdown checklist (br ready returns bare array)
 br ready --json | jq -r '.[] | "- [ ] \(.title) (`\(.id)`)"'
+
+# Get children of a parent
+br show <parent-id> --json | jq -r '.[0].dependents[] | "\(.id): \(.title) [\(.status)]"'
 ```
 
 ## Best Practices

@@ -152,6 +152,16 @@ Spec: specs/012-auth-static-integration/spec.md
 
 ---
 
+## Import Impeccable Design Skills
+
+Keywords: impeccable, design skills, import, adapt, fork, Apache 2.0, license, attribution,
+NOTICE, pbakaus, frontend design, style, polish, critique, audit, animate, arrange, colorize,
+typeset, clarify, delight, distill, harden, normalize, bolder, quieter, onboard, optimize,
+overdrive, extract, design-prefix, skill namespace, DaisyUI adaptation, Tailwind adaptation
+Spec: specs/013-import-design-skills/spec.md
+
+---
+
 ## How to Update This File
 
 When adding a new spec via `/sp:01-specify`, the workflow updates this file automatically.

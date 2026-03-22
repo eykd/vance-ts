@@ -135,10 +135,10 @@ These commands use beads for task management:
 br ready
 
 # View all tasks for a feature epic
-br list --parent <epic-id> --json
+br show <epic-id> --json  # use .[0].dependents array for child tasks
 
 # View dependency tree (shows phase chain)
-br dep tree <epic-id>
+br dep tree <epic-id> --direction up
 
 # Get statistics
 br stats

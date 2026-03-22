@@ -103,7 +103,7 @@ echo
 # Count by status using jq
 echo "Task Counts by Status:"
 br list --json --limit 0 | jq -r '
-  group_by(.status) |
+  .issues | group_by(.status) |
   map({status: .[0].status, count: length}) |
   .[] |
   "  \(.status): \(.count)"
@@ -115,7 +115,7 @@ br ready --json | jq -r '.[] | "  - [\(.id)] \(.title)"'
 
 echo
 echo "In Progress Tasks:"
-br list --json --status=in_progress | jq -r '.[] | "  - [\(.id)] \(.title)"'
+br list --json --status=in_progress | jq -r '.issues[] | "  - [\(.id)] \(.title)"'
 
 echo
 echo "Recently Closed (last 5):"
@@ -134,7 +134,7 @@ set -euo pipefail
 
 # Find high-priority open tasks (priority 0 or 1)
 echo "High Priority Open Tasks:"
-br query "status=open AND priority<=1" --json | jq -r '
+br list --status open --priority-max 1 --json | jq -r '
   .[] | "  [\(.id)] P\(.priority) \(.title)"
 '
 
@@ -155,7 +155,7 @@ br list --json --label security | jq -r '
 set -euo pipefail
 
 # Claim next task only if nothing currently in progress
-in_progress_count=$(br list --json --status=in_progress | jq 'length')
+in_progress_count=$(br list --json --status=in_progress | jq '.issues | length')
 
 if [ "$in_progress_count" -eq 0 ]; then
   echo "No tasks in progress. Claiming next ready task..."
@@ -191,7 +191,7 @@ for task_def in "${tasks[@]}"; do
   IFS='|' read -r title description <<< "$task_def"
 
   # Check if task with similar title already exists
-  existing=$(br list --json --title "$title" | jq -r '.[0].id // empty')
+  existing=$(br list --json --title-contains "$title" | jq -r '.issues[0].id // empty')
 
   if [ -z "$existing" ]; then
     br create --title "$title" --description "$description"

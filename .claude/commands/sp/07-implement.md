@@ -48,7 +48,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    b. If no ready tasks, check remaining open tasks:
 
    ```bash
-   br list --parent <epic-id> --status open --json
+   br show <epic-id> --json | jq '.[0].dependents[] | select(.status == "open")'
    ```
 
    - If all tasks complete, report completion
@@ -141,13 +141,13 @@ You **MUST** consider the user input before proceeding (if not empty).
    a. Find the implement phase task ID:
 
    ```bash
-   IMPLEMENT_TASK_ID=$(br list --parent <epic-id> --json | jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
+   IMPLEMENT_TASK_ID=$(br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:07-implement]")) | .id')
    ```
 
    b. Check remaining sub-tasks under the implement phase task:
 
    ```bash
-   br list --parent $IMPLEMENT_TASK_ID --status open --json
+   br show $IMPLEMENT_TASK_ID --json | jq '.[0].dependents[] | select(.status == "open")'
    ```
 
    c. If open sub-tasks remain:
@@ -159,7 +159,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    ```bash
    # Verify all sub-tasks complete
-   OPEN_COUNT=$(br list --parent $IMPLEMENT_TASK_ID --status open --json | jq 'length')
+   OPEN_COUNT=$(br show $IMPLEMENT_TASK_ID --json | jq '[.[0].dependents[] | select(.status == "open")] | length')
    if [ "$OPEN_COUNT" -eq 0 ]; then
      # Verify implemented features match the original specification
      # Validate that tests pass and coverage meets requirements
@@ -182,8 +182,10 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    ```bash
    br stats --json
-   br dep tree <epic-id>
+   br dep tree <epic-id> --direction up
    ```
+
+   - Note: `--direction up` shows dependents/children (default `down` shows blockers, which is empty for an epic)
 
 Note: This command uses beads exclusively for task tracking. Run `/sp:05-tasks` if beads tasks do not exist.
 
@@ -197,15 +199,15 @@ Note: This command uses beads exclusively for task tracking. Run `/sp:05-tasks` 
 
 ## Beads Commands Reference
 
-| Action               | Command                                           |
-| -------------------- | ------------------------------------------------- |
-| Get ready tasks      | `br ready --json`                                 |
-| Claim task           | `br update <id> --claim`                          |
-| Mark complete        | `br close <id> --reason "summary"`                |
-| View task            | `br show <id>`                                    |
-| List open tasks      | `br list --parent <epic-id> --status open --json` |
-| View statistics      | `br stats --json`                                 |
-| View dependency tree | `br dep tree <epic-id>`                           |
+| Action               | Command                                                 |
+| -------------------- | ------------------------------------------------------- |
+| Get ready tasks      | `br ready --json`                                       |
+| Claim task           | `br update <id> --claim`                                |
+| Mark complete        | `br close <id> --reason "summary"`                      |
+| View task            | `br show <id>`                                          |
+| List open tasks      | `br show <epic-id> --json` (filter `.[0].dependents[]`) |
+| View statistics      | `br stats --json`                                       |
+| View dependency tree | `br dep tree <epic-id> --direction up`                  |
 
 ## Error Handling
 

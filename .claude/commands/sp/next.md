@@ -59,13 +59,13 @@ If no phase tasks are ready:
 a. Check for implementation sub-tasks (tasks under `[sp:07-implement]`):
 
 ```bash
-IMPLEMENT_TASK=$(br list --parent <epic-id> --json | jq -r '.[] | select(.title | contains("[sp:07-implement]"))')
+IMPLEMENT_TASK=$(br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:07-implement]"))')
 if [ -n "$IMPLEMENT_TASK" ]; then
   IMPLEMENT_ID=$(echo $IMPLEMENT_TASK | jq -r '.id')
   IMPL_STATUS=$(echo $IMPLEMENT_TASK | jq -r '.status')
   if [ "$IMPL_STATUS" = "in_progress" ] || [ "$IMPL_STATUS" = "open" ]; then
     # Check for sub-tasks
-    br list --parent $IMPLEMENT_ID --status open --json
+    br show $IMPLEMENT_ID --json | jq '.[0].dependents[] | select(.status == "open")'
   fi
 fi
 ```
@@ -77,7 +77,7 @@ b. If implementation sub-tasks are ready:
 
 c. If no tasks at all are ready:
 
-- Check epic status with `br list --parent <epic-id> --json`
+- Check epic status with `br show <epic-id> --json` (use `.[0].dependents` array)
 - If all tasks closed: "Feature workflow complete! Epic ready to close."
 - If tasks exist but blocked: "No ready tasks. Check dependencies with `br dep tree <epic-id>`"
 
@@ -136,7 +136,7 @@ If a phase name is provided (e.g., `/sp:next 03-plan`):
 a. Find the specified phase task:
 
 ```bash
-br list --parent <epic-id> --json | jq -r '.[] | select(.title | contains("[sp:<phase-name>]"))'
+br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:<phase-name>]"))'
 ```
 
 b. Check if task exists:
@@ -213,18 +213,18 @@ Invoke the corresponding command:
 - **No phase tasks created**: Feature may use old workflow; suggest re-running `/sp:01-specify`
 - **Beads not initialized**: Suggest installing br via curl, then run `br init`
 - **Circular dependency**: Run `br dep cycles` and report
-- **Phase task not found**: List available phases with `br list --parent <epic-id>`
+- **Phase task not found**: List available phases with `br show <epic-id> --json` (dependents array)
 
 ## Beads Commands Reference
 
-| Action               | Command                                    |
-| -------------------- | ------------------------------------------ |
-| List epics           | `br list --type epic --status open --json` |
-| Get ready tasks      | `br ready --json`                          |
-| Claim task           | `br update <id> --claim`                   |
-| Close (skip)         | `br close <id> --reason "..."`             |
-| View all phases      | `br list --parent <epic-id> --json`        |
-| View dependency tree | `br dep tree <epic-id>`                    |
+| Action               | Command                                       |
+| -------------------- | --------------------------------------------- |
+| List epics           | `br list --type epic --status open --json`    |
+| Get ready tasks      | `br ready --json`                             |
+| Claim task           | `br update <id> --claim`                      |
+| Close (skip)         | `br close <id> --reason "..."`                |
+| View all phases      | `br show <epic-id> --json` (dependents array) |
+| View dependency tree | `br dep tree <epic-id> --direction up`        |
 
 ## Example Usage
 

@@ -36,7 +36,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    b. Find the plan phase task:
 
    ```bash
-   br list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:03-plan]")) | .id'
+   br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:03-plan]")) | .id'
    ```
 
    c. Close the task with a completion summary:

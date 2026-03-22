@@ -65,7 +65,7 @@ The following tasks have been created under epic `[epic-id]`:
 View tasks:
 
 ```bash
-br list --parent [epic-id]
+br show [epic-id] --json | jq '.[0].dependents'
 ```
 
 > **Note**: If epic was closed, note "Epic `[epic-id]` was reopened to track these findings" appears here.
@@ -240,7 +240,7 @@ The following tasks have been created under epic `feat-search-123`:
 View tasks:
 
 ```bash
-br list --parent feat-search-123
+br show feat-search-123 --json | jq '.[0].dependents'
 ```
 
 ## Recommendations

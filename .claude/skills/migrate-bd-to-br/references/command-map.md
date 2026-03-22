@@ -9,31 +9,31 @@
 
 ## Simple Renames (no behavioral change)
 
-| bd                       | br                       | Flags                                                              |
-| ------------------------ | ------------------------ | ------------------------------------------------------------------ |
-| `bd ready`               | `br ready`               | Same: `--json`, `--quiet`                                          |
-| `bd list`                | `br list`                | Same: `--status`, `--type`, `--parent`, `--json`, `--all`          |
-| `bd show <id>`           | `br show <id>`           | Same: `--json`                                                     |
-| `bd create "title"`      | `br create "title"`      | Same: `-t`, `-p`, `--parent`, `--description`, `--json`            |
-| `bd update <id>`         | `br update <id>`         | Same: `--claim`, `--status`, `--priority`, `--assignee`, `--force` |
-| `bd close <id>`          | `br close <id>`          | Same: `--reason`, `--session`                                      |
-| `bd reopen <id>`         | `br reopen <id>`         | Same                                                               |
-| `bd delete <id>`         | `br delete <id>`         | Same                                                               |
-| `bd dep add <a> <b>`     | `br dep add <a> <b>`     | Same                                                               |
-| `bd dep remove <a> <b>`  | `br dep remove <a> <b>`  | Same                                                               |
-| `bd dep tree <id>`       | `br dep tree <id>`       | Same                                                               |
-| `bd dep list <id>`       | `br dep list <id>`       | Same                                                               |
-| `bd dep cycles`          | `br dep cycles`          | Same                                                               |
-| `bd blocked`             | `br blocked`             | Same                                                               |
-| `bd children <id>`       | `br children <id>`       | Same (if available; else `br list --parent <id>`)                  |
-| `bd search "term"`       | `br search "term"`       | Same                                                               |
-| `bd count`               | `br count`               | Same: `--by`                                                       |
-| `bd stats`               | `br stats`               | Same                                                               |
-| `bd epic status`         | `br epic status`         | Same                                                               |
-| `bd epic close-eligible` | `br epic close-eligible` | Same                                                               |
-| `bd init`                | `br init`                | Same (but no Dolt backend)                                         |
-| `bd config list`         | `br config list`         | Same                                                               |
-| `bd q "title"`           | `br q "title"`           | Quick capture                                                      |
+| bd                       | br                                            | Flags                                                              |
+| ------------------------ | --------------------------------------------- | ------------------------------------------------------------------ |
+| `bd ready`               | `br ready`                                    | Same: `--json`, `--quiet`                                          |
+| `bd list`                | `br list`                                     | Same: `--status`, `--type`, `--parent`, `--json`, `--all`          |
+| `bd show <id>`           | `br show <id>`                                | Same: `--json`                                                     |
+| `bd create "title"`      | `br create "title"`                           | Same: `-t`, `-p`, `--parent`, `--description`, `--json`            |
+| `bd update <id>`         | `br update <id>`                              | Same: `--claim`, `--status`, `--priority`, `--assignee`, `--force` |
+| `bd close <id>`          | `br close <id>`                               | Same: `--reason`, `--session`                                      |
+| `bd reopen <id>`         | `br reopen <id>`                              | Same                                                               |
+| `bd delete <id>`         | `br delete <id>`                              | Same                                                               |
+| `bd dep add <a> <b>`     | `br dep add <a> <b>`                          | Same                                                               |
+| `bd dep remove <a> <b>`  | `br dep remove <a> <b>`                       | Same                                                               |
+| `bd dep tree <id>`       | `br dep tree <id>`                            | Same                                                               |
+| `bd dep list <id>`       | `br dep list <id>`                            | Same                                                               |
+| `bd dep cycles`          | `br dep cycles`                               | Same                                                               |
+| `bd blocked`             | `br blocked`                                  | Same                                                               |
+| `bd children <id>`       | `br show <id> --json \| jq '.[0].dependents'` | `br children` does not exist; use `br show` instead                |
+| `bd search "term"`       | `br search "term"`                            | Same                                                               |
+| `bd count`               | `br count`                                    | Same: `--by`                                                       |
+| `bd stats`               | `br stats`                                    | Same                                                               |
+| `bd epic status`         | `br epic status`                              | Same                                                               |
+| `bd epic close-eligible` | `br epic close-eligible`                      | Same                                                               |
+| `bd init`                | `br init`                                     | Same (but no Dolt backend)                                         |
+| `bd config list`         | `br config list`                              | Same                                                               |
+| `bd q "title"`           | `br q "title"`                                | Quick capture                                                      |
 
 ## Syntax Changes (subcommand structure differs)
 
