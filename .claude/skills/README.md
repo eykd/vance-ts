@@ -224,86 +224,103 @@ Skills can also be activated automatically by Claude when it detects relevant co
 
 - **Use when:** Interfaces feel gray, flat, or lack visual warmth and color
 - **Provides:** Color application patterns, semantic color usage, DaisyUI theme integration
+- **Cross-references:** design-frontend, daisyui-design-system-generator, tailwind-daisyui-design
 
 **[design-typeset](./design-typeset/SKILL.md)**
 
 - **Use when:** Improving typography, font choices, hierarchy, sizing, and readability
 - **Provides:** Type scale, font pairing, line height, responsive typography patterns
+- **Cross-references:** design-frontend, tailwind-daisyui-design
 
 **[design-arrange](./design-arrange/SKILL.md)**
 
 - **Use when:** Layouts feel crowded, monotonous, or structurally weak
 - **Provides:** Spatial design patterns, grid layouts, visual rhythm, whitespace management
+- **Cross-references:** design-frontend, design-language-to-daisyui, ui-design-language
 
 **[design-clarify](./design-clarify/SKILL.md)**
 
 - **Use when:** Improving unclear UX copy, labels, error messages, and microcopy
 - **Provides:** Microcopy patterns, error message templates, label guidelines
+- **Cross-references:** design-frontend, hugo-copywriting
 
 **[design-bolder](./design-bolder/SKILL.md)**
 
 - **Use when:** Designs feel too generic, timid, or lack personality
 - **Provides:** Visual contrast techniques, focal point creation, brand expression patterns
+- **Cross-references:** design-frontend
 
 **[design-quieter](./design-quieter/SKILL.md)**
 
 - **Use when:** Designs feel too loud, overstimulating, or visually heavy
 - **Provides:** Visual noise reduction, calm design patterns, progressive disclosure
+- **Cross-references:** design-frontend
 
 **[design-normalize](./design-normalize/SKILL.md)**
 
 - **Use when:** Features feel inconsistent with the design system or use one-off styles
 - **Provides:** Design token alignment, component consistency checks, system compliance
+- **Cross-references:** design-frontend, daisyui-design-system-generator, design-language-to-daisyui
 
 **[design-distill](./design-distill/SKILL.md)**
 
 - **Use when:** Interfaces feel cluttered or suffer from feature creep
 - **Provides:** Information hierarchy, content prioritization, simplification patterns
+- **Cross-references:** design-frontend
 
 **[design-polish](./design-polish/SKILL.md)**
 
 - **Use when:** Doing final quality pass before shipping to catch visual inconsistencies
 - **Provides:** Detail review checklists, pixel-level alignment, visual consistency checks
+- **Cross-references:** design-frontend, tailwind-daisyui-design
 
 **[design-animate](./design-animate/SKILL.md)**
 
 - **Use when:** Adding purposeful animations, micro-interactions, and motion effects
 - **Provides:** CSS/Alpine.js transition patterns, timing guidelines, motion principles
+- **Cross-references:** design-frontend, htmx-pattern-library
 
 **[design-delight](./design-delight/SKILL.md)**
 
 - **Use when:** Interfaces feel correct but lifeless; adding joy and personality
 - **Provides:** Micro-interaction recipes, personality injection, surprise-and-delight patterns
+- **Cross-references:** design-frontend, design-animate, design-clarify, hugo-copywriting
 
 **[design-overdrive](./design-overdrive/SKILL.md)**
 
 - **Use when:** Pushing interfaces past conventional limits with technically ambitious implementations
 - **Provides:** Advanced CSS techniques, performance-conscious flourishes, progressive enhancement
+- **Cross-references:** design-frontend, htmx-pattern-library
 
 **[design-adapt](./design-adapt/SKILL.md)**
 
 - **Use when:** Adapting designs across screen sizes, devices, or platforms
 - **Provides:** Responsive strategies, breakpoint patterns, adaptive component variants
+- **Cross-references:** design-frontend, tailwind-daisyui-design, htmx-alpine-templates
 
 **[design-audit](./design-audit/SKILL.md)**
 
 - **Use when:** Performing systematic quality checks across accessibility, performance, and theming
 - **Provides:** Audit checklists, WCAG compliance checks, performance impact assessment
+- **Cross-references:** design-frontend, tailwind-daisyui-design
 
 **[design-critique](./design-critique/SKILL.md)**
 
 - **Use when:** Evaluating design effectiveness from a UX perspective before shipping
 - **Provides:** Structured critique framework, heuristic evaluation, actionable feedback
+- **Cross-references:** design-frontend, design-colorize, design-typeset, design-clarify
 
 **[design-harden](./design-harden/SKILL.md)**
 
 - **Use when:** Making interfaces robust with better error handling, i18n, and edge cases
 - **Provides:** Edge case coverage, error state design, accessibility hardening, i18n readiness
+- **Cross-references:** design-frontend, design-adapt, tailwind-daisyui-design
 
 **[design-onboard](./design-onboard/SKILL.md)**
 
 - **Use when:** Designing first-time user experiences, empty states, or onboarding flows
 - **Provides:** Onboarding patterns, empty state design, progressive disclosure, privacy-aware tracking
+- **Cross-references:** design-frontend, design-clarify, design-delight, design-adapt
 
 ### Multi-Tenant Boundaries
 
