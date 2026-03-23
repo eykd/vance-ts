@@ -322,6 +322,30 @@ Instead:
 ];
 
 /**
+ * Normalizes a command by collapsing line continuations and stripping
+ * command wrappers (sudo, env, command, leading backslash).
+ *
+ * Line continuations are collapsed first (S9), then wrappers are
+ * iteratively stripped using a do-while loop until the string stabilizes (Fix 1).
+ *
+ * @param command - The raw command string.
+ * @returns The normalized command with wrappers removed.
+ */
+export function normalizeCommand(command: string): string {
+  // S9: collapse line continuations first
+  let result = command.replace(/\\\n\s*/g, ' ');
+  // Strip leading backslash (separate from continuations)
+  result = result.replace(/^\\/, '');
+  // Fix 1: iterative loop for chained/doubled wrappers
+  let prev: string;
+  do {
+    prev = result;
+    result = result.replace(/^(sudo|command)\s+/, '').replace(/^env\s+(\w+=\S+\s+)*/, '');
+  } while (result !== prev);
+  return result;
+}
+
+/**
  * Strips quoted content from a command to prevent false positives.
  *
  * Removes heredocs, double-quoted strings, and single-quoted strings,
@@ -353,34 +377,36 @@ export function splitCommands(command: string): string[] {
 /**
  * Evaluates a command string against all guard rules.
  *
- * Checks PRE_STRIP_RULES against the raw command, then PLATFORM_RULES
- * against the raw command (SQL content is inside quotes), then strips
- * quoted content, splits on shell separators, and checks POST_STRIP_RULES
- * against each sub-command independently.
+ * First normalizes the command (collapsing line continuations and stripping
+ * wrappers like sudo/env/command). Then checks PRE_STRIP_RULES, PLATFORM_RULES,
+ * and finally strips quoted content, splits on shell separators, and checks
+ * POST_STRIP_RULES against each sub-command independently.
  *
  * @param command - The raw command string from tool_input.command.
  * @returns A GuardResult indicating whether the command is allowed or blocked.
  */
 export function evaluateCommand(command: string): GuardResult {
+  const normalized = normalizeCommand(command);
+
   for (const rule of PRE_STRIP_RULES) {
-    if (rule.safePatterns?.some((sp) => sp.test(command)) === true) {
+    if (rule.safePatterns?.some((sp) => sp.test(normalized)) === true) {
       continue;
     }
-    if (rule.pattern.test(command)) {
+    if (rule.pattern.test(normalized)) {
       return { action: 'block', message: rule.message };
     }
   }
 
   for (const rule of PLATFORM_RULES) {
-    if (rule.safePatterns?.some((sp) => sp.test(command)) === true) {
+    if (rule.safePatterns?.some((sp) => sp.test(normalized)) === true) {
       continue;
     }
-    if (rule.pattern.test(command)) {
+    if (rule.pattern.test(normalized)) {
       return { action: 'block', message: rule.message };
     }
   }
 
-  const stripped = stripQuotedContent(command);
+  const stripped = stripQuotedContent(normalized);
   const subCommands = splitCommands(stripped);
 
   for (const sub of subCommands) {

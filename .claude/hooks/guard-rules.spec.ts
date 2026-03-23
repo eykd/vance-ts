@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { GuardResult } from './guard-rules';
-import { evaluateCommand, splitCommands, stripQuotedContent } from './guard-rules';
+import {
+  evaluateCommand,
+  normalizeCommand,
+  splitCommands,
+  stripQuotedContent,
+} from './guard-rules';
 
 describe('evaluateCommand', () => {
   describe('safe commands (allow)', () => {
@@ -799,23 +804,23 @@ describe('evaluateCommand', () => {
     });
 
     describe('S9: line continuation collapsing', () => {
-      it.fails('blocks git push with force flag on continuation line', () => {
+      it('blocks git push with force flag on continuation line', () => {
         const flag = ['--fo', 'rce'].join('');
         const result: GuardResult = evaluateCommand('git push \\\n  ' + flag + ' origin main');
         expect(result.action).toBe('block');
       });
 
-      it.fails('blocks git reset with --hard on continuation line', () => {
+      it('blocks git reset with --hard on continuation line', () => {
         const result: GuardResult = evaluateCommand('git reset \\\n  --hard');
         expect(result.action).toBe('block');
       });
 
-      it.fails('blocks git clean with -f on continuation line', () => {
+      it('blocks git clean with -f on continuation line', () => {
         const result: GuardResult = evaluateCommand('git clean \\\n  -f');
         expect(result.action).toBe('block');
       });
 
-      it.fails('blocks multi-line continuation with wrappers', () => {
+      it('blocks multi-line continuation with wrappers', () => {
         const flag = ['--fo', 'rce'].join('');
         const result: GuardResult = evaluateCommand('sudo git push \\\n  ' + flag + ' origin main');
         expect(result.action).toBe('block');
@@ -910,5 +915,91 @@ describe('splitCommands', () => {
   it('filters out empty strings from split', () => {
     const result = splitCommands('');
     expect(result).toEqual([]);
+  });
+});
+
+describe('normalizeCommand', () => {
+  describe('S9: line continuation collapsing', () => {
+    it('collapses backslash-newline into space', () => {
+      const flag = ['--fo', 'rce'].join('');
+      const result = normalizeCommand('git push' + '\\' + '\n  ' + flag + ' origin main');
+      expect(result).toBe('git push ' + flag + ' origin main');
+    });
+
+    it('collapses multiple line continuations', () => {
+      const flag = ['--fo', 'rce'].join('');
+      const result = normalizeCommand('git' + '\\' + '\n  push' + '\\' + '\n  ' + flag);
+      expect(result).toBe('git push ' + flag);
+    });
+
+    it('returns unchanged command with no continuations', () => {
+      const result = normalizeCommand('git status');
+      expect(result).toBe('git status');
+    });
+  });
+
+  describe('leading backslash stripping', () => {
+    it('strips leading backslash from command', () => {
+      const result = normalizeCommand('\\git checkout .');
+      expect(result).toBe('git checkout .');
+    });
+
+    it('does not strip backslash mid-command', () => {
+      const result = normalizeCommand('echo \\n');
+      expect(result).toBe('echo \\n');
+    });
+  });
+
+  describe('wrapper stripping', () => {
+    it('strips sudo prefix', () => {
+      const result = normalizeCommand('sudo git reset --hard');
+      expect(result).toBe('git reset --hard');
+    });
+
+    it('strips command prefix', () => {
+      const result = normalizeCommand('command git clean -f');
+      expect(result).toBe('git clean -f');
+    });
+
+    it('strips env prefix', () => {
+      const flag = ['--fo', 'rce'].join('');
+      const result = normalizeCommand('env git push ' + flag);
+      expect(result).toBe('git push ' + flag);
+    });
+
+    it('strips env with VAR=val pairs', () => {
+      const result = normalizeCommand('env GIT_TRACE=1 git reset --hard');
+      expect(result).toBe('git reset --hard');
+    });
+
+    it('strips env with multiple VAR=val pairs', () => {
+      const flag = ['--fo', 'rce'].join('');
+      const result = normalizeCommand('env VAR=1 VAR2=2 git push ' + flag);
+      expect(result).toBe('git push ' + flag);
+    });
+  });
+
+  describe('Fix 1: iterative stripping of chained wrappers', () => {
+    it('strips sudo env command chain', () => {
+      const result = normalizeCommand('sudo env command git reset --hard');
+      expect(result).toBe('git reset --hard');
+    });
+
+    it('strips doubled sudo', () => {
+      const result = normalizeCommand('sudo sudo git reset --hard');
+      expect(result).toBe('git reset --hard');
+    });
+
+    it('strips env VAR=1 sudo chain', () => {
+      const flag = ['--fo', 'rce'].join('');
+      const result = normalizeCommand('env VAR=1 sudo git push ' + flag);
+      expect(result).toBe('git push ' + flag);
+    });
+
+    it('strips sudo env VAR=1 VAR2=2 chain', () => {
+      const flag = ['--fo', 'rce'].join('');
+      const result = normalizeCommand('sudo env VAR=1 VAR2=2 git push ' + flag);
+      expect(result).toBe('git push ' + flag);
+    });
   });
 });
