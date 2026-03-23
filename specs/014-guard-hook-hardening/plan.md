@@ -489,6 +489,69 @@ against all post-strip rules independently.
 `git clean -n && git clean -f` (blocked), `git restore --staged foo && git restore .` (blocked),
 `echo "hello && world"` (allowed — separator is inside quotes).
 
+### S7: `git checkout <tree-ish> -- .` Bypasses Pattern (High)
+
+**Attack**: `git checkout HEAD~1 -- .` restores all working tree files from a previous
+commit — equally destructive as `git checkout .` — but the current pattern
+`git\s+checkout\s+(--\s+)?\.(\s|$)` does NOT match because the tree-ish ref
+`HEAD~1 --` sits between `checkout` and the dot target.
+
+Similarly, `git checkout main -- .`, `git checkout stash@{0} -- .`, and
+`git checkout HEAD -- .` all bypass the guard.
+
+**Mitigation**: Widen the checkout pattern to catch any tree-ish before `-- .`:
+`git\s+checkout\s+.*--\s+\.(\s|$)`. This catches `git checkout <anything> -- .`
+while the safe patterns (`-b`, `--orphan`) still fire first to prevent false positives.
+The original `git\s+checkout\s+\.(\s|$)` (no `--`) remains as a separate pattern.
+
+**Test cases**: `git checkout HEAD~1 -- .` (blocked), `git checkout main -- .`
+(blocked), `git checkout HEAD~1 -- src/file.ts` (allowed — specific file).
+
+### S8: S5 Shell Wrapper — Two-Pass Instead of Compound Regex (Medium)
+
+**Problem**: S5's proposed compound pattern
+`(?:bash|sh|zsh|dash)\s+-c\s+.*(?:git\s+reset\s+--hard|...)` combines `.*` with
+a multi-branch alternation. Against long benign payloads like
+`bash -c "echo aaaa...aaaa"`, the regex engine backtracks through every position
+of `.*` for each alternative — quadratic behavior that could violate the 50ms SLA.
+
+**Mitigation**: Replace the compound pattern with a two-pass approach:
+
+1. Detect `(?:bash|sh|zsh|dash)\s+-c\s+` or `eval\s+` prefix (fast regex).
+2. If detected, extract the quoted payload and run `evaluateCommand()` recursively
+   (depth-1 limit) on the extracted content. This reuses all existing rules with
+   zero additional regex complexity.
+
+Add a `maxDepth` parameter to `evaluateCommand()` defaulting to 1. At depth 0,
+skip the shell-wrapper check to prevent infinite recursion.
+
+**Test cases**: `bash -c "git reset --hard"` (blocked — recursive eval catches it),
+`bash -c "echo hello"` (allowed), `bash -c "bash -c \"git reset --hard\""` (blocked
+at depth 1 — inner `bash -c` payload evaluated).
+
+### S9: Backslash Line Continuation Hides Flags Across Lines (Medium)
+
+**Problem**: `git push \` followed by `\n  --force origin main` — the backslash
+continuation joins the lines in shell execution, but `.*` in regex does NOT match
+`\n` by default. The `--force` on the second line is invisible to the pattern.
+
+Claude Code's Bash tool can generate multi-line commands. The hook receives the
+full string including the literal `\\\n` sequence.
+
+**Mitigation**: Add line-continuation normalization as the FIRST step in
+`normalizeCommand()`: replace `/\\\n\s*/g` (backslash-newline-optional-whitespace)
+with a single space before any other normalization.
+
+```typescript
+// First: collapse line continuations
+result = command.replace(/\\\n\s*/g, ' ');
+// Then: strip leading backslash (separate from continuations)
+result = result.replace(/^\\/, '');
+```
+
+**Test cases**: `git push \\\n  --force origin main` (blocked),
+`git reset \\\n  --hard` (blocked).
+
 ## Edge Cases & Error Handling
 
 ### E1: Malformed JSON / Missing Fields (High)
@@ -621,6 +684,70 @@ in-memory counters on demand (no I/O during normal operation).
 **Recommendation**: Defer to a future feature. Note as a future enhancement
 in the hook's JSDoc.
 
+### E8: GuardResult Discriminated Union — Block Without Message (Medium)
+
+**Problem**: The `GuardResult` type has `action: 'allow' | 'block'` with
+`message?: string` optional. If a developer adds a rule and forgets the message,
+`{ action: 'block' }` is valid TypeScript but the entry point writes `undefined`
+to stderr — violating FR-016 (actionable error messages) and SC-006.
+
+**Mitigation**: Use a discriminated union to make `message` required on block:
+
+```typescript
+type GuardResult = { action: 'allow' } | { action: 'block'; message: string };
+```
+
+This makes omitting `message` on a block result a compile-time error.
+
+**Test case**: Every blocked command's result must include a non-empty `message` string.
+
+### E9: stdin Read Timeout — Hook Hangs If EOF Never Arrives (Medium)
+
+**Problem**: The entry point uses `readline` to read stdin. If stdin never
+closes (e.g., manual invocation without piped input, or a Claude Code version
+that leaves stdin open), the readline loop blocks indefinitely. Claude Code's
+hook timeout would eventually kill the process, but the wait stalls the session.
+
+**Mitigation**: Wrap the stdin read in a `Promise.race()` with a 5-second timeout
+that resolves to exit 0 (allow). This ensures the hook never hangs longer than 5s.
+
+```typescript
+const input = await Promise.race([
+  readStdin(),
+  new Promise<string>((resolve) => setTimeout(() => resolve(''), 5000)),
+]);
+```
+
+**Test case**: Verify the hook exits within 6 seconds when stdin provides no data.
+
+### E10: `wrangler d1 migrations apply` Consistency With S3 (Medium)
+
+**Problem**: S3 blocks `wrangler d1 execute --file` because the hook cannot
+inspect file contents (FR-018). `wrangler d1 migrations apply` executes SQL
+from migration files with identical risk profile, but is not addressed.
+
+**Decision**: ALLOW `wrangler d1 migrations apply`. Migration files are
+version-controlled, reviewed in PRs, and part of the standard development
+workflow. Blocking them would create constant friction with no safety gain.
+
+This is a conscious carve-out from S3's rationale: `--file` takes an arbitrary
+path (potentially unreviewed), while `migrations apply` runs only committed
+migration files.
+
+**Test case**: `wrangler d1 migrations apply` (allowed), `wrangler d1 migrations apply --local` (allowed).
+
+### E11: `git stash pop` Semantic Equivalence to Drop (Low)
+
+**Problem**: `git stash pop` = `git stash apply` + `git stash drop`. The spec
+intentionally allows `stash pop` (it restores work before dropping), but an AI
+could use `pop` to circumvent the `stash drop` block.
+
+**Decision**: Accept. `stash pop` restores the stashed changes to the working
+tree before removing the entry — this is the safe use case. The guard blocks
+`stash drop` (which discards without restoring) and `stash clear` (which
+discards all entries). Document this tradeoff so future reviewers understand
+the intentional asymmetry.
+
 ## Performance Considerations
 
 ### P1: Regex Complexity in D1 DELETE Pattern (Low)
@@ -638,6 +765,14 @@ use a two-step check: first confirm `wrangler d1 execute` prefix, then extract
 the SQL string and check it separately.
 
 **Test case**: Verify the 50ms SLA with a 1000-character wrangler command.
+
+### P2: S5 Compound Pattern Backtracking (Medium)
+
+See S8 for the full analysis. The compound shell-wrapper regex in S5 creates
+quadratic backtracking risk. The two-pass approach in S8 eliminates this by
+decomposing detection (fast prefix check) from evaluation (recursive call
+to `evaluateCommand`). No additional regex patterns needed — all existing
+rules are reused automatically.
 
 ## Complexity Tracking
 
