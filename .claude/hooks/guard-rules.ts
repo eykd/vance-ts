@@ -154,6 +154,20 @@ Reinitializing the beads database would destroy all issue history.
 
 If you genuinely need to reset beads, have the user run this manually.`,
   },
+  {
+    name: 'catastrophic-rm',
+    category: 'catastrophic-file-deletion',
+    pattern:
+      /rm\s+(?:-[a-zA-Z]*(?:rf|fr)[a-zA-Z]*|-[a-zA-Z]*r\s+-[a-zA-Z]*f|-[a-zA-Z]*f\s+-[a-zA-Z]*r|--recursive\s+--force|--force\s+--recursive)\s+(?:\$\{HOME\}|\$HOME|\.\.\/|\.\/|~\/|\/|~|\.|\*)(?:\s|$)/,
+    message: `BLOCKED: Catastrophic rm detected — targets system-critical path.
+
+This command would recursively force-delete a critical path (root, home, current directory, or all files) with no recovery.
+
+Instead:
+- Use \`rm -rf <specific-directory>\` to remove a known directory (e.g., node_modules, dist)
+- Use \`ls <path>\` to verify what would be affected first
+- Never use rm -rf with /, ., ~, ../, *, $HOME, or similar broad targets`,
+  },
 ];
 
 /**

@@ -266,20 +266,19 @@ describe('evaluateCommand', () => {
 
     describe('catastrophic rm (file deletion)', () => {
       describe('combined flags with dangerous targets', () => {
-        // RED: awaiting rm guard rule implementation
-        it.fails('blocks rm -rf /', () => {
+        it('blocks rm -rf /', () => {
           const result = evaluateCommand('rm -rf /');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
         });
 
-        it.fails('blocks rm -rf .', () => {
+        it('blocks rm -rf .', () => {
           const result = evaluateCommand('rm -rf .');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
         });
 
-        it.fails('blocks rm -fr . (Fix 5: reversed flag order)', () => {
+        it('blocks rm -fr . (Fix 5: reversed flag order)', () => {
           const result = evaluateCommand('rm -fr .');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
@@ -287,15 +286,14 @@ describe('evaluateCommand', () => {
       });
 
       describe('S1: separated and long-form flags', () => {
-        // RED: awaiting rm guard rule implementation
-        it.fails('blocks rm with long-form recursive and force on /', () => {
+        it('blocks rm with long-form recursive and force on /', () => {
           const flags = ['--recur', 'sive --fo', 'rce'].join('');
           const result = evaluateCommand('rm ' + flags + ' /');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
         });
 
-        it.fails('blocks rm -r -f .', () => {
+        it('blocks rm -r -f .', () => {
           const result = evaluateCommand('rm -r -f .');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
@@ -303,26 +301,25 @@ describe('evaluateCommand', () => {
       });
 
       describe('S2: target variations', () => {
-        // RED: awaiting rm guard rule implementation
-        it.fails('blocks rm -rf ./ (trailing slash on dot)', () => {
+        it('blocks rm -rf ./ (trailing slash on dot)', () => {
           const result = evaluateCommand('rm -rf ./');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
         });
 
-        it.fails('blocks rm -rf ~/ (home directory)', () => {
+        it('blocks rm -rf ~/ (home directory)', () => {
           const result = evaluateCommand('rm -rf ~/');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
         });
 
-        it.fails('blocks rm -rf ../ (parent directory)', () => {
+        it('blocks rm -rf ../ (parent directory)', () => {
           const result = evaluateCommand('rm -rf ../');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
         });
 
-        it.fails('blocks rm -rf $HOME (variable expansion)', () => {
+        it('blocks rm -rf $HOME (variable expansion)', () => {
           const result = evaluateCommand('rm -rf $HOME');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
