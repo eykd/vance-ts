@@ -508,6 +508,132 @@ describe('evaluateCommand', () => {
     });
   });
 
+  describe('platform operations (US-6)', () => {
+    describe('gh repo delete (BLOCK)', () => {
+      it.fails('blocks gh repo delete owner/repo', () => {
+        const result: GuardResult = evaluateCommand('gh repo delete owner/repo');
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it.fails('blocks gh repo delete with --yes flag', () => {
+        const result: GuardResult = evaluateCommand('gh repo delete owner/repo --yes');
+        expect(result.action).toBe('block');
+      });
+    });
+
+    describe('wrangler delete (BLOCK)', () => {
+      it.fails('blocks wrangler delete', () => {
+        const result: GuardResult = evaluateCommand('wrangler delete');
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it.fails('blocks wrangler delete with worker name', () => {
+        const result: GuardResult = evaluateCommand('wrangler delete my-worker');
+        expect(result.action).toBe('block');
+      });
+    });
+
+    describe('wrangler d1 execute destructive SQL (BLOCK)', () => {
+      it.fails('blocks d1 DROP TABLE', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "DROP TABLE users"'
+        );
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it.fails('blocks d1 TRUNCATE TABLE', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "TRUNCATE TABLE sessions"'
+        );
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it.fails('blocks d1 DELETE FROM without WHERE clause', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "DELETE FROM users"'
+        );
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it.fails('blocks d1 drop table lowercase (Fix 3 case sensitivity)', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "drop table users"'
+        );
+        expect(result.action).toBe('block');
+      });
+
+      it.fails('blocks d1 truncate table lowercase (Fix 3 case sensitivity)', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "truncate table sessions"'
+        );
+        expect(result.action).toBe('block');
+      });
+    });
+
+    describe('wrangler d1 execute --file bypass (S3)', () => {
+      it.fails('blocks d1 execute with --file flag', () => {
+        const result: GuardResult = evaluateCommand('wrangler d1 execute DB --file schema.sql');
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it.fails('blocks d1 execute with --file flag and local DB', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute my-db --file drop-all.sql'
+        );
+        expect(result.action).toBe('block');
+      });
+    });
+
+    describe('safe platform operations (ALLOW)', () => {
+      it('allows d1 SELECT query', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "SELECT * FROM users"'
+        );
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows d1 DELETE FROM with WHERE clause', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "DELETE FROM users WHERE id = \'123\'"'
+        );
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows d1 delete from with lowercase where (Fix 3 case sensitivity)', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "delete from users where id=1"'
+        );
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows gh pr create (not repo delete)', () => {
+        const result: GuardResult = evaluateCommand('gh pr create --title "feat"');
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows wrangler d1 migrations apply (E10)', () => {
+        const result: GuardResult = evaluateCommand('wrangler d1 migrations apply');
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows wrangler d1 migrations apply --local (E10)', () => {
+        const result: GuardResult = evaluateCommand('wrangler d1 migrations apply --local');
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows wrangler deploy (not wrangler delete)', () => {
+        const result: GuardResult = evaluateCommand('wrangler deploy');
+        expect(result).toEqual({ action: 'allow' });
+      });
+    });
+  });
+
   describe('S6: command chain cross-contamination prevention', () => {
     it('blocks git checkout -b new && git checkout . (safe pattern in first sub-command)', () => {
       const result: GuardResult = evaluateCommand('git checkout -b new && git checkout .');
