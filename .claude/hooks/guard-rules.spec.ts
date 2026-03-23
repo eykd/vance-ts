@@ -389,6 +389,11 @@ describe('evaluateCommand', () => {
         const result: GuardResult = evaluateCommand('git restore --staged file.ts');
         expect(result).toEqual({ action: 'allow' });
       });
+
+      it('allows git restore -S file.ts (short unstage flag)', () => {
+        const result: GuardResult = evaluateCommand('git restore -S file.ts');
+        expect(result).toEqual({ action: 'allow' });
+      });
     });
 
     describe('git clean safe patterns', () => {
