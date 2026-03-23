@@ -32,6 +32,8 @@ The world state divides into shared (all players see the same thing) and per-pla
 
 **Regional trade**: Players trade through regional port markets — posting buy/sell offers on local bulletin boards, not a global auction house. This preserves the merchant fantasy where distance and information asymmetry create profit opportunities. Full auction houses improve efficiency but kill social trading and enable price manipulation (RuneScape's Grand Exchange lesson).
 
+**Freight market as reverse auction**: The spaaace prototype models the freight market as a reverse auction — the system posts jobs (origin, destination, tonnage, asking price) and ships bid to carry them. The lowest bidder wins. This creates a natural multiplayer competitive dynamic: on high-traffic Oikumene routes, multiple players bidding drives margins thin; on sparse Beyond routes, single bidders can name their price. The reverse auction model elegantly handles both NPC and player carriers — NPC ships can bid alongside players, providing baseline market competition even at low player populations.
+
 **Direct trade**: Players at the same port can trade directly — goods, information, or services. Trust and reputation matter in a text environment where you cannot inspect goods visually. A player's trade history and reputation score become their currency of trust.
 
 **Player-created contracts**: Adapted from EVE's contract system. Players can post courier contracts (pay another captain to deliver cargo), bounties (pay for information or action), and partnership offers (shared investment in speculative trade). This creates emergent economic relationships.
@@ -113,7 +115,7 @@ These metrics inform balance tuning and can trigger automatic or manual interven
 - ~~How does the MMO layer work?~~ **Partially resolved**: Regional markets, asynchronous interaction, shared world state with per-player progression. Implementation details TBD.
 - What's the server architecture? (Cloudflare Workers + D1?) — Technical architecture for persistent world state, market simulation, and player interaction needs dedicated design.
 - ~~How do we handle griefing in a text environment?~~ **Partially resolved**: See Griefing Prevention section. Specific enforcement mechanisms and penalty scaling TBD.
-- What's the player cap per shard/world? Thinner markets with fewer players need NPC market makers to provide liquidity. What's the minimum viable player population for a functional economy?
+- What's the player cap per shard/world? Thinner markets with fewer players need NPC market makers to provide liquidity. What's the minimum viable player population for a functional economy? The reverse auction model helps here — NPC ships can fill the bidding pool, making the economy functional even with very few players.
 - How do new players encounter existing players' impact? — Visible price histories, faction power displays, discovery credits, and port development levels all show the world other players have shaped.
 - ~~Turn cadence: free-form or time-gated (X turns per day)?~~ Leaning free-form with natural pacing from travel time and fuel costs, but daily turn caps could prevent no-lifers from dominating the economy. Needs playtesting.
 - How much NPC economic activity should simulate the background economy? Too little and low-population periods feel dead; too much and player actions feel insignificant.
@@ -127,5 +129,6 @@ These metrics inform balance tuning and can trigger automatic or manual interven
 - EVE Online — regional markets, Monthly Economic Reports, PLEX, corporate structures, production-destruction loop
 - RuneScape — Grand Exchange lessons, wealth concentration data, market manipulation taxonomy
 - Guild Wars 2 — gold-to-gems exchange, transaction tax design
+- `docs/research/2026-03-23_spaaace-far-trader-economy/synthesis.md` — reverse auction freight market, NPC/player bidding model, job expiry windows
 - TradeWars 2002 — text-based space trading precedent (port price response to supply/demand)
 - Ultima Online — ecology simulation collapse (players optimize harder than designers expect)

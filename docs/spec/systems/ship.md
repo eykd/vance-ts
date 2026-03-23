@@ -33,6 +33,16 @@ The game simulates life aboard between jumps using keyframe snapshots rather tha
 - Keyframe results become the raw material for storylets — "During the jump, your engineer and pilot got into an argument in the galley" fires because the galley module exists and both crew members' social meters were elevated
 - This is where crew social dynamics primarily play out — inter-star quiet time is the stage
 
+### Ship Economics (from spaaace prototype)
+
+The Far Trader prototype provides concrete operating cost parameters that inform the mortgage pressure design:
+
+- **Freight revenue**: Base rate of Cr 650 per displacement-ton per jump. A Free Trader with ~80 dtons of cargo capacity earns ~Cr 52,000 per single-jump full-load delivery. Multi-jump routes multiply this by distance but tie up capacity longer.
+- **Fuel cost**: Cr 435 per displacement-ton of fuel (marked as a placeholder in the prototype — calibrate during playtesting). For a ship consuming ~20 dtons of fuel per jump, that's ~Cr 8,700 per jump.
+- **Adjacent route bonus**: Routes of 1 hop pay a Cr 50 bonus per job on top of the rate formula, making short-haul runs slightly more competitive per ton. This encourages regular short-hop trading over speculative long-distance runs.
+
+These numbers set the economic tension: a full cargo hold on a 1-jump route grosses ~Cr 52,000 against ~Cr 8,700 in fuel alone, leaving margin for mortgage, crew, and maintenance — but not comfortably. Players must optimize load factor (filling the hold) and route selection (high-BTN routes have more available freight) to stay solvent.
+
 ### Maintenance & Repair
 
 Ship systems degrade with use and time. Maintenance is not a binary state but a continual pressure that shapes decisions.
@@ -80,7 +90,7 @@ The ship's physical configuration generates narrative through the keyframe simul
 
 - How many module slots? What's the right constraint level? (Must be tight enough to force real tradeoffs but wide enough to allow distinct ship identities)
 - Can modules be swapped freely or is reconfiguration costly? (Perko implies iterative construction, suggesting some friction is desirable)
-- How does ship progression interact with the mortgage?
+- How does ship progression interact with the mortgage? The Far Trader base rate (Cr 650/dton/jump) and fuel cost (Cr 435/dton) provide a starting calibration point — does upgrading to a larger hull increase revenue faster than it increases mortgage payments?
 - Should different ship hulls have different slot configurations? (Would create starting-archetype differentiation for ships, paralleling character archetypes)
 - How does resource flow declaration work in a text-only interface? What level of detail is visible to the player vs simulated in the background?
 - How do keyframe simulation results translate into text presentation? (What does the player see between jumps?)
@@ -94,5 +104,6 @@ The ship's physical configuration generates narrative through the keyframe simul
 - Perko, "Home, Home on the Lagrange" (2008-02-26) — ship as psychological reset
 - Perko, "Star Trek Interiors" (2014-07-31) — set design principles for ship spaces
 - Perko, "Survival and the Compromised Base" (2014-04-28) — ship reclamation over building from scratch
+- `docs/research/2026-03-23_spaaace-far-trader-economy/synthesis.md` — freight rate (Cr 650/dton/jump), fuel cost (Cr 435/dton), adjacent route bonus, volume-price relationship
 - Traveller RPG — ship design and economics
 - `docs/research/2026-03-23_perko-scifi-game-design/synthesis.md`

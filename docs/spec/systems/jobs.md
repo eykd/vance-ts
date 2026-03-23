@@ -14,6 +14,16 @@ The bread-and-butter income loop, adapted from Traveller's routine commerce. Cou
 
 **Contract generation**: Available contracts at each port are determined by the gravity trade model (BTN between connected systems). High-BTN routes (Oikumene backbone) offer plentiful, low-margin contracts. Low-BTN routes (frontier, Beyond) offer scarce, higher-margin contracts with greater risk.
 
+**Stochastic job generation (from spaaace prototype)**: The Far Trader prototype provides a concrete algorithm for freight job generation each tick:
+
+1. For each system, iterate over all trade partners ordered by descending BTN (best partners first).
+2. For each partner, generate up to `round(BTN)` individual job offers, subject to a daily tonnage cap from the trade volume tables.
+3. Each potential job passes through a **stochastic gate**: roll `round(BTN)` Fate dice; the job appears only if the sum > 0. Higher-BTN routes produce jobs more reliably.
+4. Job tonnage: roll `max_tons` Fate dice, take the absolute value (minimum 1). This produces a half-normal distribution — most jobs are small, occasional jobs are large.
+5. **Price formula**: `freight_rate x tons x distance + adjacency_bonus + noise`. Adjacent routes (1 hop) get a flat Cr 50 bonus. Noise is 17 Fate dice (range -17 to +17 Cr).
+
+This means a BTN 9 route generates up to 9 job offers per tick with high reliability, while a BTN 3 route generates at most 3 offers with roughly coin-flip probability each. The player experience: busy ports have a full job board refreshing constantly; frontier ports have sparse, intermittent work.
+
 **Contract types**:
 
 | Type                | Pay basis                                 | Risk     | Notes                                                                                                                                        |
@@ -25,6 +35,8 @@ The bread-and-butter income loop, adapted from Traveller's routine commerce. Cou
 | Hazardous cargo     | Premium rate                              | High     | Dangerous goods (radioactives, volatile chemicals, restricted tech). Higher pay, legal/safety complications.                                 |
 
 **Destination logic**: Contracts point to systems within 1–3 jumps. Longer contracts pay more per parsec but tie up cargo space longer. The system avoids sending players to dead-end systems with no return freight — contract generation considers round-trip economics, not just one-way delivery.
+
+**Reverse auction resolution**: The Far Trader prototype uses a reverse auction model for job assignment. Multiple ships can bid on the same freight job; the lowest bidder wins. Ties are broken randomly. This creates competitive pressure among carriers — undercutting is the primary competitive lever, and operating costs determine who can profitably undercut whom. Jobs expire after a fixed window (~20 minutes in the prototype's real-time model; translate to turn-based equivalent). Unresolved bids expire separately (~10 minutes). The reverse auction model means that on high-traffic routes (high BTN), competitive bidding drives margins thin, while on frontier routes (low BTN), fewer competitors allow higher margins — naturally differentiating Oikumene (competitive, low-margin, high-volume) from Beyond (sparse, high-margin, low-volume) gameplay.
 
 **Passenger generation**: Passenger availability scales with the Eaglestone Trade Index magnitude for each route. A magnitude-3 route sees thousands of passengers per week; a magnitude-1 route might have a handful. Each passenger type is a narrative hook:
 
@@ -86,17 +98,20 @@ The discovery layer — how players find available work at each port.
 
 ## Open Questions
 
-- How much of the job system is procedural vs. hand-authored? **Leaning heavily procedural** with QBN generation, but hand-authored "anchor" quests at key narrative locations provide memorable set-pieces.
+- How much of the job system is procedural vs. hand-authored? **Leaning heavily procedural** with QBN generation, but hand-authored "anchor" quests at key narrative locations provide memorable set-pieces. The spaaace prototype's stochastic generation algorithm provides a proven procedural foundation for freight jobs.
 - Can players create jobs for other players? (MMO dimension) — Research supports this (EVE's contract system). Consider player-posted courier contracts and bounties as a later feature.
 - ~~How do we prevent job grinding from feeling repetitive?~~ **Partially resolved**: Bargains/Prospects rotation, QBN-driven variety, information asymmetry, and narrative consequences all combat repetition. Dynamic markets mean the same route doesn't stay optimal. Prospect rotation creates urgency and variety.
 - ~~What's the information model? Do you know the payout before accepting?~~ **Resolved**: Tiered by starport quality. Class A/B: full details. Class C: partial. Class D/E: minimal. Faction contacts and Broker skill fill in gaps.
 - How do competitive Prospects work in multiplayer? If two captains are racing to fulfill the same Prospect, how is the winner determined? First to deliver? Quality of goods? Relationship with the NPC?
 - What's the right density of Bargains and Prospects per port? Too many removes scarcity pressure; too few makes the system feel empty.
+- How does the reverse auction model translate to our turn-based pacing? The prototype uses 10/20-minute real-time windows. In a turn-based system, bidding could resolve at the end of each turn, or jobs could persist for N turns before expiring.
+- Should players see competing bids? Full transparency (like a stock exchange) rewards strategic undercutting; hidden bids (sealed auction) reward accurate cost estimation. Each creates different gameplay.
 
 ## Sources
 
 - `docs/research/2026-03-23_traveller-economy/synthesis.md` — freight pricing, passage types, patron encounters, speculative trade, mail contracts, late delivery penalties
 - `docs/research/2026-03-23_sunless-economy/synthesis.md` — Bargains+Prospects system, affiliation gating, profit spikes over steady curves, port reports as exploration incentive
 - `docs/research/2026-03-23_mmorpg-economy/synthesis.md` — player-created contracts (EVE), information asymmetry as gameplay, text-game economic design
+- `docs/research/2026-03-23_spaaace-far-trader-economy/synthesis.md` — stochastic job generation algorithm, reverse auction bid resolution, pricing formula, BTN-driven job frequency and tonnage, timing windows
 - Traveller RPG — speculative trade and patron encounters
 - Sunless Skies — Bargains+Prospects system, trade redesign philosophy

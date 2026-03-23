@@ -42,6 +42,23 @@ Different regions should have different native densities. Density is a unified d
 - Each jump = one "turn" that ticks all meters and triggers the keyframe ship simulation
 - No fast travel shortcuts that collapse the map. Perko warns that fast travel "crushes" the world by making distance meaningless. Every jump should be felt.
 
+### Route Network Topology (from spaaace prototype)
+
+The cluster is an undirected graph — each node is a system, each edge is a bidirectional trade route. Distances for trade calculations are shortest-path hop counts (BFS/Dijkstra), not geometric distances.
+
+**Link generation algorithm**: Systems are generated in sequence. Each system always links to its immediate successor. Then a 4dF roll determines additional links:
+
+- Roll >= 0: Also link to the first unlinked system at index +2 or beyond
+- Roll >= 1: Additionally link to the first unlinked system at index +3 or beyond
+
+The "first unlinked system" heuristic ensures isolated nodes get connected before well-connected ones. The algorithm guarantees full connectivity (every system has at least one route) while producing organic network topology — some systems become natural hubs with 3+ connections, others are dead-end spurs with exactly one.
+
+**Design implications for route planning**:
+
+- **Hub-and-spoke topology**: Naturally emerges from the link algorithm. Hub systems with 3+ connections are trade crossroads; spur systems are frontier outposts. This creates the Oikumene/Beyond feel without explicit region tagging.
+- **Chokepoints**: Some routes between distant cluster regions pass through a single system. These chokepoints are strategically valuable — they concentrate traffic and create natural points of conflict, piracy, and customs enforcement.
+- **Distance matters exponentially**: The BTN distance modifier rises in steps (1 hop = 0, 2 hops = 0.5, 5 hops = 1.0, etc.), so trade volume drops sharply with distance. Most profitable trade happens within 1–2 jumps. Routes of 5+ jumps are only viable between major economies (high WTN).
+
 ### Investigate-and-Expand Exploration
 
 A two-phase pattern for making exploration meaningful:
@@ -86,7 +103,8 @@ The ship is the constant across all travel. It serves as a psychological reset b
 ## Open Questions
 
 - ~~Is interstellar travel deterministic or does it have random encounters?~~ Partially resolved: the keyframe simulation generates events between jumps based on ship configuration and crew state, which is deterministic from the ship's qualities rather than purely random. Random encounters may still exist but should be quality-gated.
-- How does the Beyond differ mechanically from Oikumene travel? (Lower density, fewer paths, but each location more unique — the uniqueness/coherence/gateway model applies differently)
+- How does the Beyond differ mechanically from Oikumene travel? (Lower density, fewer paths, but each location more unique — the uniqueness/coherence/gateway model applies differently. The link algorithm naturally produces sparser connectivity at cluster edges, which could map to Beyond regions.)
+- Should the link algorithm be tuned for different region types? (e.g., denser rolls for Oikumene core, sparser for Beyond frontier)
 - ~~What's the turn cadence? Free-form or time-gated?~~ Partially resolved: each jump is one turn that ticks meters and runs keyframe simulation. Within a system, movement is lower-stakes. The exact time model (real-time vs turn-based) remains open.
 - ~~How do we make route planning itself interesting (not just A-B)?~~ Resolved: world weaving creates interesting routes by laying paths across the map. Route planning involves navigating path intersections, managing meter pressure over multi-jump routes, and balancing trade opportunities against crew needs and fuel constraints.
 - How does implicit sharing work for exploration? Can one player's investigation of a location enrich another player's experience there?
@@ -103,6 +121,7 @@ The ship is the constant across all travel. It serves as a psychological reset b
 - Perko, "Open World Analysis" (2016-09-16) — fast travel critique, strip-mining
 - Perko, "Exploration Needs Implicit Sharing" (2014-12-10) — exploration paired with creation
 - Perko, "Glowing Open Worlds" (2017-03-06) — strip-mining vs constructive worlds
+- `docs/research/2026-03-23_spaaace-far-trader-economy/synthesis.md` — route network topology, link algorithm, graph-hop distance model, cluster generation
 - Traveller RPG — jump navigation model
 - `docs/game-design/notes/spaaace/` — galaxy generation specs
 - `docs/game-design/notes/setting/interstellar_travel_and_corridors.md`

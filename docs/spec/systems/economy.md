@@ -95,6 +95,32 @@ This maps directly to the Oikumene/Beyond distinction: Oikumene routes cluster a
 
 The Eaglestone Trade Index supplements this with factors like starport quality (+1 for A/B, -1 for D/E/X), tech level, military bases, capital status, and zone status (Amber: -1/-2; Red: -8). Range: -12 to +8.
 
+#### WTN/BTN Calculation Chain (from spaaace prototype)
+
+The Far Trader prototype provides the exact derivation chain:
+
+1. **UWTN** (Unmodified WTN) = TL modifier + (population_rating / 2). The TL modifier maps GURPS tech levels to a +/- 0.5–1.5 adjustment (TL 0–2: -0.5; TL 9–11: +1.0; TL 12: +1.5).
+2. **Port modifier**: A lookup table cross-referencing UWTN band (rows) and starport rating 0–5 (columns). Low UWTN + high starport = bonus (up to +1.5); high UWTN + low starport = penalty (down to -5). This naturally models backwater ports punching above their weight and major economies bottlenecked by poor infrastructure.
+3. **WTN** = UWTN + port modifier.
+4. **BTN** = WTN_A + WTN_B - distance_modifier, capped at min(WTN_A, WTN_B) + 5, floored at 0. The cap prevents a galactic capital from generating unrealistic trade volume with a frontier outpost — the smaller economy is the bottleneck.
+
+**Distance modifier** uses graph hops (not parsecs): 1 hop = 0, 2 hops = 0.5, scaling up to 6 at 1000+ hops. Disconnected systems cannot trade at all.
+
+**Trade volume tables**: BTN maps to credits/year, displacement-tons/year, dtons/week, and dtons/day through exponential lookup tables. Each half-point of BTN roughly doubles trade volume. The daily table is most relevant for gameplay — it determines how many freight jobs appear per tick. At BTN 7 a route sees 5–10 dtons/day; at BTN 9, 100–500 dtons/day.
+
+#### Freight Rate Dynamics
+
+Freight rates are per-system, not per-route, and fluctuate over time with an asymmetric mean-reverting model:
+
+- **Base rate**: Cr 650 per displacement-ton per jump (the long-run equilibrium).
+- **Volatility**: Cr 16.25 per shock unit.
+- **Mean reversion**: 20% pull toward base rate each tick.
+- **Asymmetric shocks**: After initialization, only negative shocks apply — rates drift down or revert, never spike upward. This models competitive pressure among carriers and creates a market where undercutting is the norm.
+
+**Volume-price relationship**: When freight rates rise above base, available cargo volume drops proportionally (shippers find alternatives or defer). When rates fall below base, volume increases. This creates a negative feedback loop that stabilizes the market around the base rate.
+
+**Design implication**: Players cannot simply wait for high-rate periods to maximize profit. The asymmetric shock model means rates spend most of their time at or below base, with occasional spikes only at initialization. Profit comes from efficiency (low operating costs, good route selection) rather than market timing.
+
 ### Bargains and Prospects
 
 Adapted from Sunless Skies' dynamic trade system to add unpredictability on top of the gravity model's baseline.
@@ -215,7 +241,7 @@ Crafting depth is a spectrum. Research suggests two viable approaches:
 
 - ~~Fixed vs. dynamic pricing?~~ **Resolved**: Hybrid — modifier-based pricing (Traveller) with dynamic supply/demand memory on top. Fixed base prices for fuel/supplies (Sunless Skies).
 - How deep is the crafting system, if any? **Leaning minimal** — start with NPC production, add player crafting for ship upgrades if needed.
-- Should the economy simulate NPC trade independently of players? **Leaning yes** — NPC trade caravans and freight maintain baseline economic activity even in low-population periods. Scale of simulation TBD.
+- Should the economy simulate NPC trade independently of players? **Leaning yes** — NPC trade caravans and freight maintain baseline economic activity even in low-population periods. The Far Trader prototype generates NPC job volume from BTN per tick, providing a concrete model for background economic activity.
 - ~~What's the wealth curve? How do we keep endgame players engaged economically?~~ **Partially resolved**: Progressive sinks, information decay, route rotation, and Beyond exploration provide ongoing engagement. Exact wealth curve requires playtesting.
 - ~~How do we handle wealth concentration without punishing success?~~ **Partially resolved**: See Wealth Concentration Mitigation section. Specific thresholds and intervention triggers TBD.
 - What's the optimal transaction tax rate? Research suggests 5–15% range; need playtesting to find the sweet spot for a merchant-focused game where trade IS the gameplay.
@@ -223,12 +249,15 @@ Crafting depth is a spectrum. Research suggests two viable approaches:
 - What information propagation model? How fast does price data travel between systems? This determines how much information asymmetry exists and how valuable the "information broker" role is.
 - How do we handle offline players' economic position? (Mortgage payments accumulate while offline — need a grace period or catch-up mechanic.)
 - What's the right number of trade goods? Sunless Sea's 22 was too many (drove players to wikis); Sunless Skies simplified aggressively. Suggest 8–12 core commodity types with trade-code-driven availability.
+- How do trade codes modify WTN/BTN? The spaaace prototype assigns boolean trade codes (Agricultural, Industrial, Rich, Poor, etc.) but does not use them to modify WTN/BTN — the original Far Trader rules do include trade code modifiers. Should we add them for richer economic differentiation?
+- What's the right tick cadence for freight rate updates and job generation? The prototype uses real-time windows (10 min bid resolution, 20 min job expiry). Our turn-based model needs an equivalent pacing mechanism.
 
 ## Sources
 
 - `docs/research/2026-03-23_traveller-economy/synthesis.md` — mortgage mechanics, speculative trade (3d6+mods), trade codes, gravity trade model (WTN/BTN), passage types, triangular trade, home-base problem
 - `docs/research/2026-03-23_sunless-economy/synthesis.md` — resource narrative philosophy (Kennedy), Bargains+Prospects system, affiliation gating, fuel/supply pressure, profit spikes over steady curves
 - `docs/research/2026-03-23_mmorpg-economy/synthesis.md` — faucet-sink model, EVE player-driven economy, mudflation prevention, auction house tradeoffs, transaction taxes, dual currency, wealth concentration, bot/RMT prevention, crafting economics
+- `docs/research/2026-03-23_spaaace-far-trader-economy/synthesis.md` — WTN/BTN calculation chain, trade volume tables, freight rate dynamics, job generation algorithm, reverse auction mechanics, route topology
 - Traveller RPG / GURPS Far Trader — trade mechanics, Eaglestone Trade Index
 - Alexis Kennedy — resource narrative philosophy (scarce, reproducible, fungible)
 - EVE Online — regional markets, Monthly Economic Reports, PLEX system, production-destruction loop
