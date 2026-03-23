@@ -181,83 +181,83 @@ describe('evaluateCommand', () => {
 
     describe('destructive git operations', () => {
       describe('git reset --hard', () => {
-        it.fails('blocks git reset --hard with no trailing args', () => {
+        it('blocks git reset --hard with no trailing args', () => {
           const result = evaluateCommand('git reset --hard');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
         });
 
-        it.fails('blocks git reset --hard with trailing ref', () => {
+        it('blocks git reset --hard with trailing ref', () => {
           const result = evaluateCommand('git reset --hard HEAD~3');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
         });
 
-        it.fails('blocks git reset --hard with origin ref', () => {
+        it('blocks git reset --hard with origin ref', () => {
           const result = evaluateCommand('git reset --hard origin/main');
           expect(result.action).toBe('block');
         });
       });
 
       describe('git checkout . (discard all changes)', () => {
-        it.fails('blocks git checkout .', () => {
+        it('blocks git checkout .', () => {
           const result = evaluateCommand('git checkout .');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
         });
 
-        it.fails('blocks git checkout -- .', () => {
+        it('blocks git checkout -- .', () => {
           const result = evaluateCommand('git checkout -- .');
           expect(result.action).toBe('block');
         });
 
-        it.fails('blocks git checkout HEAD~1 -- . (S7 tree-ish)', () => {
+        it('blocks git checkout HEAD~1 -- . (S7 tree-ish)', () => {
           const result = evaluateCommand('git checkout HEAD~1 -- .');
           expect(result.action).toBe('block');
         });
 
-        it.fails('blocks git checkout main -- .', () => {
+        it('blocks git checkout main -- .', () => {
           const result = evaluateCommand('git checkout main -- .');
           expect(result.action).toBe('block');
         });
 
-        it.fails('blocks git checkout stash@{0} -- .', () => {
+        it('blocks git checkout stash@{0} -- .', () => {
           const result = evaluateCommand('git checkout stash@{0} -- .');
           expect(result.action).toBe('block');
         });
       });
 
       describe('git restore . (discard all changes)', () => {
-        it.fails('blocks git restore .', () => {
+        it('blocks git restore .', () => {
           const result = evaluateCommand('git restore .');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
         });
 
-        it.fails('blocks git restore . with trailing space', () => {
+        it('blocks git restore . with trailing space', () => {
           const result = evaluateCommand('git restore . ');
           expect(result.action).toBe('block');
         });
       });
 
       describe('git clean with force flag (delete untracked)', () => {
-        it.fails('blocks git clean -f', () => {
+        it('blocks git clean -f', () => {
           const result = evaluateCommand('git clean -f');
           expect(result.action).toBe('block');
           expect(result.message).toBeDefined();
         });
 
-        it.fails('blocks git clean -fd', () => {
+        it('blocks git clean -fd', () => {
           const result = evaluateCommand('git clean -fd');
           expect(result.action).toBe('block');
         });
 
-        it.fails('blocks git clean -xfd', () => {
+        it('blocks git clean -xfd', () => {
           const result = evaluateCommand('git clean -xfd');
           expect(result.action).toBe('block');
         });
 
-        it.fails('blocks git clean -f -d', () => {
+        it('blocks git clean -f -d', () => {
           const result = evaluateCommand('git clean -f -d');
           expect(result.action).toBe('block');
         });

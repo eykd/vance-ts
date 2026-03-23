@@ -61,6 +61,75 @@ Only use these flags when explicitly requested by the user.`,
 /** Rules checked against the quote-stripped command. */
 export const POST_STRIP_RULES: readonly GuardRule[] = [
   {
+    name: 'reset-hard',
+    category: 'destructive-git',
+    pattern: /git\s+reset\s+--hard/,
+    message: `BLOCKED: git reset --hard detected.
+
+This command discards all uncommitted changes with no recovery path.
+
+Instead:
+- Use \`git stash\` to save changes temporarily
+- Use \`git reset --soft HEAD~1\` to undo a commit but keep changes
+- Use \`git checkout -- <file>\` to discard changes in a specific file`,
+  },
+  {
+    name: 'checkout-dot',
+    category: 'destructive-git',
+    pattern: /git\s+checkout\s+(--\s+)?\.(\s|$)/,
+    safePatterns: [/git\s+checkout\s+-b\s/, /git\s+checkout\s+--orphan\s/],
+    message: `BLOCKED: git checkout . detected (discard all changes).
+
+This command discards all uncommitted changes across every file.
+
+Instead:
+- Use \`git checkout -- <file>\` to discard changes in a specific file
+- Use \`git stash\` to save changes temporarily
+- Use \`git diff\` to review changes before discarding`,
+  },
+  {
+    name: 'checkout-treeish-dot',
+    category: 'destructive-git',
+    pattern: /git\s+checkout\s+.*--\s+\.(\s|$)/,
+    safePatterns: [/git\s+checkout\s+-b\s/, /git\s+checkout\s+--orphan\s/],
+    message: `BLOCKED: git checkout <tree-ish> -- . detected (overwrite all files).
+
+This command overwrites all working tree files from another commit.
+
+Instead:
+- Use \`git checkout <tree-ish> -- <file>\` to restore a specific file
+- Use \`git diff <tree-ish>\` to review differences first
+- Use \`git stash\` to save current changes before restoring`,
+  },
+  {
+    name: 'restore-dot',
+    category: 'destructive-git',
+    pattern: /git\s+restore\s+\.(\s|$)/,
+    safePatterns: [/git\s+restore\s+--staged/, /git\s+restore\s+-S/],
+    message: `BLOCKED: git restore . detected (discard all changes).
+
+This command discards all uncommitted changes across every file.
+
+Instead:
+- Use \`git restore <file>\` to discard changes in a specific file
+- Use \`git restore --staged <file>\` to unstage specific files
+- Use \`git stash\` to save changes temporarily`,
+  },
+  {
+    name: 'clean-force',
+    category: 'destructive-git',
+    pattern: /git\s+clean\s+.*-[a-zA-Z]*f/,
+    safePatterns: [/git\s+clean\s+.*-[a-zA-Z]*n/, /git\s+clean\s+.*--dry-run/],
+    message: `BLOCKED: git clean -f detected (delete untracked files).
+
+This command permanently deletes untracked files with no recovery path.
+
+Instead:
+- Use \`git clean -n\` to preview what would be deleted (dry run)
+- Use \`git clean --dry-run\` for the same preview
+- Manually remove specific files you no longer need`,
+  },
+  {
     name: 'legacy-bd',
     category: 'platform-ops',
     pattern: /(?:^|&&|\|\||[;(|])\s*(?:npx\s+)?bd(?:\s|$)/mu,
