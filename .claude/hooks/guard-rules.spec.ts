@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { GuardResult } from './guard-rules';
-import { evaluateCommand } from './guard-rules';
+import { evaluateCommand, stripQuotedContent } from './guard-rules';
 
 describe('evaluateCommand', () => {
   describe('safe commands (allow)', () => {
@@ -420,6 +420,113 @@ describe('evaluateCommand', () => {
         const result: GuardResult = evaluateCommand('git branch -d merged-branch');
         expect(result).toEqual({ action: 'allow' });
       });
+    });
+  });
+
+  describe('quote stripping prevents false positives (E3, E4)', () => {
+    describe('E3: heredoc content with amend keyword (ALLOW)', () => {
+      it('allows commit msg mentioning amend inside lowercase heredoc', () => {
+        const cmd = 'git commit -m "$(cat <<eof\n--amend discussion\neof)"';
+        const result: GuardResult = evaluateCommand(cmd);
+        expect(result.action).toBe('allow');
+      });
+
+      it('allows commit msg mentioning amend inside mixed-case heredoc', () => {
+        const cmd = 'git commit -m "$(cat <<End\n--amend discussion\nEnd)"';
+        const result: GuardResult = evaluateCommand(cmd);
+        expect(result.action).toBe('allow');
+      });
+
+      it('allows commit msg mentioning reset --hard inside lowercase heredoc', () => {
+        const cmd = 'git commit -m "$(cat <<heredoc\ntalking about reset --hard\nheredoc)"';
+        const result: GuardResult = evaluateCommand(cmd);
+        expect(result.action).toBe('allow');
+      });
+    });
+
+    describe('E4: escaped quotes in double-quoted strings', () => {
+      it('allows commit msg with escaped quotes around --amend', () => {
+        const cmd = 'git commit -m "he said \\"--amend\\" is bad"';
+        const result: GuardResult = evaluateCommand(cmd);
+        expect(result.action).toBe('allow');
+      });
+
+      it('allows echo with escaped quote containing dangerous keyword', () => {
+        const cmd = 'echo "path with \\" --amend quote"';
+        const result: GuardResult = evaluateCommand(cmd);
+        expect(result.action).toBe('allow');
+      });
+    });
+
+    describe('single-quoted strings stripped', () => {
+      it('allows commit msg with --amend inside single quotes', () => {
+        const cmd = "git commit -m 'discussing --amend'";
+        const result: GuardResult = evaluateCommand(cmd);
+        expect(result.action).toBe('allow');
+      });
+
+      it('allows echo with --squash inside single quotes', () => {
+        const cmd = "echo 'git merge --squash is dangerous'";
+        const result: GuardResult = evaluateCommand(cmd);
+        expect(result.action).toBe('allow');
+      });
+    });
+  });
+});
+
+describe('stripQuotedContent', () => {
+  describe('E3: heredoc stripping robustness', () => {
+    it('strips heredoc with lowercase delimiter', () => {
+      const input = 'git commit -m "$(cat <<eof\n--amend discussion\neof)"';
+      const result = stripQuotedContent(input);
+      expect(result).not.toContain('--amend');
+    });
+
+    it('strips heredoc with mixed-case delimiter', () => {
+      const input = 'git commit -m "$(cat <<End\ndangerous content\nEnd)"';
+      const result = stripQuotedContent(input);
+      expect(result).not.toContain('dangerous content');
+    });
+
+    it.fails('strips heredoc with all-lowercase word delimiter', () => {
+      const input = 'cat <<heredoc\nreset --hard\nheredoc';
+      const result = stripQuotedContent(input);
+      expect(result).not.toContain('reset --hard');
+    });
+
+    it.fails('strips heredoc with quoted lowercase delimiter', () => {
+      const input = "cat <<'eof'\n--amend content\neof";
+      const result = stripQuotedContent(input);
+      expect(result).not.toContain('--amend');
+    });
+  });
+
+  describe('E4: escaped quotes in double-quoted strings', () => {
+    it('strips double-quoted string with escaped quotes inside', () => {
+      const input = 'echo "he said \\"--amend\\" is bad"';
+      const result = stripQuotedContent(input);
+      expect(result).not.toContain('--amend');
+    });
+
+    it('strips double-quoted string preserving surrounding text', () => {
+      const input = 'git commit -m "discussing \\"--amend\\" approach"';
+      const result = stripQuotedContent(input);
+      expect(result).toContain('git commit');
+      expect(result).not.toContain('--amend');
+    });
+  });
+
+  describe('single-quoted string stripping', () => {
+    it('strips single-quoted string containing dangerous keyword', () => {
+      const input = "echo '--amend is dangerous'";
+      const result = stripQuotedContent(input);
+      expect(result).not.toContain('--amend');
+    });
+
+    it('replaces single-quoted content with empty placeholder', () => {
+      const input = "git commit -m 'discussing --squash'";
+      const result = stripQuotedContent(input);
+      expect(result).toBe("git commit -m ''");
     });
   });
 });
