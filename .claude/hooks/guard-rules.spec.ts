@@ -81,6 +81,18 @@ describe('evaluateCommand', () => {
         const result = evaluateCommand('git commit ' + nv + ' ' + ng);
         expect(result.action).toBe('block');
       });
+
+      it('allows "gitcommit" without whitespace after git (not a git command)', () => {
+        const flag = ['--no', '-verify'].join('');
+        const result = evaluateCommand('gitcommit ' + flag);
+        expect(result.action).toBe('allow');
+      });
+
+      it('allows "gitpush" without whitespace after git (not a git command)', () => {
+        const flag = ['--no', '-gpg-sign'].join('');
+        const result = evaluateCommand('gitpush ' + flag);
+        expect(result.action).toBe('allow');
+      });
     });
 
     describe('push with force flags', () => {

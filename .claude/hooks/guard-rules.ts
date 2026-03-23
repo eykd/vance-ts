@@ -31,7 +31,7 @@ export const PRE_STRIP_RULES: readonly GuardRule[] = [
   {
     name: 'hook-bypass',
     category: 'hook-bypass',
-    pattern: /git.*(--no-verify|--no-gpg-sign)/,
+    pattern: /git\s+.*(--no-verify|--no-gpg-sign)/,
     message: `BLOCKED: Hook bypass flags detected.
 
 Prohibited flags: --no-verify, --no-gpg-sign
