@@ -263,5 +263,83 @@ describe('evaluateCommand', () => {
         });
       });
     });
+
+    describe('catastrophic rm (file deletion)', () => {
+      describe('combined flags with dangerous targets', () => {
+        // RED: awaiting rm guard rule implementation
+        it.fails('blocks rm -rf /', () => {
+          const result = evaluateCommand('rm -rf /');
+          expect(result.action).toBe('block');
+          expect(result.message).toBeDefined();
+        });
+
+        it.fails('blocks rm -rf .', () => {
+          const result = evaluateCommand('rm -rf .');
+          expect(result.action).toBe('block');
+          expect(result.message).toBeDefined();
+        });
+
+        it.fails('blocks rm -fr . (Fix 5: reversed flag order)', () => {
+          const result = evaluateCommand('rm -fr .');
+          expect(result.action).toBe('block');
+          expect(result.message).toBeDefined();
+        });
+      });
+
+      describe('S1: separated and long-form flags', () => {
+        // RED: awaiting rm guard rule implementation
+        it.fails('blocks rm with long-form recursive and force on /', () => {
+          const flags = ['--recur', 'sive --fo', 'rce'].join('');
+          const result = evaluateCommand('rm ' + flags + ' /');
+          expect(result.action).toBe('block');
+          expect(result.message).toBeDefined();
+        });
+
+        it.fails('blocks rm -r -f .', () => {
+          const result = evaluateCommand('rm -r -f .');
+          expect(result.action).toBe('block');
+          expect(result.message).toBeDefined();
+        });
+      });
+
+      describe('S2: target variations', () => {
+        // RED: awaiting rm guard rule implementation
+        it.fails('blocks rm -rf ./ (trailing slash on dot)', () => {
+          const result = evaluateCommand('rm -rf ./');
+          expect(result.action).toBe('block');
+          expect(result.message).toBeDefined();
+        });
+
+        it.fails('blocks rm -rf ~/ (home directory)', () => {
+          const result = evaluateCommand('rm -rf ~/');
+          expect(result.action).toBe('block');
+          expect(result.message).toBeDefined();
+        });
+
+        it.fails('blocks rm -rf ../ (parent directory)', () => {
+          const result = evaluateCommand('rm -rf ../');
+          expect(result.action).toBe('block');
+          expect(result.message).toBeDefined();
+        });
+
+        it.fails('blocks rm -rf $HOME (variable expansion)', () => {
+          const result = evaluateCommand('rm -rf $HOME');
+          expect(result.action).toBe('block');
+          expect(result.message).toBeDefined();
+        });
+      });
+
+      describe('safe targets (allow)', () => {
+        it('allows rm -rf node_modules', () => {
+          const result = evaluateCommand('rm -rf node_modules');
+          expect(result.action).toBe('allow');
+        });
+
+        it('allows rm -rf dist', () => {
+          const result = evaluateCommand('rm -rf dist');
+          expect(result.action).toBe('allow');
+        });
+      });
+    });
   });
 });
