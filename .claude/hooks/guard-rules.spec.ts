@@ -423,6 +423,34 @@ describe('evaluateCommand', () => {
     });
   });
 
+  describe('S6: command chain cross-contamination prevention', () => {
+    it.fails(
+      'blocks git checkout -b new && git checkout . (safe pattern in first sub-command)',
+      () => {
+        const result: GuardResult = evaluateCommand('git checkout -b new && git checkout .');
+        expect(result.action).toBe('block');
+      }
+    );
+
+    it.fails('blocks git clean -n && git clean -f (safe pattern in first sub-command)', () => {
+      const result: GuardResult = evaluateCommand('git clean -n && git clean -f');
+      expect(result.action).toBe('block');
+    });
+
+    it.fails(
+      'blocks git restore --staged foo && git restore . (safe pattern in first sub-command)',
+      () => {
+        const result: GuardResult = evaluateCommand('git restore --staged foo && git restore .');
+        expect(result.action).toBe('block');
+      }
+    );
+
+    it('allows echo with && inside single quotes (not a real chain)', () => {
+      const result: GuardResult = evaluateCommand("echo 'hello && world'");
+      expect(result.action).toBe('allow');
+    });
+  });
+
   describe('quote stripping prevents false positives (E3, E4)', () => {
     describe('E3: heredoc content with amend keyword (ALLOW)', () => {
       it('allows commit msg mentioning amend inside lowercase heredoc', () => {
