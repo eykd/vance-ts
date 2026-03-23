@@ -47,15 +47,27 @@ _TODO: Link to tone & style spec_
 
 ## Anti-Patterns to Avoid
 
-- Binary pass/fail challenges (use yarnball spectrum instead)
-- Stat inflation masquerading as progression
-- Content treadmill (use emergence instead)
-- Artificial scarcity / energy timers
-- Punitive loss mechanics
-- Optimization puzzles with single solutions (yarnball should resist "solving")
+### From Perko / Yarnball Research
+
+- **Binary pass/fail challenges** — use yarnball spectrum instead
+- **Stat inflation masquerading as progression** — wider capability, not bigger numbers
+- **Content treadmill** — use emergence instead of authored content at scale
+- **Artificial scarcity / energy timers** — only diegetic scarcity
+- **Punitive loss mechanics** — consequential but recoverable
+- **Optimization puzzles with single solutions** — yarnball should resist "solving"
+
+### From FATE Research
+
+- **Uniform mechanical effects** — different qualities must produce meaningfully different storylet branches, not scalar bonuses. If everything resolves to "+2 to your roll," the narrative richness of the quality system is wasted. (FATE's "+2 treadmill")
+- **All-qualities-equal** — quality types must have distinct behaviors (see QBN Engine quality taxonomy). Treating identity the same as resources the same as story flags "erases potentially useful distinctions" (Kennedy's own critique of early QBN).
+- **Player-authored mechanical content** — in an MMO, letting players create qualities or aspects is an exploit vector. Players should express themselves through choices within authored storylets, not by naming their own qualities.
+- **Metagame currencies** — FATE's fate points exist outside the fiction. Our compel/reward economy must be expressed through diegetic resources (fuel, reputation, connections) that feel like part of the world, not a game mechanic.
+- **Purely negative meters** — if high meter values only produce bad outcomes, players will optimize them to zero and the yarnball collapses. Every meter must generate interesting content at both ends of its range.
 
 ## Sources
 
 - Octalysis Framework — Yu-kai Chou
 - `docs/game-design/notes/art_of_game_design_summary.md` — Schell's 113 lenses
 - Original vision doc — engagement strategy section
+- `docs/research/2026-03-23_fate-rpg-qbn-lessons/synthesis.md` — anti-patterns from FATE analysis
+- Alexis Kennedy, "QBN to Resource Narratives" — quality-type critique

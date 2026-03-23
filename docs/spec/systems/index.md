@@ -43,8 +43,22 @@ Economy ← Travel (trade routes), Ship (cargo capacity), Jobs (income), Multipl
 Factions ← Yarnball (faction meter curves), Economy (faction trade modifiers), Crew (faction NPCs)
 ```
 
+## Key Design Decisions (from research)
+
+| Decision                                                                | Source                  | Affects                 |
+| ----------------------------------------------------------------------- | ----------------------- | ----------------------- |
+| Fractal: everything modeled with same quality/storylet framework        | FATE research           | QBN Engine, all systems |
+| Quality taxonomy: 7 types with distinct lifespans and behaviors         | FATE + Kennedy critique | QBN Engine              |
+| Bidirectional pressure: meters generate content at both ends            | FATE compel economy     | Yarnball                |
+| Compel storylets: system-initiated complications with rewards           | FATE compels            | QBN Engine, Yarnball    |
+| Diegetic pacing: resource scarcity cycles, not metagame tokens          | FATE adaptation         | Yarnball, Economy       |
+| Prep-and-payoff chains: situation qualities consumed by later storylets | FATE maneuvers          | QBN Engine              |
+| Tiered quality potency: diverse effects at different thresholds         | FATE scaled invocation  | QBN Engine              |
+| No player-authored qualities: choices within authored content only      | FATE MMO adaptation     | QBN Engine, Multiplayer |
+
 ## Sources
 
 - [Perko research synthesis](../../research/2026-03-23_perko-scifi-game-design/synthesis.md)
+- [FATE RPG research](../../research/2026-03-23_fate-rpg-qbn-lessons/synthesis.md)
 - [Economy research](../../research/2026-03-23_mmorpg-economy/synthesis.md) | [Traveller](../../research/2026-03-23_traveller-economy/synthesis.md) | [Sunless](../../research/2026-03-23_sunless-economy/synthesis.md)
 - [Original vision](../../game-design/notes.md)

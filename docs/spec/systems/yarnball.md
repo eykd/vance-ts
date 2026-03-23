@@ -51,6 +51,33 @@ The player's module choices define their story:
 
 _TODO: Define how meter states trigger specific storylets_
 
+### Bidirectional Pressure (from FATE)
+
+Every yarnball meter must generate **both** beneficial and complicating storylets. This is the compel economy applied to meters:
+
+- **High hunger** doesn't just threaten starvation — it unlocks desperate-measures storylets (raid a derelict, negotiate with pirates for supplies, discover an edible alien species) that create memorable stories and grant rewards unavailable to well-fed captains
+- **High loneliness** doesn't just debuff — it unlocks introspective storylets, discovery of hidden ship features, or unique encounters with strange entities that only visit solitary travelers
+- **High boredom** unlocks creative mischief storylets, crew pranks, and experimental tinkering that can produce unexpected breakthroughs
+
+The yarnball collapses if meters are purely negative. Players will simply optimize them away. Meters must be **narrative generators in both directions** — comfort produces one kind of story; deprivation produces another, equally interesting kind.
+
+This is the key lesson from FATE's compel economy: setbacks must earn future advantages. In the yarnball, the advantage isn't meta-currency — it's access to storylets that only fire under pressure.
+
+Source: [FATE research — bidirectional pressure](../../research/2026-03-23_fate-rpg-qbn-lessons/synthesis.md)
+
+### Diegetic Pacing Rhythm
+
+FATE uses fate points as a metagame pacing mechanism — depletion during action, recovery through accepting complications. The yarnball should achieve the same dramatic rhythm through **diegetic resource scarcity cycles**:
+
+1. **Departure**: Resources full, meters low. Player chooses ambitious routes and risky jobs.
+2. **Accumulation**: Meters rise over jumps. Resources deplete. Pressure builds.
+3. **Crisis**: High meters unlock complication storylets. Accepting them provides relief (resources, meter reduction) at narrative cost.
+4. **Resolution**: Dock at port. Spend money to reset meters. Sell cargo. Cycle restarts.
+
+The rhythm should feel like a natural voyage arc, not a mechanical loop. Each cycle produces different stories because the player's quality state is different every time.
+
+Source: FATE's fate point economy adapted as diegetic resource cycles
+
 ### The Dossier System
 
 Faction rank grants a dossier with "hardpoints" for NPCs (diplomats, lawyers, fences) that reduce negative meters (criminality, distrust). Different factions impose culturally distinct meter behaviors.
@@ -87,8 +114,10 @@ Full genealogy: `docs/game-design/notes/yarnball_genealogy.md`
 - What's the right number of meters? Too few = shallow; too many = overwhelming
 - How do meters interact with multiplayer? (shared ship meters vs. personal meters)
 - What's the meter ceiling? What happens when a meter maxes out?
-- How do we prevent optimal solutions from collapsing the yarnball?
-- Should meters have positive states too, or only negative pressure?
+- ~~How do we prevent optimal solutions from collapsing the yarnball?~~ → Answered by bidirectional pressure: optimal isn't "meters at zero" because high-meter storylets are uniquely valuable
+- ~~Should meters have positive states too, or only negative pressure?~~ → Answered: meters generate both beneficial and complicating storylets across their full range
+- What's the right balance of complication vs. reward storylets at each meter level?
+- How do we signal to players that high meters unlock unique content, not just punishment?
 
 ## Sources
 
@@ -98,3 +127,4 @@ Full genealogy: `docs/game-design/notes/yarnball_genealogy.md`
 - Perko, "Basebuilding With People" (2015-02-23) — proto-yarnball
 - `docs/game-design/notes/yarnball_genealogy.md` — full concept genealogy
 - `docs/research/2026-03-23_perko-scifi-game-design/synthesis.md`
+- `docs/research/2026-03-23_fate-rpg-qbn-lessons/synthesis.md` — bidirectional pressure, diegetic pacing
