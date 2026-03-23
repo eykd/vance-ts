@@ -31,8 +31,9 @@
 
 ## Notes
 
-- All 18 functional requirements have corresponding acceptance scenarios in user stories
-- 8 user stories cover all priority levels (P1 x4, P2 x3, P3 x1)
-- 8 edge cases documented with expected behavior
-- 6 success criteria defined with measurable thresholds
+- All 17 functional requirements have corresponding acceptance scenarios in user stories
+- 7 user stories cover all priority levels (P1 x4, P2 x2, P3 x1)
+- 6 edge cases documented with expected behavior
+- 5 success criteria defined with measurable thresholds
 - Design decisions (WARN vs BLOCK, exit codes, DCG include/exclude) resolved during planning
+- Counts updated by sp:06-analyze (former US6 advisory warnings removed during clarification; FR-010, SC-003 removed with it)
