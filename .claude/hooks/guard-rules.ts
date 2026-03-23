@@ -237,6 +237,90 @@ Instead:
   },
 ];
 
+/** Rules checked against the raw command for platform-specific operations. */
+export const PLATFORM_RULES: readonly GuardRule[] = [
+  {
+    name: 'gh-repo-delete',
+    category: 'platform-ops',
+    pattern: /gh\s+repo\s+delete/,
+    message: `BLOCKED: gh repo delete detected.
+
+This command destroys the entire GitHub repository with no recovery path.
+
+Instead:
+- Use the GitHub web UI if you truly need to delete a repository
+- Use \`gh repo archive\` to archive instead of deleting
+- Confirm with the user before taking any repository-level destructive action`,
+  },
+  {
+    name: 'wrangler-delete',
+    category: 'platform-ops',
+    pattern: /wrangler\s+delete/,
+    message: `BLOCKED: wrangler delete detected.
+
+This command deletes the Cloudflare Worker and all associated configuration.
+
+Instead:
+- Use \`wrangler deploy\` to update the worker
+- Use the Cloudflare dashboard if you truly need to delete a worker
+- Confirm with the user before taking any worker-level destructive action`,
+  },
+  {
+    name: 'd1-drop',
+    category: 'platform-ops',
+    pattern: /wrangler\s+d1\s+execute\b.*\bDROP\b/i,
+    message: `BLOCKED: Destructive D1 SQL detected (DROP).
+
+DROP permanently removes database objects with no recovery path.
+
+Instead:
+- Use \`wrangler d1 migrations apply\` with a proper migration file
+- Back up the database before making schema changes
+- Confirm with the user before executing destructive SQL`,
+  },
+  {
+    name: 'd1-truncate',
+    category: 'platform-ops',
+    pattern: /wrangler\s+d1\s+execute\b.*\bTRUNCATE\b/i,
+    message: `BLOCKED: Destructive D1 SQL detected (TRUNCATE).
+
+TRUNCATE permanently removes all rows from a table with no recovery path.
+
+Instead:
+- Use DELETE FROM with a WHERE clause to remove specific rows
+- Back up the database before bulk deletions
+- Confirm with the user before executing destructive SQL`,
+  },
+  {
+    name: 'd1-delete-no-where',
+    category: 'platform-ops',
+    pattern: /wrangler\s+d1\s+execute\b.*\bDELETE\s+FROM\b/i,
+    safePatterns: [/wrangler\s+d1\s+execute\b.*\bDELETE\s+FROM\b.*\bWHERE\b/i],
+    message: `BLOCKED: Destructive D1 SQL detected (DELETE FROM without WHERE).
+
+DELETE FROM without a WHERE clause removes all rows from the table.
+
+Instead:
+- Add a WHERE clause to target specific rows
+- Back up the database before bulk deletions
+- Confirm with the user before executing destructive SQL`,
+  },
+  {
+    name: 'd1-execute-file',
+    category: 'platform-ops',
+    pattern: /wrangler\s+d1\s+execute\b.*--file/,
+    message: `BLOCKED: wrangler d1 execute --file detected.
+
+Executing SQL from a file bypasses inline content inspection and may contain
+destructive statements (DROP, TRUNCATE, DELETE) that cannot be verified.
+
+Instead:
+- Use \`wrangler d1 migrations apply\` for schema changes
+- Use \`wrangler d1 execute --command\` with specific SQL statements
+- Review the SQL file contents before executing`,
+  },
+];
+
 /**
  * Strips quoted content from a command to prevent false positives.
  *
@@ -269,8 +353,9 @@ export function splitCommands(command: string): string[] {
 /**
  * Evaluates a command string against all guard rules.
  *
- * Checks PRE_STRIP_RULES against the raw command, then strips quoted
- * content, splits on shell separators, and checks POST_STRIP_RULES
+ * Checks PRE_STRIP_RULES against the raw command, then PLATFORM_RULES
+ * against the raw command (SQL content is inside quotes), then strips
+ * quoted content, splits on shell separators, and checks POST_STRIP_RULES
  * against each sub-command independently.
  *
  * @param command - The raw command string from tool_input.command.
@@ -278,6 +363,15 @@ export function splitCommands(command: string): string[] {
  */
 export function evaluateCommand(command: string): GuardResult {
   for (const rule of PRE_STRIP_RULES) {
+    if (rule.safePatterns?.some((sp) => sp.test(command)) === true) {
+      continue;
+    }
+    if (rule.pattern.test(command)) {
+      return { action: 'block', message: rule.message };
+    }
+  }
+
+  for (const rule of PLATFORM_RULES) {
     if (rule.safePatterns?.some((sp) => sp.test(command)) === true) {
       continue;
     }

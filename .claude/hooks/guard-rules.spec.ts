@@ -510,33 +510,33 @@ describe('evaluateCommand', () => {
 
   describe('platform operations (US-6)', () => {
     describe('gh repo delete (BLOCK)', () => {
-      it.fails('blocks gh repo delete owner/repo', () => {
+      it('blocks gh repo delete owner/repo', () => {
         const result: GuardResult = evaluateCommand('gh repo delete owner/repo');
         expect(result.action).toBe('block');
         expect(result.message).toBeDefined();
       });
 
-      it.fails('blocks gh repo delete with --yes flag', () => {
+      it('blocks gh repo delete with --yes flag', () => {
         const result: GuardResult = evaluateCommand('gh repo delete owner/repo --yes');
         expect(result.action).toBe('block');
       });
     });
 
     describe('wrangler delete (BLOCK)', () => {
-      it.fails('blocks wrangler delete', () => {
+      it('blocks wrangler delete', () => {
         const result: GuardResult = evaluateCommand('wrangler delete');
         expect(result.action).toBe('block');
         expect(result.message).toBeDefined();
       });
 
-      it.fails('blocks wrangler delete with worker name', () => {
+      it('blocks wrangler delete with worker name', () => {
         const result: GuardResult = evaluateCommand('wrangler delete my-worker');
         expect(result.action).toBe('block');
       });
     });
 
     describe('wrangler d1 execute destructive SQL (BLOCK)', () => {
-      it.fails('blocks d1 DROP TABLE', () => {
+      it('blocks d1 DROP TABLE', () => {
         const result: GuardResult = evaluateCommand(
           'wrangler d1 execute DB --command "DROP TABLE users"'
         );
@@ -544,7 +544,7 @@ describe('evaluateCommand', () => {
         expect(result.message).toBeDefined();
       });
 
-      it.fails('blocks d1 TRUNCATE TABLE', () => {
+      it('blocks d1 TRUNCATE TABLE', () => {
         const result: GuardResult = evaluateCommand(
           'wrangler d1 execute DB --command "TRUNCATE TABLE sessions"'
         );
@@ -552,7 +552,7 @@ describe('evaluateCommand', () => {
         expect(result.message).toBeDefined();
       });
 
-      it.fails('blocks d1 DELETE FROM without WHERE clause', () => {
+      it('blocks d1 DELETE FROM without WHERE clause', () => {
         const result: GuardResult = evaluateCommand(
           'wrangler d1 execute DB --command "DELETE FROM users"'
         );
@@ -560,14 +560,14 @@ describe('evaluateCommand', () => {
         expect(result.message).toBeDefined();
       });
 
-      it.fails('blocks d1 drop table lowercase (Fix 3 case sensitivity)', () => {
+      it('blocks d1 drop table lowercase (Fix 3 case sensitivity)', () => {
         const result: GuardResult = evaluateCommand(
           'wrangler d1 execute DB --command "drop table users"'
         );
         expect(result.action).toBe('block');
       });
 
-      it.fails('blocks d1 truncate table lowercase (Fix 3 case sensitivity)', () => {
+      it('blocks d1 truncate table lowercase (Fix 3 case sensitivity)', () => {
         const result: GuardResult = evaluateCommand(
           'wrangler d1 execute DB --command "truncate table sessions"'
         );
@@ -576,13 +576,13 @@ describe('evaluateCommand', () => {
     });
 
     describe('wrangler d1 execute --file bypass (S3)', () => {
-      it.fails('blocks d1 execute with --file flag', () => {
+      it('blocks d1 execute with --file flag', () => {
         const result: GuardResult = evaluateCommand('wrangler d1 execute DB --file schema.sql');
         expect(result.action).toBe('block');
         expect(result.message).toBeDefined();
       });
 
-      it.fails('blocks d1 execute with --file flag and local DB', () => {
+      it('blocks d1 execute with --file flag and local DB', () => {
         const result: GuardResult = evaluateCommand(
           'wrangler d1 execute my-db --file drop-all.sql'
         );
