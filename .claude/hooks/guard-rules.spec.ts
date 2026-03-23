@@ -835,39 +835,39 @@ describe('evaluateCommand', () => {
 
   describe('S5/S8: shell wrapper detection (bash -c, sh -c, eval)', () => {
     describe('destructive payloads via shell wrappers (BLOCK)', () => {
-      it.todo('blocks bash -c with git reset hard', () => {
+      it('blocks bash -c with git reset hard', () => {
         const payload = ['git reset', ' --ha', 'rd'].join('');
         const result: GuardResult = evaluateCommand('bash -c "' + payload + '"');
         expect(result.action).toBe('block');
       });
 
-      it.todo('blocks sh -c with rm -rf /', () => {
+      it('blocks sh -c with rm -rf /', () => {
         const result: GuardResult = evaluateCommand('sh -c "rm -rf /"');
         expect(result.action).toBe('block');
       });
 
-      it.todo('blocks eval with git checkout .', () => {
+      it('blocks eval with git checkout .', () => {
         const result: GuardResult = evaluateCommand('eval "git checkout ."');
         expect(result.action).toBe('block');
       });
 
-      it.todo('blocks bash -c with git clean -f', () => {
+      it('blocks bash -c with git clean -f', () => {
         const result: GuardResult = evaluateCommand('bash -c "git clean -f"');
         expect(result.action).toBe('block');
       });
 
-      it.todo('blocks sh -c with git commit amend', () => {
+      it('blocks sh -c with git commit amend', () => {
         const result: GuardResult = evaluateCommand('sh -c "git commit --amend"');
         expect(result.action).toBe('block');
       });
 
-      it.todo('blocks zsh -c with git reset hard', () => {
+      it('blocks zsh -c with git reset hard', () => {
         const payload = ['git reset', ' --ha', 'rd'].join('');
         const result: GuardResult = evaluateCommand('zsh -c "' + payload + '"');
         expect(result.action).toBe('block');
       });
 
-      it.todo('blocks dash -c with git reset hard', () => {
+      it('blocks dash -c with git reset hard', () => {
         const payload = ['git reset', ' --ha', 'rd'].join('');
         const result: GuardResult = evaluateCommand('dash -c "' + payload + '"');
         expect(result.action).toBe('block');
@@ -902,39 +902,39 @@ describe('evaluateCommand', () => {
     });
 
     describe('nested shell wrappers (S8 depth limit)', () => {
-      it.todo('blocks nested bash -c bash -c with destructive payload', () => {
+      it('blocks nested bash -c bash -c with destructive payload', () => {
         const inner = ['git reset', ' --ha', 'rd'].join('');
         const result: GuardResult = evaluateCommand('bash -c "bash -c \\"' + inner + '\\""');
         expect(result.action).toBe('block');
       });
 
-      it.todo('blocks nested sh -c bash -c with destructive payload', () => {
+      it('blocks nested sh -c bash -c with destructive payload', () => {
         const result: GuardResult = evaluateCommand('sh -c "bash -c \\"git checkout .\\""');
         expect(result.action).toBe('block');
       });
     });
 
     describe('shell wrappers combined with command normalization', () => {
-      it.todo('blocks sudo bash -c with destructive payload', () => {
+      it('blocks sudo bash -c with destructive payload', () => {
         const payload = ['git reset', ' --ha', 'rd'].join('');
         const result: GuardResult = evaluateCommand('sudo bash -c "' + payload + '"');
         expect(result.action).toBe('block');
       });
 
-      it.todo('blocks env bash -c with destructive payload', () => {
+      it('blocks env bash -c with destructive payload', () => {
         const result: GuardResult = evaluateCommand('env bash -c "rm -rf ."');
         expect(result.action).toBe('block');
       });
     });
 
     describe('single-quoted payloads in shell wrappers', () => {
-      it.todo('blocks bash -c with single-quoted git reset hard', () => {
+      it('blocks bash -c with single-quoted git reset hard', () => {
         const payload = ['git reset', ' --ha', 'rd'].join('');
         const result: GuardResult = evaluateCommand("bash -c '" + payload + "'");
         expect(result.action).toBe('block');
       });
 
-      it.todo('blocks sh -c with single-quoted rm -rf /', () => {
+      it('blocks sh -c with single-quoted rm -rf /', () => {
         const result: GuardResult = evaluateCommand("sh -c 'rm -rf /'");
         expect(result.action).toBe('block');
       });

@@ -378,18 +378,62 @@ export function splitCommands(command: string): string[] {
   return command.split(/\s*(?:&&|\|\||[;|])\s*/).filter((s) => s.length > 0);
 }
 
+/** Fast prefix regex to detect shell interpreter wrappers. */
+const SHELL_WRAPPER_RE = /^(?:bash|sh|zsh|dash)\s+-c\s+/;
+
+/** Fast prefix regex to detect eval wrappers. */
+const EVAL_WRAPPER_RE = /^eval\s+/;
+
+/**
+ * Extracts the payload from a shell wrapper command.
+ *
+ * Strips the wrapper prefix and unquotes the remaining payload
+ * (single-quoted, double-quoted, or unquoted).
+ *
+ * @param command - The normalized command after wrapper prefix detection.
+ * @param prefix - The regex that matched the wrapper prefix.
+ * @returns The extracted payload string, or null if extraction fails.
+ */
+function extractShellPayload(command: string, prefix: RegExp): string | null {
+  const stripped = command.replace(prefix, '');
+  if (stripped.length === 0) {
+    return null;
+  }
+  const first = stripped[0];
+  if (first === '"') {
+    // Double-quoted: extract content between outermost quotes
+    const end = stripped.lastIndexOf('"');
+    if (end > 0) {
+      return stripped.slice(1, end).replace(/\\"/g, '"');
+    }
+    return stripped.slice(1);
+  }
+  if (first === "'") {
+    // Single-quoted: extract content between outermost quotes
+    const end = stripped.lastIndexOf("'");
+    if (end > 0) {
+      return stripped.slice(1, end);
+    }
+    return stripped.slice(1);
+  }
+  // Unquoted payload
+  return stripped;
+}
+
 /**
  * Evaluates a command string against all guard rules.
  *
  * First normalizes the command (collapsing line continuations and stripping
  * wrappers like sudo/env/command). Then checks PRE_STRIP_RULES, PLATFORM_RULES,
- * and finally strips quoted content, splits on shell separators, and checks
- * POST_STRIP_RULES against each sub-command independently.
+ * shell wrapper detection (two-pass per S5/S8), and finally strips quoted
+ * content, splits on shell separators, and checks POST_STRIP_RULES against
+ * each sub-command independently.
  *
  * @param command - The raw command string from tool_input.command.
+ * @param maxDepth - Maximum recursion depth for shell wrapper detection (default 1).
  * @returns A GuardResult indicating whether the command is allowed or blocked.
  */
-export function evaluateCommand(command: string): GuardResult {
+export function evaluateCommand(command: string, maxDepth: number = 1): GuardResult {
   const normalized = normalizeCommand(command);
 
   for (const rule of PRE_STRIP_RULES) {
@@ -407,6 +451,22 @@ export function evaluateCommand(command: string): GuardResult {
     }
     if (rule.pattern.test(normalized)) {
       return { action: 'block', message: rule.message };
+    }
+  }
+
+  // S5/S8: two-pass shell wrapper detection (skipped at depth < 0)
+  if (maxDepth >= 0) {
+    let payload: string | null = null;
+    if (SHELL_WRAPPER_RE.test(normalized)) {
+      payload = extractShellPayload(normalized, SHELL_WRAPPER_RE);
+    } else if (EVAL_WRAPPER_RE.test(normalized)) {
+      payload = extractShellPayload(normalized, EVAL_WRAPPER_RE);
+    }
+    if (payload !== null) {
+      const innerResult = evaluateCommand(payload, maxDepth - 1);
+      if (innerResult.action === 'block') {
+        return innerResult;
+      }
     }
   }
 
