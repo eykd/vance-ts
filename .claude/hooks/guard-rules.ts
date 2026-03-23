@@ -209,16 +209,30 @@ Instead:
  */
 export function stripQuotedContent(command: string): string {
   return command
-    .replace(/<<'?[A-Z_]+'?\n[\s\S]*?\n[A-Z_]+/gu, '') // heredocs
+    .replace(/<<-?'?\w+'?\n[\s\S]*?\n\s*\w+/gu, '') // heredocs
     .replace(/"(?:[^"\\]|\\.)*"/gu, '""')
     .replace(/'[^']*'/gu, "''"); // single-quoted strings
+}
+
+/**
+ * Splits a command string on shell separators after quote stripping.
+ *
+ * Splits on &&, ||, ;, and | so each sub-command can be evaluated
+ * independently, preventing safe-pattern cross-contamination (S6).
+ *
+ * @param command - The quote-stripped command string.
+ * @returns An array of sub-command strings.
+ */
+export function splitCommands(command: string): string[] {
+  return command.split(/\s*(?:&&|\|\||[;|])\s*/).filter((s) => s.length > 0);
 }
 
 /**
  * Evaluates a command string against all guard rules.
  *
  * Checks PRE_STRIP_RULES against the raw command, then strips quoted
- * content and checks POST_STRIP_RULES against the stripped command.
+ * content, splits on shell separators, and checks POST_STRIP_RULES
+ * against each sub-command independently.
  *
  * @param command - The raw command string from tool_input.command.
  * @returns A GuardResult indicating whether the command is allowed or blocked.
@@ -234,13 +248,16 @@ export function evaluateCommand(command: string): GuardResult {
   }
 
   const stripped = stripQuotedContent(command);
+  const subCommands = splitCommands(stripped);
 
-  for (const rule of POST_STRIP_RULES) {
-    if (rule.safePatterns?.some((sp) => sp.test(stripped)) === true) {
-      continue;
-    }
-    if (rule.pattern.test(stripped)) {
-      return { action: 'block', message: rule.message };
+  for (const sub of subCommands) {
+    for (const rule of POST_STRIP_RULES) {
+      if (rule.safePatterns?.some((sp) => sp.test(sub)) === true) {
+        continue;
+      }
+      if (rule.pattern.test(sub)) {
+        return { action: 'block', message: rule.message };
+      }
     }
   }
 

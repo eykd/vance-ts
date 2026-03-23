@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { GuardResult } from './guard-rules';
-import { evaluateCommand, stripQuotedContent } from './guard-rules';
+import { evaluateCommand, splitCommands, stripQuotedContent } from './guard-rules';
 
 describe('evaluateCommand', () => {
   describe('safe commands (allow)', () => {
@@ -424,26 +424,20 @@ describe('evaluateCommand', () => {
   });
 
   describe('S6: command chain cross-contamination prevention', () => {
-    it.fails(
-      'blocks git checkout -b new && git checkout . (safe pattern in first sub-command)',
-      () => {
-        const result: GuardResult = evaluateCommand('git checkout -b new && git checkout .');
-        expect(result.action).toBe('block');
-      }
-    );
+    it('blocks git checkout -b new && git checkout . (safe pattern in first sub-command)', () => {
+      const result: GuardResult = evaluateCommand('git checkout -b new && git checkout .');
+      expect(result.action).toBe('block');
+    });
 
-    it.fails('blocks git clean -n && git clean -f (safe pattern in first sub-command)', () => {
+    it('blocks git clean -n && git clean -f (safe pattern in first sub-command)', () => {
       const result: GuardResult = evaluateCommand('git clean -n && git clean -f');
       expect(result.action).toBe('block');
     });
 
-    it.fails(
-      'blocks git restore --staged foo && git restore . (safe pattern in first sub-command)',
-      () => {
-        const result: GuardResult = evaluateCommand('git restore --staged foo && git restore .');
-        expect(result.action).toBe('block');
-      }
-    );
+    it('blocks git restore --staged foo && git restore . (safe pattern in first sub-command)', () => {
+      const result: GuardResult = evaluateCommand('git restore --staged foo && git restore .');
+      expect(result.action).toBe('block');
+    });
 
     it('allows echo with && inside single quotes (not a real chain)', () => {
       const result: GuardResult = evaluateCommand("echo 'hello && world'");
@@ -516,13 +510,13 @@ describe('stripQuotedContent', () => {
       expect(result).not.toContain('dangerous content');
     });
 
-    it.fails('strips heredoc with all-lowercase word delimiter', () => {
+    it('strips heredoc with all-lowercase word delimiter', () => {
       const input = 'cat <<heredoc\nreset --hard\nheredoc';
       const result = stripQuotedContent(input);
       expect(result).not.toContain('reset --hard');
     });
 
-    it.fails('strips heredoc with quoted lowercase delimiter', () => {
+    it('strips heredoc with quoted lowercase delimiter', () => {
       const input = "cat <<'eof'\n--amend content\neof";
       const result = stripQuotedContent(input);
       expect(result).not.toContain('--amend');
@@ -556,5 +550,37 @@ describe('stripQuotedContent', () => {
       const result = stripQuotedContent(input);
       expect(result).toBe("git commit -m ''");
     });
+  });
+});
+
+describe('splitCommands', () => {
+  it('splits on && separator', () => {
+    const result = splitCommands('git status && git log');
+    expect(result).toEqual(['git status', 'git log']);
+  });
+
+  it('splits on || separator', () => {
+    const result = splitCommands('test -f file || echo missing');
+    expect(result).toEqual(['test -f file', 'echo missing']);
+  });
+
+  it('splits on ; separator', () => {
+    const result = splitCommands('echo start; echo end');
+    expect(result).toEqual(['echo start', 'echo end']);
+  });
+
+  it('splits on | pipe separator', () => {
+    const result = splitCommands('git log | head -5');
+    expect(result).toEqual(['git log', 'head -5']);
+  });
+
+  it('returns single-element array for simple command', () => {
+    const result = splitCommands('git status');
+    expect(result).toEqual(['git status']);
+  });
+
+  it('filters out empty strings from split', () => {
+    const result = splitCommands('');
+    expect(result).toEqual([]);
   });
 });
