@@ -88,13 +88,13 @@ Everything in this game hangs off three core systems. All other systems are down
 
 Completed research syntheses that inform this spec:
 
-| Research                                                                                | Key Takeaways                                                         |
-| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| [Perko Sci-Fi Game Design](../research/2026-03-23_perko-scifi-game-design/synthesis.md) | Yarnball survival, CRPG archetypes, location density, NPC mood system |
-| [Sunless Sea/Skies Economy](../research/2026-03-23_sunless-economy/synthesis.md)        | Resource narrative, Bargains+Prospects, affiliation system            |
-| [Traveller Economy](../research/2026-03-23_traveller-economy/synthesis.md)              | Mortgage-driven loop, speculative trade, gravity trade model          |
-| [MMORPG Economy](../research/2026-03-23_mmorpg-economy/synthesis.md)                    | Faucet-sink model, mudflation prevention, transaction taxes           |
-| [FATE RPG & QBN](../research/2026-03-23_fate-rpg-qbn-lessons/synthesis.md)              | _(in progress)_                                                       |
+| Research                                                                                | Key Takeaways                                                              |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [Perko Sci-Fi Game Design](../research/2026-03-23_perko-scifi-game-design/synthesis.md) | Yarnball survival, CRPG archetypes, location density, NPC mood system      |
+| [Sunless Sea/Skies Economy](../research/2026-03-23_sunless-economy/synthesis.md)        | Resource narrative, Bargains+Prospects, affiliation system                 |
+| [Traveller Economy](../research/2026-03-23_traveller-economy/synthesis.md)              | Mortgage-driven loop, speculative trade, gravity trade model               |
+| [MMORPG Economy](../research/2026-03-23_mmorpg-economy/synthesis.md)                    | Faucet-sink model, mudflation prevention, transaction taxes                |
+| [FATE RPG & QBN](../research/2026-03-23_fate-rpg-qbn-lessons/synthesis.md)              | Compel economy, fractal principle, quality lifespans; avoid free-form tags |
 
 ## Source Material
 
