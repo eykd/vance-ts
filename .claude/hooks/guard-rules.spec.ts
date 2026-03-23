@@ -1031,6 +1031,32 @@ describe('stripQuotedContent', () => {
       const result = stripQuotedContent(input);
       expect(result).not.toContain('--amend');
     });
+
+    it('requires matching opening and closing delimiters (backreference)', () => {
+      // Mismatched delimiters: opening is EOF, closing is NOTEOF
+      // The text between should NOT be stripped because delimiters don't match
+      const input = 'cat <<EOF\nreset --hard\nNOTEOF';
+      const result = stripQuotedContent(input);
+      expect(result).toContain('reset --hard');
+    });
+
+    it('strips content when opening and closing delimiters match', () => {
+      const input = 'cat <<EOF\nreset --hard\nEOF';
+      const result = stripQuotedContent(input);
+      expect(result).not.toContain('reset --hard');
+    });
+
+    it('does not strip across mismatched quoted delimiters', () => {
+      const input = "cat <<'MARKER'\ndangerous --amend\nOTHERMARKER";
+      const result = stripQuotedContent(input);
+      expect(result).toContain('dangerous --amend');
+    });
+
+    it('strips with indented closing delimiter using <<-', () => {
+      const input = 'cat <<-EOF\nreset --hard\n\tEOF';
+      const result = stripQuotedContent(input);
+      expect(result).not.toContain('reset --hard');
+    });
   });
 
   describe('E4: escaped quotes in double-quoted strings', () => {

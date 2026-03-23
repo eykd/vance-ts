@@ -360,7 +360,7 @@ export function normalizeCommand(command: string): string {
  */
 export function stripQuotedContent(command: string): string {
   return command
-    .replace(/<<-?'?\w+'?\n[\s\S]*?\n\s*\w+/gu, '') // heredocs
+    .replace(/<<-?'?(\w+)'?\n[\s\S]*?\n\s*\1/gu, '') // heredocs
     .replace(/"(?:[^"\\]|\\.)*"/gu, '""')
     .replace(/'[^']*'/gu, "''"); // single-quoted strings
 }
