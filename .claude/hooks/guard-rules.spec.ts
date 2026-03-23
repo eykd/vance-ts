@@ -365,4 +365,56 @@ describe('evaluateCommand', () => {
       });
     });
   });
+
+  describe('safe pattern whitelists (no false positives)', () => {
+    describe('git checkout safe patterns', () => {
+      it('allows git checkout -b new-feature (branch creation)', () => {
+        const result: GuardResult = evaluateCommand('git checkout -b new-feature');
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows git checkout --orphan initial (orphan branch)', () => {
+        const result: GuardResult = evaluateCommand('git checkout --orphan initial');
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows git checkout feature-branch (branch switch)', () => {
+        const result: GuardResult = evaluateCommand('git checkout feature-branch');
+        expect(result).toEqual({ action: 'allow' });
+      });
+    });
+
+    describe('git restore safe patterns', () => {
+      it('allows git restore --staged file.ts (unstage file)', () => {
+        const result: GuardResult = evaluateCommand('git restore --staged file.ts');
+        expect(result).toEqual({ action: 'allow' });
+      });
+    });
+
+    describe('git clean safe patterns', () => {
+      it('allows git clean -n (dry run, short flag)', () => {
+        const result: GuardResult = evaluateCommand('git clean -n');
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows git clean --dry-run (dry run, long flag)', () => {
+        const result: GuardResult = evaluateCommand('git clean --dry-run');
+        expect(result).toEqual({ action: 'allow' });
+      });
+    });
+
+    describe('git reset safe patterns', () => {
+      it('allows git reset --soft HEAD~1 (soft reset)', () => {
+        const result: GuardResult = evaluateCommand('git reset --soft HEAD~1');
+        expect(result).toEqual({ action: 'allow' });
+      });
+    });
+
+    describe('git branch safe patterns', () => {
+      it('allows git branch -d merged-branch (safe delete)', () => {
+        const result: GuardResult = evaluateCommand('git branch -d merged-branch');
+        expect(result).toEqual({ action: 'allow' });
+      });
+    });
+  });
 });
