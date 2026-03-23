@@ -140,28 +140,42 @@ interface GuardRule {
 | stash drop         | `git\s+stash\s+drop`                                      | —                                          | Subcommand, no flag confusion                  |
 | stash clear        | `git\s+stash\s+clear`                                     | —                                          | Subcommand, no flag confusion                  |
 | branch -D          | `git\s+branch\s+.*-D`                                     | —                                          | Uppercase only; lowercase `-d` is safe         |
-| rm -rf /           | `rm\s+-[a-zA-Z]*r[a-zA-Z]*f.*\s+/\s*$`                    | —                                          | Only root target                               |
-| rm -rf .           | `rm\s+-[a-zA-Z]*r[a-zA-Z]*f.*\s+\.\s*$`                   | —                                          | Only dot target                                |
-| rm -rf \*          | `rm\s+-[a-zA-Z]*r[a-zA-Z]*f.*\s+\*`                       | —                                          | Only glob target                               |
+| rm -rf /           | `rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s\|$)`        | —                                          | `(?:\s\|$)` not `$` — handles command chains   |
+| rm -rf .           | `rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\.(?:\s\|$)`       | —                                          | `(?:\s\|$)` not `$` — handles command chains   |
+| rm -rf \*          | `rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\*`                | —                                          | Only glob target                               |
 | gh repo delete     | `gh\s+repo\s+delete`                                      | —                                          | Any repo target blocked                        |
 | wrangler delete    | `wrangler\s+delete`                                       | —                                          | Worker deletion blocked                        |
-| d1 DROP            | `wrangler\s+d1\s+execute.*DROP`                           | —                                          | Case-insensitive SQL keyword                   |
-| d1 TRUNCATE        | `wrangler\s+d1\s+execute.*TRUNCATE`                       | —                                          | Case-insensitive SQL keyword                   |
-| d1 DELETE no WHERE | `wrangler\s+d1\s+execute.*DELETE\s+FROM\s+\w+(?!.*WHERE)` | —                                          | Negative lookahead for WHERE                   |
+| d1 DROP            | `wrangler\s+d1\s+execute.*DROP`                           | —                                          | MUST use `i` flag for case-insensitive SQL     |
+| d1 TRUNCATE        | `wrangler\s+d1\s+execute.*TRUNCATE`                       | —                                          | MUST use `i` flag for case-insensitive SQL     |
+| d1 DELETE no WHERE | `wrangler\s+d1\s+execute.*DELETE\s+FROM\s+\w+(?!.*WHERE)` | —                                          | MUST use `i` flag — `where` is often lowercase |
 
 ### Command Normalization
 
+**Critical detail**: Sequential `.replace()` calls fail for chained wrappers.
+`sudo env command git reset --hard` → strips `sudo`, then `env`, but `command`
+remains because the `(sudo|command)` replace already ran. Must use an iterative
+loop that re-applies all stripping rules until the string stabilizes.
+
 ```typescript
 function normalizeCommand(command: string): string {
-  // Strip leading wrappers iteratively:
-  // sudo, env (with optional VAR=val args), command, backslash prefix
-  // Handle chained: "sudo env command git reset --hard"
-  return command
-    .replace(/^\\/, '') // leading backslash
-    .replace(/^(sudo|command)\s+/g, '') // sudo, command
-    .replace(/^env\s+(\w+=\S+\s+)*/g, ''); // env with optional VAR=val
+  let result = command.replace(/^\\/, ''); // strip leading backslash once
+  let prev: string;
+  do {
+    prev = result;
+    result = result
+      .replace(/^(sudo|command)\s+/, '') // strip sudo or command prefix
+      .replace(/^env\s+(\w+=\S+\s+)*/, ''); // strip env with optional VAR=val
+  } while (result !== prev);
+  return result;
 }
 ```
+
+**Verified edge cases**:
+
+- `sudo env command git reset --hard` → loop 1: strip `sudo` → loop 2: strip `env` → loop 3: strip `command` → `git reset --hard` ✓
+- `sudo sudo git reset --hard` → loop 1: strip first `sudo` → loop 2: strip second `sudo` → `git reset --hard` ✓
+- `env VAR=1 VAR2=2 git push` → strip `env VAR=1 VAR2=2 ` → `git push` ✓
+- `\git checkout .` → strip backslash → `git checkout .` ✓
 
 ### Error Message Template
 
@@ -265,6 +279,49 @@ describe('evaluateCommand', () => {
   });
 });
 ```
+
+## Deepened Sections (2026-03-23)
+
+Three regex failures identified and fixed during `/deepen-plan`:
+
+### Fix 1: Command Normalization — Iterative Loop (HIGH severity)
+
+**Problem**: Sequential `.replace()` calls are single-pass. For `sudo env command git reset --hard`,
+only `sudo` and `env` are stripped; `command` remains because the `(sudo|command)` replace already ran.
+
+**Fix**: Replace sequential replaces with a `do...while` loop that re-applies all stripping rules
+until the string stabilizes. See updated Command Normalization section above.
+
+**Test cases to add**: `sudo env command git reset --hard`, `sudo sudo git reset --hard`.
+
+### Fix 2: rm -rf Anchoring — Command Chains (HIGH severity)
+
+**Problem**: End-of-string anchor `$` prevents matching in command chains.
+`rm -rf . && git status` is NOT blocked because `$` requires `.` at end of string.
+
+**Fix**: Replace `\s*$` with `(?:\s|$)` (whitespace-or-end) to match both end-of-string
+and mid-chain positions. Also replaced `.*` between flags and target with `[a-zA-Z]*`
+(letter-only) to prevent overly greedy matching. See updated Pattern Design table.
+
+**Test cases to add**: `rm -rf . && echo done`, `rm -rf /; ls`.
+
+### Fix 3: D1 SQL Case Sensitivity (HIGH severity)
+
+**Problem**: SQL keyword regexes (`DROP`, `TRUNCATE`, `WHERE`) are case-sensitive by default.
+`DELETE FROM users where id = 1` (lowercase `where`) falsely blocks because the negative
+lookahead `(?!.*WHERE)` doesn't find uppercase `WHERE`, so it thinks there's no WHERE clause.
+
+**Fix**: All three D1 SQL patterns MUST use the `i` (case-insensitive) flag:
+`/wrangler\s+d1\s+execute.*DROP/i`, etc. See updated Pattern Design table.
+
+**Test cases to add**: `DELETE FROM users where id = 1` (lowercase), `drop table users` (lowercase).
+
+### Validated Patterns (no changes needed)
+
+- **git clean combined flags** (`-xfn`, `-nfd`, `-fn`): Safe pattern `.*-n` correctly finds
+  `-n` within combined flag strings. No failure.
+- **checkout .gitignore**: Pattern `\.(\s|$)` correctly requires dot followed by whitespace
+  or end-of-string. `.gitignore` has `g` after `.`, so no false positive. No failure.
 
 ## Complexity Tracking
 
