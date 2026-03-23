@@ -264,6 +264,30 @@ describe('evaluateCommand', () => {
       });
     });
 
+    describe('CLAUDE.md rule enforcement (--amend, --squash)', () => {
+      it.fails('blocks git commit --amend -m "fix"', () => {
+        const result = evaluateCommand('git commit --amend -m "fix"');
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it.fails('blocks git merge --squash feature', () => {
+        const result = evaluateCommand('git merge --squash feature');
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it('allows normal git commit -m "fix: something"', () => {
+        const result = evaluateCommand('git commit -m "fix: something"');
+        expect(result.action).toBe('allow');
+      });
+
+      it('allows commit message mentioning --amend (post-strip)', () => {
+        const result = evaluateCommand('git commit -m "discussing --amend"');
+        expect(result.action).toBe('allow');
+      });
+    });
+
     describe('catastrophic rm (file deletion)', () => {
       describe('combined flags with dangerous targets', () => {
         it('blocks rm -rf /', () => {
