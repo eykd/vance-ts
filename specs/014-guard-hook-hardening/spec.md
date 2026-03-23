@@ -18,6 +18,12 @@
 - architecture-review: `turtlebased-ts-hr3.8`
 - code-quality-review: `turtlebased-ts-hr3.9`
 
+## Clarifications
+
+### Session 2026-03-23
+
+- Q: How should broad staging commands (`git add .`, `git add -A`, `git add --all`) be handled? Exit 1 stderr is invisible to Claude (only logged in verbose mode), making advisory warnings ineffective for AI self-correction. → A: Remove advisory warnings entirely (former US6). Broad staging is too common and benign to warrant hook intervention. Trust CLAUDE.md's advisory "prefer" language.
+
 ## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Block Destructive Git Operations (Priority: P1)
@@ -134,29 +140,7 @@ operations, but still destroy work that may not be recoverable.
 
 ---
 
-### User Story 6 - Warn on Broad Staging Commands (Priority: P2)
-
-`git add .`, `git add -A`, and `git add --all` trigger an advisory warning (exit 1)
-recommending specific file staging. The command still executes because CLAUDE.md says
-"prefer" specific files, not "NEVER" use broad staging.
-
-**Why this priority**: Broad staging risks accidentally committing secrets (.env),
-credentials, or large binaries. An advisory warning reminds Claude to be deliberate
-without blocking legitimate use.
-
-**Independent Test**: Pipe JSON with each broad staging command and verify exit 1
-with stderr warning. Verify `git add src/file.ts` produces exit 0 with no warning.
-
-**Acceptance Scenarios**:
-
-1. **Given** the hook is active, **When** Claude runs `git add .`, **Then** the command executes but stderr contains a warning about staging specific files (exit 1)
-2. **Given** the hook is active, **When** Claude runs `git add -A`, **Then** the command executes with the same advisory warning (exit 1)
-3. **Given** the hook is active, **When** Claude runs `git add --all`, **Then** the command executes with the same advisory warning (exit 1)
-4. **Given** the hook is active, **When** Claude runs `git add src/file.ts`, **Then** the command executes with no warning (exit 0)
-
----
-
-### User Story 7 - Block Destructive Platform Operations (Priority: P2)
+### User Story 6 - Block Destructive Platform Operations (Priority: P2)
 
 Platform-specific catastrophic operations are blocked: `gh repo delete` (destroys
 the GitHub repository), `wrangler delete` (deletes the Cloudflare Worker), and
@@ -182,7 +166,7 @@ exit 2. Pipe safe variants and verify exit 0.
 
 ---
 
-### User Story 8 - Command Normalization (Priority: P3)
+### User Story 7 - Command Normalization (Priority: P3)
 
 Leading command wrappers (`sudo`, `env`, `command`, backslash) are stripped before
 pattern matching so that `sudo git reset --hard` is caught just as reliably as
@@ -211,8 +195,6 @@ verify exit 2.
 - What happens when `rm -rf some-directory/` is run? Allowed — only `/`, `.`, and `*` targets are blocked.
 - What happens when `git clean -fn` (dry-run with force flag) is run? Safe pattern whitelist catches `-n` / `--dry-run` before the destructive pattern fires.
 - What happens when `wrangler d1 execute --command "SELECT * FROM users"` is run? Allowed — only DROP/TRUNCATE/DELETE-without-WHERE are blocked.
-- What happens when `git add src/specific-file.ts` is run? No warning — the advisory only fires on `.`, `-A`, or `--all`.
-- What happens when a command matches both WARN and BLOCK patterns? BLOCK takes priority — all BLOCK patterns are evaluated before WARN patterns.
 - What happens when `sudo rm -rf .` is run? Command normalization strips `sudo` first, then the destructive pattern matches — blocked.
 
 ## Requirements _(mandatory)_
@@ -240,10 +222,6 @@ verify exit 2.
 - **FR-008**: Hook MUST block `git stash drop` and `git stash clear`
 - **FR-009**: Hook MUST block `git branch -D`
 
-**Advisory Warnings (Warn):**
-
-- **FR-010**: Hook MUST emit an advisory warning (exit 1) for `git add .`, `git add -A`, `git add --all` but allow the command to execute
-
 **Platform-Specific Operations (Block):**
 
 - **FR-011**: Hook MUST block `gh repo delete`
@@ -260,7 +238,7 @@ verify exit 2.
 
 ### Key Entities
 
-- **Guard Rule**: A named pattern defining a blocked or warned command — includes category, regex, exit code (1 or 2), and error message template
+- **Guard Rule**: A named pattern defining a blocked command — includes category, regex, exit code 2, and error message template
 - **Safe Pattern**: A whitelist regex checked before destructive patterns to allow known-safe command variants (e.g., `git checkout -b` before the `git checkout .` check)
 - **Command Normalizer**: A preprocessing pipeline that strips wrappers (sudo, env, command, backslash) before any pattern matching occurs
 
@@ -270,7 +248,6 @@ verify exit 2.
 
 - **SC-001**: 100% of commands in the "Must Block" test table are blocked (exit 2) when piped to the hook — zero false negatives
 - **SC-002**: 100% of commands in the "Must Allow" test table pass through (exit 0) when piped to the hook — zero false positives
-- **SC-003**: 100% of commands in the "Must Warn" test table produce exit 1 with appropriate stderr message
 - **SC-004**: Hook completes in under 50ms for all test cases
 - **SC-005**: All existing blocked patterns (hook bypass, force push, legacy bd, br init --force) continue to function identically — zero regressions
-- **SC-006**: Every block and warn message contains actionable guidance that an AI assistant can use to self-correct without human intervention
+- **SC-006**: Every block message contains actionable guidance that an AI assistant can use to self-correct without human intervention
