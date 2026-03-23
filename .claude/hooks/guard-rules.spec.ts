@@ -705,6 +705,123 @@ describe('evaluateCommand', () => {
       });
     });
   });
+
+  describe('US-7: command normalization', () => {
+    describe('sudo prefix stripping', () => {
+      it('blocks sudo git reset --hard', () => {
+        const result: GuardResult = evaluateCommand('sudo git reset --hard');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks sudo git push with force flag', () => {
+        const flag = ['--fo', 'rce'].join('');
+        const result: GuardResult = evaluateCommand('sudo git push ' + flag + ' origin main');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks sudo git clean -f', () => {
+        const result: GuardResult = evaluateCommand('sudo git clean -f');
+        expect(result.action).toBe('block');
+      });
+    });
+
+    describe('env prefix stripping', () => {
+      it('blocks env git push with force flag', () => {
+        const flag = ['--fo', 'rce'].join('');
+        const result: GuardResult = evaluateCommand('env git push ' + flag + ' origin main');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks env with VAR=val before destructive command', () => {
+        const result: GuardResult = evaluateCommand('env GIT_TRACE=1 git reset --hard');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks env with multiple VAR=val pairs', () => {
+        const flag = ['--fo', 'rce'].join('');
+        const result: GuardResult = evaluateCommand(
+          'env VAR=1 VAR2=2 git push ' + flag + ' origin main'
+        );
+        expect(result.action).toBe('block');
+      });
+    });
+
+    describe('command prefix stripping', () => {
+      it('blocks command git clean -f', () => {
+        const result: GuardResult = evaluateCommand('command git clean -f');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks command git checkout .', () => {
+        const result: GuardResult = evaluateCommand('command git checkout .');
+        expect(result.action).toBe('block');
+      });
+    });
+
+    describe('leading backslash stripping', () => {
+      it('blocks \\git checkout .', () => {
+        const result: GuardResult = evaluateCommand('\\git checkout .');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks \\git reset --hard', () => {
+        const result: GuardResult = evaluateCommand('\\git reset --hard');
+        expect(result.action).toBe('block');
+      });
+    });
+
+    describe('Fix 1: chained wrappers (iterative stripping)', () => {
+      it('blocks sudo env command git reset --hard', () => {
+        const result: GuardResult = evaluateCommand('sudo env command git reset --hard');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks sudo sudo git reset --hard (doubled sudo)', () => {
+        const result: GuardResult = evaluateCommand('sudo sudo git reset --hard');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks env VAR=1 sudo git push with force flag', () => {
+        const flag = ['--fo', 'rce'].join('');
+        const result: GuardResult = evaluateCommand(
+          'env VAR=1 sudo git push ' + flag + ' origin main'
+        );
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks sudo env VAR=1 VAR2=2 git push with force flag', () => {
+        const flag = ['--fo', 'rce'].join('');
+        const result: GuardResult = evaluateCommand(
+          'sudo env VAR=1 VAR2=2 git push ' + flag + ' origin main'
+        );
+        expect(result.action).toBe('block');
+      });
+    });
+
+    describe('S9: line continuation collapsing', () => {
+      it.fails('blocks git push with force flag on continuation line', () => {
+        const flag = ['--fo', 'rce'].join('');
+        const result: GuardResult = evaluateCommand('git push \\\n  ' + flag + ' origin main');
+        expect(result.action).toBe('block');
+      });
+
+      it.fails('blocks git reset with --hard on continuation line', () => {
+        const result: GuardResult = evaluateCommand('git reset \\\n  --hard');
+        expect(result.action).toBe('block');
+      });
+
+      it.fails('blocks git clean with -f on continuation line', () => {
+        const result: GuardResult = evaluateCommand('git clean \\\n  -f');
+        expect(result.action).toBe('block');
+      });
+
+      it.fails('blocks multi-line continuation with wrappers', () => {
+        const flag = ['--fo', 'rce'].join('');
+        const result: GuardResult = evaluateCommand('sudo git push \\\n  ' + flag + ' origin main');
+        expect(result.action).toBe('block');
+      });
+    });
+  });
 });
 
 describe('stripQuotedContent', () => {
