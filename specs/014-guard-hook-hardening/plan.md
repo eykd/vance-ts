@@ -129,25 +129,25 @@ interface GuardRule {
 
 ### Pattern Design (Key Rules)
 
-| Rule               | Pattern                                                   | Safe Patterns                              | Notes                                          |
-| ------------------ | --------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------- |
-| reset --hard       | `git\s+reset\s+--hard`                                    | —                                          | Any trailing args blocked                      |
-| checkout .         | `git\s+checkout\s+(--\s+)?\.(\s\|$)`                      | `-b`, `--orphan`, word-char after checkout | Dot must be the pathspec target                |
-| restore .          | `git\s+restore\s+\.(\s\|$)`                               | `--staged`, `-S`                           | Dot must be the pathspec target                |
-| clean -f           | `git\s+clean\s+.*-f`                                      | `-n`, `--dry-run`                          | Safe patterns checked first                    |
-| commit --amend     | `git\s+commit\s+.*--amend`                                | —                                          | Post-strip prevents commit-msg false positives |
-| merge --squash     | `git\s+merge\s+.*--squash`                                | —                                          | Post-strip prevents msg false positives        |
-| stash drop         | `git\s+stash\s+drop`                                      | —                                          | Subcommand, no flag confusion                  |
-| stash clear        | `git\s+stash\s+clear`                                     | —                                          | Subcommand, no flag confusion                  |
-| branch -D          | `git\s+branch\s+.*-D`                                     | —                                          | Uppercase only; lowercase `-d` is safe         |
-| rm -rf /           | `rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s\|$)`        | —                                          | `(?:\s\|$)` not `$` — handles command chains   |
-| rm -rf .           | `rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\.(?:\s\|$)`       | —                                          | `(?:\s\|$)` not `$` — handles command chains   |
-| rm -rf \*          | `rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+\*`                | —                                          | Only glob target                               |
-| gh repo delete     | `gh\s+repo\s+delete`                                      | —                                          | Any repo target blocked                        |
-| wrangler delete    | `wrangler\s+delete`                                       | —                                          | Worker deletion blocked                        |
-| d1 DROP            | `wrangler\s+d1\s+execute.*DROP`                           | —                                          | MUST use `i` flag for case-insensitive SQL     |
-| d1 TRUNCATE        | `wrangler\s+d1\s+execute.*TRUNCATE`                       | —                                          | MUST use `i` flag for case-insensitive SQL     |
-| d1 DELETE no WHERE | `wrangler\s+d1\s+execute.*DELETE\s+FROM\s+\w+(?!.*WHERE)` | —                                          | MUST use `i` flag — `where` is often lowercase |
+| Rule               | Pattern                                                   | Safe Patterns     | Notes                                          |
+| ------------------ | --------------------------------------------------------- | ----------------- | ---------------------------------------------- |
+| reset --hard       | `git\s+reset\s+--hard`                                    | —                 | Any trailing args blocked                      |
+| checkout .         | `git\s+checkout\s+(--\s+)?\.(\s\|$)`                      | `-b`, `--orphan`  | Destructive pattern is self-limiting (no FP)   |
+| restore .          | `git\s+restore\s+\.(\s\|$)`                               | `--staged`, `-S`  | Dot must be the pathspec target                |
+| clean -f           | `git\s+clean\s+.*-f`                                      | `-n`, `--dry-run` | Safe patterns checked first                    |
+| commit --amend     | `git\s+commit\s+.*--amend`                                | —                 | Post-strip prevents commit-msg false positives |
+| merge --squash     | `git\s+merge\s+.*--squash`                                | —                 | Post-strip prevents msg false positives        |
+| stash drop         | `git\s+stash\s+drop(?:\s\|$)`                             | —                 | Word boundary prevents matching `dropdown`     |
+| stash clear        | `git\s+stash\s+clear(?:\s\|$)`                            | —                 | Word boundary prevents matching `clearfix`     |
+| branch -D          | `git\s+branch\s+-D(?:\s\|$)`                              | —                 | Flag-position only; prevents branch name FP    |
+| rm -rf /           | `rm\s+-[a-zA-Z]*(rf\|fr)[a-zA-Z]*\s+/(?:\s\|$)`           | —                 | `(rf\|fr)` handles both flag orderings         |
+| rm -rf .           | `rm\s+-[a-zA-Z]*(rf\|fr)[a-zA-Z]*\s+\.(?:\s\|$)`          | —                 | `(rf\|fr)` handles both flag orderings         |
+| rm -rf \*          | `rm\s+-[a-zA-Z]*(rf\|fr)[a-zA-Z]*\s+\*`                   | —                 | `(rf\|fr)` handles both flag orderings         |
+| gh repo delete     | `gh\s+repo\s+delete`                                      | —                 | Any repo target blocked                        |
+| wrangler delete    | `wrangler\s+delete`                                       | —                 | Worker deletion blocked                        |
+| d1 DROP            | `wrangler\s+d1\s+execute.*DROP`                           | —                 | MUST use `i` flag for case-insensitive SQL     |
+| d1 TRUNCATE        | `wrangler\s+d1\s+execute.*TRUNCATE`                       | —                 | MUST use `i` flag for case-insensitive SQL     |
+| d1 DELETE no WHERE | `wrangler\s+d1\s+execute.*DELETE\s+FROM\s+\w+(?!.*WHERE)` | —                 | MUST use `i` flag — `where` is often lowercase |
 
 ### Command Normalization
 
@@ -316,12 +316,45 @@ lookahead `(?!.*WHERE)` doesn't find uppercase `WHERE`, so it thinks there's no 
 
 **Test cases to add**: `DELETE FROM users where id = 1` (lowercase), `drop table users` (lowercase).
 
+### Fix 4: branch -D False Positive on Branch Names (HIGH severity)
+
+**Problem**: Pattern `git\s+branch\s+.*-D` matches `-D` anywhere in the command, including
+within branch names. `git branch -d feature-D-thing` incorrectly triggers because `.*`
+consumes `-d feature-` and then `-D` matches the uppercase D in the branch name.
+
+**Fix**: Use `git\s+branch\s+-D(?:\s|$)` — requires `-D` as a flag immediately after
+`git branch`, not embedded in a branch name. See updated Pattern Design table.
+
+**Test cases to add**: `git branch -d feature-D-thing` (must allow), `git branch -d my-Dev-branch` (must allow).
+
+### Fix 5: rm -fr Flag Ordering Not Caught (HIGH severity)
+
+**Problem**: Pattern `rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*` requires `r` before `f` in flags.
+`rm -fr .` (common alternative to `rm -rf`) is NOT caught because `f` precedes `r`.
+
+**Fix**: Use `(rf|fr)` alternation instead of `r[a-zA-Z]*f` to handle both orderings.
+See updated Pattern Design table.
+
+**Test cases to add**: `rm -fr .`, `rm -fr /`, `rm -frd .`.
+
+### Fix 6: stash/drop Word Boundaries (LOW severity)
+
+**Problem**: Patterns `git\s+stash\s+drop` and `git\s+stash\s+clear` lack word boundaries.
+Hypothetical `git stash dropdown` or `git stash clearfix` would false-positive (though neither
+is a real git command).
+
+**Fix**: Add `(?:\s|$)` boundary. Trivial fix for regex hygiene.
+
 ### Validated Patterns (no changes needed)
 
 - **git clean combined flags** (`-xfn`, `-nfd`, `-fn`): Safe pattern `.*-n` correctly finds
   `-n` within combined flag strings. No failure.
 - **checkout .gitignore**: Pattern `\.(\s|$)` correctly requires dot followed by whitespace
   or end-of-string. `.gitignore` has `g` after `.`, so no false positive. No failure.
+- **checkout safe patterns**: Destructive pattern `\.(\s|$)` is self-limiting — `git checkout feature-branch`
+  naturally doesn't match. Safe patterns (`-b`, `--orphan`) are defense-in-depth, not strictly required.
+- **wrangler delete vs wrangler d1 delete**: `wrangler\s+delete` requires `delete` immediately
+  after `wrangler`. `wrangler d1 delete` does not match (correct — not a real command).
 
 ## Complexity Tracking
 
