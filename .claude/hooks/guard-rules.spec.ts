@@ -423,6 +423,91 @@ describe('evaluateCommand', () => {
     });
   });
 
+  describe('lower-risk destructive git (US-5)', () => {
+    describe('git stash drop/clear (BLOCK)', () => {
+      it.fails('blocks git stash drop', () => {
+        const result: GuardResult = evaluateCommand('git stash drop');
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it.fails('blocks git stash drop stash@{2}', () => {
+        const result: GuardResult = evaluateCommand('git stash drop stash@{2}');
+        expect(result.action).toBe('block');
+      });
+
+      it.fails('blocks git stash clear', () => {
+        const result: GuardResult = evaluateCommand('git stash clear');
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+    });
+
+    describe('git stash drop/clear word boundaries (Fix 6)', () => {
+      it('does not false-positive on hypothetical git stash dropdown', () => {
+        const result: GuardResult = evaluateCommand('git stash dropdown');
+        expect(result.action).toBe('allow');
+      });
+
+      it('does not false-positive on hypothetical git stash clearfix', () => {
+        const result: GuardResult = evaluateCommand('git stash clearfix');
+        expect(result.action).toBe('allow');
+      });
+    });
+
+    describe('git stash safe variants (ALLOW)', () => {
+      it('allows git stash (save changes)', () => {
+        const result: GuardResult = evaluateCommand('git stash');
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows git stash pop (restore changes)', () => {
+        const result: GuardResult = evaluateCommand('git stash pop');
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows git stash list', () => {
+        const result: GuardResult = evaluateCommand('git stash list');
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows git stash show', () => {
+        const result: GuardResult = evaluateCommand('git stash show');
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows git stash apply', () => {
+        const result: GuardResult = evaluateCommand('git stash apply');
+        expect(result).toEqual({ action: 'allow' });
+      });
+    });
+
+    describe('git branch -D (BLOCK)', () => {
+      it.fails('blocks git branch -D unmerged', () => {
+        const result: GuardResult = evaluateCommand('git branch -D unmerged');
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it.fails('blocks git branch -D feature-branch', () => {
+        const result: GuardResult = evaluateCommand('git branch -D feature-branch');
+        expect(result.action).toBe('block');
+      });
+    });
+
+    describe('git branch -D word boundary (Fix 4)', () => {
+      it('allows git branch -d feature-D-thing (uppercase D in branch name)', () => {
+        const result: GuardResult = evaluateCommand('git branch -d feature-D-thing');
+        expect(result).toEqual({ action: 'allow' });
+      });
+
+      it('allows git branch -d my-Dev-branch (Dev in branch name)', () => {
+        const result: GuardResult = evaluateCommand('git branch -d my-Dev-branch');
+        expect(result).toEqual({ action: 'allow' });
+      });
+    });
+  });
+
   describe('S6: command chain cross-contamination prevention', () => {
     it('blocks git checkout -b new && git checkout . (safe pattern in first sub-command)', () => {
       const result: GuardResult = evaluateCommand('git checkout -b new && git checkout .');
