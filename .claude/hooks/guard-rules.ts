@@ -436,6 +436,10 @@ function extractShellPayload(command: string, prefix: RegExp): string | null {
 export function evaluateCommand(command: string, maxDepth: number = 1): GuardResult {
   const normalized = normalizeCommand(command);
 
+  if (normalized.trim() === '') {
+    return { action: 'allow' };
+  }
+
   for (const rule of PRE_STRIP_RULES) {
     if (rule.safePatterns?.some((sp) => sp.test(normalized)) === true) {
       continue;
