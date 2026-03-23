@@ -426,6 +426,69 @@ not caught. In practice, Claude never quotes rm targets — `rm -rf .` is always
 unquoted. If this becomes a real bypass vector, add rm as a PLATFORM_RULES entry
 checked against raw command.
 
+### S5: Shell Interpreter Wrapper Evasion (Critical)
+
+**Attack**: `bash -c "git reset --hard"`, `sh -c "git reset --hard"`, or
+`eval "git reset --hard"` — the destructive payload lives inside a quoted
+string argument. POST_STRIP_RULES operate on the stripped command, which
+becomes `bash -c ""` after quote removal. The dangerous `git reset --hard`
+vanishes before pattern matching. PRE_STRIP_RULES don't check for destructive
+git operations. Result: **complete bypass** of all post-strip guard rules.
+
+**Mitigation**: Add a PRE_STRIP_RULES entry that blocks shell interpreter
+wrappers invoking destructive commands. Since the payload is inside quotes
+and must be inspected raw (same rationale as PLATFORM_RULES for D1 SQL),
+add these as PLATFORM_RULES checked against the normalized (raw) command:
+
+- `(?:bash|sh|zsh|dash)\s+-c\s+` followed by any blocked pattern inside the string
+- `eval\s+` followed by any blocked pattern
+
+Simpler alternative: Block `bash -c`, `sh -c`, and `eval` unconditionally
+when followed by `git` or `rm` commands. This is more conservative but
+prevents the hook from needing to recursively evaluate quoted payloads.
+
+**Pattern**: `(?:bash|sh|zsh|dash)\s+-c\s+.*(?:git\s+reset\s+--hard|git\s+checkout\s+(--\s+)?\.(\s|$)|rm\s+-[a-zA-Z]*(rf|fr))` (check against raw normalized command)
+
+**Test cases**: `bash -c "git reset --hard"` (blocked), `sh -c "rm -rf /"` (blocked),
+`eval "git checkout ."` (blocked), `bash -c "echo hello"` (allowed),
+`bash script.sh` (allowed — no `-c` flag).
+
+### S6: Safe Pattern Cross-Contamination in Command Chains (High)
+
+**Attack**: `git checkout -b new && git checkout .` — the safe pattern `-b`
+(or regex matching `git\s+checkout\s+(-b|--orphan)`) appears in the first
+sub-command of the chain. Since safe patterns are checked against the **full
+command string**, the `-b` match causes the `checkout .` rule to be skipped
+entirely. The second sub-command `git checkout .` is destructive but allowed.
+
+This is **systematic** — it affects every rule with safe patterns:
+
+- `git restore --staged foo && git restore .` → `--staged` found → `restore .` skipped
+- `git clean -n && git clean -f` → `-n` found → `clean -f` skipped
+- `git reset --soft HEAD~1; git reset --hard` → not affected (reset --hard has no safe patterns)
+
+**Mitigation**: Split the command string on shell separators (`&&`, `||`, `;`,
+`|`) before evaluation, and run each sub-command through the full pipeline
+independently. Any sub-command that triggers a block → the entire command is
+blocked.
+
+```typescript
+function splitCommands(command: string): string[] {
+  // Split on &&, ||, ;, | (but not || inside regex or quoted content)
+  // Apply after quote stripping to avoid splitting on separators inside strings
+  return command.split(/\s*(?:&&|\|\||[;|])\s*/);
+}
+```
+
+**Caveat**: Splitting must happen AFTER quote stripping to avoid splitting
+on separators inside strings (e.g., `echo "a && b"`). The pipeline becomes:
+normalize → strip quotes → split on separators → evaluate each sub-command
+against all post-strip rules independently.
+
+**Test cases**: `git checkout -b new && git checkout .` (blocked),
+`git clean -n && git clean -f` (blocked), `git restore --staged foo && git restore .` (blocked),
+`echo "hello && world"` (allowed — separator is inside quotes).
+
 ## Edge Cases & Error Handling
 
 ### E1: Malformed JSON / Missing Fields (High)
@@ -461,6 +524,102 @@ This works correctly (no patterns match empty string → allow) but is wasted wo
 in `evaluateCommand()`. Trivial optimization that also documents the intent.
 
 **Test case**: `evaluateCommand("")` → `{ action: 'allow' }`.
+
+### E3: Heredoc Stripping Robustness (Medium)
+
+**Problem**: The plan references `stripQuotedContent()` but the heredoc regex
+`/<<'?[A-Z_]+'?\n[\s\S]*?\n[A-Z_]+/gu` (from the existing hook) has gaps:
+
+- **Custom delimiters with lowercase**: `<<'my_delimiter'` uses lowercase chars.
+  The pattern only matches `[A-Z_]+` delimiters. A heredoc with `<<eof` would
+  not be stripped, potentially causing false positives.
+- **Indented heredocs**: `<<-EOF` (dash variant) allows indented closing
+  delimiters. The current pattern requires the delimiter at line start.
+- **Mixed-case delimiters**: `<<EOFdata` or `<<End` are valid but unmatched.
+
+**Impact**: If a heredoc is not stripped, its content is visible to POST_STRIP
+rules. A commit message inside an unstripped heredoc mentioning `--amend` or
+`reset --hard` would trigger a false positive.
+
+**Mitigation**: Widen the heredoc regex to accept any word-character delimiter:
+`/<<-?'?\w+'?\n[\s\S]*?\n\s*\w+/gu`. Test with lowercase, mixed-case, and
+indented-close heredocs.
+
+**Test cases**: `git commit -m "$(cat <<eof\n--amend discussion\neof)"` (allowed),
+`git commit -m "$(cat <<-EOF\n  test\n  EOF)"` (allowed).
+
+### E4: Escaped Quotes in stripQuotedContent (Medium)
+
+**Problem**: The existing double-quote stripping regex `/"(?:[^"\\]|\\.)*"/gu`
+correctly handles backslash-escaped quotes within strings (`"he said \"hi\""`).
+However, the plan doesn't specify that this regex must be preserved exactly.
+If an implementer simplifies it to `/"[^"]*"/gu`, escaped quotes break:
+
+`git commit -m "discussing \"--amend\" approach"` → simplified regex stops at
+the first unescaped `"` after `\"`, leaving `--amend\"` visible → false positive.
+
+**Mitigation**: Add an explicit requirement in the implementation approach:
+"The double-quote stripping regex MUST handle backslash escapes:
+`/"(?:[^"\\]|\\.)*"/gu`. Do not simplify." Add a test case that exercises
+escaped quotes.
+
+**Test cases**: `git commit -m "he said \"--amend\" is bad"` (allowed),
+`echo "path with \" quote"` (stripped correctly).
+
+### E5: process.exit() May Truncate stderr Messages (Medium)
+
+**Problem**: Node.js `process.exit(2)` terminates immediately without waiting
+for pending I/O. If the block message is written with `process.stderr.write()`
+(async), the message may be partially or fully lost. Claude Code would see
+exit code 2 but no error message, violating FR-016 (actionable error messages)
+and SC-006 (AI self-correction guidance).
+
+**Mitigation**: Use `console.error()` for block messages (synchronous for TTY
+stderr in Node.js) or set `process.exitCode = 2` and allow natural exit.
+The entry point should be structured as:
+
+```typescript
+console.error(result.message);
+process.exitCode = 2;
+// Let event loop drain — no explicit process.exit()
+```
+
+**Test cases**: Verify that long block messages (~500 chars) are fully readable
+in stderr output after the hook exits.
+
+### E6: Git Alias Evasion — Known Limitation (Low)
+
+**Problem**: `git config alias.nuke "reset --hard" && git nuke` creates a
+git alias that performs the destructive operation under a benign name. The hook
+cannot resolve git aliases (that would require file I/O to read `.gitconfig`,
+violating FR-018).
+
+**Mitigation**: Accept as known limitation. Document in hook comments.
+In practice, Claude Code does not create git aliases — it generates full
+commands. If alias evasion becomes a real vector, a periodic audit of
+`.gitconfig` could be added as a separate tool.
+
+**Note**: This is inherent to any static pattern-matching approach.
+Not a design flaw — a category limitation.
+
+### E7: No Blocked Command Observability (Low)
+
+**Problem**: When a command is blocked, the hook writes to stderr and exits.
+There is no persistent record of what was blocked, when, or how often. This
+makes it impossible to:
+
+- Identify bypass patterns that succeed in production
+- Measure hook effectiveness (blocks per day/week)
+- Detect systematic evasion attempts
+
+**Mitigation**: Out of scope for this feature (FR-018 prohibits file I/O).
+If observability is needed later, a lightweight approach would be to write
+a single-line JSON log to a known file path, but this violates the current
+performance constraints. Alternative: Add a `--stats` flag that dumps
+in-memory counters on demand (no I/O during normal operation).
+
+**Recommendation**: Defer to a future feature. Note as a future enhancement
+in the hook's JSDoc.
 
 ## Performance Considerations
 
