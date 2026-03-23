@@ -155,6 +155,34 @@ Reinitializing the beads database would destroy all issue history.
 If you genuinely need to reset beads, have the user run this manually.`,
   },
   {
+    name: 'commit-amend',
+    category: 'destructive-git',
+    pattern: /git\s+commit\s+.*--amend/,
+    message: `BLOCKED: git commit --amend detected (amending commits is prohibited).
+
+CLAUDE.md explicitly states "NEVER amend commits" — create a new commit instead.
+Amending after a failed pre-commit hook can destroy the previous commit's changes.
+
+Instead:
+- Always create a new commit for changes
+- Use \`git reset --soft HEAD~1\` to undo a commit without losing changes
+- Have the user run interactive rebase manually if reorganizing history is needed`,
+  },
+  {
+    name: 'merge-squash',
+    category: 'destructive-git',
+    pattern: /git\s+merge\s+.*--squash/,
+    message: `BLOCKED: git merge --squash detected (squash-merging is prohibited).
+
+CLAUDE.md explicitly states "NEVER squash-merge" — preserve full commit history.
+Squash-merging destroys PR commit history and makes debugging harder.
+
+Instead:
+- Use normal \`git merge\` to preserve commit history
+- Use \`git merge --no-ff\` to ensure a merge commit is created
+- Have the user perform interactive rebase manually if needed`,
+  },
+  {
     name: 'catastrophic-rm',
     category: 'catastrophic-file-deletion',
     pattern:

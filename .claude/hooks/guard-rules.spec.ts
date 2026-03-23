@@ -265,16 +265,18 @@ describe('evaluateCommand', () => {
     });
 
     describe('CLAUDE.md rule enforcement (--amend, --squash)', () => {
-      it.fails('blocks git commit --amend -m "fix"', () => {
+      it('blocks git commit --amend -m "fix"', () => {
         const result = evaluateCommand('git commit --amend -m "fix"');
         expect(result.action).toBe('block');
-        expect(result.message).toBeDefined();
+        expect(result.message).toContain('CLAUDE.md');
+        expect(result.message).toContain('NEVER amend');
       });
 
-      it.fails('blocks git merge --squash feature', () => {
+      it('blocks git merge --squash feature', () => {
         const result = evaluateCommand('git merge --squash feature');
         expect(result.action).toBe('block');
-        expect(result.message).toBeDefined();
+        expect(result.message).toContain('CLAUDE.md');
+        expect(result.message).toContain('NEVER squash-merge');
       });
 
       it('allows normal git commit -m "fix: something"', () => {
