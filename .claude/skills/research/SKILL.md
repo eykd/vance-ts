@@ -39,11 +39,11 @@ If the user's initial request clearly answers questions 1–4, skip directly to 
 
 Determine the query tier using these heuristics:
 
-| Tier | Pattern | Search agents | Query budget |
-|------|---------|---------------|-------------|
-| **Simple** (lookup) | "what is", "find", "who", "when", single fact/definition | 1 | 2–6 |
-| **Comparison** | "vs", "compare", "pros and cons", evaluating 2+ options | 2 | 6–15 |
-| **Complex** (multi-faceted) | "why", "how does X affect Y", contested/multi-angle topics | 2–3 | 10–30 |
+| Tier                        | Pattern                                                    | Search agents | Query budget |
+| --------------------------- | ---------------------------------------------------------- | ------------- | ------------ |
+| **Simple** (lookup)         | "what is", "find", "who", "when", single fact/definition   | 1             | 2–6          |
+| **Comparison**              | "vs", "compare", "pros and cons", evaluating 2+ options    | 2             | 6–15         |
+| **Complex** (multi-faceted) | "why", "how does X affect Y", contested/multi-angle topics | 2–3           | 10–30        |
 
 When ambiguous, prefer one tier higher rather than under-resourcing.
 
@@ -71,29 +71,42 @@ Convert the research question into 3–6 specific, checkable criteria that defin
 # Research Plan
 
 ## Status
+
 - Current phase: 2 (Parallel Search)
 - Complexity: [Simple|Comparison|Complex]
 - Search round: 1 of max 2
 
 ## Done Criteria
+
 - [ ] 1. [criterion]
 - [ ] 2. [criterion]
 - [ ] 3. [criterion]
 
 ## Search Assignments
-- search_[slug1].md → [angle 1]
-- search_[slug2].md → [angle 2]
+
+- search\_[slug1].md → [angle 1]
+- search\_[slug2].md → [angle 2]
 
 ## Confidence Assessment
+
 (updated after Phase 3)
 
 ## Decisions Log
+
 - Phase 1: classified as [tier], [N] search agents planned
 ```
 
 ---
 
 ## Phase 2: Parallel Search
+
+### Local-first search with QMD
+
+Before spawning web search agents, check whether local QMD collections contain relevant material. Run `qmd status` to see available collections. If a collection is relevant to the research question, include QMD queries in the search agent instructions (see QMD block in the Search Agent Prompt below).
+
+Local evidence from QMD collections should be treated as **primary source material** — it's curated content the user has already collected. QMD results can satisfy done criteria on their own or complement web findings.
+
+### Spawning search agents
 
 Spawn search subagents based on complexity tier — 1 for Simple, 2 for Comparison, 2–3 for Complex. All subagents run in parallel.
 
@@ -131,6 +144,7 @@ Update the done criteria checkboxes, add a confidence assessment block, and log 
 
 ```markdown
 ## Confidence Assessment
+
 - Coverage: [N/M] done criteria have evidence
 - Cross-confirmation: [summary]
 - Conflicts: [none | list]
@@ -142,6 +156,7 @@ Update the done criteria checkboxes, add a confidence assessment block, and log 
 ## Phase 4: Deep Investigation (conditional)
 
 Spawn 1–3 **Source Investigator** subagents for:
+
 - Sources needing SIFT lateral reading (uncertain credibility, extraordinary claims)
 - Conflicts needing resolution between two credible sources
 
@@ -150,6 +165,7 @@ Each investigator gets the **Source Investigator Prompt** (below).
 ### Conflict resolution protocol
 
 When spawned to resolve a contradiction, the investigator must:
+
 1. Rate Source A credibility independently
 2. Rate Source B credibility independently
 3. Search for third-party evidence on the contested point
@@ -164,6 +180,7 @@ After investigators complete, update `_plan.md` and proceed to Phase 5.
 Spawn a **`general-purpose` synthesis subagent** — do NOT synthesize in the main context.
 
 The synthesis agent prompt must include:
+
 1. The full research brief (inline the content of `_brief.md`)
 2. The chosen output template (read the matching template from `references/output-templates.md` and inline it)
 3. Instructions to read all files in the research folder
@@ -205,8 +222,21 @@ RESEARCH BRIEF:
 YOUR ASSIGNED ANGLE: [ANGLE]
 QUERY BUDGET: [QUERY_BUDGET] queries max
 
+LOCAL SEARCH (QMD) — check local collections first:
+Before web searches, query relevant QMD collections for existing curated material.
+QMD results are primary source material and count toward done criteria.
+
+  qmd search "keywords" -c <collection>         # BM25 keyword search (fast, always works)
+  qmd vsearch "natural language question" -c <collection>  # Semantic vector search (if embeddings exist)
+  qmd query "question" -c <collection>           # Hybrid + reranking (best quality, requires embeddings)
+  qmd get "collection/path/to/file.md"           # Fetch full document content
+  qmd status                                     # Check available collections and embedding status
+
+Log QMD findings in the Evidence Ledger with Source = "QMD: <collection>/<file>" and the qmd:// URI as URL.
+Skip QMD if no collections are relevant to your assigned angle.
+
 OODA LOOP — repeat for each query cycle:
-1. OBSERVE: Run a brave-search query. Scan results for relevance and source quality.
+1. OBSERVE: Run a brave-search query (or QMD query for local content). Scan results for relevance and source quality.
 2. ORIENT: Assess which results are credible and relevant. Prioritize primary sources (original research, official data, expert publications) over secondary aggregators.
 3. DECIDE: Pick top 2–3 URLs to fetch full content. Decide if you need follow-up queries to fill gaps.
 4. ACT: Fetch content using the escalation ladder below. Log evidence entries for each useful finding.
@@ -475,14 +505,15 @@ docs/research/YYYY-MM-DD_slug/
 
 ## When to Load References
 
-| User need | Reference to read |
-|---|---|
-| Formulating effective search queries, using databases | [search-strategies.md](references/search-strategies.md) |
-| Deep source evaluation, comparing frameworks (CRAAP, RADAR) | [source-evaluation.md](references/source-evaluation.md) |
-| Detecting misinfo, deepfakes, astroturfing, manipulated media | [misinformation.md](references/misinformation.md) |
-| Countering researcher biases (confirmation, anchoring, etc.) | [cognitive-biases.md](references/cognitive-biases.md) |
-| Synthesizing findings, citation management, research ethics | [synthesis-ethics.md](references/synthesis-ethics.md) |
-| Output format templates for synthesis | [output-templates.md](references/output-templates.md) |
+| User need                                                        | Reference to read                                                              |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Formulating effective search queries, using databases            | [search-strategies.md](references/search-strategies.md)                        |
+| Deep source evaluation, comparing frameworks (CRAAP, RADAR)      | [source-evaluation.md](references/source-evaluation.md)                        |
+| Detecting misinfo, deepfakes, astroturfing, manipulated media    | [misinformation.md](references/misinformation.md)                              |
+| Countering researcher biases (confirmation, anchoring, etc.)     | [cognitive-biases.md](references/cognitive-biases.md)                          |
+| Synthesizing findings, citation management, research ethics      | [synthesis-ethics.md](references/synthesis-ethics.md)                          |
+| Output format templates for synthesis                            | [output-templates.md](references/output-templates.md)                          |
+| Searching local markdown knowledge bases (notes, docs, archives) | Run `qmd status` to discover collections; see QMD block in Search Agent Prompt |
 
 ## Quick Credibility Red Flags
 

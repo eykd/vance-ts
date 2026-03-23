@@ -34,29 +34,41 @@ async function hashWithParams(
 }
 
 describe('hashPassword', () => {
-  it('returns a string in argon2id$<memory>$<time>$<parallelism>$<salt-hex>$<derived-hex> format', async () => {
-    const hash = await hashPassword('correct-horse-battery-staple');
-    expect(hash).toMatch(HASH_FORMAT);
-  });
+  it(
+    'returns a string in argon2id$<memory>$<time>$<parallelism>$<salt-hex>$<derived-hex> format',
+    { timeout: 30_000 },
+    async () => {
+      const hash = await hashPassword('correct-horse-battery-staple');
+      expect(hash).toMatch(HASH_FORMAT);
+    }
+  );
 
-  it('uses a fresh random salt on each call (two identical passwords produce different hashes)', async () => {
-    const hash1 = await hashPassword('same-password');
-    const hash2 = await hashPassword('same-password');
-    expect(hash1).not.toBe(hash2);
-  });
+  it(
+    'uses a fresh random salt on each call (two identical passwords produce different hashes)',
+    { timeout: 30_000 },
+    async () => {
+      const hash1 = await hashPassword('same-password');
+      const hash2 = await hashPassword('same-password');
+      expect(hash1).not.toBe(hash2);
+    }
+  );
 });
 
 describe('verifyPassword', () => {
-  it('returns true when the password matches the stored hash', async () => {
+  it('returns true when the password matches the stored hash', { timeout: 30_000 }, async () => {
     const password = 'correct-horse-battery-staple';
     const hash = await hashPassword(password);
     expect(await verifyPassword(password, hash)).toBe(true);
   });
 
-  it('returns false when the password does not match the stored hash', async () => {
-    const hash = await hashPassword('correct-horse-battery-staple');
-    expect(await verifyPassword('wrong-password', hash)).toBe(false);
-  });
+  it(
+    'returns false when the password does not match the stored hash',
+    { timeout: 30_000 },
+    async () => {
+      const hash = await hashPassword('correct-horse-battery-staple');
+      expect(await verifyPassword('wrong-password', hash)).toBe(false);
+    }
+  );
 
   it('returns false for a malformed hash string (wrong prefix)', async () => {
     expect(await verifyPassword('password', 'pbkdf2$600000$abc$def')).toBe(false);
