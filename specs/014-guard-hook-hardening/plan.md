@@ -356,6 +356,130 @@ is a real git command).
 - **wrangler delete vs wrangler d1 delete**: `wrangler\s+delete` requires `delete` immediately
   after `wrangler`. `wrangler d1 delete` does not match (correct — not a real command).
 
+## Security Considerations
+
+### S1: rm Flag Format Bypass (Critical)
+
+**Attack**: `rm --recursive --force /` and `rm -r -f /` bypass the current pattern
+`rm\s+-[a-zA-Z]*(rf|fr)` which only matches combined short flags (`-rf`, `-fr`).
+Long-form flags (`--recursive --force`) and separated short flags (`-r -f`) are
+completely invisible to the regex.
+
+**Mitigation**: Add two additional rm patterns:
+
+- Long-form: `rm\s+--recursive\s+--force\s+` (order-insensitive — also check `--force\s+--recursive`)
+- Separated short: `rm\s+-[a-zA-Z]*r\s+-[a-zA-Z]*f` and `rm\s+-[a-zA-Z]*f\s+-[a-zA-Z]*r`
+
+Alternatively, restructure to detect `rm` + presence of both `-r`/`--recursive` AND `-f`/`--force`
+anywhere in the command, then check the target. This is more robust but requires a
+two-phase check (flags present → target dangerous).
+
+**Test cases**: `rm --recursive --force /`, `rm -r -f .`, `rm --force --recursive *`,
+`rm -r -f node_modules` (must allow).
+
+### S2: rm -rf Target Variations (High)
+
+**Attack**: Common path aliases bypass the literal `.`, `/`, `*` target check:
+
+- `rm -rf ./` — trailing slash on dot (extremely common shell idiom)
+- `rm -rf ~/` or `rm -rf ~` — home directory destruction
+- `rm -rf ../` — parent directory destruction
+- `rm -rf $HOME` — variable expansion targeting home
+
+**Mitigation**: Expand target patterns:
+
+- Dot: `\./?` instead of `\.` (optional trailing slash)
+- Root: `/?` already handles `/`, but add `~/` and `~` patterns
+- Add `\$HOME` and `\$\{HOME\}` patterns
+- Add `\.\./` (parent directory) pattern
+
+**Test cases**: `rm -rf ./`, `rm -rf ~/`, `rm -rf ~`, `rm -rf ../`,
+`rm -rf node_modules/` (must allow).
+
+### S3: wrangler d1 execute --file Bypass (High)
+
+**Attack**: `wrangler d1 execute DB --file drop-all.sql` executes arbitrary SQL from
+a file. The current patterns only inspect inline `--command` content. A file containing
+`DROP TABLE users` is invisible to the hook.
+
+**Mitigation**: Block `wrangler d1 execute` with `--file` flag entirely, since the
+hook cannot inspect file contents at runtime (no file I/O per FR-018). The block
+message should explain that `--file` execution requires manual human review.
+
+**Pattern**: `wrangler\s+d1\s+execute.*--file`
+
+**Test cases**: `wrangler d1 execute DB --file schema.sql` (blocked),
+`wrangler d1 execute DB --command "SELECT 1"` (allowed).
+
+### S4: rm -rf with Quoted Targets (Medium)
+
+**Attack**: `rm -rf "."` or `rm -rf '/'` — the target is inside quotes. Since
+rm patterns are in POST_STRIP_RULES, quote stripping removes the target content
+before pattern matching, causing a miss.
+
+**Trade-off**: Moving rm to pre-strip would cause false positives from
+`echo "rm -rf ."` or commit messages. The current post-strip placement is correct
+for the common case.
+
+**Mitigation**: Accept as known limitation. Document that quoted rm targets are
+not caught. In practice, Claude never quotes rm targets — `rm -rf .` is always
+unquoted. If this becomes a real bypass vector, add rm as a PLATFORM_RULES entry
+checked against raw command.
+
+## Edge Cases & Error Handling
+
+### E1: Malformed JSON / Missing Fields (High)
+
+**Problem**: The entry point (`pre-tool-use-bash.ts`) reads stdin JSON and extracts
+`tool_input.command`. The plan doesn't specify behavior when:
+
+- stdin is not valid JSON
+- JSON doesn't contain `tool_input`
+- `tool_input.command` is not a string
+- stdin is empty or EOF
+
+**Mitigation**: The entry point must handle parse errors gracefully:
+
+- Invalid JSON → exit 0 (allow) with stderr warning. Failing closed (exit 2) on
+  parse errors would block ALL tool calls if the hook format changes.
+- Missing `tool_input.command` → exit 0 (allow). Not all tool calls have commands.
+- Non-string command → exit 0 (allow).
+
+Add a try/catch around JSON.parse and field extraction. Log warnings to stderr
+for debugging but never block on infrastructure errors.
+
+**Test cases**: Empty stdin, `{}`, `{"tool_input":{}}`, `{"tool_input":{"command":123}}`,
+malformed JSON string.
+
+### E2: Empty / Whitespace Command (Medium)
+
+**Problem**: If `tool_input.command` is an empty string or whitespace-only,
+`evaluateCommand("")` will run through all regex patterns against an empty string.
+This works correctly (no patterns match empty string → allow) but is wasted work.
+
+**Mitigation**: Early return `{ action: 'allow' }` for empty/whitespace commands
+in `evaluateCommand()`. Trivial optimization that also documents the intent.
+
+**Test case**: `evaluateCommand("")` → `{ action: 'allow' }`.
+
+## Performance Considerations
+
+### P1: Regex Complexity in D1 DELETE Pattern (Low)
+
+**Pattern**: `wrangler\s+d1\s+execute.*DELETE\s+FROM\s+\w+(?!.*WHERE)`
+
+The `.*` before `DELETE` combined with `(?!.*WHERE)` negative lookahead creates
+a pattern where the regex engine may attempt multiple backtracking paths. For
+typical command lengths (<500 chars), this is negligible. But adversarially
+crafted inputs with many `DELETE` false starts could cause slowdowns.
+
+**Mitigation**: No action needed for current scope. If profiling reveals issues,
+replace `.*DELETE` with `[^"]*DELETE` (non-greedy within the --command value) or
+use a two-step check: first confirm `wrangler d1 execute` prefix, then extract
+the SQL string and check it separately.
+
+**Test case**: Verify the 50ms SLA with a 1000-character wrangler command.
+
 ## Complexity Tracking
 
 No complexity violations to justify. The implementation is:
