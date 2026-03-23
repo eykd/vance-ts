@@ -38,6 +38,42 @@ const MIN_MEMORY_KB = 9_216;
 const MIN_SALT_BYTES = 8;
 
 /**
+ * Argon2id cost parameters.
+ *
+ * Exposed so tests can substitute lightweight values for fast execution
+ * while production uses OWASP 2023 minimums.
+ */
+export interface Argon2Params {
+  /** Memory cost in KiB. */
+  readonly m: number;
+  /** Time cost (iterations). */
+  readonly t: number;
+  /** Degree of parallelism. */
+  readonly p: number;
+  /** Derived key length in bytes. */
+  readonly dkLen: number;
+}
+
+/** OWASP 2023 production parameters. */
+export const PRODUCTION_PARAMS: Argon2Params = {
+  m: MEMORY_KB,
+  t: TIME_COST,
+  p: PARALLELISM,
+  dkLen: DERIVED_BYTES,
+} as const;
+
+/**
+ * Lightweight parameters for tests. Fast on pure-JS argon2id
+ * while still exercising the full code path.
+ */
+export const TEST_PARAMS: Argon2Params = {
+  m: MIN_MEMORY_KB,
+  t: 1,
+  p: 1,
+  dkLen: DERIVED_BYTES,
+} as const;
+
+/**
  * Converts a hex string to a Uint8Array backed by a plain ArrayBuffer.
  *
  * Returns an empty Uint8Array when the hex string has odd length (malformed
@@ -56,25 +92,29 @@ function fromHex(hex: string): Uint8Array<ArrayBuffer> {
 }
 
 /**
- * Hashes a plaintext password using Argon2id (OWASP 2023 parameters) with
- * a fresh 16-byte cryptographically random salt.
+ * Hashes a plaintext password using Argon2id with a fresh 16-byte
+ * cryptographically random salt.
  *
  * Each call generates a new salt, so identical passwords produce different
  * hashes. The resulting hash string is self-describing and can be stored
  * directly in the database.
  *
  * @param password - The plaintext password to hash.
+ * @param params - Argon2id cost parameters (defaults to OWASP 2023 production values).
  * @returns A promise resolving to `argon2id$<memory_kb>$<time_cost>$<parallelism>$<salt-hex>$<derived-hex>`.
  */
-export async function hashPassword(password: string): Promise<string> {
+export async function hashPassword(
+  password: string,
+  params: Argon2Params = PRODUCTION_PARAMS
+): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const derived = await argon2idAsync(new TextEncoder().encode(password), salt, {
-    m: MEMORY_KB,
-    t: TIME_COST,
-    p: PARALLELISM,
-    dkLen: DERIVED_BYTES,
+    m: params.m,
+    t: params.t,
+    p: params.p,
+    dkLen: params.dkLen,
   });
-  return `argon2id$${MEMORY_KB}$${TIME_COST}$${PARALLELISM}$${toHex(salt)}$${toHex(derived)}`;
+  return `argon2id$${params.m}$${params.t}$${params.p}$${toHex(salt)}$${toHex(derived)}`;
 }
 
 /**

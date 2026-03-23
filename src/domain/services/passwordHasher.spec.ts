@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { toHex } from '../../shared/hex.js';
 
-import { hashPassword, verifyPassword } from './passwordHasher';
+import { hashPassword, TEST_PARAMS, verifyPassword } from './passwordHasher';
 
 const HASH_FORMAT = /^argon2id\$\d+\$\d+\$\d+\$[0-9a-f]+\$[0-9a-f]+$/;
 
@@ -34,41 +34,29 @@ async function hashWithParams(
 }
 
 describe('hashPassword', () => {
-  it(
-    'returns a string in argon2id$<memory>$<time>$<parallelism>$<salt-hex>$<derived-hex> format',
-    { timeout: 30_000 },
-    async () => {
-      const hash = await hashPassword('correct-horse-battery-staple');
-      expect(hash).toMatch(HASH_FORMAT);
-    }
-  );
+  it('returns a string in argon2id$<memory>$<time>$<parallelism>$<salt-hex>$<derived-hex> format', async () => {
+    const hash = await hashPassword('correct-horse-battery-staple', TEST_PARAMS);
+    expect(hash).toMatch(HASH_FORMAT);
+  });
 
-  it(
-    'uses a fresh random salt on each call (two identical passwords produce different hashes)',
-    { timeout: 30_000 },
-    async () => {
-      const hash1 = await hashPassword('same-password');
-      const hash2 = await hashPassword('same-password');
-      expect(hash1).not.toBe(hash2);
-    }
-  );
+  it('uses a fresh random salt on each call (two identical passwords produce different hashes)', async () => {
+    const hash1 = await hashPassword('same-password', TEST_PARAMS);
+    const hash2 = await hashPassword('same-password', TEST_PARAMS);
+    expect(hash1).not.toBe(hash2);
+  });
 });
 
 describe('verifyPassword', () => {
-  it('returns true when the password matches the stored hash', { timeout: 30_000 }, async () => {
+  it('returns true when the password matches the stored hash', async () => {
     const password = 'correct-horse-battery-staple';
-    const hash = await hashPassword(password);
+    const hash = await hashPassword(password, TEST_PARAMS);
     expect(await verifyPassword(password, hash)).toBe(true);
   });
 
-  it(
-    'returns false when the password does not match the stored hash',
-    { timeout: 30_000 },
-    async () => {
-      const hash = await hashPassword('correct-horse-battery-staple');
-      expect(await verifyPassword('wrong-password', hash)).toBe(false);
-    }
-  );
+  it('returns false when the password does not match the stored hash', async () => {
+    const hash = await hashPassword('correct-horse-battery-staple', TEST_PARAMS);
+    expect(await verifyPassword('wrong-password', hash)).toBe(false);
+  });
 
   it('returns false for a malformed hash string (wrong prefix)', async () => {
     expect(await verifyPassword('password', 'pbkdf2$600000$abc$def')).toBe(false);
@@ -101,7 +89,7 @@ describe('verifyPassword', () => {
   it('returns false when hash has correct segment count but wrong algorithm prefix', async () => {
     // 6 segments with valid salt/derived but wrong prefix — the prefix guard must reject
     const password = 'boundary-prefix-test';
-    const hash = await hashPassword(password);
+    const hash = await hashPassword(password, TEST_PARAMS);
     const wrongPrefixHash = hash.replace('argon2id', 'bcrypt');
     expect(await verifyPassword(password, wrongPrefixHash)).toBe(false);
   });
@@ -154,7 +142,7 @@ describe('verifyPassword', () => {
   it('returns false for hash with extra trailing segment (7 segments instead of 6)', async () => {
     // Valid content in first 6 segments but an extra trailing field — segment count guard must reject
     const password = 'extra-segment-test';
-    const hash = await hashPassword(password);
+    const hash = await hashPassword(password, TEST_PARAMS);
     const extraSegmentHash = `${hash}$extrasegment`;
     expect(await verifyPassword(password, extraSegmentHash)).toBe(false);
   });
