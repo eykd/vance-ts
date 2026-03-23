@@ -6,7 +6,7 @@ A **Quality-Based Narrative (QBN)** is an interactive storytelling model
 where the progression of the story is determined by the player's
 changing state, or **qualities**, rather than a fixed branching plot
 structure. In a QBN (a term popularized by Failbetter Games for titles
-like *Fallen London*), the game offers **storylets** -- self-contained
+like _Fallen London_), the game offers **storylets** -- self-contained
 snippets of story or events -- based on the current values of the
 player's
 qualities[\[1\]](https://emshort.blog/2012/10/16/storynexus-is-open/#:~:text=StoryNexus%20supports%20authors%20in%20building,to%20be%20open%20to%20him)[\[2\]](https://emshort.blog/2016/04/12/beyond-branching-quality-based-and-salience-based-narrative-structures/#:~:text=Quality,tool%20implements%20QBN%3B%20so%20did).
@@ -37,8 +37,8 @@ item. Under the hood, **qualities are simply variables** (often numeric)
 representing everything from character attributes and resources to story
 flags and relationship
 statuses[\[4\]](https://emshort.blog/2016/04/12/beyond-branching-quality-based-and-salience-based-narrative-structures/#:~:text=storylets%20unlocked%20by%20qualities%20www,tool%20implements%20QBN%3B%20so%20did).
-A fundamental trait of Failbetter's approach is that *all these
-variables are treated uniformly* -- character stats, currencies,
+A fundamental trait of Failbetter's approach is that _all these
+variables are treated uniformly_ -- character stats, currencies,
 inventory counts, story progress markers are all **qualities in one
 system**[\[5\]](https://weatherfactory.biz/qbn-to-resource-narratives/#:~:text=,of%2C%20and%20changes%20to%2C%20qualities).
 This unified modeling means any storylet can check or change any kind of
@@ -62,7 +62,7 @@ there[\[1\]](https://emshort.blog/2012/10/16/storynexus-is-open/#:~:text=StoryNe
 Each storylet is like a piece of a jigsaw puzzle that can be placed when
 it fits the current state. Because of this, QBNs tend to feel more like
 exploring a world or a narrative space, as opposed to following a single
-branching path. There may still be choice points *within* a storylet
+branching path. There may still be choice points _within_ a storylet
 (Failbetter calls the options within a storylet "branches"), but after
 resolving a storylet the player returns to the pool of available content
 rather than a fixed next
@@ -81,14 +81,14 @@ level:
 - **Qualities (Player and World State):** Qualities are the backbone of
   QBN. They encompass anything worth tracking in the narrative. For
   instance, qualities might include the player's skills (e.g.
-  `Dangerous=3`, `Watchful=5` in *Fallen London* terms), resources and
+  `Dangerous=3`, `Watchful=5` in _Fallen London_ terms), resources and
   inventory counts (`Gold=100`, `Rations=2`), story progression flags
   (`Quest_A_Progress=2`), relationship statuses (`Friendship_Bob=50`
   points), or even abstract narrative flags (`KnowsSecret_X = true`). In
   Failbetter's design all qualities share a common format (often an
   integer value) and are "created equal," meaning the system doesn't
-  inherently distinguish a quality representing *health* from one
-  representing *chapter number* -- they're all just state
+  inherently distinguish a quality representing _health_ from one
+  representing _chapter number_ -- they're all just state
   variables[\[5\]](https://weatherfactory.biz/qbn-to-resource-narratives/#:~:text=,of%2C%20and%20changes%20to%2C%20qualities).
   This uniformity simplifies the logic: **any storylet can check any
   quality** as a prerequisite. When structuring your system, it helps to
@@ -102,11 +102,11 @@ level:
   **Relationship Qualities** (measuring affinity or status with other
   characters). These categories aren't hard-coded types but design
   patterns -- they guide how you use qualities in storytelling. For
-  instance, a *progress quality* might be something like `Chapter=3` or
+  instance, a _progress quality_ might be something like `Chapter=3` or
   `RescueMissionStage=2`, which you use to unlock the next storylet in a
-  linear series, whereas a *menace quality* like `Suspicion=7` might
-  trigger a "get arrested" event if it exceeds 10, and a *resource
-  quality* like `Gold=100` might be spent to bribe a guard in a
+  linear series, whereas a _menace quality_ like `Suspicion=7` might
+  trigger a "get arrested" event if it exceeds 10, and a _resource
+  quality_ like `Gold=100` might be spent to bribe a guard in a
   storylet. Deciding on the set of qualities for your storyworld is a
   crucial early step -- they effectively define what aspects of
   character and story state your narrative logic will consider.
@@ -124,9 +124,9 @@ level:
   complex as needed -- many systems allow logical expressions, multiple
   required qualities, greater/less than comparisons, or specific values.
   When the game is "waiting" to present new story content, the QBN
-  system performs a **query against the storylet database**: *find all
+  system performs a **query against the storylet database**: _find all
   storylets whose prerequisites are satisfied by the player's current
-  qualities*. Johnnemann Nordhagen gives a succinct example: imagine a
+  qualities_. Johnnemann Nordhagen gives a succinct example: imagine a
   pool of quest storylets tagged with metadata like `#full_moon` or
   conditions like `<has_magic_sword:true>` or
   `{aliens_killed_count > 5}` -- when the story engine needs a next
@@ -136,13 +136,13 @@ level:
   Your implementation would need a similar mechanism to filter storylets
   by the player's state. Any storylets that pass the check are
   considered "available content." Importantly, **storylets are modular**
-  and *reorderable*: they are written to make sense in any sequence as
+  and _reorderable_: they are written to make sense in any sequence as
   long as the entry conditions are met. This often means each storylet
   is a self-contained episode or scene. If a longer storyline needs to
   play out in sequence, that sequence is enforced via qualities (for
   example, Storylet B requires `QuestProgress=1` which only becomes true
-  after Storylet A sets it). In effect, qualities allow you to *encode
-  narrative dependencies without rigidly linking storylets together*.
+  after Storylet A sets it). In effect, qualities allow you to _encode
+  narrative dependencies without rigidly linking storylets together_.
 
 - **Content Selection and Presentation:** Once the system knows which
   storylets are available, it must decide how to present them to the
@@ -151,7 +151,7 @@ level:
   **(a) Player-Driven Choice:** The simplest method is to present the
   player with a menu or list of all available storylets they can
   currently pursue. For example, Failbetter's StoryNexus engine (used in
-  *Fallen London*) would show a list of storylet titles in each location
+  _Fallen London_) would show a list of storylet titles in each location
   that the player could click on, each representing an opportunity that
   meets the
   requirements[\[1\]](https://emshort.blog/2012/10/16/storynexus-is-open/#:~:text=StoryNexus%20supports%20authors%20in%20building,to%20be%20open%20to%20him).
@@ -175,15 +175,15 @@ level:
   have the system pick an available storylet for the player, either
   randomly or according to some drama-management algorithm. This can
   create a sense of the story "surprising" the player with events. A
-  notable pattern here is the **"opportunity deck"** used in *Fallen
-  London*: instead of listing every minor storylet, the game deals a few
+  notable pattern here is the **"opportunity deck"** used in _Fallen
+  London_: instead of listing every minor storylet, the game deals a few
   at random (drawn from a pool of those whose conditions you meet) into
   your hand. You can then play one, and later draw more. This random
   selection adds variety and pacing, essentially throttling content so
   that the player gradually encounters different storylets over time
   rather than everything at once. Other games use AI director logic to
   choose the most appropriate next storylet from the pool -- for
-  example, *Heaven's Vault* ranks possible dialogue topics by *salience*
+  example, _Heaven's Vault_ ranks possible dialogue topics by _salience_
   (relevance to recent events) and picks one that best fits the
   conversation, treating each topic as a
   storylet[\[9\]](https://johnnemann.medium.com/narrative-design-202-more-about-storylets-6d34f438f93d#:~:text=The%20algorithmic%20implications%20are%20so,thinking%20about%20right%20n%20ow).
@@ -191,7 +191,7 @@ level:
   drama manager if giving the player choice is acceptable -- but the
   architecture can accommodate it. If you do let the system auto-select
   events (as in some emergent narrative games), you're basically turning
-  the QBN into a *story simulator* that serves up the "next" event based
+  the QBN into a _story simulator_ that serves up the "next" event based
   on state.
 
 - **Applying Effects and Updating State:** After the player engages with
@@ -221,15 +221,15 @@ level:
   storylets (especially those that advance a unique story plot) should
   logically only happen once. You can enforce that by having the
   storylet's effect set a flag quality (e.g. `Done_Story_X = true`) and
-  include `Done_Story_X = false` as a prerequisite so it *cannot appear
-  again* once completed. Other storylets, however, might be designed for
+  include `Done_Story_X = false` as a prerequisite so it _cannot appear
+  again_ once completed. Other storylets, however, might be designed for
   repetition -- for instance, a generic **grinding action** like "Patrol
   the streets" that the player can do as many times as they want to
-  raise a skill or gather resources. In some QBN implementations, *all*
+  raise a skill or gather resources. In some QBN implementations, _all_
   storylets are technically repeatable unless explicitly turned
   off[\[10\]](https://mkremins.github.io/publications/Storylets_SketchingAMap.pdf#:~:text=the%20opposite%20is%20true%3A%20all,repeatable%20unless%20designers%20take%20special),
   so it's up to the author to add conditions preventing re-entry if they
-  want it one-time. Early designs of *Fallen London* leaned heavily on
+  want it one-time. Early designs of _Fallen London_ leaned heavily on
   repeatable storylets that players had to grind "over and over again
   until the player gains enough skill to pass" a
   threshold[\[11\]](https://emshort.blog/2019/11/29/storylets-you-want-them/#:~:text=or%20by%20repetitive%20grinds%20where,largely%20moved%20on%20from%20that).
@@ -245,12 +245,100 @@ which storylets fit the current state and then allowing the player (or
 an algorithm) to pick one to experience. This structure is highly
 modular: adding a new storylet later is straightforward (just give it
 some prerequisites and effects) and doesn't require rewriting a whole
-branching tree. It also decouples the *order* of events from the
-*authorship* of events -- as a designer you focus on writing each piece
+branching tree. It also decouples the _order_ of events from the
+_authorship_ of events -- as a designer you focus on writing each piece
 and its requirements, and you rely on the system to weave them together
 appropriately during play. Next, we'll look at common **narrative design
 patterns** that emerge in QBN-based storyworlds and how you can
 implement them within this framework.
+
+### Kennedy's Quality-Type Critique
+
+> _Added 2026-03-23 from [FATE RPG QBN research](../../../research/2026-03-23_fate-rpg-qbn-lessons/synthesis.md) and [Sunless economy research](../../../research/2026-03-23_sunless-economy/synthesis.md)._
+
+While the uniform quality principle described above is powerful, Alexis
+Kennedy -- the originator of QBN at Failbetter -- has come to see it as
+a flaw, not just a feature. In his [resource narrative
+essay](https://weatherfactory.biz/qbn-to-resource-narratives/), Kennedy
+argues that treating "PC characteristics the same as currency amounts
+the same as story tracking variables" erases "potentially useful
+distinctions" between fundamentally different kinds of game state.
+
+FATE RPG suffers a parallel problem: every aspect invocation produces an
+identical +2 bonus regardless of fictional context (the "+2 treadmill"),
+making diverse situations feel mechanically interchangeable. Multiple
+independent sources confirm this homogenization problem -- practitioners
+report that players "decide whether to spend a fate point, then
+retroactively find an aspect to justify it," reducing fictional aspects
+to interchangeable mechanical tokens.
+
+For our engine, this means qualities should be **typed** with different
+behaviors. The [QBN Engine
+Spec](../../../spec/systems/qbn-engine.md#quality-taxonomy) defines
+seven quality types (Identity, Resource, Meter, Reputation, Consequence,
+Situation, Momentum), each with distinct engine behaviors for
+modification, decay, visibility, and storylet interaction. The engine
+should enforce these distinctions, not leave it to content authors to
+simulate them manually.
+
+### Resource Narrative Framework
+
+> _Added 2026-03-23 from [Sunless economy research](../../../research/2026-03-23_sunless-economy/synthesis.md)._
+
+Kennedy retired the term "QBN" in favor of **"resource narrative"** --
+the principle that drama emerges naturally when players strategically
+manipulate scarce, reproducible, fungible resources. His framework
+requires three properties for any resource that participates in the core
+drama economy:
+
+1. **Scarce** -- Resources must be limited to force meaningful choices.
+   If a player can accumulate unlimited fuel, fuel is not a decision.
+2. **Reproducible** -- Players must be able to consistently
+   regenerate/acquire them through gameplay. Without reproducibility, the
+   game has a hidden timer.
+3. **Fungible** -- Resources must be tradeable or convertible, creating
+   strategic tension and opportunity costs. If fuel can be traded for
+   supplies, every unit of fuel is also a potential unit of morale.
+
+Kennedy calls the aesthetic goal **"poetic design"**: "selection and
+design of resource interactions as a context from which drama should tend
+to emerge." The designer does not script dramatic moments; instead, they
+create resource systems whose interactions naturally produce drama. In
+Sunless Sea, fuel/supplies/terror/hull map directly to the fiction of a
+captain struggling against a dark underground ocean. The resources _are_
+the story.
+
+The game effectively ends when the scarcity/reproducibility tension
+breaks: either the player has so much that scarcity vanishes (removing
+meaningful decisions), or resources become so scarce the player cannot
+continue.
+
+### Compel Storylets: System-Initiated Content
+
+> _Added 2026-03-23 from [FATE RPG QBN research](../../../research/2026-03-23_fate-rpg-qbn-lessons/synthesis.md)._
+
+FATE's compel mechanic -- accept a complication tied to your character's
+nature, earn a reward -- represents a category of storylet content that
+traditional QBN does not account for: **system-initiated complications**.
+Unlike standard storylets (which the player selects from available
+options), compel storylets are surfaced proactively by the engine when a
+player's qualities create dramatic tension with their circumstances.
+
+For example, a player with high "Notorious Smuggler" docking at a lawful
+port triggers a compel storylet: _"Imperial customs officers recognize
+your vessel."_ The player gets options (accept inspection, attempt
+bribery), not punishment. Key design rules:
+
+- Every important quality must gate both beneficial AND complicating
+  storylets -- the dual edge that FATE players struggle to self-impose
+- Compel rewards are diegetic (in-world resources), not metagame
+  currency
+- The engine, not the player, authors and initiates compels
+
+This pattern is specified as a first-class engine concept in the [QBN
+Engine Spec](../../../spec/systems/qbn-engine.md#compel-storylets-system-initiated-complications).
+The Ravel language is being extended concurrently with a `Compel`
+annotation for storylets that marks them as system-initiated.
 
 ## Narrative Design Patterns in QBN-Based Storyworlds
 
@@ -273,7 +361,7 @@ structuring a QBN storyworld, along with how to implement them:
   `QuestX_Progress = 1`. The next storylet requires
   `QuestX_Progress = 1`, sets it to 2, and so on. This ensures the
   player sees the storylets in order. You can also include conditional
-  *failure branches* within those storylets to create slight detours
+  _failure branches_ within those storylets to create slight detours
   while still moving forward -- e.g. if the player "makes a mistake" in
   a challenge, the storylet might branch to a failure outcome (perhaps
   raising a menace quality) but still increment the progress so they
@@ -291,7 +379,7 @@ structuring a QBN storyworld, along with how to implement them:
   one of several paths for a while, but eventually they converge to the
   same critical juncture. QBN can recreate this by using qualities to
   mark which branch was taken and then using a single later storylet
-  that has *any of* those branch markers as prerequisites (or a
+  that has _any of_ those branch markers as prerequisites (or a
   consolidated progress value). For example, suppose at Progress 2 the
   player can do either Storylet A or B (two different approaches to a
   problem). If they do A, it sets `PathChosen = A`; if they do B, it
@@ -318,7 +406,7 @@ structuring a QBN storyworld, along with how to implement them:
 - **Early Branching ("Sorting Hat" Pattern):** This refers to a
   structure where a single early choice determines one of several
   distinct story paths for the rest of the game (like choosing a faction
-  or a house at the start -- hence *"sorting hat"* ala Harry Potter). In
+  or a house at the start -- hence _"sorting hat"_ ala Harry Potter). In
   QBN, the moment of that choice would set a **long-term quality flag**
   (e.g. `Alliance=Rebels` vs `Alliance=Empire`). Subsequent storylets
   for that storyline would check this flag and offer content
@@ -341,7 +429,7 @@ structuring a QBN storyworld, along with how to implement them:
   **loop-and-grow** structure. In a loop-and-grow design, the player
   experiences a similar sequence multiple times, but each iteration the
   state has advanced, so there are new differences or growth each cycle.
-  Emily Short's game *Bee* is a prime example: the story is structured
+  Emily Short's game _Bee_ is a prime example: the story is structured
   by the calendar year, with each year having recurring seasonal events
   (holidays, etc.), training sessions, and so on, over several years of
   the protagonist's
@@ -386,7 +474,7 @@ structuring a QBN storyworld, along with how to implement them:
   quality, and storylets associated with that arc check that quality.
   The player can then switch between these arcs as they like, picking up
   one storyline, then another, as long as prerequisites are met. For
-  example, in *Bee* the protagonist's life has several concurrent
+  example, in _Bee_ the protagonist's life has several concurrent
   threads: the **main arc** of growing up and approaching the final
   national spelling bee, and **smaller arcs** like relationships with
   family members, improving her spelling skill, dealing with financial
@@ -444,7 +532,7 @@ structuring a QBN storyworld, along with how to implement them:
   games often structured early content this way -- e.g., you needed a
   certain level in a stat (Watchful, Shadowy, etc.) or a certain item to
   progress a storyline, which encouraged grinding simpler storylets to
-  raise those qualities. *Fallen London* originally had many cases where
+  raise those qualities. _Fallen London_ originally had many cases where
   you'd "grind by repetitive actions" until you gained enough skill or a
   specific key item to pass a storylet's
   challenge[\[11\]](https://emshort.blog/2019/11/29/storylets-you-want-them/#:~:text=or%20by%20repetitive%20grinds%20where,largely%20moved%20on%20from%20that).
@@ -471,8 +559,8 @@ different storylets later (for example, a failure might increase your
 high). In short, **resource and stat management is woven into the
 narrative** in QBN design. The player isn't just picking story options;
 they're also managing qualities that open and close story options.
-Alexis Kennedy actually prefers calling this style *"resource
-narrative"*, because a well-designed QBN often feels like an explicit
+Alexis Kennedy actually prefers calling this style _"resource
+narrative"_, because a well-designed QBN often feels like an explicit
 narrative focused on **strategically manipulating resources** (be they
 health, relationships, or story currency) such that story events emerge
 naturally from those resource
@@ -481,7 +569,7 @@ The narrative challenge for the designer is to ensure the resource
 mechanics align with the story's themes (so it feels natural that, say,
 raising "Reputation" unlocks a diplomatic storyline, or running low on
 "Supply" triggers a desperation event). When done right, **the resource
-dynamics *are* the story**: players experience drama through the rise
+dynamics _are_ the story**: players experience drama through the rise
 and fall of these values, not just through pre-scripted plot twists.
 
 - **Menace and Consequence Systems:** QBN storyworlds often include
@@ -491,11 +579,11 @@ and fall of these values, not just through pre-scripted plot twists.
   storylets that represent the consequences of the player's actions.
   Failbetter's games pioneered this with qualities like "Nightmare" (too
   high, you suffer a nightmare scenario) or "Wounds" (too high, you're
-  waylaid by injury). For example, in *Sunless Skies* if your **Terror**
+  waylaid by injury). For example, in _Sunless Skies_ if your **Terror**
   stat gets too high, it will unlock unique **Nightmare storylets**
   where the character experiences horrifying
   visions[\[27\]](https://emshort.blog/category/quality-based-narrative/#:~:text=This%20is%20still%20a%20fairly,the%20protagonist%20with%20unspeakable%20visions).
-  Similarly, *Fallen London* has menace storylets that send you to
+  Similarly, _Fallen London_ has menace storylets that send you to
   prison if your `Suspicion` gets too high, or to a sick-bed if your
   `Wounds` are high -- these are temporary narrative detours that the
   player must resolve (often lowering the menace quality) before
@@ -508,7 +596,7 @@ and fall of these values, not just through pre-scripted plot twists.
   `Menace_X >= N`. Those storylets typically also have effects to reset
   or reduce that menace (representing the idea that you deal with the
   problem, e.g. escaping jail might reset `Suspicion` to a safe level).
-  In *Bee*, Emily Short included a *poverty* stat as a menace: if the
+  In _Bee_, Emily Short included a _poverty_ stat as a menace: if the
   family's Poverty got too high, it would **close off some story options
   and open up others that reflect the
   hardship**[\[28\]](https://emshort.blog/category/quality-based-narrative/#:~:text=level%20to%20be%20able%20to,end%20of%20year%20spelling%20bee).
@@ -533,7 +621,7 @@ and fall of these values, not just through pre-scripted plot twists.
   Designers can get creative with menace-like qualities to model
   anything from moral corruption to supernatural curses -- the key is
   these values trigger content when they cross thresholds, adding a
-  *system-driven plot twist* to the narrative.
+  _system-driven plot twist_ to the narrative.
 
 - **Emergent Side-Quests and Open Story Ordering:** One of the most
   powerful narrative effects of a QBN system is that it allows
@@ -549,11 +637,11 @@ and fall of these values, not just through pre-scripted plot twists.
   bishop in a storylet that requires you to donate a large sum of money.
   You don't have enough funds, so you leave that storylet, wander off to
   do odd jobs elsewhere in the world (perhaps even morally dubious jobs
-  for Hell, in the *Fallen London* universe) to earn money, then return
+  for Hell, in the _Fallen London_ universe) to earn money, then return
   to donate to the
   church[\[29\]](https://emshort.blog/2016/04/12/beyond-branching-quality-based-and-salience-based-narrative-structures/#:~:text=On%20the%20other%20hand%2C%20sometimes,implemented%20irony%20that%20is).
   The system didn't force that specific sequence (it just said "Needs
-  100 money"); the *player* chose how to meet that condition,
+  100 money"); the _player_ chose how to meet that condition,
   effectively **weaving a custom side-story into the main story**. This
   emergent property -- where the player's problem-solving creates a
   narrative twist -- is a hallmark of QBN gameplay. To support it,
@@ -567,7 +655,7 @@ and fall of these values, not just through pre-scripted plot twists.
   arcs end up connecting because of shared qualities. For instance, the
   item you fetched in an unrelated sidequest might unexpectedly give you
   a special option in a later storylet ("Oh, since you retrieved the
-  *Dragon's Egg* earlier, you can now use it to bargain with the
+  _Dragon's Egg_ earlier, you can now use it to bargain with the
   queen!"). QBN is excellent for these **callback interactions**.
   Writers often intentionally add a few storylets or branches that check
   for some odd combination of qualities as Easter eggs -- unique content
@@ -583,8 +671,8 @@ and fall of these values, not just through pre-scripted plot twists.
   storylets are relatively self-contained, worst case the player just
   misses some storylets or sees them in a peculiar order -- it generally
   doesn't break the game, it just gives a unique narrative. Many players
-  of *Fallen London* or other QBN games report moments of delightful
-  irony or personalization, where they realize *their* story had a twist
+  of _Fallen London_ or other QBN games report moments of delightful
+  irony or personalization, where they realize _their_ story had a twist
   that wasn't explicitly scripted but came from the way they pursued the
   content. As a designer, embracing this means writing content that is
   modular and resilient to order: avoid assuming "the player must have
@@ -629,7 +717,7 @@ and fall of these values, not just through pre-scripted plot twists.
   the player only sees a handful of the possible storylets. This can
   also inject an element of surprise and prevent the analysis-paralysis
   of seeing every choice. If you implement a deck, you typically allow
-  the player some draws per in-game time unit (like *Fallen London*'s
+  the player some draws per in-game time unit (like _Fallen London_'s
   actions) so they gradually encounter content. This also encourages
   replay or long-term play, as not everything will appear in one
   session. The downside is randomness can frustrate some players if
@@ -746,11 +834,11 @@ combination of resource states"**, rather than from a linear plot
 mandate[\[26\]](https://weatherfactory.biz/qbn-to-resource-narratives/#:~:text=It%20occurred%20to%20me%20last,story%20advancement%20or%20something%20else).
 By following the system and pattern guidelines above, you can design a
 QBN-based storyworld that feels alive, reactive, and rich with narrative
-possibilities, giving players the thrill of discovering *their* story
+possibilities, giving players the thrill of discovering _their_ story
 within your world.
 
 **Sources:** The concepts and examples above draw on insights from
-Failbetter Games' design of *Fallen London* and StoryNexus (pioneering
+Failbetter Games' design of _Fallen London_ and StoryNexus (pioneering
 QBN
 platforms)[\[1\]](https://emshort.blog/2012/10/16/storynexus-is-open/#:~:text=StoryNexus%20supports%20authors%20in%20building,to%20be%20open%20to%20him)[\[2\]](https://emshort.blog/2016/04/12/beyond-branching-quality-based-and-salience-based-narrative-structures/#:~:text=Quality,tool%20implements%20QBN%3B%20so%20did),
 commentary by Alexis Kennedy on the evolution to "resource
@@ -764,7 +852,7 @@ These patterns have been observed in games ranging from text-based
 interactive fiction to ambitious AI-driven narratives, making QBN a
 versatile approach for modern game narrative design.
 
-------------------------------------------------------------------------
+---
 
 [\[1\]](https://emshort.blog/2012/10/16/storynexus-is-open/#:~:text=StoryNexus%20supports%20authors%20in%20building,to%20be%20open%20to%20him)
 StoryNexus is Open -- Emily Short\'s Interactive Storytelling
