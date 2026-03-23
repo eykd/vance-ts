@@ -25,16 +25,13 @@ async function main(): Promise<void> {
       new Promise<string>((resolve) => setTimeout(() => resolve(''), TIMEOUT_MS)),
     ]);
     const data: unknown = JSON.parse(raw === '' ? '{}' : raw);
-    const cmd =
-      typeof (data as Record<string, unknown>)?.['tool_input'] === 'object'
-        ? ((
-            (data as Record<string, Record<string, unknown>>)['tool_input'] as Record<
-              string,
-              unknown
-            >
-          )?.['command'] as string | undefined)
+    const obj = data as Record<string, unknown>;
+    const toolInput =
+      typeof obj?.['tool_input'] === 'object' && obj['tool_input'] !== null
+        ? (obj['tool_input'] as Record<string, unknown>)
         : undefined;
-    const result = evaluateCommand(typeof cmd === 'string' ? cmd : '');
+    const cmd = typeof toolInput?.['command'] === 'string' ? toolInput['command'] : '';
+    const result = evaluateCommand(cmd);
     if (result.action === 'block') {
       console.error(result.message);
       process.exitCode = 2;

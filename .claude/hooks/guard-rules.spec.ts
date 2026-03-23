@@ -97,8 +97,13 @@ describe('evaluateCommand', () => {
         expect(result.action).toBe('block');
       });
 
-      it('blocks push with short force flag', () => {
+      it('blocks push with short force flag and trailing space', () => {
         const result = evaluateCommand('git push -f ');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks push with short force flag at end of string', () => {
+        const result = evaluateCommand('git push -f');
         expect(result.action).toBe('block');
       });
 

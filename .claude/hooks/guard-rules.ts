@@ -47,7 +47,7 @@ Only use these flags when explicitly requested by the user.`,
   {
     name: 'force-push',
     category: 'destructive-git',
-    pattern: /git\s+push.*(--force([^-]|$)|-f\s|--force-with-lease)/,
+    pattern: /git\s+push.*(--force([^-]|$)|-f(\s|$)|--force-with-lease)/,
     message: `BLOCKED: Force push detected.
 
 Force pushing rewrites remote history and can destroy teammates' work.
