@@ -34,10 +34,17 @@ These systems plug into the three pillars:
 
 12. **[Design Principles](design-principles.md)** — Engagement strategy (Octalysis), turn-based pacing, Vancean tone, anti-patterns to avoid.
 
+## Infrastructure Systems
+
+These systems support the pillars and downstream systems without being gameplay systems themselves:
+
+13. **[Prestoplot](prestoplot/README.md)** — Seeded, deterministic grammar-based text generation library. Operates in two modes: (1) direct text rendering for player-facing prose, and (2) LLM prompt generation for richer narrative synthesis. The text layer beneath QBN — storylets decide _what happens_; prestoplot decides _how to describe it_.
+
 ## System Dependencies
 
 ```
 QBN Engine ← everything (all systems express state as qualities)
+Prestoplot ← QBN Engine (renders storylet text), Tone & Style (Vancean grammars)
 Yarnball ← Travel (meter ticks per jump), Ship (modules reduce meters), Crew (social meters)
 Economy ← Travel (trade routes), Ship (cargo capacity), Jobs (income), Multiplayer (shared market)
 Factions ← Yarnball (faction meter curves), Economy (faction trade modifiers), Crew (faction NPCs)

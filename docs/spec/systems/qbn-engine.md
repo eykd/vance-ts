@@ -134,6 +134,7 @@ Existing docs:
 - **Economy**: Currency, cargo, trade state are all qualities
 - **Factions**: Reputation is a quality; faction storylets gate on it
 - **Combat**: Combat encounters are storylets with quality-gated outcomes
+- **Prestoplot**: Text rendering layer beneath QBN. Storylets decide what happens; prestoplot renders the prose. Operates in two modes: (1) **direct rendering** — grammar templates produce player-facing text deterministically from a seed, and (2) **LLM prompt generation** — grammar templates produce structured prompts that an LLM expands into richer narrative. Quality state can parameterize grammar selection and seed derivation.
 - **All systems**: Everything talks through QBN
 
 ## Open Questions

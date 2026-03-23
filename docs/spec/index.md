@@ -70,6 +70,7 @@ Everything in this game hangs off three core systems. All other systems are down
 | [Character](systems/character.md)                 | Outline | Player identity, progression, advancement                                |
 | [Multiplayer](systems/multiplayer.md)             | Outline | MMO layer, shared state, async interaction                               |
 | [Design Principles](systems/design-principles.md) | Outline | Engagement strategy, pacing, turn structure, tone                        |
+| [Prestoplot](systems/prestoplot/README.md)        | Spec    | Seeded grammar-based text generation: direct rendering + LLM prompt gen  |
 
 ## Setting Files
 
