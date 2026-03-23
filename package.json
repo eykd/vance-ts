@@ -63,7 +63,7 @@
   },
   "devDependencies": {
 
-    "@cloudflare/vitest-pool-workers": "^0.13.2",
+    "@cloudflare/vitest-pool-workers": "^0.13.3",
     "@cloudflare/workers-types": "^4.20260317.1",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
@@ -78,7 +78,7 @@
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.4",
-    "eslint-plugin-boundaries": "^6.0.0",
+    "eslint-plugin-boundaries": "^6.0.1",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsdoc": "^62.8.0",
     "husky": "^9.1.7",
