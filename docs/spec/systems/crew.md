@@ -6,6 +6,8 @@
 
 Crew members are the human element of the yarnball. They have moods, social needs, and opinions that create narrative pressure beyond mere mechanical optimization. Crew composition shapes which storylets fire and how meters behave. From Perko: 4-7 active crew is the sweet spot for meaningful social dynamics without cognitive overload. Beyond that number, players can't track individual personalities and relationships blur together.
 
+**The captain is a special crew member**, not a separate entity class. The captain shares crew comfort meters (Hunger, Filth, Loneliness, Claustrophobia, Boredom) with the rest of the crew, experiences the same module effects, and has their own faction/social meters (Criminality, Distrust, Disinterest, Heat). What makes the captain special is player agency — the captain makes the decisions. But mechanically, the captain is one node in the same social graph as every other crew member.
+
 ## Core Design
 
 ### Hiring & Composition
@@ -64,28 +66,48 @@ Crew rotation is essential to prevent party stagnation and keep the social dynam
 - Rotate new crew in to introduce fresh shtick and new faction perspectives
 - Departing crew carry the player's reputation into the world — a well-treated crew member who settles at a station becomes a future contact
 
+### Crew as Quality Bearers
+
+Each crew member carries their own qualities — not just skills and personality, but **faction reputation, social meters, and consequences**. This is the fractal principle applied to crew: a crew member is a quality-bearing entity just like the player, ship, or faction.
+
+- **Faction connections**: A supercargo with Merchant Guild Rep 8 opens guild storylets for the whole ship, even if the captain has Guild Rep 0. A first mate who's wanted by the Empire (high Heat) attracts law enforcement attention regardless of the captain's clean record.
+- **Ship-level aggregation**: The QBN engine checks "does anyone aboard have Quality X >= Y?" when evaluating storylets. Crew qualities compound at the ship level — the ship's effective faction standing is the highest individual's standing among captain and crew.
+- **Crew meters**: Each crew member has individual comfort meters (see [Yarnball — Crew-Level vs Ship-Level Meters](yarnball.md#crew-level-vs-ship-level-meters)). These are presented to the player as ship-level aggregates with individual outliers surfaced through chatter.
+
+### Reputation Rub-Off
+
+Crew faction connections **gradually transfer to the captain** through acquired advancement. Working alongside a well-connected crew member slowly builds the captain's own reputation through the interactions that crew member enables.
+
+- A supercargo with Guild Rep 8 introduces the captain to guild contacts → captain slowly builds own Guild Rep through those introductions
+- Rub-off rate is slow enough that crew retention matters — losing a connected crew member after 3 jumps yields almost nothing; keeping them for 30 jumps yields meaningful personal reputation
+- When a crew member departs, the captain retains accumulated rub-off but loses access to the crew member's higher-tier storylets
+- This creates a genuine cost to crew churn: fresh shtick vs. deepening faction connections
+
 ### Crew as Storylet Triggers
 
 - Crew skills unlock encounter options
 - Crew backgrounds create faction-specific storylets
 - Crew moods affect encounter tone and outcomes
 - Crew shtick gates unique storylets that wouldn't fire without that specific combination of archetypes aboard
+- Crew faction qualities gate ship-level faction storylets — "anyone aboard with Smugglers Rep >= 5?" opens underworld contacts for the whole crew
 
 ## Connections
 
-- **Yarnball**: Crew affects social meters; crew needs add pressure; crew moods are yarnball qualities
-- **Ship**: Crew quarters and social spaces affect morale; ship module configuration determines what crew can do between jumps
-- **Factions**: Crew members have faction ties that create opportunities and complications; faction templates shape crew dialogue and mood profiles
-- **QBN**: Crew qualities gate storylets; crew events are storylets; chatter tokens become QBN interaction vocabulary
+- **Yarnball**: Crew members carry individual comfort meters (presented as ship aggregate); crew faction qualities feed faction/social meters; crew moods are yarnball qualities. See [Yarnball — Meters](yarnball.md#meters).
+- **Ship**: Crew quarters and social spaces affect morale; ship module configuration determines what crew can do between jumps; keyframe simulation evaluates crew interactions per module-enabled social spaces
+- **Factions**: Crew members carry their own faction reputation that gates ship-level storylets; faction templates shape crew dialogue and mood profiles; crew can own dossier hardpoint connections. See [Yarnball — Dossier System](yarnball.md#the-dossier-system).
+- **QBN**: Crew qualities (namespaced per crew member in session layer) gate storylets; crew events are storylets; chatter tokens become QBN interaction vocabulary
+- **Character**: Captain is a special crew member; reputation rub-off is the acquired advancement mechanism for faction standing; crew composition is the primary expression of captain identity
 
 ## Open Questions
 
 - ~~How deep is crew personality simulation?~~ Resolved: personality growth trees along axes (not stats), mood system with faction-templated triggers, chatter as world-state interface. Deep enough to create emergent social pressure, shallow enough to run on server.
-- Can crew members leave? Under what conditions? (Perko suggests churn is essential — crew should rotate, settle at locations, or depart based on mood and narrative)
-- How do crew interact with multiplayer? (other players' crew visible?) Perko's systems assume single-player; multi-player crew dynamics are unaddressed in the research
+- ~~Can crew members leave? Under what conditions?~~ **Resolved**: Yes — churn is essential. Crew depart based on sustained bad moods, narrative triggers, or player choice. Departing crew settle at locations as persistent NPCs, carry the captain's reputation into the world, and can become future contacts. The cost of departure is losing their faction connections (offset by retained rub-off reputation).
+- How do crew interact with multiplayer? (Other players' crew visible? Can players trade crew members? Can a crew member who settled at a station be recruited by another player?)
 - ~~What's the crew progression model? Do they level up?~~ Resolved: personality growth trees, not stat growth trees. Crew develop along personality axes based on experiences, changing their mood triggers and action plan tendencies.
-- How do chatter tokens work in a text-only interface? (Perko assumes visual; text-only may actually be a better fit since chatter is already textual)
-- How do crew mood systems scale in an MMO where NPCs may interact with multiple players?
+- ~~How do chatter tokens work in a text-only interface?~~ **Resolved**: Text-only is actually ideal — chatter is already textual. Chatter statements appear as dialogue lines that simultaneously reveal world state and provide interaction vocabulary. No adaptation needed from Perko's visual-game assumption.
+- How do crew mood systems scale in an MMO where NPCs may interact with multiple players? (Each player has their own crew instances; NPC crew at ports are shared but player-recruited crew are per-player)
+- What's the right rub-off rate? How many jumps of working with a connected crew member to gain 1 point of faction reputation? (Needs playtesting)
 
 ## Sources
 

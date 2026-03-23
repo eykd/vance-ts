@@ -45,7 +45,7 @@ From Perko's "kill classes, use archetypes" principle: combat capability comes f
 
 Combat's weight comes from its consequences, not its mechanics. Every combat encounter should leave a mark on the yarnball.
 
-- Damage to ship modules degrades their passive meter reduction — combat literally makes daily life harder
+- Damage to ship modules degrades their condition quality (see [Ship — Resource Flow Declarations](ship.md#resource-flow-declarations)), which reduces passive meter mitigation — combat literally makes daily life harder. A kitchen damaged to 50% condition only halves Hunger growth instead of eliminating it. This cascade means combat consequences persist long after the fight ends, shaping the yarnball for the rest of the voyage.
 - Crew injuries create mood shifts and reduce capability
 - Reputation effects: witnesses and survivors carry news of the encounter to factions
 - Resource expenditure (ammunition, fuel for evasion, medical supplies) creates economic pressure

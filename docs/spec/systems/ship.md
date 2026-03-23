@@ -16,22 +16,77 @@ Modules are the mechanical heart of the ship-as-identity concept. Each module pa
 - **Active use**: Actively using a module (cooking a meal, running a workout) gives a temporary boost but costs resources (supplies, power, time). This creates moment-to-moment decisions layered on top of the strategic module selection.
 - **Limited slots force meaningful tradeoffs**: You cannot install every module. A ship with a full galley and medbay but no recreation space tells the story of a crew that eats well and stays healthy but is bored out of their minds. These tradeoffs create divergent narratives the designer never explicitly wrote.
 - **Module choices gate which storylets fire**: Ship configuration becomes a QBN quality. A ship with a science lab unlocks research storylets; one with a brig unlocks bounty hunting storylets.
+- **Module condition cascades through the yarnball**: Each module has a Consequence-type condition quality (0–100) that degrades with use and time. Damaged modules provide reduced passive meter effects — a kitchen at 50% condition only halves Hunger growth instead of eliminating it. This is how combat and neglect create yarnball pressure without needing separate ship-level meters.
+
+For the full module catalog (types, meter effects, narrative color) see [Yarnball — Ship Modules](yarnball.md#ship-modules).
 
 ### Resource Flow Declarations
 
 From Perko's keyframe simulation concept: ship parts should declare their resource flows (inputs, outputs, consumption rates) as data, not behavior. This enables the game to simulate life aboard between jumps without full real-time simulation.
 
-- Each module declares: what it consumes, what it produces, what meters it affects, and at what rates
-- The keyframe simulation evaluates these declarations at each jump to determine what happened between stars
-- This architecture scales to fleet-level simulation while preserving individual ship detail
+Each module is a data declaration with the following shape:
+
+```typescript
+interface ModuleDeclaration {
+  id: string; // "kitchen-standard", "gym-basic"
+  name: string; // "Standard Kitchen"
+  tier: 'basic' | 'standard' | 'premium';
+  condition: number; // 0-100, degrades over time
+  slots: number; // How many hull slots it occupies (usually 1)
+
+  // Resource flows
+  passive: {
+    consumes: ResourceRate[]; // e.g., [{resource: "Supplies", rate: 2, per: "jump"}]
+    produces: ResourceRate[]; // e.g., [{resource: "Meals", rate: 1, per: "jump"}]
+  };
+  active: {
+    consumes: ResourceRate[]; // Higher cost for temporary boost
+    produces: ResourceRate[];
+    cooldown: number; // Turns before active use available again
+  };
+
+  // Meter effects (scaled by condition%)
+  meterEffects: MeterEffect[]; // [{meter: "Hunger", reduction: 0.9}] = 90% slower growth
+
+  // Storylet gating
+  tags: string[]; // ["cooking", "social", "food"] — gate storylets by module presence
+
+  // Maintenance
+  degradationRate: number; // Condition loss per jump
+  repairCost: ResourceRate[]; // What it takes to restore condition
+}
+```
+
+The key insight from Perko: "If I want to know how much power this reactor creates, just ask it." Modules are never instantiated as runtime objects — the keyframe simulation crawls through declarations, compiling resource balances and meter adjustments. This scales to fleet-level simulation (NPC ships use the same declarations) while preserving individual ship detail.
 
 ### Keyframe Ship Simulation
 
-The game simulates life aboard between jumps using keyframe snapshots rather than continuous real-time simulation. Module configuration determines what happens in those simulated moments.
+The game simulates life aboard between jumps using keyframe snapshots rather than continuous real-time simulation. The simulation is a pure function: given ship configuration + crew state + resource levels, it produces a deterministic next state plus a list of events that become storylet candidates.
 
-- Between each jump, the simulation evaluates: which modules were active, what resources were consumed, how meters shifted, what crew interactions occurred
-- Keyframe results become the raw material for storylets — "During the jump, your engineer and pilot got into an argument in the galley" fires because the galley module exists and both crew members' social meters were elevated
-- This is where crew social dynamics primarily play out — inter-star quiet time is the stage
+#### Keyframe Algorithm (per jump)
+
+1. **Tick meters**: For each crew member (including captain), apply base meter growth rates, modified by installed module passive effects scaled by module condition. A kitchen at 50% condition provides 50% of its rated Hunger reduction.
+
+2. **Consume resources**: Deduct fuel (per engine declaration), supplies (per crew size + active module consumption), and any other per-jump costs. If a resource hits zero, flag resource-depletion events.
+
+3. **Degrade modules**: Reduce each module's condition by its degradation rate. Modules below critical condition thresholds (e.g., 25%) emit warning events.
+
+4. **Evaluate crew interactions**: For each pair of crew members sharing a module-enabled social space (common room, kitchen), check social meter states. High Loneliness + shared space = conversation event. High Boredom + shared rec space = activity event. Crew personality templates (see Crew spec) determine interaction tone.
+
+5. **Compile event list**: All meter threshold crossings, resource depletions, module warnings, and crew interaction results become **candidate events** — passed to the QBN engine as quality state changes that may trigger storylets.
+
+6. **Present results**: The Ravel VM evaluates compels and situations against the updated quality state. The opportunity deck draws from qualifying inter-jump storylets. The player sees the results as narrative vignettes: _"During the jump to Arcturus, Mara cooked an elaborate meal that lifted everyone's spirits. Jax spent the time brooding in his quarters."_
+
+#### What the Player Sees
+
+The keyframe results are not a spreadsheet — they're **narrated through prestoplot and crew chatter**. The player experiences between-jump time as a short sequence of narrative moments, not a simulation report:
+
+- Crew chatter reveals meter state changes: "The food's getting stale" (Hunger rising), "I haven't talked to anyone in days" (Loneliness high)
+- Module-generated events create scene vignettes: a kitchen generates cooking scenes, a gym generates workout scenes, a common room generates social scenes
+- Resource warnings come through crew dialogue: the engineer reports fuel levels, the quartermaster flags supply concerns
+- Module damage surfaces as observable effects: flickering lights (power module degraded), cold quarters (heating module failing)
+
+The text-only medium is actually ideal for this — the keyframe produces narrative beats, and the player reads them as a story about life between stars.
 
 ### Ship Economics (from spaaace prototype)
 
@@ -88,12 +143,12 @@ The ship's physical configuration generates narrative through the keyframe simul
 
 ## Open Questions
 
-- How many module slots? What's the right constraint level? (Must be tight enough to force real tradeoffs but wide enough to allow distinct ship identities)
-- Can modules be swapped freely or is reconfiguration costly? (Perko implies iterative construction, suggesting some friction is desirable)
-- How does ship progression interact with the mortgage? The Far Trader base rate (Cr 650/dton/jump) and fuel cost (Cr 435/dton) provide a starting calibration point — does upgrading to a larger hull increase revenue faster than it increases mortgage payments?
-- Should different ship hulls have different slot configurations? (Would create starting-archetype differentiation for ships, paralleling character archetypes)
-- How does resource flow declaration work in a text-only interface? What level of detail is visible to the player vs simulated in the background?
-- How do keyframe simulation results translate into text presentation? (What does the player see between jumps?)
+- ~~How many module slots?~~ **Partially resolved**: Starting Free Trader has 4–5 slots; larger hulls 7–8. The constraint is that the starting ship must have fewer slots than modules the player wants. Exact counts per hull class TBD during playtesting.
+- ~~Can modules be swapped freely or is reconfiguration costly?~~ **Resolved**: Module installation/removal requires a port visit and costs credits/time. No trivial mid-voyage swapping. This makes module configuration a strategic decision aligned with Perko's iterative construction principle.
+- How does ship progression interact with the mortgage? Does upgrading to a larger hull increase revenue faster than it increases mortgage payments? (Needs economic simulation playtesting — the spaaace prototype's numbers provide a starting calibration point.)
+- ~~Should different ship hulls have different slot configurations?~~ **Leaning yes**: Different hulls with distinct slot counts and slot types (some hulls have dedicated cargo bays vs. flexible module slots) would create ship-archetype differentiation paralleling character archetypes. A combat-oriented hull might have 2 weapon hardpoints + 3 module slots; a merchant hull might have 1 weapon hardpoint + 5 module slots + extra cargo. Needs design work.
+- ~~How does resource flow declaration work in a text-only interface?~~ **Resolved**: Players don't see the data schema. Module effects are surfaced through crew chatter, narrative vignettes, and observable consequences. The simulation runs in the background; the player reads the story it produces.
+- ~~How do keyframe simulation results translate into text presentation?~~ **Resolved**: Keyframe events become narrative vignettes rendered through prestoplot and crew chatter. See Keyframe Ship Simulation section above.
 
 ## Sources
 

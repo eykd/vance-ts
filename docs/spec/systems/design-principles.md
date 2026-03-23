@@ -40,10 +40,9 @@ Minimizing black-hat techniques:
 
 ## Vancean Tone
 
-_TODO: Link to tone & style spec_
-
 - Elaborate vocabulary, ironic distance, social comedy
-- See `docs/game-design/notes/jack_vance_style_preset.md`
+- Tone reference: `docs/game-design/notes/jack_vance_style_preset.md`
+- Prestoplot grammars should encode Vancean register — florid descriptions, dry understatement, elaborate courtesy masking self-interest
 
 ## Anti-Patterns to Avoid
 

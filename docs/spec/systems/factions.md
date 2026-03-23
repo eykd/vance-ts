@@ -69,13 +69,13 @@ Faction NPCs serve as the human face of faction mechanics. They are the conduit 
 
 ## Open Questions
 
-- How many factions? What's the right number for meaningful choice? (Must be few enough that each feels mechanically distinct, many enough to create interesting conflicts)
+- How many factions? What's the right number for meaningful choice? (Must be few enough that each feels mechanically distinct, many enough to create interesting conflicts. The Yarnball spec defines 5 archetypes — suggest 5-7 factions.)
 - Can you be allied with multiple factions simultaneously? (Dossier slots from different factions would create interesting combinations but might dilute faction identity)
 - How do factions interact with the Oikumene vs. Beyond divide? (Oikumene factions may be more structured with formal reputation systems; Beyond factions more informal)
 - Are factions player-influenceable at the MMO level? (Aggregate player actions shifting faction borders, trade routes, and political dynamics)
-- How do dossier NPCs interact with the crew system? Are they separate from crew or do they occupy crew slots?
-- What happens to dossier NPCs if faction reputation drops below the tier that unlocked them?
-- How are faction meter curves communicated to the player before they commit to a faction? (The cultural logic should be discoverable through play, not just described in a stat screen)
+- ~~How do dossier NPCs interact with the crew system? Are they separate from crew or do they occupy crew slots?~~ **Resolved**: Dossier NPCs are separate from crew — they don't occupy crew slots (the 4-7 crew cap is for active aboard-ship crew). Dossier NPCs are off-screen contacts accessed through faction channels. However, crew members can have their own dossier connections that benefit the ship — a well-connected first mate's faction contacts function like dossier hardpoints. See [Yarnball — Dossier System](../systems/yarnball.md#the-dossier-system) and [Crew — Crew as Quality Bearers](../systems/crew.md#crew-as-quality-bearers).
+- What happens to dossier NPCs if faction reputation drops below the tier that unlocked them? (Suggest: contacts become "dormant" — they stop providing meter reduction but aren't permanently lost. Regaining the tier reactivates them. This avoids punitive spirals while making reputation loss meaningful.)
+- How are faction meter curves communicated to the player before they commit to a faction? (The cultural logic should be discoverable through play — crew chatter from faction-aligned crew, NPC dialogue at faction ports, and observable behavior of NPCs all signal how the faction "feels" before the player sees hard numbers)
 
 ## Sources
 

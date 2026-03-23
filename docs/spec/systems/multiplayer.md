@@ -10,7 +10,10 @@ This is a text MMORPG, but "massively multiplayer" doesn't mean real-time action
 
 ### Shared World State
 
-The world state divides into shared (all players see the same thing) and per-player (individual progression) layers.
+The world state divides into shared (all players see the same thing) and per-player (individual progression) layers. This maps directly to the QBN Engine's 4-layer quality model (see [QBN Engine — Quality Ownership](qbn-engine.md#quality-ownership)):
+
+- **Shared state** → `global` layer (read-only at runtime, updated by server-side simulation)
+- **Per-player state** → `player` layer (persistent across sessions) + `session` layer (current playthrough)
 
 **Shared state:**
 

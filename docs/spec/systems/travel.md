@@ -102,14 +102,18 @@ The ship is the constant across all travel. It serves as a psychological reset b
 
 ## Open Questions
 
-- ~~Is interstellar travel deterministic or does it have random encounters?~~ Partially resolved: the keyframe simulation generates events between jumps based on ship configuration and crew state, which is deterministic from the ship's qualities rather than purely random. Random encounters may still exist but should be quality-gated.
+- ~~Is interstellar travel deterministic or does it have random encounters?~~ **Resolved**: The keyframe simulation (see [Ship — Keyframe Ship Simulation](ship.md#keyframe-ship-simulation)) generates events deterministically from ship configuration, crew state, and resource levels. "Random" encounters use the QBN opportunity deck — a random draw from _qualifying_ storylets, so they're quality-gated, not purely random. A ship with a science lab draws from exploration storylets; a ship with high crew Loneliness draws from social-crisis storylets. The randomness is in _which_ qualifying storylet surfaces, not in what qualifies.
 - How does the Beyond differ mechanically from Oikumene travel? (Lower density, fewer paths, but each location more unique — the uniqueness/coherence/gateway model applies differently. The link algorithm naturally produces sparser connectivity at cluster edges, which could map to Beyond regions.)
 - Should the link algorithm be tuned for different region types? (e.g., denser rolls for Oikumene core, sparser for Beyond frontier)
 - ~~What's the turn cadence? Free-form or time-gated?~~ Partially resolved: each jump is one turn that ticks meters and runs keyframe simulation. Within a system, movement is lower-stakes. The exact time model (real-time vs turn-based) remains open.
 - ~~How do we make route planning itself interesting (not just A-B)?~~ Resolved: world weaving creates interesting routes by laying paths across the map. Route planning involves navigating path intersections, managing meter pressure over multi-jump routes, and balancing trade opportunities against crew needs and fuel constraints.
 - How does implicit sharing work for exploration? Can one player's investigation of a location enrich another player's experience there?
 - How do we prevent "strip-mining" of locations in an MMO context? (Perko notes open worlds are strip-mined by design)
-- How does density translate to text presentation concretely? What does a "dense" vs "sparse" location feel like in text?
+- ~~How does density translate to text presentation concretely?~~ **Resolved**: Density maps to multiple text-layer signals:
+  - **Opportunity deck size**: Dense locations draw from more qualifying storylets per turn; sparse locations present fewer, higher-weight encounters
+  - **Chatter volume**: Dense ports have more NPC voices, overlapping conversations, busy job boards; sparse locations have silence, a single bartender, one ship at dock
+  - **Option abundance**: Dense locations present longer lists of available actions (list presentation pattern); sparse locations use the deck pattern with fewer draws
+  - **Emily Short's Five Elements** (see [QBN Engine — Five Elements](qbn-engine.md#emily-shorts-five-elements-location-atmosphere)): High Community + low Mundanity = bustling trade hub; high Isolation + high Wonder = mysterious frontier outpost
 
 ## Sources
 

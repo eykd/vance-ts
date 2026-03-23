@@ -61,6 +61,8 @@ Design principles for all advancement:
 - Hiring decisions are character decisions: choosing an ex-military crew signals a different captain than choosing a scholar
 - Crew skills extend the player's capability without inflating the player's stats
 - Losing or rotating crew changes the captain's identity, creating ongoing character evolution
+- **Crew faction connections extend the captain's reach**: A crew member with high faction reputation opens storylets the captain couldn't access alone. Over time, these connections "rub off" on the captain through acquired advancement — the captain builds their own reputation through interactions the crew member enabled. See [Crew — Reputation Rub-Off](crew.md#reputation-rub-off).
+- **The captain is mechanically a crew member**: The captain shares comfort meters with crew, has their own faction/social meters, and participates in the same social graph. What distinguishes the captain is player agency, not mechanical privilege.
 
 ## Connections
 
@@ -75,7 +77,10 @@ Design principles for all advancement:
 - What happens if a player loses their ship? (permadeath of ship?) — ship history is narrative capital; losing it should be devastating but not game-ending
 - How do other players perceive your character? What's visible? (ship type, crew composition, faction ties, reputation — but not internal stats)
 - ~~How does long-term play stay interesting without power creep?~~ Resolved: advancement expands options rather than inflating stats; challenges exert continual pressure rather than being flattened; crew churn and faction dynamics keep the social landscape shifting.
-- How do the three advancement types (threshold/spent/acquired) map to specific game systems? Which systems use which type?
+- ~~How do the three advancement types (threshold/spent/acquired) map to specific game systems?~~ **Resolved**:
+  - **Threshold**: Faction reputation tiers (unlock dossier slots, mission types, trade access), ship hull upgrades (unlock new module slot counts), route discoveries (unlock Beyond content)
+  - **Spent**: Training at faction academies (credits → skills), ship module installation (credits + port time → capability), crew recruitment (credits → social capability)
+  - **Acquired**: Reputation rub-off from crew faction connections (time with crew → personal faction rep), navigation skill from successfully flying hazardous routes, broker skill from completing trades, combat awareness from surviving fights
 - What starting archetypes exist, and how do they map to factions and regions?
 
 ## Sources
