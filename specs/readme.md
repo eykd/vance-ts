@@ -162,6 +162,15 @@ Spec: specs/013-import-design-skills/spec.md
 
 ---
 
+## Galaxy Seed to D1
+
+Keywords: galaxy, seed, seeder, D1, database, star system, route, trade pair, BTN,
+bilateral trade number, WTN, world trade number, migration, repository, query,
+connected systems, navigation, economy, freight, galaxy generator, import, SQL
+Spec: specs/015-galaxy-seed-d1/spec.md
+
+---
+
 ## How to Update This File
 
 When adding a new spec via `/sp:01-specify`, the workflow updates this file automatically.
