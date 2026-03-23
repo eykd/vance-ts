@@ -50,11 +50,12 @@ Only use these flags when explicitly requested by the user.`,
     pattern: /git\s+push.*(--force([^-]|$)|-f\s|--force-with-lease)/,
     message: `BLOCKED: Force push detected.
 
-Prohibited flags: --force, -f, --force-with-lease
-
 Force pushing rewrites remote history and can destroy teammates' work.
-If force push is needed, this usually indicates a workflow problem.
-Only use these flags when explicitly requested by the user.`,
+
+Instead:
+- Use normal \`git push\` to push changes safely
+- If rejected, pull and merge first: \`git pull --rebase\` then \`git push\`
+- Only use force push when explicitly requested by the user`,
   },
 ];
 
@@ -152,7 +153,10 @@ With:
 
 Reinitializing the beads database would destroy all issue history.
 
-If you genuinely need to reset beads, have the user run this manually.`,
+Instead:
+- Use \`br init\` without --force to initialize safely
+- Use \`br status\` to check current beads state
+- Have the user run this manually if a force-reset is genuinely needed`,
   },
   {
     name: 'commit-amend',
