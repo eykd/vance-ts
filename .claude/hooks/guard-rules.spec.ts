@@ -425,18 +425,18 @@ describe('evaluateCommand', () => {
 
   describe('lower-risk destructive git (US-5)', () => {
     describe('git stash drop/clear (BLOCK)', () => {
-      it.fails('blocks git stash drop', () => {
+      it('blocks git stash drop', () => {
         const result: GuardResult = evaluateCommand('git stash drop');
         expect(result.action).toBe('block');
         expect(result.message).toBeDefined();
       });
 
-      it.fails('blocks git stash drop stash@{2}', () => {
+      it('blocks git stash drop stash@{2}', () => {
         const result: GuardResult = evaluateCommand('git stash drop stash@{2}');
         expect(result.action).toBe('block');
       });
 
-      it.fails('blocks git stash clear', () => {
+      it('blocks git stash clear', () => {
         const result: GuardResult = evaluateCommand('git stash clear');
         expect(result.action).toBe('block');
         expect(result.message).toBeDefined();
@@ -483,13 +483,13 @@ describe('evaluateCommand', () => {
     });
 
     describe('git branch -D (BLOCK)', () => {
-      it.fails('blocks git branch -D unmerged', () => {
+      it('blocks git branch -D unmerged', () => {
         const result: GuardResult = evaluateCommand('git branch -D unmerged');
         expect(result.action).toBe('block');
         expect(result.message).toBeDefined();
       });
 
-      it.fails('blocks git branch -D feature-branch', () => {
+      it('blocks git branch -D feature-branch', () => {
         const result: GuardResult = evaluateCommand('git branch -D feature-branch');
         expect(result.action).toBe('block');
       });

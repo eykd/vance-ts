@@ -183,6 +183,45 @@ Instead:
 - Have the user perform interactive rebase manually if needed`,
   },
   {
+    name: 'stash-drop',
+    category: 'destructive-git',
+    pattern: /git\s+stash\s+drop(?:\s|$)/,
+    message: `BLOCKED: git stash drop detected.
+
+This command permanently deletes a stash entry with no recovery path.
+
+Instead:
+- Use \`git stash list\` to review stashes before dropping
+- Use \`git stash apply\` to apply without removing the stash
+- Use \`git stash pop\` to apply and remove only after confirming the stash contents`,
+  },
+  {
+    name: 'stash-clear',
+    category: 'destructive-git',
+    pattern: /git\s+stash\s+clear(?:\s|$)/,
+    message: `BLOCKED: git stash clear detected.
+
+This command permanently deletes all stash entries with no recovery path.
+
+Instead:
+- Use \`git stash list\` to review stashes before clearing
+- Use \`git stash drop stash@{N}\` to remove specific stashes one at a time
+- Use \`git stash apply\` to recover work from a stash before removing it`,
+  },
+  {
+    name: 'branch-force-delete',
+    category: 'destructive-git',
+    pattern: /git\s+branch\s+-D(?:\s|$)/,
+    message: `BLOCKED: git branch -D detected (force-delete unmerged branch).
+
+This command deletes a branch even if it has unmerged changes, potentially losing work.
+
+Instead:
+- Use \`git branch -d <branch>\` to safely delete only fully-merged branches
+- Use \`git log <branch>\` to review commits before deleting
+- Use \`git merge <branch>\` to merge changes before deleting`,
+  },
+  {
     name: 'catastrophic-rm',
     category: 'catastrophic-file-deletion',
     pattern:
