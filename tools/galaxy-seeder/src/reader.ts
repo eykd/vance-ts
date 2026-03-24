@@ -15,19 +15,23 @@ import { join } from 'node:path';
 const MAX_CONCURRENCY = 100;
 
 /**
- * Run async tasks with a concurrency limit.
+ * Run async tasks with a concurrency limit and collect results.
  *
  * @param tasks - array of zero-argument async functions
  * @param limit - maximum number of concurrent executions
+ * @returns array of results in the same order as the input tasks
  */
-async function runWithConcurrency(
-  tasks: readonly (() => Promise<void>)[],
+async function mapWithConcurrency<T>(
+  tasks: readonly (() => Promise<T>)[],
   limit: number
-): Promise<void> {
+): Promise<T[]> {
+  const results: T[] = new Array<T>(tasks.length);
   const executing = new Set<Promise<void>>();
 
-  for (const task of tasks) {
-    const promise = task().then(() => {
+  for (let i = 0; i < tasks.length; i++) {
+    const idx = i;
+    const promise = tasks[idx]!().then((result) => {
+      results[idx] = result;
       executing.delete(promise);
     });
     executing.add(promise);
@@ -38,6 +42,7 @@ async function runWithConcurrency(
   }
 
   await Promise.all(executing);
+  return results;
 }
 
 /**
@@ -76,12 +81,10 @@ export async function readSystems(outputDir: string): Promise<unknown[]> {
   const files = await readdir(systemsDir);
   const jsonFiles = files.filter((f) => f.endsWith('.json'));
 
-  const systems: unknown[] = [];
-  const tasks = jsonFiles.map((file) => async (): Promise<void> => {
+  const tasks = jsonFiles.map((file) => async (): Promise<unknown> => {
     const content = await readFile(join(systemsDir, file), 'utf-8');
-    systems.push(JSON.parse(content) as unknown);
+    return JSON.parse(content) as unknown;
   });
 
-  await runWithConcurrency(tasks, MAX_CONCURRENCY);
-  return systems;
+  return mapWithConcurrency(tasks, MAX_CONCURRENCY);
 }
