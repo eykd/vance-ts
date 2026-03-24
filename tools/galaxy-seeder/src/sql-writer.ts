@@ -31,6 +31,13 @@ const TRADE_PAIRS_BATCH_SIZE = 1000;
  * Escapes a string for safe inclusion in SQL by stripping all ASCII
  * control characters (0x00–0x1F and 0x7F) and doubling single quotes.
  *
+ * **WARNING — seed-only pattern.** This manual escaping is required because
+ * `wrangler d1 execute --file` does not support parameterized bindings.
+ * Production D1 repositories MUST use parameterized queries via the D1
+ * binding API (`stmt.bind(...)`) instead. Do not copy this pattern.
+ * If `wrangler d1 execute` gains binding support in the future, migrate
+ * this tool to parameterized queries as well.
+ *
  * @param value - The string to escape
  * @returns The escaped string safe for SQL literals
  */
