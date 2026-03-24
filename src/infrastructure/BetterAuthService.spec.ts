@@ -24,7 +24,8 @@ type AuthInstance = ReturnType<typeof betterAuth>;
  * constructor call site.
  *
  * @returns An object with `api` containing `vi.fn()` stubs for each auth API
- * method: signInEmail, signUpEmail, signOut, and getSession.
+ * method: signInEmail, signUpEmail, signOut, getSession, requestPasswordReset,
+ * and resetPassword.
  */
 function makeAuthMock(): {
   api: {
@@ -32,6 +33,8 @@ function makeAuthMock(): {
     signUpEmail: ReturnType<typeof vi.fn>;
     signOut: ReturnType<typeof vi.fn>;
     getSession: ReturnType<typeof vi.fn>;
+    requestPasswordReset: ReturnType<typeof vi.fn>;
+    resetPassword: ReturnType<typeof vi.fn>;
   };
 } {
   return {
@@ -40,6 +43,8 @@ function makeAuthMock(): {
       signUpEmail: vi.fn(),
       signOut: vi.fn(),
       getSession: vi.fn(),
+      requestPasswordReset: vi.fn(),
+      resetPassword: vi.fn(),
     },
   };
 }
@@ -767,6 +772,284 @@ describe('BetterAuthService', () => {
         expect.objectContaining({
           headers: new Headers({ cookie: 'better-auth.session_token=abc123' }),
         })
+      );
+    });
+  });
+
+  describe('requestPasswordReset', () => {
+    it('returns ok: true when response is 200', async () => {
+      authMock.api.requestPasswordReset.mockResolvedValue(new Response(null, { status: 200 }));
+
+      const result = await service.requestPasswordReset({ email: 'user@example.com' });
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('passes email in the request body', async () => {
+      authMock.api.requestPasswordReset.mockResolvedValue(new Response(null, { status: 200 }));
+
+      await service.requestPasswordReset({ email: 'user@example.com' });
+
+      expect(authMock.api.requestPasswordReset).toHaveBeenCalledWith(
+        expect.objectContaining({ body: { email: 'user@example.com' } })
+      );
+    });
+
+    it('includes redirectTo in body when provided', async () => {
+      authMock.api.requestPasswordReset.mockResolvedValue(new Response(null, { status: 200 }));
+
+      await service.requestPasswordReset({
+        email: 'user@example.com',
+        redirectTo: '/reset-callback',
+      });
+
+      expect(authMock.api.requestPasswordReset).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: { email: 'user@example.com', redirectTo: '/reset-callback' },
+        })
+      );
+    });
+
+    it('omits redirectTo from body when not provided', async () => {
+      authMock.api.requestPasswordReset.mockResolvedValue(new Response(null, { status: 200 }));
+
+      await service.requestPasswordReset({ email: 'user@example.com' });
+
+      const callArg = authMock.api.requestPasswordReset.mock.calls[0]?.[0] as {
+        body: Record<string, unknown>;
+      };
+      expect(callArg.body).not.toHaveProperty('redirectTo');
+    });
+
+    it('calls auth.api.requestPasswordReset with asResponse: true', async () => {
+      authMock.api.requestPasswordReset.mockResolvedValue(new Response(null, { status: 200 }));
+
+      await service.requestPasswordReset({ email: 'user@example.com' });
+
+      expect(authMock.api.requestPasswordReset).toHaveBeenCalledWith(
+        expect.objectContaining({ asResponse: true })
+      );
+    });
+
+    it('returns ok: false kind: service_error when response is 500', async () => {
+      expect.assertions(2);
+      authMock.api.requestPasswordReset.mockResolvedValue(new Response(null, { status: 500 }));
+
+      const result = await service.requestPasswordReset({ email: 'user@example.com' });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
+    it('logs only status via logger.error when response is not ok (no PII)', async () => {
+      authMock.api.requestPasswordReset.mockResolvedValue(new Response(null, { status: 500 }));
+
+      await service.requestPasswordReset({ email: 'user@example.com' });
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.requestPasswordReset: unexpected status 500'
+      );
+    });
+
+    it('returns ok: false kind: service_error when auth.api.requestPasswordReset throws', async () => {
+      expect.assertions(2);
+      authMock.api.requestPasswordReset.mockRejectedValue(new Error('D1 unavailable'));
+
+      const result = await service.requestPasswordReset({ email: 'user@example.com' });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
+    it('logs the error via logger.error when auth.api.requestPasswordReset throws', async () => {
+      const error = new Error('D1 unavailable');
+      authMock.api.requestPasswordReset.mockRejectedValue(error);
+
+      await service.requestPasswordReset({ email: 'user@example.com' });
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.requestPasswordReset: exception thrown',
+        error
+      );
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('returns ok: true when response is 200', async () => {
+      authMock.api.resetPassword.mockResolvedValue(new Response(null, { status: 200 }));
+
+      const result = await service.resetPassword({ token: 'tok-abc', newPassword: 'newpass1234' });
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('passes token and newPassword in the request body', async () => {
+      authMock.api.resetPassword.mockResolvedValue(new Response(null, { status: 200 }));
+
+      await service.resetPassword({ token: 'tok-abc', newPassword: 'newpass1234' });
+
+      expect(authMock.api.resetPassword).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: { token: 'tok-abc', newPassword: 'newpass1234' },
+        })
+      );
+    });
+
+    it('calls auth.api.resetPassword with asResponse: true', async () => {
+      authMock.api.resetPassword.mockResolvedValue(new Response(null, { status: 200 }));
+
+      await service.resetPassword({ token: 'tok-abc', newPassword: 'newpass1234' });
+
+      expect(authMock.api.resetPassword).toHaveBeenCalledWith(
+        expect.objectContaining({ asResponse: true })
+      );
+    });
+
+    it('returns ok: false kind: weak_password when response is 400 with PASSWORD_TOO_SHORT code', async () => {
+      expect.assertions(2);
+      authMock.api.resetPassword.mockResolvedValue(
+        new Response(
+          JSON.stringify({ code: 'PASSWORD_TOO_SHORT', message: 'Password too short' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+      const result = await service.resetPassword({ token: 'tok-abc', newPassword: 'short' });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('weak_password');
+      }
+    });
+
+    it('returns ok: false kind: weak_password when response is 400 with PASSWORD_TOO_LONG code', async () => {
+      expect.assertions(2);
+      authMock.api.resetPassword.mockResolvedValue(
+        new Response(
+          JSON.stringify({ code: 'PASSWORD_TOO_LONG', message: 'Password too long' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+      const result = await service.resetPassword({
+        token: 'tok-abc',
+        newPassword: 'a'.repeat(200),
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('weak_password');
+      }
+    });
+
+    it('returns ok: false kind: invalid_token when response is 400 with unrecognised code', async () => {
+      expect.assertions(2);
+      authMock.api.resetPassword.mockResolvedValue(
+        new Response(JSON.stringify({ code: 'INVALID_TOKEN', message: 'Token expired' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      const result = await service.resetPassword({
+        token: 'expired-tok',
+        newPassword: 'newpass1234',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('invalid_token');
+      }
+    });
+
+    it('returns ok: false kind: invalid_token when response is 400 with unparseable body', async () => {
+      expect.assertions(2);
+      authMock.api.resetPassword.mockResolvedValue(new Response('not json', { status: 400 }));
+
+      const result = await service.resetPassword({
+        token: 'bad-tok',
+        newPassword: 'newpass1234',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('invalid_token');
+      }
+    });
+
+    it('returns ok: false kind: invalid_token when response is 400 with body missing code field', async () => {
+      expect.assertions(2);
+      authMock.api.resetPassword.mockResolvedValue(
+        new Response(JSON.stringify({ message: 'Bad request' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      const result = await service.resetPassword({
+        token: 'bad-tok',
+        newPassword: 'newpass1234',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('invalid_token');
+      }
+    });
+
+    it('returns ok: false kind: service_error when response is 500', async () => {
+      expect.assertions(2);
+      authMock.api.resetPassword.mockResolvedValue(new Response(null, { status: 500 }));
+
+      const result = await service.resetPassword({
+        token: 'tok-abc',
+        newPassword: 'newpass1234',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
+    it('logs only status via logger.error when response is not ok and not a mapped status (no PII)', async () => {
+      authMock.api.resetPassword.mockResolvedValue(new Response(null, { status: 500 }));
+
+      await service.resetPassword({ token: 'tok-abc', newPassword: 'newpass1234' });
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.resetPassword: unexpected status 500'
+      );
+    });
+
+    it('returns ok: false kind: service_error when auth.api.resetPassword throws', async () => {
+      expect.assertions(2);
+      authMock.api.resetPassword.mockRejectedValue(new Error('D1 unavailable'));
+
+      const result = await service.resetPassword({
+        token: 'tok-abc',
+        newPassword: 'newpass1234',
+      });
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('service_error');
+      }
+    });
+
+    it('logs the error via logger.error when auth.api.resetPassword throws', async () => {
+      const error = new Error('D1 unavailable');
+      authMock.api.resetPassword.mockRejectedValue(error);
+
+      await service.resetPassword({ token: 'tok-abc', newPassword: 'newpass1234' });
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'BetterAuthService.resetPassword: exception thrown',
+        error
       );
     });
   });
