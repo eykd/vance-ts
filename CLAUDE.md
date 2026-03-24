@@ -235,6 +235,9 @@ Always use subagents liberally and aggressively to conserve the main context win
 
 ## Active Technologies
 
+- TypeScript ES2022 (Workers runtime + Node.js CLI tool) + @cloudflare/workers-types, tsx (CLI runner) (015-galaxy-seed-d1)
+- D1 (SQLite-based, binding `env.DB`) (015-galaxy-seed-d1)
+
 - Markdown (skill definition files) — no application code + Claude Code skill system (`.claude/skills/*/SKILL.md`) (013-import-design-skills)
 - N/A (file-based skill definitions only) (013-import-design-skills)
 
