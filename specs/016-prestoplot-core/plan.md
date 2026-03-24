@@ -10,7 +10,7 @@ Implement the Prestoplot grammar-based text generation engine — a deterministi
 ## Technical Context
 
 **Language/Version**: TypeScript ES2022 (Cloudflare Workers runtime)
-**Primary Dependencies**: yaml (YAML parsing), @cloudflare/workers-types, existing Mulberry32 PRNG
+**Primary Dependencies**: yaml (YAML parsing — NOT yet installed, must `npm install yaml`), @cloudflare/workers-types, existing Mulberry32 PRNG
 **Storage**: Cloudflare KV (primary), D1 (alternative), InMemory (testing)
 **Testing**: Vitest with @cloudflare/vitest-pool-workers (Workers project), strict TDD
 **Target Platform**: Cloudflare Workers V8 isolate
@@ -66,108 +66,142 @@ src/
 │       ├── markovChain.ts        # MarkovChainModel, train, generate
 │       ├── selectionModes.ts     # REUSE, PICK, RATCHET, MARKOV, LIST algorithms
 │       ├── errors.ts             # ModuleNotFoundError, RuleNotFoundError, CircularIncludeError
-│       ├── grammar.spec.ts
-│       ├── renderedString.spec.ts
-│       ├── seed.spec.ts
-│       ├── articleGeneration.spec.ts
-│       ├── markovChain.spec.ts
-│       ├── selectionModes.spec.ts
-│       └── errors.spec.ts
+│       └── *.spec.ts             # Colocated tests (one per source file)
 ├── application/
+│   ├── ports/
+│   │   ├── GrammarStorage.ts     # StoragePort interface (one file per port)
+│   │   ├── TemplateEngine.ts     # TemplateEnginePort interface
+│   │   └── RandomSource.ts       # RandomPort + Rng interfaces
 │   └── prestoplot/
-│       ├── ports.ts              # StoragePort, TemplateEnginePort, RandomPort
 │       ├── renderStoryService.ts # Entry point: RenderStoryRequest → RenderStoryResult
 │       ├── grammarParser.ts      # YAML → Grammar parsing + validation
 │       ├── renderEngine.ts       # Per-render execution engine (internal)
 │       ├── dto.ts                # GrammarDto, grammarFromDto, grammarToDto
-│       ├── renderStoryService.spec.ts
-│       ├── grammarParser.spec.ts
-│       ├── renderEngine.spec.ts
-│       └── dto.spec.ts
+│       └── *.spec.ts             # Colocated tests
 ├── infrastructure/
 │   └── prestoplot/
-│       ├── inMemoryStorage.ts    # InMemoryStorage implements StoragePort
-│       ├── kvStorage.ts          # KVStorage implements StoragePort
-│       ├── d1Storage.ts          # D1Storage implements StoragePort
+│       ├── inMemoryStorage.ts    # InMemoryStorage implements GrammarStorage
+│       ├── kvStorage.ts          # KVStorage implements GrammarStorage
+│       ├── d1Storage.ts          # D1Storage implements GrammarStorage
 │       ├── cachedStorage.ts      # CachedStorage decorator with TTL
 │       ├── ftemplateEngine.ts    # {expression} tokenizer + evaluator
 │       ├── jinja2Engine.ts       # {{ expression }} subset interpreter
-│       ├── mulberry32Random.ts   # RandomPort adapter wrapping existing PRNG
+│       ├── mulberry32Random.ts   # RandomPort adapter wrapping existing Mulberry32
 │       ├── seedHasher.ts         # seedToInt via crypto.subtle SHA-256
-│       ├── inMemoryStorage.spec.ts
-│       ├── kvStorage.spec.ts
-│       ├── d1Storage.spec.ts
-│       ├── cachedStorage.spec.ts
-│       ├── ftemplateEngine.spec.ts
-│       ├── jinja2Engine.spec.ts
-│       ├── mulberry32Random.spec.ts
-│       └── seedHasher.spec.ts
+│       └── *.spec.ts             # Colocated tests
+├── di/
+│   └── serviceFactory.ts        # Add prestoplot lazy singleton getters
 └── shared/
-    └── (no new shared files — reuse existing hex.ts, env.ts)
+    └── env.ts                    # Add GRAMMAR_KV: KVNamespace binding
 
 migrations/
 └── 0002_grammar_store.sql        # D1 table for grammar storage (if D1 adapter needed)
 ```
 
-**Structure Decision**: Follows existing Clean Architecture layout. Each layer gets a `prestoplot/` subdirectory mirroring `galaxy/` pattern. Tests colocated with source (Workers vitest pool requirement).
+**Structure Decision**: Follows existing Clean Architecture layout. Port interfaces go in `src/application/ports/` (one file per port, matching existing StarSystemRepository.ts, RouteRepository.ts convention). Domain and infrastructure get `prestoplot/` subdirectories mirroring `galaxy/` pattern. Tests colocated with source (Workers vitest pool requirement).
+
+**Coverage Note**: Workers vitest project (`src/**/*.spec.ts`) cannot contribute to v8 coverage reports — the Workers runtime lacks `node:inspector`. The 100% coverage threshold applies to `acceptance/**/*.ts` only. Prestoplot tests run and must pass but are coverage-exempt by runtime constraint.
 
 ## Implementation Order
 
 Implementation follows a bottom-up dependency order. Each task is a TDD unit — write failing tests first, implement to green, refactor.
 
+### Layer 0: Setup
+
+1. **Install `yaml` dependency** — `npm install yaml` (pure JS, Workers-compatible YAML parser)
+
 ### Layer 1: Domain (Pure Logic, Zero Dependencies)
 
 These have no imports from application or infrastructure. Build in any order, but the natural dependency flow is:
 
-1. **errors.ts** — Domain error types (needed by everything else)
-2. **renderedString.ts** — RenderedString value object
-3. **seed.ts** — Seed, ScopedSeed value objects (pure string manipulation, no async hashing here)
-4. **grammar.ts** — Grammar aggregate root, Rule types, SelectionMode enum, RenderStrategy enum, Databag/Datalist/Database interfaces
-5. **articleGeneration.ts** — getArticle pure function with special cases
-6. **selectionModes.ts** — Selection algorithm functions (REUSE, PICK, RATCHET, LIST), depends on seed.ts for Rng type
-7. **markovChain.ts** — MarkovChainModel, trainMarkovChain, generateMarkov (depends on Rng type)
+2. **errors.ts** — Domain error types (needed by everything else)
+3. **renderedString.ts** — RenderedString value object
+4. **seed.ts** — Seed, ScopedSeed value objects (pure string manipulation, no async hashing here)
+5. **grammar.ts** — Grammar aggregate root, Rule types, SelectionMode enum, RenderStrategy enum, Databag/Datalist/Database interfaces
+6. **articleGeneration.ts** — getArticle pure function with special cases
+7. **selectionModes.ts** — Selection algorithm functions (REUSE, PICK, RATCHET, LIST), depends on seed.ts for Rng type
+8. **markovChain.ts** — MarkovChainModel, trainMarkovChain, generateMarkov (depends on Rng type)
 
-### Layer 2: Infrastructure Adapters (Implements Ports)
+### Layer 2: Port Interfaces (Must Precede Infrastructure)
 
-Build adapters before application layer so services can be tested with real (in-memory) adapters:
+Port interfaces MUST exist before infrastructure adapters can implement them:
 
-8. **seedHasher.ts** — `seedToInt` using crypto.subtle SHA-256 (async, first 4 bytes → uint32)
-9. **mulberry32Random.ts** — RandomPort wrapping existing Mulberry32 + seedHasher
-10. **ftemplateEngine.ts** — Ftemplate tokenizer/evaluator implementing TemplateEnginePort
-11. **jinja2Engine.ts** — Jinja2 subset implementing TemplateEnginePort
-12. **inMemoryStorage.ts** — InMemoryStorage implementing StoragePort (needed for all service tests)
-13. **kvStorage.ts** — KVStorage implementing StoragePort
-14. **d1Storage.ts** — D1Storage implementing StoragePort + migration
-15. **cachedStorage.ts** — CachedStorage decorator wrapping any StoragePort
+9. **GrammarStorage.ts** — `src/application/ports/GrammarStorage.ts` — StoragePort interface (follows existing convention: one file per port in `src/application/ports/`)
+10. **TemplateEngine.ts** — `src/application/ports/TemplateEngine.ts` — TemplateEnginePort interface
+11. **RandomSource.ts** — `src/application/ports/RandomSource.ts` — RandomPort + Rng interfaces
 
-### Layer 3: Application Services
+### Layer 3: Infrastructure Adapters (Implements Ports)
 
-16. **ports.ts** — Port interfaces (StoragePort, TemplateEnginePort, RandomPort, Rng)
-17. **dto.ts** — GrammarDto ↔ Grammar conversion
-18. **grammarParser.ts** — YAML string → Grammar parsing + validation (circular include detection, missing reference detection)
-19. **renderEngine.ts** — Per-render execution engine (rule resolution, template evaluation, selection state, seed scoping)
-20. **renderStoryService.ts** — Top-level orchestrator: load grammar, parse, create RenderEngine, render entry rule, return result
+Build adapters with InMemoryStorage first (needed for all service tests):
 
-### Layer 4: Integration & Wiring
+12. **seedHasher.ts** — `seedToInt` using crypto.subtle SHA-256 (async, first 4 bytes → uint32)
+13. **mulberry32Random.ts** — RandomPort wrapping existing Mulberry32 + seedHasher
+14. **ftemplateEngine.ts** — Ftemplate tokenizer/evaluator implementing TemplateEnginePort
+15. **jinja2Engine.ts** — Jinja2 subset implementing TemplateEnginePort
+16. **inMemoryStorage.ts** — InMemoryStorage implementing GrammarStorage (needed for all service tests)
+17. **kvStorage.ts** — KVStorage implementing GrammarStorage
+18. **d1Storage.ts** — D1Storage implementing GrammarStorage + migration
+19. **cachedStorage.ts** — CachedStorage decorator wrapping any GrammarStorage
 
-21. **DI wiring** — Register Prestoplot services in `src/di/serviceFactory.ts`
-22. **KV binding** — Add `GRAMMAR_KV` to `wrangler.toml` (if KV used in this phase)
+### Layer 4: Application Services
+
+20. **dto.ts** — GrammarDto ↔ Grammar conversion
+21. **grammarParser.ts** — YAML string → Grammar parsing + validation (circular include detection, missing reference detection)
+22. **renderEngine.ts** — Per-render execution engine (rule resolution, template evaluation, selection state, seed scoping)
+23. **renderStoryService.ts** — Top-level orchestrator: load grammar, parse, create RenderEngine, render entry rule, return result
+
+### Layer 5: Integration & Wiring
+
+24. **Env binding** — Add `GRAMMAR_KV: KVNamespace` to `src/shared/env.ts` and `wrangler.toml`
+25. **DI wiring** — Register Prestoplot services in `src/di/serviceFactory.ts` using lazy singleton pattern:
+
+```typescript
+// In ServiceFactory class:
+private _renderStoryService: RenderStoryService | null = null;
+
+/** Grammar-based text generation service. */
+get renderStoryService(): RenderStoryService {
+  this._renderStoryService ??= new RenderStoryService(
+    new KVStorage(this.env.GRAMMAR_KV),
+    new FtemplateEngine(),
+    new Mulberry32Random()
+  );
+  return this._renderStoryService;
+}
+```
 
 ### Key Technical Decisions
 
-**Async seed hashing**: `crypto.subtle.digest` is async in Workers. The seedToInt function returns a Promise. RenderContext caches resolved seed-ints in a Map to avoid redundant hashing within a single render pass.
+**Async seed hashing**: `crypto.subtle.digest` is async in Workers. The `seedToInt` function returns `Promise<number>`. RenderEngine caches resolved seed-ints in a `Map<string, number>` (keyed by scoped seed string) to avoid redundant hashing within a single render pass. Pattern:
 
-**PICK mode statefulness**: PICK maintains per-render depletion state. The SelectionState is held in RenderEngine (not persisted). Each render pass starts fresh — PICK state does not carry across requests.
+```typescript
+// In RenderEngine:
+private readonly seedIntCache = new Map<string, number>();
 
-**Include resolution order**: Breadth-first, left-to-right. Circular detection uses a visited-set built during resolution. CircularIncludeError thrown before any rule merging occurs.
+async getSeedInt(scopedSeed: string): Promise<number> {
+  const cached = this.seedIntCache.get(scopedSeed);
+  if (cached !== undefined) return cached;
+  const value = await this.randomPort.seedToInt(scopedSeed);
+  this.seedIntCache.set(scopedSeed, value);
+  return value;
+}
+```
 
-**Template recursion limit**: Both ftemplate and jinja2 engines enforce MAX_DEPTH = 50. Exceeding this throws a TemplateError.
+**PRNG reuse**: The existing `Mulberry32` class in `src/domain/galaxy/prng.ts` provides `random(): number` (returns [0,1)) and `randint(min, max): number`. The `Rng` interface in `RandomSource.ts` wraps this with a `next(): number` contract. Construction: `new Mulberry32(seedInt)`.
 
-**Markov chain sentinels**: Uses STX (\x02) and ETX (\x03) as start/end sentinels instead of spaces. Training pads with configurable order (default 3) STX sentinels at start and one ETX at end.
+**PICK mode statefulness**: PICK maintains per-render depletion state. The `SelectionState` (a shuffled index array + cursor) is held in RenderEngine keyed by rule name. Each render pass starts fresh — PICK state does not carry across requests. When the cursor reaches the end, a new epoch begins with a fresh Fisher-Yates shuffle seeded from `baseSeed-{ruleName}-epoch-{N}`.
 
-**YAML parsing**: Use the `yaml` npm package (already available or add as dependency). Parser validates schema structure and reports errors with rule names.
+**Include resolution order**: Breadth-first, left-to-right. Circular detection uses a `Set<string>` of visited grammar keys built during resolution. `CircularIncludeError` thrown before any rule merging occurs. Resolution loads each included grammar from storage, merges rules (included grammar's rules do NOT override the including grammar's same-named rules).
 
-**No D1 migration in Phase 1**: The D1 storage adapter is included for completeness but grammars will initially be stored in KV. D1 migration deferred unless needed.
+**Template recursion limit**: Both ftemplate and jinja2 engines enforce `MAX_DEPTH = 50`. The `depth` parameter is incremented on each recursive `evaluate()` call. Exceeding MAX_DEPTH throws `TemplateError`.
+
+**Markov chain sentinels**: Uses STX (`\x02`) and ETX (`\x03`) as start/end sentinels instead of spaces. Training pads with configurable order (default 3) STX sentinels at start and one ETX at end. Model is a `Map<string, Map<string, number>>` (ngram → next-char → count).
+
+**YAML parsing**: Use the `yaml` npm package (must be installed — not currently in package.json). Pure JavaScript, no Node.js deps, Workers-compatible. Parser validates schema structure at parse time and reports errors with rule names via `GrammarParseError`.
+
+**Port naming convention**: Follows existing codebase pattern — port interfaces in `src/application/ports/` as individual files (e.g., `GrammarStorage.ts`, `TemplateEngine.ts`, `RandomSource.ts`), matching `StarSystemRepository.ts`, `RouteRepository.ts` pattern. No `I` prefix on interface names.
+
+**No D1 migration in this phase**: The D1 storage adapter is included for completeness but grammars will initially be stored in KV. D1 migration SQL is prepared but not applied unless needed.
 
 ## Applied Learnings
 
