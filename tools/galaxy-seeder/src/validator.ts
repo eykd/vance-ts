@@ -4,6 +4,8 @@
  * @module validator
  */
 
+import { isObject } from '../../../src/shared/type-guards.js';
+
 /** Maximum allowed length for string fields to prevent oversized SQL statements. */
 const MAX_STRING_LENGTH = 256;
 
@@ -36,8 +38,6 @@ interface ValidationFailure {
 
 /** Result of input validation. */
 type ValidationResult = ValidationSuccess | ValidationFailure;
-
-import { isObject } from '../../../src/shared/type-guards.js';
 
 /**
  * Validates the top-level structure (metadata, routes, systems).
