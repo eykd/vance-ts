@@ -47,7 +47,6 @@ import type { Auth, BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 
-import { ProvisionWorkspaceUseCase } from '../application/use-cases/ProvisionWorkspaceUseCase';
 import { hashPassword, verifyPassword } from '../domain/services/passwordHasher';
 import { isPlainHttpLocalhost } from '../shared/authCookieNames';
 import type { Env } from '../shared/env';
@@ -55,8 +54,17 @@ import type { Env } from '../shared/env';
 import * as authSchema from './authSchema.js';
 import { wrapD1ForDrizzle } from './d1DateProxy.js';
 import { hashToken } from './tokenHasher';
-import { WorkspaceD1BatchAdapter } from './WorkspaceD1BatchAdapter.js';
-import { WorkspaceProvisioningService } from './WorkspaceProvisioningService.js';
+
+/**
+ * Callback port for workspace provisioning after user creation.
+ *
+ * Accepting this as a parameter decouples the infrastructure auth module
+ * from the application-layer use case, keeping the dependency direction
+ * clean (DI composition root → infrastructure, not infrastructure → application).
+ *
+ * @param userId - The newly created user's ID.
+ */
+export type OnUserCreated = (userId: string) => Promise<void>;
 
 /**
  * Snapshot of the env bindings that were active when `_auth` was created.
@@ -85,10 +93,11 @@ let _authEnvIdentity: AuthEnvIdentity | null = null;
  * produces a fresh instance rather than serving stale configuration.
  *
  * @param env - Cloudflare Workers environment bindings.
+ * @param onUserCreated - Callback invoked after a new user is created (workspace provisioning).
  * @returns The configured better-auth instance.
  * @throws {Error} When `BETTER_AUTH_SECRET` is shorter than 32 characters.
  */
-export function getAuth(env: Env): Auth<BetterAuthOptions> {
+export function getAuth(env: Env, onUserCreated: OnUserCreated): Auth<BetterAuthOptions> {
   if (env.BETTER_AUTH_SECRET === undefined || env.BETTER_AUTH_SECRET.length < 32) {
     throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
   }
@@ -107,13 +116,6 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
     // Capture the validated secret into a const so the databaseHooks closures
     // below can reference it without TypeScript requiring further narrowing.
     const secret: string = env.BETTER_AUTH_SECRET;
-
-    // Construct the workspace provisioner inside the getAuth closure so it has
-    // access to env.DB (raw D1) for the D1 batch transport.
-    // The provisioner is garbage-collected when _auth is reset (no teardown needed).
-    const batchAdapter = new WorkspaceD1BatchAdapter(env.DB);
-    const provisionUseCase = new ProvisionWorkspaceUseCase(batchAdapter);
-    const provisioner = new WorkspaceProvisioningService(provisionUseCase);
 
     _auth = betterAuth({
       database: drizzleAdapter(drizzle(wrapD1ForDrizzle(env.DB)), {
@@ -247,13 +249,13 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
              *
              * If provisioning fails, the user will receive a 503 from the
              * `requireWorkspace` middleware on first login. Manual recovery:
-             * call {@link ProvisionWorkspaceUseCase} with the user's ID.
+             * invoke the provisioning use case with the user's ID.
              *
              * @param user - The newly created user record from better-auth.
              */
             after: async (user: { id: string } & Record<string, unknown>): Promise<void> => {
               try {
-                await provisioner.onUserCreated(user.id);
+                await onUserCreated(user.id);
               } catch (err: unknown) {
                 console.error('[WorkspaceProvisioner] Failed to provision workspace', {
                   userId: user.id,

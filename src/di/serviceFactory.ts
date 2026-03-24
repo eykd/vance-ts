@@ -56,6 +56,7 @@ import { D1ContextRepository } from '../infrastructure/repositories/D1ContextRep
 import { D1InboxItemRepository } from '../infrastructure/repositories/D1InboxItemRepository';
 import { D1WorkspaceRepository } from '../infrastructure/repositories/D1WorkspaceRepository';
 import { WorkspaceD1BatchAdapter } from '../infrastructure/WorkspaceD1BatchAdapter';
+import { WorkspaceProvisioningService } from '../infrastructure/WorkspaceProvisioningService';
 import { createActionApiHandlers } from '../presentation/handlers/ActionApiHandlers';
 import { AppPageHandlers } from '../presentation/handlers/AppPageHandlers';
 import { AppPartialHandlers } from '../presentation/handlers/AppPartialHandlers';
@@ -214,7 +215,15 @@ export class ServiceFactory {
    */
   constructor(env: Env) {
     this.env = env;
-    this._authInstance = getAuth(env); // validates BETTER_AUTH_SECRET, throws if invalid
+
+    // Build the workspace provisioner in the composition root and inject it
+    // into getAuth, keeping the infrastructure layer free of application imports.
+    const batchAdapter = new WorkspaceD1BatchAdapter(env.DB);
+    const provisionUseCase = new ProvisionWorkspaceUseCase(batchAdapter);
+    const provisioner = new WorkspaceProvisioningService(provisionUseCase);
+    const onUserCreated = (userId: string): Promise<void> => provisioner.onUserCreated(userId);
+
+    this._authInstance = getAuth(env, onUserCreated); // validates BETTER_AUTH_SECRET, throws if invalid
     this._validatedSecret = env.BETTER_AUTH_SECRET;
     this._sessionCookieName = getSessionCookieName(env.BETTER_AUTH_URL);
     this._csrfCookieName = getCsrfCookieName(env.BETTER_AUTH_URL);

@@ -31,6 +31,9 @@ const mocks = vi.hoisted(() => ({
   D1AuditEventRepository: vi.fn(),
   D1InboxItemRepository: vi.fn(),
   WorkspaceD1BatchAdapter: vi.fn(),
+  WorkspaceProvisioningService: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
+    this.onUserCreated = vi.fn().mockResolvedValue(undefined);
+  }),
   ClarifyInboxItemD1BatchAdapter: vi.fn(),
   ProvisionWorkspaceUseCase: vi.fn(),
   ListAreasUseCase: vi.fn(),
@@ -123,6 +126,10 @@ vi.mock('../infrastructure/repositories/D1AuditEventRepository', () => ({
 
 vi.mock('../infrastructure/WorkspaceD1BatchAdapter', () => ({
   WorkspaceD1BatchAdapter: mocks.WorkspaceD1BatchAdapter,
+}));
+
+vi.mock('../infrastructure/WorkspaceProvisioningService', () => ({
+  WorkspaceProvisioningService: mocks.WorkspaceProvisioningService,
 }));
 
 vi.mock('../infrastructure/ClarifyInboxItemD1BatchAdapter', () => ({
