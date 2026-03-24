@@ -265,11 +265,35 @@ Grammar keys are global within the `GRAMMAR_KV` namespace. Multiple features or 
 
 `D1Storage` MUST use D1's `prepare().bind()` API for all queries — never string interpolation or template literals for SQL construction. Grammar keys are developer-defined strings that could contain SQL metacharacters. **Mitigation**: Enforce in code review and add a test case with a grammar key containing SQL injection payload (e.g., `"'; DROP TABLE grammars; --"`) verifying it is stored and retrieved correctly without side effects.
 
+### KV Key Case-Normalization Consistency
+
+The design spec (`09-storage-adapters.md`) specifies that `KVStorage` normalizes module names to lowercase for KV key construction (`grammar:{moduleName}`). The plan validates grammar keys with `[A-Za-z][A-Za-z0-9_-]*` (allowing uppercase), but if KV normalizes at write time, a grammar keyed as `"SystemDescriptions"` would be retrievable only as `"systemdescriptions"`. `InMemoryStorage` uses a `Map` (case-sensitive), creating behavioral divergence: tests pass with mixed-case keys in memory but production silently lowercases. **Mitigation**: Enforce lowercase-only grammar keys via `[a-z][a-z0-9_-]*` validation in `grammarParser.ts`, eliminating the need for runtime normalization. Update `contracts/storage-port.md` to document that all keys are lowercase. Add test: mixed-case key `"SystemDesc"` → `GrammarParseError`.
+
 ## Edge Cases & Error Handling
+
+### Design Spec vs Plan Contract Divergence
+
+The design specs in `docs/spec/systems/prestoplot/02-ports-and-adapters.md` and the plan contracts in `specs/016-prestoplot-core/contracts/` use different interface signatures. These are intentional refinements — the plan contracts are canonical for implementation:
+
+| Port           | Design Spec                                              | Plan Contract (Canonical)                                                |
+| -------------- | -------------------------------------------------------- | ------------------------------------------------------------------------ |
+| StoragePort    | `resolveModule(name): Promise<Grammar>`, `listModules()` | `load(key): Promise<GrammarDto \| null>`, `save()`, `delete()`, `keys()` |
+| TemplateEngine | `render(template, sourcePath, context): RenderedString`  | `evaluate(template, context, depth): string`                             |
+| RandomPort     | `getRng(seed)` with rich `Rng` (random, randint, choice) | `seedToInt(seed): Promise<number>`, `createRng(seed): Rng` (next only)   |
+
+**Key design decisions behind divergence**:
+
+- **StoragePort** returns `GrammarDto | null` (not `Grammar`) — keeps infrastructure layer unaware of domain types. Null return for missing keys (not exception) follows the existing codebase pattern.
+- **TemplateEnginePort** takes a flat `Record<string, string>` context (not `RenderContext`) — keeps template engines decoupled from domain state. `depth` is passed explicitly for recursion tracking. Returns `string` (not `RenderedString`) — article accessor resolution is handled in `RenderEngine`, not the template engine.
+- **RandomPort** splits into `seedToInt` (async SHA-256) + `createRng` (sync construction) — cleaner separation of async and sync concerns. `Rng.next()` is minimal; `randint` and `choice` are utility functions in `selectionModes.ts`.
+
+**Action**: The design specs are reference documents for the original Prestoplot design. Where they conflict with plan contracts, the plan contracts govern implementation. Do not update the design specs — they serve as historical context.
 
 ### MARKOV Dead-Ends
 
 MARKOV generation with `order > training-item-length` produces dead-end states where no transition exists from the start key. Dead-ends surface as `template_error` in `RenderStoryResult` with no automatic retry. **Guidance for grammar authors**: Ensure Markov training corpus items are longer than the configured order. Add test cases covering MARKOV with `order > training-item-length` to verify `MarkovDeadEndError` propagation.
+
+**Implementation note**: `MarkovDeadEndError` is thrown from the domain layer (`markovChain.ts`) during `renderRule()` execution. It is NOT a `TemplateError` and will not be caught by the `TemplateError` catch block in `RenderStoryService.render()`. `RenderStoryService.render()` MUST include an explicit catch for `MarkovDeadEndError` and map it to `{ ok: false, kind: 'template_error', sourcePath: '{moduleName}.{ruleName}', message: e.message }`. The catch order matters: `MarkovDeadEndError` must be checked before the generic `Error` fallback. Add a test in `renderStoryService.spec.ts` where a Markov rule has a corpus of one single-character item (`["a"]` with `order: 2`), verify the result is `{ ok: false, kind: 'template_error' }` rather than an unhandled exception.
 
 ### MARKOV Items With Template Syntax
 
@@ -374,6 +398,22 @@ A `TextRule` with exactly one `WeightedAlternative` always selects that alternat
 
 StructRule fields are rendered lazily on access in template expressions. Each field access MUST create its own scoped seed: `scopeSeed(baseSeed, "{structName}-{fieldName}")`. Fields must NOT share a single Rng instance — otherwise the order of field access in the template would affect output, breaking determinism when two templates access the same struct's fields in different orders. Add test case: two templates accessing the same struct fields in different orders, verify identical per-field output.
 
+### PICK State Key Scope for Struct Field Access
+
+`RenderContext.selectionState.pickState` uses rule names as keys. When a ListRule named `"speed"` is accessed directly as `{speed}` and also indirectly via `{Stats.speed}` (which resolves the struct field referencing the `"speed"` rule), both access paths share the same PICK state entry `pickState["speed"]`. However, the scoped seed used for PICK epoch initialization differs: direct access uses `"{baseSeed}-speed-pick-epoch-0"` while struct-mediated access uses `"{Stats-scoped-seed}-speed-pick-epoch-0"`. **Resolution**: PICK state key MUST include the scoped seed prefix to avoid cross-scope state sharing. Key PICK state by `"{scopedSeed}-{ruleName}-pick"` instead of just `"{ruleName}"`. This guarantees that direct and struct-scoped accesses maintain independent depletion pools. Add a test: a PICK rule accessed both directly and via a struct field within the same template — verify each access path depletes independently.
+
+### userVars Name Collision With Grammar Rules
+
+`RenderStoryRequest.userVars` keys are resolved before grammar rule names in template expressions. A userVar with the same name as a grammar rule silently shadows the rule, and since userVar values are plain strings (not recursively rendered), any template expressions in the rule's alternatives are never evaluated. This is correct per spec (userVars take priority) but is a common authoring mistake. **Mitigation**: In `RenderStoryService.render()`, after loading and merging the grammar, validate that no `userVars` key matches an existing rule name in the merged grammar. If a collision is detected, return `{ ok: false, kind: 'template_error', sourcePath: '(request)', message: "userVar '{key}' conflicts with grammar rule of the same name" }`. Add test cases: userVar matching a rule name → collision error; userVar with a unique name → injected correctly.
+
+### Reserved Grammar Key Rejection
+
+The grammar file format reserves `include` and `render` as top-level keys. A grammar YAML that defines a rule named `"include"` or `"render"` must be rejected at parse time. Since `include` and `render` match the allowed identifier pattern `[A-Za-z_][A-Za-z0-9_]*`, the parser would silently misinterpret them without explicit validation. **Mitigation**: In `grammarParser.ts`, after collecting all top-level YAML keys, validate that no rule name is `"include"` or `"render"` (case-sensitive). Throw `GrammarParseError("Rule name '{name}' is reserved and cannot be used as a rule name")`. Add test cases: YAML with `include:` and `render:` as rule names → `GrammarParseError`.
+
+### Markov maxLength Validation
+
+`generateMarkov(model, rng, maxLength)` with `maxLength <= 0` silently returns an empty string without entering the generation loop. This is not a `MarkovDeadEndError` — it's a silent contract violation. **Mitigation**: In `generateMarkov`, validate `maxLength >= 1` and throw `RangeError("maxLength must be >= 1, got {maxLength}")` if violated. Also validate `maxLength` is a finite integer. Add test cases: `maxLength: 0` → `RangeError`; `maxLength: -5` → `RangeError`; `maxLength: NaN` → `RangeError`.
+
 ## Performance Considerations
 
 ### CachedStorage Required for KV
@@ -438,3 +478,11 @@ Cloudflare KV is eventually consistent — writes may take up to 60 seconds to p
 ### CachedStorage Design: In-Memory vs KV Cache
 
 The spec (09-storage-adapters.md) defines `CachedStorage` as using a secondary KV namespace for cross-request persistence: `constructor(backing, cache: KVNamespace, ttlSeconds)`. The plan's DI wiring uses `new CachedStorage(new KVStorage(...), { ttlMs: 60_000 })` suggesting an in-memory Map cache. These are different designs with different behavior. **Decision**: Use in-memory `Map<string, { dto: GrammarDto; expiresAt: number }>` for Phase 1. The primary storage is already KV — caching KV reads in another KV namespace adds latency and complexity. Update the DI wiring to match the chosen design and update or override the spec.
+
+### CachedStorage Concurrent Miss (Thundering Herd)
+
+Cloudflare Workers handle concurrent requests via the event loop (single-threaded but cooperative at `await` points). Two concurrent render calls for the same uncached grammar will both observe a cache miss, both call `backing.load()`, and both write to the in-memory Map on resolution. This is benign for correctness (last write wins, both values are identical) but wastes a backing store call. **Decision**: Accept duplicate backing store calls for Phase 1 — the waste is bounded to one extra KV/D1 read per concurrent miss. If profiling shows this as a hotspot, implement a `pending: Map<string, Promise<GrammarDto | null>>` to coalesce concurrent misses: store the in-flight promise before the first `await`, subsequent misses for the same key return the same promise.
+
+### Template Cache Eviction
+
+`FtemplateEngine` caches tokenized templates on the DI singleton instance. When grammars are updated and `CachedStorage` TTL expires, old tokenized templates remain in the cache indefinitely. Since the cache is keyed by template string content and tokens are deterministic, stale entries are harmless for correctness — only a memory issue. **Decision**: Implement `MAX_CACHE_SIZE = 500` with FIFO eviction from Phase 1. Workers isolate lifetimes are bounded (minutes to hours), making unbounded growth tolerable at current scale, but the eviction guard is cheap insurance. Add a test verifying that the cache evicts the oldest entry when the limit is reached.
