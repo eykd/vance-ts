@@ -45,4 +45,6 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch(() => {});
+main().catch((err: unknown) => {
+  process.stderr.write(String(err) + '\n');
+});
