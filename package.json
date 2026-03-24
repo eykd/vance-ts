@@ -112,7 +112,7 @@
     "@noble/hashes": "^2.0.1",
     "better-auth": "1.5.6",
     "drizzle-orm": "^0.45.1",
-    "hono": "^4.12.8"
+    "hono": "^4.12.9"
   },
   "overrides": {
     "@sveltejs/vite-plugin-svelte": {
