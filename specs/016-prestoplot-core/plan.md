@@ -220,6 +220,7 @@ All limits and thresholds with their owning files:
 | `MAX_KV_VALUE_BYTES`        | 24,000,000 | `kvStorage.ts`                    | KV put size guard           |
 | `MAX_MARKOV_CORPUS_PRODUCT` | 100,000    | `grammarParser.ts`                | chars × order budget        |
 | `MAX_MARKOV_ORDER`          | 10         | `grammarParser.ts`                | Markov order upper bound    |
+| `MAX_DTO_CACHE_SIZE`        | 100        | `cachedStorage.ts`                | Grammar DTO cache (FIFO)    |
 
 ### Validation Rules Placement
 
@@ -633,3 +634,59 @@ A `StructRule` with an empty `fields` map (`fields: {}`) is not rejected at pars
 `MAX_INCLUDE_DEPTH = 20` and `MAX_INCLUDE_COUNT = 50` bound iterations but not wall-clock time. With parallel resolution at each depth level, worst case is 20 sequential depth levels × KV cold read latency (10-40ms) = 200-800ms per render for deep include chains. While the 50ms performance goal applies to "typical grammars (< 100 rules)", deep include trees could exceed Workers' CPU time limits (10-50ms on free tier, 30s on paid).
 
 **Mitigation**: Document that deep include chains (> 5 levels) should be avoided in grammar design. For Phase 1, the practical include depth is 2-3 levels. If Phase 4 batch rendering hits latency issues, consider pre-resolving includes at grammar upload time (flattening the include tree into a single merged grammar stored as one KV entry). This eliminates per-render include resolution entirely.
+
+### CachedStorage DTO Cache Unbounded Growth (Medium — Performance)
+
+_Added by adversarial review (sp:04-red-team, 2026-03-24)._
+
+`CachedStorage` holds a `Map<string, { dto: GrammarDto; expiresAt: number }>` on the DI singleton. The Jinja2Engine template cache is bounded at `MAX_CACHE_SIZE = 500` with FIFO eviction, but no equivalent bound exists for the grammar DTO cache. Workers isolates can be long-lived (minutes to hours). With `MAX_KV_VALUE_BYTES = 24_000_000`, even a few large cached DTOs could consume significant memory against the 128MB isolate ceiling.
+
+**Mitigation**: Add `MAX_DTO_CACHE_SIZE = 100` to `cachedStorage.ts` with FIFO eviction (same pattern as template cache). At documented scale (dozens of grammars), this is generous but prevents unbounded growth in edge cases. Add a test verifying eviction triggers when the 101st distinct key is cached.
+
+### StoragePort Save/Delete Authorization Gate (Medium — Security)
+
+_Added by adversarial review (sp:04-red-team, 2026-03-24)._
+
+`StoragePort.save()` and `StoragePort.delete()` are included in the port interface with no authorization contract documented anywhere in the call stack. `RenderStoryService` only calls `load()`, but the port interface is generic — if a future handler wires directly to the storage port, mutating operations on production KV are unguarded. Since `InMemoryStorage` is wired in tests without restriction, the absence of an authorization contract is invisible in unit tests.
+
+**Mitigation**: (1) Add JSDoc to `StoragePort.save()` and `StoragePort.delete()`: "Administrative operation — must not be exposed in public-facing handlers without authorization." (2) Document in the DI wiring section: "StoragePort save/delete are administrative operations. The `renderStoryService` getter only needs `load()` and `keys()`. A separate admin service or authorized middleware must gate save/delete access in production." (3) Consider splitting the port into `GrammarReader` (load, keys) and `GrammarWriter` (save, delete) to enforce the distinction at the type level. This split is optional for Phase 1 but recommended.
+
+### InMemoryStorage Accidental Production Wiring (Medium — Misuse)
+
+_Added by adversarial review (sp:04-red-team, 2026-03-24)._
+
+`InMemoryStorage` is documented as "for testing" but is a valid `StoragePort` implementation with no production guard. If accidentally wired in `serviceFactory.ts` (e.g., during staging setup or when `GRAMMAR_KV` binding is missing), the singleton holds state across all requests in the same isolate. Grammars saved in one request are silently visible to subsequent requests — cross-request state leakage. Unlike a missing KV binding (which fails loudly), `InMemoryStorage` succeeds silently.
+
+**Mitigation**: In `inMemoryStorage.ts`, document prominently: "Test-only implementation — must not appear in serviceFactory.ts." In `serviceFactory.ts`, the `renderStoryService` getter must reference `this.env.GRAMMAR_KV` — if the binding is missing, construction fails loudly at the KV adapter level. No additional runtime guard needed in Phase 1 since the DI wiring is code-reviewed.
+
+### Jinja2Engine Error Messages Echo User Content (Low — Security)
+
+_Added by adversarial review (sp:04-red-team, 2026-03-24)._
+
+`TemplateError` messages include user-supplied content from parsed tokens (e.g., `"Property 'X' not found on context object"` where X comes from the template expression). The plan requires logging errors at WARN level. If logs are accessible to operators or monitoring systems, crafted grammar expressions can use error messages as a side channel to probe context structure. Combined with the existing "Error Message Information Leakage" finding (HTTP responses), this creates a logging-side exposure.
+
+**Mitigation**: In `jinja2Engine.ts`, truncate user-supplied content in error messages to 50 characters and strip non-printable characters before interpolating into `TemplateError`. Add a test: template with a 1,000-character expression name → verify error message truncates the expression. This complements the existing HTTP-response mitigation with a logging-side defense.
+
+### PICK/RATCHET With Duplicate List Items (Low — EdgeCase)
+
+_Added by adversarial review (sp:04-red-team, 2026-03-24)._
+
+The plan does not specify behavior when a `ListRule` with PICK or RATCHET mode contains duplicate string values (e.g., `items: ["red", "red", "blue"]`). PICK's Fisher-Yates shuffle treats each index as a distinct slot — duplicates are valid and each slot is picked once per epoch. RATCHET cycles by index. This is well-defined algorithmically, but grammar authors may expect deduplicated semantics.
+
+**Resolution**: Duplicates are treated as distinct slots by index, not by value. A rule with `items: ['red', 'red', 'blue']` in PICK mode returns 'red' twice per epoch (once per slot). This is intentional — authors who want weighted selection should use REUSE mode with TextRule weights. No parse-time rejection of duplicates. Add a test verifying PICK with duplicates returns each slot exactly once per epoch.
+
+### GrammarDto Map Key Order on Round-Trip (Low — EdgeCase)
+
+_Added by adversarial review (sp:04-red-team, 2026-03-24)._
+
+`Grammar.rules` is a `ReadonlyMap<string, Rule>`. `grammarToDto` serializes to a plain JSON object. V8 guarantees insertion order for string-keyed properties, so round-trips within Workers preserve order. However, if a future migration tool or admin script processes GrammarDto JSON outside V8 (Python, Deno, etc.), key order may differ, causing subtle divergence in include conflict resolution (left-to-right precedence depends on rule iteration order).
+
+**Resolution**: Document in `dto.ts` JSDoc: "Rule order in JSON is insertion order (V8-guaranteed). `grammarFromDto` reconstructs the Map in `Object.entries()` order. External tools processing GrammarDto JSON must preserve key order." Add a round-trip test: `grammarToDto → JSON.stringify → JSON.parse → grammarFromDto` produces identical key iteration order.
+
+### Cross-Render SHA-256 Cache for Batch Scenarios (Low — Performance)
+
+_Added by adversarial review (sp:04-red-team, 2026-03-24)._
+
+`RenderContext.seedIntCache` caches `seedToInt` results per render pass but discards the cache after each call. For Phase 4 batch rendering (e.g., 100 system descriptions per request), the same scoped seed strings are hashed redundantly: 50 rules × 100 renders = 5,000 SHA-256 calls. While `crypto.subtle.digest` is sub-millisecond in Workers, the aggregate adds measurable latency.
+
+**Decision**: Deferred — Phase 1 single-render use case does not require cross-render caching. If Phase 4 profiling shows SHA-256 as a hotspot, add a `SeedCache` (bounded `Map<string, number>`, max 10,000 entries) on `RenderStoryService` shared across render calls within one request. Do not share across requests to avoid unbounded growth.
