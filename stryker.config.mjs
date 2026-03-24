@@ -24,6 +24,7 @@ export default {
   reporters: ['html', 'json', 'clear-text', 'progress'],
   htmlReporter: { fileName: 'reports/mutation/mutation.html' },
   jsonReporter: { fileName: 'reports/mutation/mutation.json' },
+  ignorePatterns: ['.claude'],
   thresholds: { high: 80, low: 70, break: 65 },
   concurrency: 2,
   timeoutMS: 60_000,
