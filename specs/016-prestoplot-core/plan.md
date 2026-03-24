@@ -220,3 +220,96 @@ No relevant solutions found in `.specify/solutions/` — solutions index is empt
 | VII. Simplicity & Maintainability | PASS   | Bottom-up build order, each file independently testable         |
 
 All gates pass. No violations to justify.
+
+## Security Considerations
+
+### Storage Namespace Isolation
+
+`GRAMMAR_KV` MUST be a dedicated KV namespace, not shared with other application data. A misconfigured binding pointing at a shared namespace could silently overwrite unrelated KV entries. The DI wiring must enforce this via a dedicated binding name. All mutating operations (save, delete) should log at INFO level for operational traceability.
+
+### Scoped Seed Separator Collision
+
+`scopeSeed` concatenates as `"{baseSeed}-{scopeKey}"`. A rule named `"a-b"` produces the same scoped seed as rule `"a"` further scoped with `"b"`, breaking determinism isolation. **Mitigation**: Rule names MUST NOT contain the separator character. Enforce at parse time in `grammarParser.ts` — reject rule names containing hyphens with `GrammarParseError`. Alternatively, use NUL (`\x00`) as separator. Document separator choice.
+
+### YAML Deserialization Safety
+
+The `yaml` npm package may coerce values unexpectedly (YAML 1.1 `yes`/`no` → booleans, numeric keys → numbers, `null` values in lists). **Mitigation**: Use `yaml.parse(source, { schema: 'json' })` to prevent type coercions. In `grammarParser.ts`, explicitly type-check all values — reject non-string list items (including `null`, `undefined`, `boolean`, `number`) with `GrammarParseError`. Validate rule name keys match `[A-Za-z_][A-Za-z0-9_]*`.
+
+### Seed Input Validation
+
+`RenderStoryRequest.seed` is typed as `string` but `makeSeed` requires exactly 32 lowercase hex characters. **Decision**: The service accepts any non-empty string as a seed and hashes it directly via `seedToInt` — it does NOT require the 32-char hex format externally. `generateSeed()` produces that format for callers who want a canonical seed. Invalid/empty seed maps to a `{ ok: false, kind: 'invalid_seed' }` result variant.
+
+## Edge Cases & Error Handling
+
+### MARKOV Dead-Ends
+
+MARKOV generation with `order > training-item-length` produces dead-end states where no transition exists from the start key. Dead-ends surface as `template_error` in `RenderStoryResult` with no automatic retry. **Guidance for grammar authors**: Ensure Markov training corpus items are longer than the configured order. Add test cases covering MARKOV with `order > training-item-length` to verify `MarkovDeadEndError` propagation.
+
+### MARKOV Deterministic Identity
+
+A MARKOV rule produces **one deterministic value per (seed, ruleName) pair** per render pass. Multiple references to the same MARKOV rule within one template return identical text (the Rng is initialized from the same scoped seed). This is by design — if varied output per reference is needed, authors must use distinct rule names. Document prominently as this is counterintuitive.
+
+### RenderEngine Transience
+
+`RenderEngine` is constructed fresh inside each `render()` call; it MUST NOT be a field on `RenderStoryService`. The service itself is a DI singleton, but it creates a new engine per invocation. `RenderContext` is single-use — once a render call completes (success or failure), the context is discarded. Callers must not retry by calling `renderRule` again on the same engine after an error.
+
+### Include Resolution: Cycles vs. Diamonds
+
+Circular include detection requires tracking the **current resolution path** (a stack), not just a global visited set. A `Set<string>` visited set is used for **deduplication** (prevents redundant loads of the same grammar via different paths — diamond includes). True cycle detection pushes on entry, pops on exit. An already-visited module reached via a different path is silently skipped (correct behavior), not flagged as circular.
+
+### LIST Mode Out-of-Bounds
+
+Accessing an out-of-bounds index via `{Name[N]}` in template expressions MUST throw `TemplateError` with message `"Index N out of range for list 'Name' (length M)"`. The `Datalist.get()` method returns `undefined` for out-of-range, but the template engine converts this to an actionable error. Add test cases in both `ftemplateEngine.spec.ts` and `jinja2Engine.spec.ts`.
+
+### crypto.subtle Failure
+
+`crypto.subtle.digest` failure (resource-constrained isolate, invalid buffer) is currently unhandled. **Mitigation**: Add `{ ok: false, kind: 'seed_error', message: string }` to `RenderStoryResult`. Wrap all `seedToInt` calls in try/catch inside `RenderEngine` and map failures to this variant. The service's "never throws" contract must hold.
+
+### GrammarDto Deserialization
+
+`grammarFromDto` must include runtime type guards for `kind` on each rule DTO. Unrecognized kinds (e.g., from forward-version content in D1) must throw `StorageError`, not produce `undefined`. Add test: `{ kind: 'unknown' }` → `StorageError`.
+
+### Article Generation Non-ASCII Limitation
+
+Accented vowels (é, è, â, ô, etc.) are treated as consonants → return "a". This is a known limitation acceptable for English-language game content. Grammar authors should avoid leading non-ASCII characters in rule outputs used with article accessors. Add an explicit test verifying fallback behavior for words like "élan".
+
+## Performance Considerations
+
+### CachedStorage Required for KV
+
+The DI wiring MUST use `CachedStorage` wrapping `KVStorage` by default — not just for D1. A grammar with 5 transitive includes triggers 5+ KV reads per render. KV cold reads are ~10-40ms each; without caching, a 5-level include chain adds 50-200ms, exceeding the 50ms performance goal. Update `serviceFactory.ts`:
+
+```typescript
+get renderStoryService(): RenderStoryService {
+  this._renderStoryService ??= new RenderStoryService(
+    new CachedStorage(new KVStorage(this.env.GRAMMAR_KV), { ttlMs: 60_000 }),
+    new FtemplateEngine(),
+    new Mulberry32Random()
+  );
+  return this._renderStoryService;
+}
+```
+
+### Render Budget (Evaluation Counter)
+
+The recursion depth limit (MAX_DEPTH = 50) prevents stack overflow for linear chains but not exponential time for branching mutual recursion. A rule rendering `"{B} and {B}"` where B renders `"{C} and {C}"` produces 2^N evaluations before depth N is reached. **Mitigation**: Add `MAX_EVALUATIONS = 10_000` to `RenderContext`. Increment on every `renderRule` call. Throw `RenderBudgetError` when exceeded. This is distinct from recursion depth — it bounds total work regardless of tree shape.
+
+### Template String Length Limit
+
+Template strings exceeding `MAX_TEMPLATE_LENGTH = 10_000` characters should throw `GrammarParseError` at parse time. This prevents oversized cache entries in the singleton `FtemplateEngine` template cache and bounds tokenizer runtime.
+
+### Template Cache Bounds
+
+`FtemplateEngine` caches tokenized templates in a `Map<string, FtemplateToken[]>` on the singleton instance. Growth is bounded by the total number of distinct rule templates across all grammars (finite for a finite grammar set). Document this invariant. If unbounded growth becomes a concern, add `MAX_CACHE_SIZE = 1000` with FIFO eviction.
+
+### Markov Training Corpus Limits
+
+`trainMarkovChain` with large corpus and high order can exceed Workers' 50ms synchronous CPU budget. **Mitigation**: Validate that `totalCorpusChars × order` does not exceed 100,000. Throw `RangeError` if exceeded. Recommended corpus: < 1,000 total characters × order for Workers runtime.
+
+### Include Depth Limit
+
+Separate from template recursion depth. A deep acyclic include chain (200 levels) triggers 200 sequential KV reads. **Mitigation**: Add `MAX_INCLUDE_DEPTH = 20`. Throw `IncludeDepthError` when exceeded. This is distinct from circular detection — it bounds operational latency.
+
+### Seed Cache Memory
+
+`RenderContext.seedIntCache` is bounded by unique scoped seeds per render pass: at most O(rules × depth). For grammars within documented scale (hundreds of rules, MAX_DEPTH 50), this is ~5,000 entries (~300KB). The cache is GC'd after each render call. This is a known tradeoff vs. redundant SHA-256 calls.
