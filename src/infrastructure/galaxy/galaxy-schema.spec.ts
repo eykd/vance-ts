@@ -29,7 +29,7 @@ const GALAXY_MIGRATIONS = [
   x              INTEGER NOT NULL,
   y              INTEGER NOT NULL,
   is_oikumene    INTEGER NOT NULL,
-  classification TEXT    NOT NULL,
+  classification TEXT    NOT NULL CHECK (classification IN ('oikumene','uninhabited','lost_colony','hidden_enclave')),
   density        TEXT    NOT NULL,
   attributes     TEXT    NOT NULL,
   planetary      TEXT    NOT NULL,
@@ -41,15 +41,15 @@ const GALAXY_MIGRATIONS = [
       'CREATE INDEX idx_star_systems_name ON star_systems (name)',
       'CREATE INDEX idx_star_systems_classification ON star_systems (classification)',
       `CREATE TABLE routes (
-  origin_id      TEXT NOT NULL,
-  destination_id TEXT NOT NULL,
+  origin_id      TEXT NOT NULL REFERENCES star_systems(id),
+  destination_id TEXT NOT NULL REFERENCES star_systems(id),
   cost           REAL NOT NULL,
   PRIMARY KEY (origin_id, destination_id)
 )`,
       'CREATE INDEX idx_routes_destination ON routes (destination_id)',
       `CREATE TABLE trade_pairs (
-  system_a_id TEXT    NOT NULL,
-  system_b_id TEXT    NOT NULL,
+  system_a_id TEXT    NOT NULL REFERENCES star_systems(id),
+  system_b_id TEXT    NOT NULL REFERENCES star_systems(id),
   btn         REAL    NOT NULL,
   hops        INTEGER NOT NULL,
   PRIMARY KEY (system_a_id, system_b_id)
@@ -138,27 +138,60 @@ describe('galaxy schema migration', () => {
   it('enforces UNIQUE constraint on star_systems name', async () => {
     await typedEnv.DB.prepare(
       `INSERT INTO star_systems (id, name, x, y, is_oikumene, classification, density, attributes, planetary, civilization, trade_codes, economics)
-       VALUES ('s1', 'Sol', 0, 0, 1, 'G2V', 'medium', '[]', '[]', '[]', '[]', '{}')`
+       VALUES ('s1', 'Sol', 0, 0, 1, 'oikumene', 'medium', '[]', '[]', '[]', '[]', '{}')`
     ).run();
 
     await expect(
       typedEnv.DB.prepare(
         `INSERT INTO star_systems (id, name, x, y, is_oikumene, classification, density, attributes, planetary, civilization, trade_codes, economics)
-         VALUES ('s2', 'Sol', 1, 1, 0, 'K0V', 'low', '[]', '[]', '[]', '[]', '{}')`
+         VALUES ('s2', 'Sol', 1, 1, 0, 'uninhabited', 'low', '[]', '[]', '[]', '[]', '{}')`
       ).run()
     ).rejects.toThrow(/UNIQUE/);
+  });
+
+  it('enforces CHECK constraint on star_systems classification', async () => {
+    await expect(
+      typedEnv.DB.prepare(
+        `INSERT INTO star_systems (id, name, x, y, is_oikumene, classification, density, attributes, planetary, civilization, trade_codes, economics)
+         VALUES ('s-chk', 'CheckTest', 99, 99, 0, 'invalid_class', 'low', '[]', '[]', '[]', '[]', '{}')`
+      ).run()
+    ).rejects.toThrow(/CHECK/);
+  });
+
+  it('accepts valid classification values', async () => {
+    const validValues = ['oikumene', 'uninhabited', 'lost_colony', 'hidden_enclave'] as const;
+    for (let i = 0; i < validValues.length; i++) {
+      const cls = validValues[i]!;
+      await typedEnv.DB.prepare(
+        `INSERT INTO star_systems (id, name, x, y, is_oikumene, classification, density, attributes, planetary, civilization, trade_codes, economics)
+         VALUES (?, ?, ?, ?, 0, ?, 'low', '[]', '[]', '[]', '[]', '{}')`
+      )
+        .bind(`valid-${String(i)}`, `ValidSys${String(i)}`, 200 + i, 200 + i, cls)
+        .run();
+    }
+
+    const { results } = await typedEnv.DB.prepare(
+      `SELECT DISTINCT classification FROM star_systems WHERE id LIKE 'valid-%' ORDER BY classification`
+    ).all<{ readonly classification: string }>();
+
+    expect(results.map((r) => r.classification)).toEqual([
+      'hidden_enclave',
+      'lost_colony',
+      'oikumene',
+      'uninhabited',
+    ]);
   });
 
   it('enforces UNIQUE constraint on star_systems coordinates', async () => {
     await typedEnv.DB.prepare(
       `INSERT INTO star_systems (id, name, x, y, is_oikumene, classification, density, attributes, planetary, civilization, trade_codes, economics)
-       VALUES ('s3', 'Alpha', 5, 5, 0, 'M1V', 'high', '[]', '[]', '[]', '[]', '{}')`
+       VALUES ('s3', 'Alpha', 5, 5, 0, 'oikumene', 'high', '[]', '[]', '[]', '[]', '{}')`
     ).run();
 
     await expect(
       typedEnv.DB.prepare(
         `INSERT INTO star_systems (id, name, x, y, is_oikumene, classification, density, attributes, planetary, civilization, trade_codes, economics)
-         VALUES ('s4', 'Beta', 5, 5, 1, 'F5V', 'low', '[]', '[]', '[]', '[]', '{}')`
+         VALUES ('s4', 'Beta', 5, 5, 1, 'uninhabited', 'low', '[]', '[]', '[]', '[]', '{}')`
       ).run()
     ).rejects.toThrow(/UNIQUE/);
   });

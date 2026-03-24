@@ -31,7 +31,7 @@ const STAR_SYSTEMS_QUERIES = [
   x              INTEGER NOT NULL,
   y              INTEGER NOT NULL,
   is_oikumene    INTEGER NOT NULL,
-  classification TEXT    NOT NULL,
+  classification TEXT    NOT NULL CHECK (classification IN ('oikumene','uninhabited','lost_colony','hidden_enclave')),
   density        TEXT    NOT NULL,
   attributes     TEXT    NOT NULL,
   planetary      TEXT    NOT NULL,
@@ -47,8 +47,8 @@ const STAR_SYSTEMS_QUERIES = [
 /** Routes table DDL statements. */
 const ROUTES_QUERIES = [
   `CREATE TABLE routes (
-  origin_id      TEXT NOT NULL,
-  destination_id TEXT NOT NULL,
+  origin_id      TEXT NOT NULL REFERENCES star_systems(id),
+  destination_id TEXT NOT NULL REFERENCES star_systems(id),
   cost           REAL NOT NULL,
   PRIMARY KEY (origin_id, destination_id)
 )`,
@@ -58,8 +58,8 @@ const ROUTES_QUERIES = [
 /** Trade pairs table DDL statements. */
 const TRADE_PAIRS_QUERIES = [
   `CREATE TABLE trade_pairs (
-  system_a_id TEXT    NOT NULL,
-  system_b_id TEXT    NOT NULL,
+  system_a_id TEXT    NOT NULL REFERENCES star_systems(id),
+  system_b_id TEXT    NOT NULL REFERENCES star_systems(id),
   btn         REAL    NOT NULL,
   hops        INTEGER NOT NULL,
   PRIMARY KEY (system_a_id, system_b_id)
