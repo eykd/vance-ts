@@ -1,4 +1,4 @@
-import type { StarSystem } from '../../domain/galaxy/types';
+import type { StarSystem } from '../galaxy/types';
 
 /**
  * A star system that is a trade partner, along with its bilateral trade number and hop distance.

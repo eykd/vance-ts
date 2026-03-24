@@ -4,9 +4,9 @@
  * @module infrastructure/galaxy/mappers
  */
 
-import type { ConnectedSystem } from '../../application/ports/RouteRepository.js';
-import type { TradePairPartner } from '../../application/ports/TradePairRepository.js';
 import type { Classification, StarSystem } from '../../domain/galaxy/types.js';
+import type { ConnectedSystem } from '../../domain/interfaces/RouteRepository.js';
+import type { TradePairPartner } from '../../domain/interfaces/TradePairRepository.js';
 
 /** D1 row shape for the star_systems table columns. */
 export interface StarSystemRow {

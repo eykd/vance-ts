@@ -7,7 +7,7 @@
 import type {
   TradePairPartner,
   TradePairRepository,
-} from '../../application/ports/TradePairRepository.js';
+} from '../../domain/interfaces/TradePairRepository.js';
 
 import type { StarSystemRow } from './mappers.js';
 import { mapRowToTradePairPartner } from './mappers.js';
