@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { Classification } from '../../domain/galaxy/types.js';
 
 import {
+  assertStarSystemRow,
   mapRowToConnectedSystem,
   mapRowToStarSystem,
   mapRowToTradePairPartner,
@@ -60,6 +61,55 @@ function starSystemColumns(): {
     }),
   };
 }
+
+describe('assertStarSystemRow', () => {
+  it('returns the row when all columns are present with correct types', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns() };
+    expect(assertStarSystemRow(row)).toEqual(starSystemColumns());
+  });
+
+  it('throws when a required string column is missing', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns() };
+    delete row['name'];
+    expect(() => assertStarSystemRow(row)).toThrow(
+      "Missing or invalid column 'name' in star_systems row"
+    );
+  });
+
+  it('throws when a required string column has wrong type', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), id: 123 };
+    expect(() => assertStarSystemRow(row)).toThrow(
+      "Missing or invalid column 'id' in star_systems row"
+    );
+  });
+
+  it('throws when a required numeric column is missing', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns() };
+    delete row['x'];
+    expect(() => assertStarSystemRow(row)).toThrow(
+      "Missing or invalid column 'x' in star_systems row"
+    );
+  });
+
+  it('throws when a required numeric column has wrong type', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), y: 'not-a-number' };
+    expect(() => assertStarSystemRow(row)).toThrow(
+      "Missing or invalid column 'y' in star_systems row"
+    );
+  });
+
+  it('throws when the input is null', () => {
+    expect(() => assertStarSystemRow(null)).toThrow(
+      'Expected a non-null object for star_systems row'
+    );
+  });
+
+  it('throws when the input is not an object', () => {
+    expect(() => assertStarSystemRow('string')).toThrow(
+      'Expected a non-null object for star_systems row'
+    );
+  });
+});
 
 describe('mapRowToStarSystem — JSON validation', () => {
   it('throws on malformed density JSON (missing required field)', () => {

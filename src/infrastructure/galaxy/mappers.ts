@@ -115,6 +115,52 @@ function isEconomicsData(v: unknown): v is EconomicsData {
   );
 }
 
+/** Columns that must be strings in a star_systems row. */
+const STRING_COLUMNS: readonly (keyof StarSystemRow)[] = [
+  'id',
+  'name',
+  'classification',
+  'density',
+  'attributes',
+  'planetary',
+  'civilization',
+  'trade_codes',
+  'economics',
+];
+
+/** Columns that must be numbers in a star_systems row. */
+const NUMERIC_COLUMNS: readonly (keyof StarSystemRow)[] = ['x', 'y', 'is_oikumene'];
+
+/**
+ * Validate that a raw D1 result row contains all required star_systems columns
+ * with the correct primitive types before casting.
+ *
+ * @param row - The raw D1 query result (Record&lt;string, unknown&gt;)
+ * @returns The validated row typed as StarSystemRow
+ * @throws {Error} If the row is not an object or any required column is missing/wrong type
+ */
+export function assertStarSystemRow(row: unknown): StarSystemRow {
+  if (typeof row !== 'object' || row === null || Array.isArray(row)) {
+    throw new Error('Expected a non-null object for star_systems row');
+  }
+
+  const record = row as Record<string, unknown>;
+
+  for (const col of STRING_COLUMNS) {
+    if (typeof record[col] !== 'string') {
+      throw new Error(`Missing or invalid column '${col}' in star_systems row`);
+    }
+  }
+
+  for (const col of NUMERIC_COLUMNS) {
+    if (typeof record[col] !== 'number') {
+      throw new Error(`Missing or invalid column '${col}' in star_systems row`);
+    }
+  }
+
+  return row as StarSystemRow;
+}
+
 /** Set of valid Classification enum values for O(1) membership checks. */
 const VALID_CLASSIFICATIONS = new Set<string>(Object.values(Classification));
 

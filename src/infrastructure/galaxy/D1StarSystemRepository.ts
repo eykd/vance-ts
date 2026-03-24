@@ -7,8 +7,7 @@
 import type { StarSystem } from '../../domain/galaxy/types.js';
 import type { StarSystemRepository } from '../../domain/interfaces/StarSystemRepository.js';
 
-import type { StarSystemRow } from './mappers.js';
-import { mapRowToStarSystem } from './mappers.js';
+import { assertStarSystemRow, mapRowToStarSystem } from './mappers.js';
 
 /** Default maximum number of results for prefix search. */
 const DEFAULT_PREFIX_LIMIT = 50;
@@ -55,7 +54,7 @@ export class D1StarSystemRepository implements StarSystemRepository {
       return null;
     }
 
-    return mapRowToStarSystem(row as unknown as StarSystemRow);
+    return mapRowToStarSystem(assertStarSystemRow(row));
   }
 
   /**
@@ -74,7 +73,7 @@ export class D1StarSystemRepository implements StarSystemRepository {
       return null;
     }
 
-    return mapRowToStarSystem(row as unknown as StarSystemRow);
+    return mapRowToStarSystem(assertStarSystemRow(row));
   }
 
   /**
@@ -101,6 +100,6 @@ export class D1StarSystemRepository implements StarSystemRepository {
       .bind(`${escapedPrefix}%`, limit)
       .all();
 
-    return rows.results.map((row) => mapRowToStarSystem(row as unknown as StarSystemRow));
+    return rows.results.map((row) => mapRowToStarSystem(assertStarSystemRow(row)));
   }
 }
