@@ -4,6 +4,19 @@
 **Created**: 2026-03-23
 **Status**: Draft
 **Input**: User description: "Phase 0: Galaxy Seed to D1 — Galaxy data queryable from Workers runtime via D1"
+**Beads Epic**: `turtlebased-1t2`
+
+**Beads Phase Tasks**:
+
+- clarify: `turtlebased-1t2.1`
+- plan: `turtlebased-1t2.2`
+- red-team: `turtlebased-1t2.3`
+- tasks: `turtlebased-1t2.4`
+- analyze: `turtlebased-1t2.5`
+- implement: `turtlebased-1t2.6`
+- security-review: `turtlebased-1t2.7`
+- architecture-review: `turtlebased-1t2.8`
+- code-quality-review: `turtlebased-1t2.9`
 
 ## User Scenarios & Testing _(mandatory)_
 
