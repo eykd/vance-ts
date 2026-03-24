@@ -16,6 +16,7 @@ import type { AuthService } from '../application/ports/AuthService';
 import type { Logger } from '../application/ports/Logger';
 import type { RateLimiter } from '../application/ports/RateLimiter';
 import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../application/ports/RateLimiter';
+import type { StarSystemRepository } from '../application/ports/StarSystemRepository';
 import { SignInUseCase } from '../application/use-cases/SignInUseCase';
 import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
@@ -28,6 +29,7 @@ import {
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
 import { ConsoleLogger } from '../infrastructure/ConsoleLogger';
 import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
+import { D1StarSystemRepository } from '../infrastructure/galaxy/D1StarSystemRepository';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createApiAuthRateLimit } from '../presentation/middleware/apiAuthRateLimit';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
@@ -88,6 +90,9 @@ export class ServiceFactory {
 
   /** Cached API rate limit middleware for POST /api/auth/sign-up/*. */
   private _signUpApiRateLimitMiddleware: ReturnType<typeof createApiAuthRateLimit> | null = null;
+
+  /** Cached StarSystemRepository adapter. */
+  private _starSystemRepository: StarSystemRepository | null = null;
 
   /**
    * Creates a new ServiceFactory and initialises the better-auth instance.
@@ -279,6 +284,16 @@ export class ServiceFactory {
    */
   get authHandler(): (req: Request) => Promise<Response> {
     return (req: Request): Promise<Response> => this._authInstance.handler(req);
+  }
+
+  /**
+   * The StarSystemRepository port adapter (D1StarSystemRepository).
+   *
+   * @returns The lazily-initialised StarSystemRepository instance.
+   */
+  get starSystemRepository(): StarSystemRepository {
+    this._starSystemRepository ??= new D1StarSystemRepository(this.env.DB);
+    return this._starSystemRepository;
   }
 }
 

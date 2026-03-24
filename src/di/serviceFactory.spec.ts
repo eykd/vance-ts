@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   BetterAuthService: vi.fn(),
   ConsoleLogger: vi.fn(),
   DurableObjectRateLimiter: vi.fn(),
+  D1StarSystemRepository: vi.fn(),
   SignInUseCase: vi.fn(),
   SignUpUseCase: vi.fn(),
   SignOutUseCase: vi.fn(),
@@ -38,6 +39,10 @@ vi.mock('../infrastructure/ConsoleLogger', () => ({
 
 vi.mock('../infrastructure/DurableObjectRateLimiter', () => ({
   DurableObjectRateLimiter: mocks.DurableObjectRateLimiter,
+}));
+
+vi.mock('../infrastructure/galaxy/D1StarSystemRepository', () => ({
+  D1StarSystemRepository: mocks.D1StarSystemRepository,
 }));
 
 vi.mock('../application/use-cases/SignInUseCase', () => ({
@@ -433,6 +438,36 @@ describe('ServiceFactory', () => {
       const second = factory.signUpApiRateLimitMiddleware;
       expect(first).toBe(second);
       expect(mocks.createApiAuthRateLimit).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('starSystemRepository', () => {
+    it('returns a D1StarSystemRepository instance constructed with env.DB', () => {
+      const mockRepo = { findById: vi.fn() };
+      mocks.D1StarSystemRepository.mockImplementation(function () {
+        return mockRepo;
+      });
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      expect(factory.starSystemRepository).toBe(mockRepo);
+      expect(mocks.D1StarSystemRepository).toHaveBeenCalledWith(env.DB);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockRepo = { findById: vi.fn() };
+      mocks.D1StarSystemRepository.mockImplementation(function () {
+        return mockRepo;
+      });
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      const first = factory.starSystemRepository;
+      const second = factory.starSystemRepository;
+      expect(first).toBe(second);
+      expect(mocks.D1StarSystemRepository).toHaveBeenCalledTimes(1);
     });
   });
 });
