@@ -95,3 +95,23 @@ This glossary captures the domain terminology for this project. Each term repres
 **Fate Dice (4dF)** (noun): A dice roll mechanism producing values from -4 to +4 by rolling four dice each with outcomes of -1, 0, or +1. Used for TER attribute generation. [See: ter-rating]
 
 **Spiral Arm** (noun): A logarithmic spiral curve along which star systems are clustered, defining the visible structure of the galaxy. Configurable by arm count, turn angle, and degree. [See: star-system, oikumene]
+
+## Text Generation Domain
+
+**Grammar** (noun): An aggregate root representing a named collection of text generation rules (text, list, struct) that together produce rendered narrative text. Identified by a unique key. [See: rule, seed]
+
+**GrammarDto** (noun): The data transfer object format for serializing and deserializing Grammar objects to/from storage (KV, D1). [See: grammar]
+
+**Prestoplot** (noun): Grammar-based procedural text generation engine that produces deterministic narrative text from YAML grammar files and seed values. [Docs: docs/spec/systems/prestoplot/README.md]
+
+**RenderContext** (noun): The runtime state during a grammar render pass, holding the current seed, resolved rules, template engine reference, and recursion depth counter. [See: grammar, seed]
+
+**RenderedString** (noun): A wrapper around generated text that preserves rendering metadata including which rule produced it and which seed was used. [See: grammar, rule]
+
+**Rule** (noun): A named text generation component within a Grammar, defining how text is selected or composed. Comes in three types: TextRule (weighted alternatives), ListRule (ordered items with a selection mode), and StructRule (key-value fields rendered as a template). [See: grammar, selection-mode]
+
+**ScopedSeed** (noun): A derived seed combining a base seed with a scope key (format: "{baseSeed}-{key}"), producing an independent PRNG stream so each rule's random choices are independently reproducible. [See: seed]
+
+**Seed** (noun): A value object wrapping a string that determines all random choices during text rendering, converted to an integer via SHA-256 hashing. Same seed always produces identical output. [See: scoped-seed]
+
+**SelectionMode** (noun): An enumeration controlling how alternatives are chosen from a list rule — REUSE (with replacement), PICK (without replacement via Fisher-Yates), RATCHET (sequential cycling), MARKOV (character-level chain), or LIST (index access). [See: rule]
