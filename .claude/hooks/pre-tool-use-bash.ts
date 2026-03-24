@@ -22,7 +22,10 @@ async function main(): Promise<void> {
   try {
     const raw = await Promise.race([
       readStdin(),
-      new Promise<string>((resolve) => setTimeout(() => resolve(''), TIMEOUT_MS)),
+      new Promise<string>((resolve) => {
+        const timer = setTimeout(() => resolve(''), TIMEOUT_MS);
+        timer.unref();
+      }),
     ]);
     const data: unknown = JSON.parse(raw === '' ? '{}' : raw);
     const obj = data as Record<string, unknown>;
