@@ -400,6 +400,102 @@ describe('validateInput', () => {
       }
     });
 
+    it('should return an error when route originId is not a string', () => {
+      const input = validInput();
+      input.systems = [validSystem({ id: 'sys-001' })];
+      input.routes = {
+        routes: [{ originId: 123, destinationId: 'sys-001', cost: 1.0, path: [] }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([expect.stringContaining('route[0] originId is not a string')])
+        );
+      }
+    });
+
+    it('should return an error when route destinationId is not a string', () => {
+      const input = validInput();
+      input.systems = [validSystem({ id: 'sys-001' })];
+      input.routes = {
+        routes: [{ originId: 'sys-001', destinationId: null, cost: 1.0, path: [] }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('route[0] destinationId is not a string'),
+          ])
+        );
+      }
+    });
+
+    it('should return an error when route cost is not a number', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [{ originId: 'sys-001', destinationId: 'sys-002', cost: 'cheap', path: [] }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([expect.stringContaining('route[0] cost is not a finite number')])
+        );
+      }
+    });
+
+    it('should return an error when route cost is NaN', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [{ originId: 'sys-001', destinationId: 'sys-002', cost: NaN, path: [] }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([expect.stringContaining('route[0] cost is not a finite number')])
+        );
+      }
+    });
+
+    it('should return an error when route cost is Infinity', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [{ originId: 'sys-001', destinationId: 'sys-002', cost: Infinity, path: [] }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([expect.stringContaining('route[0] cost is not a finite number')])
+        );
+      }
+    });
+
     it('should return an error when route references non-existent destination system', () => {
       const input = validInput();
       input.systems = [validSystem({ id: 'sys-002', name: 'Beta' })];

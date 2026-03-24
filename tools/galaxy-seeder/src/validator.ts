@@ -166,15 +166,24 @@ function validateRouteReferences(
 
     const originId = route['originId'];
     const destinationId = route['destinationId'];
+    const cost = route['cost'];
 
-    if (typeof originId === 'string' && !systemIds.has(originId)) {
+    if (typeof originId !== 'string') {
+      errors.push(`route[${String(i)}] originId is not a string`);
+    } else if (!systemIds.has(originId)) {
       errors.push(`route[${String(i)}] references non-existent origin system: ${originId}`);
     }
 
-    if (typeof destinationId === 'string' && !systemIds.has(destinationId)) {
+    if (typeof destinationId !== 'string') {
+      errors.push(`route[${String(i)}] destinationId is not a string`);
+    } else if (!systemIds.has(destinationId)) {
       errors.push(
         `route[${String(i)}] references non-existent destination system: ${destinationId}`
       );
+    }
+
+    if (typeof cost !== 'number' || !Number.isFinite(cost)) {
+      errors.push(`route[${String(i)}] cost is not a finite number`);
     }
   }
 }
