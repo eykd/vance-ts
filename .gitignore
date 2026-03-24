@@ -70,3 +70,6 @@ reports/
 # Beads database files
 .dolt/
 *.db
+
+# Beads history (operational undo snapshots, not collaborative state)
+.beads/.br_history/
