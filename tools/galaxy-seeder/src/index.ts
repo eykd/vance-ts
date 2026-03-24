@@ -6,6 +6,38 @@
  * @module index
  */
 
+/** Parsed CLI arguments for the galaxy seeder. */
+interface SeederArgs {
+  /** Path to the galaxy-generator output directory. */
+  input: string;
+}
+
+/** Result of parsing CLI arguments — discriminated union. */
+type ParseArgsResult = { ok: true; args: SeederArgs } | { ok: false; error: string };
+
+/**
+ * Parses command-line arguments into structured data.
+ *
+ * @param argv - raw command-line arguments (without node and script path)
+ * @returns parsed arguments or error
+ */
+export function parseArgs(argv: readonly string[]): ParseArgsResult {
+  let input: string | undefined;
+
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--input') {
+      input = argv[i + 1];
+      i++;
+    }
+  }
+
+  if (input === undefined) {
+    return { ok: false, error: 'Missing required --input argument' };
+  }
+
+  return { ok: true, args: { input } };
+}
+
 /**
  * Main CLI entry point for the galaxy seeder.
  *
