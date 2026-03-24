@@ -1,9 +1,9 @@
 /**
- * Composition root for the auth feature.
+ * Composition root for the application.
  *
- * Provides lazy-initialized factory instances for all auth dependencies.
- * This is the single place where infrastructure adapters, use cases, and
- * presentation handlers are wired together.
+ * Provides lazy-initialized factory instances for all dependencies across
+ * auth and galaxy features. This is the single place where infrastructure
+ * adapters, use cases, and presentation handlers are wired together.
  *
  * Placed at `src/di/` (outside the layer hierarchy) because it imports from
  * both infrastructure and presentation layers — a cross-cutting concern that
@@ -16,7 +16,9 @@ import type { AuthService } from '../application/ports/AuthService';
 import type { Logger } from '../application/ports/Logger';
 import type { RateLimiter } from '../application/ports/RateLimiter';
 import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../application/ports/RateLimiter';
+import type { RouteRepository } from '../application/ports/RouteRepository';
 import type { StarSystemRepository } from '../application/ports/StarSystemRepository';
+import type { TradePairRepository } from '../application/ports/TradePairRepository';
 import { SignInUseCase } from '../application/use-cases/SignInUseCase';
 import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
@@ -29,14 +31,16 @@ import {
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
 import { ConsoleLogger } from '../infrastructure/ConsoleLogger';
 import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLimiter';
+import { D1RouteRepository } from '../infrastructure/galaxy/D1RouteRepository';
 import { D1StarSystemRepository } from '../infrastructure/galaxy/D1StarSystemRepository';
+import { D1TradePairRepository } from '../infrastructure/galaxy/D1TradePairRepository';
 import { AuthPageHandlers } from '../presentation/handlers/AuthPageHandlers';
 import { createApiAuthRateLimit } from '../presentation/middleware/apiAuthRateLimit';
 import { createRequireAuth } from '../presentation/middleware/requireAuth';
 import type { Env } from '../shared/env';
 
 /**
- * Composition root that lazily wires auth dependencies.
+ * Composition root that lazily wires all application dependencies.
  *
  * Each getter returns the same instance on repeated calls (lazy singleton
  * per factory instance). The module-level {@link getServiceFactory} ensures
@@ -91,8 +95,14 @@ export class ServiceFactory {
   /** Cached API rate limit middleware for POST /api/auth/sign-up/*. */
   private _signUpApiRateLimitMiddleware: ReturnType<typeof createApiAuthRateLimit> | null = null;
 
+  /** Cached RouteRepository adapter. */
+  private _routeRepository: RouteRepository | null = null;
+
   /** Cached StarSystemRepository adapter. */
   private _starSystemRepository: StarSystemRepository | null = null;
+
+  /** Cached TradePairRepository adapter. */
+  private _tradePairRepository: TradePairRepository | null = null;
 
   /**
    * Creates a new ServiceFactory and initialises the better-auth instance.
@@ -287,6 +297,16 @@ export class ServiceFactory {
   }
 
   /**
+   * The RouteRepository port adapter (D1RouteRepository).
+   *
+   * @returns The lazily-initialised RouteRepository instance.
+   */
+  get routeRepository(): RouteRepository {
+    this._routeRepository ??= new D1RouteRepository(this.env.DB);
+    return this._routeRepository;
+  }
+
+  /**
    * The StarSystemRepository port adapter (D1StarSystemRepository).
    *
    * @returns The lazily-initialised StarSystemRepository instance.
@@ -294,6 +314,16 @@ export class ServiceFactory {
   get starSystemRepository(): StarSystemRepository {
     this._starSystemRepository ??= new D1StarSystemRepository(this.env.DB);
     return this._starSystemRepository;
+  }
+
+  /**
+   * The TradePairRepository port adapter (D1TradePairRepository).
+   *
+   * @returns The lazily-initialised TradePairRepository instance.
+   */
+  get tradePairRepository(): TradePairRepository {
+    this._tradePairRepository ??= new D1TradePairRepository(this.env.DB);
+    return this._tradePairRepository;
   }
 }
 

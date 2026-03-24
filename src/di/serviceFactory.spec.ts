@@ -14,7 +14,9 @@ const mocks = vi.hoisted(() => ({
   BetterAuthService: vi.fn(),
   ConsoleLogger: vi.fn(),
   DurableObjectRateLimiter: vi.fn(),
+  D1RouteRepository: vi.fn(),
   D1StarSystemRepository: vi.fn(),
+  D1TradePairRepository: vi.fn(),
   SignInUseCase: vi.fn(),
   SignUpUseCase: vi.fn(),
   SignOutUseCase: vi.fn(),
@@ -41,8 +43,16 @@ vi.mock('../infrastructure/DurableObjectRateLimiter', () => ({
   DurableObjectRateLimiter: mocks.DurableObjectRateLimiter,
 }));
 
+vi.mock('../infrastructure/galaxy/D1RouteRepository', () => ({
+  D1RouteRepository: mocks.D1RouteRepository,
+}));
+
 vi.mock('../infrastructure/galaxy/D1StarSystemRepository', () => ({
   D1StarSystemRepository: mocks.D1StarSystemRepository,
+}));
+
+vi.mock('../infrastructure/galaxy/D1TradePairRepository', () => ({
+  D1TradePairRepository: mocks.D1TradePairRepository,
 }));
 
 vi.mock('../application/use-cases/SignInUseCase', () => ({
@@ -468,6 +478,66 @@ describe('ServiceFactory', () => {
       const second = factory.starSystemRepository;
       expect(first).toBe(second);
       expect(mocks.D1StarSystemRepository).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('routeRepository', () => {
+    it('returns a D1RouteRepository instance constructed with env.DB', () => {
+      const mockRepo = { findBySystemId: vi.fn() };
+      mocks.D1RouteRepository.mockImplementation(function () {
+        return mockRepo;
+      });
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      expect(factory.routeRepository).toBe(mockRepo);
+      expect(mocks.D1RouteRepository).toHaveBeenCalledWith(env.DB);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockRepo = { findBySystemId: vi.fn() };
+      mocks.D1RouteRepository.mockImplementation(function () {
+        return mockRepo;
+      });
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      const first = factory.routeRepository;
+      const second = factory.routeRepository;
+      expect(first).toBe(second);
+      expect(mocks.D1RouteRepository).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('tradePairRepository', () => {
+    it('returns a D1TradePairRepository instance constructed with env.DB', () => {
+      const mockRepo = { findBySystemId: vi.fn() };
+      mocks.D1TradePairRepository.mockImplementation(function () {
+        return mockRepo;
+      });
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      expect(factory.tradePairRepository).toBe(mockRepo);
+      expect(mocks.D1TradePairRepository).toHaveBeenCalledWith(env.DB);
+    });
+
+    it('returns the same instance on successive calls (lazy singleton)', () => {
+      const mockRepo = { findBySystemId: vi.fn() };
+      mocks.D1TradePairRepository.mockImplementation(function () {
+        return mockRepo;
+      });
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      const first = factory.tradePairRepository;
+      const second = factory.tradePairRepository;
+      expect(first).toBe(second);
+      expect(mocks.D1TradePairRepository).toHaveBeenCalledTimes(1);
     });
   });
 });
