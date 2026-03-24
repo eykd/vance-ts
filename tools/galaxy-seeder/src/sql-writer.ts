@@ -28,14 +28,15 @@ const ROUTES_BATCH_SIZE = 500;
 const TRADE_PAIRS_BATCH_SIZE = 1000;
 
 /**
- * Escapes a string for safe inclusion in SQL by removing NUL bytes
- * and doubling single quotes.
+ * Escapes a string for safe inclusion in SQL by stripping all ASCII
+ * control characters (0x00–0x1F and 0x7F) and doubling single quotes.
  *
  * @param value - The string to escape
  * @returns The escaped string safe for SQL literals
  */
 export function escapeSQL(value: string): string {
-  return value.replace(/\0/g, '').replace(/'/g, "''");
+  // eslint-disable-next-line no-control-regex
+  return value.replace(/[\x00-\x1F\x7F]/g, '').replace(/'/g, "''");
 }
 
 /**

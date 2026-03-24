@@ -32,6 +32,17 @@ describe('escapeSQL', () => {
   it('returns string without special characters unchanged', () => {
     expect(escapeSQL('Sol')).toBe('Sol');
   });
+
+  it('strips ASCII control characters beyond NUL', () => {
+    expect(escapeSQL('hello\rworld')).toBe('helloworld');
+    expect(escapeSQL('line\x1Aend')).toBe('lineend');
+    expect(escapeSQL('tab\there')).toBe('tabhere');
+    expect(escapeSQL('del\x7Fchar')).toBe('delchar');
+  });
+
+  it('strips all control characters while preserving quotes escaping', () => {
+    expect(escapeSQL("O'Brien\r\n")).toBe("O''Brien");
+  });
 });
 
 /**
