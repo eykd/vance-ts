@@ -6,6 +6,6 @@
     "rootDir": "../..",
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/**/*", "run.ts", "../../src/domain/galaxy/**/*"],
+  "include": ["src/**/*", "run.ts", "../../src/domain/galaxy/**/*", "../../src/shared/**/*"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
 }

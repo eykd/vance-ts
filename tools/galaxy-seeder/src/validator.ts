@@ -37,15 +37,7 @@ interface ValidationFailure {
 /** Result of input validation. */
 type ValidationResult = ValidationSuccess | ValidationFailure;
 
-/**
- * Checks whether a value is a non-null object (not an array).
- *
- * @param value - The value to check.
- * @returns True if value is a non-null, non-array object.
- */
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+import { isObject } from '../../../src/shared/type-guards.js';
 
 /**
  * Validates the top-level structure (metadata, routes, systems).

@@ -15,6 +15,7 @@ import {
 } from '../../domain/galaxy/types.js';
 import type { ConnectedSystem } from '../../domain/interfaces/RouteRepository.js';
 import type { TradePairPartner } from '../../domain/interfaces/TradePairRepository.js';
+import { isObject } from '../../shared/type-guards.js';
 
 /** D1 row shape for the star_systems table columns. */
 export interface StarSystemRow {
@@ -30,16 +31,6 @@ export interface StarSystemRow {
   readonly civilization: string;
   readonly trade_codes: string;
   readonly economics: string;
-}
-
-/**
- * Check that a value is a non-null object (not an array).
- *
- * @param v - The value to check
- * @returns True if v is a plain object
- */
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
 /**
