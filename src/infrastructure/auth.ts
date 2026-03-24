@@ -51,7 +51,7 @@ import { hashPassword, verifyPassword } from '../domain/services/passwordHasher'
 import { isPlainHttpLocalhost } from '../shared/authCookieNames';
 import type { Env } from '../shared/env';
 
-import * as authSchema from './authSchema.js';
+import { account, session, user, verification } from './authSchema.js';
 import { wrapD1ForDrizzle } from './d1DateProxy.js';
 import { hashToken } from './tokenHasher';
 
@@ -108,7 +108,7 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
     _auth = betterAuth({
       database: drizzleAdapter(drizzle(wrapD1ForDrizzle(env.DB)), {
         provider: 'sqlite',
-        schema: authSchema,
+        schema: { account, session, user, verification },
       }),
       baseURL: env.BETTER_AUTH_URL,
       secret,
