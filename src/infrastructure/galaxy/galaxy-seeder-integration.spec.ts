@@ -12,8 +12,7 @@ import { applyD1Migrations, env } from 'cloudflare:test';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { generateSQL } from '../../../tools/galaxy-seeder/src/sql-writer.js';
-import type { TradePairRow } from '../../../tools/galaxy-seeder/src/sql-writer.js';
-import type { StarSystem, Route } from '../../domain/galaxy/types.js';
+import type { Route, StarSystem, TradePairRow } from '../../domain/galaxy/types.js';
 import { Classification } from '../../domain/galaxy/types.js';
 
 import { D1RouteRepository } from './D1RouteRepository.js';

@@ -4,19 +4,9 @@
  * @module sql-writer
  */
 
-import type { Route, StarSystem } from '../../../src/domain/galaxy/types.js';
+import type { Route, StarSystem, TradePairRow } from '../../../src/domain/galaxy/types.js';
 
-/** A trade pair row ready for SQL insertion. */
-export interface TradePairRow {
-  /** Lexicographically smaller system ID. */
-  readonly systemAId: string;
-  /** Lexicographically larger system ID. */
-  readonly systemBId: string;
-  /** Bilateral Trade Number. */
-  readonly btn: number;
-  /** Shortest path hop count. */
-  readonly hops: number;
-}
+export type { TradePairRow } from '../../../src/domain/galaxy/types.js';
 
 /** Batch size for star_systems INSERT statements. */
 const STAR_SYSTEMS_BATCH_SIZE = 500;
