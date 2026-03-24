@@ -124,6 +124,16 @@ describe('D1StarSystemRepository', () => {
       expect(results).toEqual([]);
     });
 
+    it('clamps negative limit to zero', async () => {
+      const row = makeSystemRow({ id: 'neg-limit-1', name: 'Negative Alpha' });
+      await insertStarSystem(tEnv.DB, row);
+
+      const repo = new D1StarSystemRepository(tEnv.DB);
+      const results = await repo.searchByNamePrefix('Negative', -5);
+
+      expect(results).toEqual([]);
+    });
+
     it('caps limit at MAX_LIMIT when caller passes an excessively large value', async () => {
       const row1 = makeSystemRow({ id: 'cap-1', name: 'Capella Alpha' });
       const row2 = makeSystemRow({ id: 'cap-2', name: 'Capella Beta' });

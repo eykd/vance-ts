@@ -97,7 +97,7 @@ export class D1StarSystemRepository implements StarSystemRepository {
       return [];
     }
 
-    const safeLimit = Math.min(limit, MAX_LIMIT);
+    const safeLimit = Math.max(0, Math.min(limit, MAX_LIMIT));
     const escapedPrefix = escapeLikePattern(prefix);
     const rows = await this.db
       .prepare("SELECT * FROM star_systems WHERE name LIKE ? ESCAPE '\\' ORDER BY name LIMIT ?")
