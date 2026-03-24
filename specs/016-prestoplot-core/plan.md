@@ -10,7 +10,7 @@ Implement the Prestoplot grammar-based text generation engine — a deterministi
 ## Technical Context
 
 **Language/Version**: TypeScript ES2022 (Cloudflare Workers runtime)
-**Primary Dependencies**: yaml ≥ 2.3.0 (YAML parsing — NOT yet installed, must `npm install yaml@^2.3.0`; version ≥ 2.3 is REQUIRED for `maxAliasCount` option used in billion-laughs mitigation), @cloudflare/workers-types, existing Mulberry32 PRNG
+**Primary Dependencies**: yaml ^2.3.0 (YAML parsing — NOT yet installed, must `npm install yaml@^2.3.0`; `maxAliasCount` and `uniqueKeys` options are available since 2.0.0 but ^2.3.0 is pinned for stability; browser build used via conditional exports — Workers-compatible, no Node.js imports), @cloudflare/workers-types, existing Mulberry32 PRNG
 **Storage**: Cloudflare KV (primary), D1 (alternative), InMemory (testing)
 **Testing**: Vitest with @cloudflare/vitest-pool-workers (Workers project), strict TDD
 **Target Platform**: Cloudflare Workers V8 isolate
@@ -207,6 +207,17 @@ async getSeedInt(scopedSeed: string): Promise<number> {
 
 No relevant solutions found in `.specify/solutions/` — solutions index is empty.
 
+### Deepening Research (2026-03-24)
+
+Verified plan assumptions against current codebase state:
+
+1. **Mulberry32 PRNG** (`src/domain/galaxy/prng.ts`): Confirmed exact API match — `constructor(seed: number)`, `random(): number` [0,1), `randint(min, max): number` [min,max]. Implements `Prng` interface. No discrepancies.
+2. **ServiceFactory** (`src/di/serviceFactory.ts`): Lazy singleton pattern confirmed — `private _field: T | null = null` + `??=` in getter. 13 existing singletons. Plan's proposed `renderStoryService` getter fits the pattern exactly.
+3. **Env bindings** (`src/shared/env.ts`): Current bindings: `ASSETS`, `DB`, `BETTER_AUTH_URL`, `BETTER_AUTH_SECRET`, `RATE_LIMIT`. No KV bindings exist yet — `GRAMMAR_KV` must be added (Layer 5, task 23).
+4. **wrangler.toml**: No `[[kv_namespaces]]` section exists. Must add for `GRAMMAR_KV` (Layer 5, task 23).
+5. **Port conventions** (`src/application/ports/`): 6 existing ports confirm pattern — PascalCase, no `I` prefix, one file per port, JSDoc on all methods. Proposed `GrammarStorage.ts`, `TemplateEngine.ts`, `RandomSource.ts` fit perfectly.
+6. **yaml package**: Not in `package.json` (present in `node_modules/` v2.8.2 as transitive dep). `maxAliasCount` and `uniqueKeys` available since v2.0.0 (not 2.3.0/2.1 as originally stated — corrected above). Browser build via conditional exports ensures Workers compatibility.
+
 ## Post-Design Constitution Re-Check
 
 | Principle                         | Status | Notes                                                           |
@@ -233,11 +244,11 @@ All gates pass. No violations to justify.
 
 ### YAML Anchor/Alias Bomb (Billion Laughs)
 
-The `yaml` npm package processes anchors (`&name`) and aliases (`*name`) before schema validation. A malicious grammar file with nested aliases can trigger exponential expansion — a classic "billion laughs" attack — exhausting the Workers isolate's 128MB memory ceiling long before `schema: 'json'` type coercion checks run. Example: a grammar with 9 levels of aliased arrays, each alias referenced 9 times, expands to 9^9 ≈ 387 million entries. **Mitigation**: Enforce a `MAX_GRAMMAR_SOURCE_BYTES` limit before calling `yaml.parse()` — reject inputs larger than 256KB with `GrammarParseError("Grammar source exceeds maximum size")`. Additionally, configure `yaml.parse` with `{ maxAliasCount: 100 }` (supported by the `yaml` npm package ≥ v2.3) to abort on excessive alias expansion. Add adversarial test cases: deeply nested anchors/aliases exceeding the alias limit, grammar source at the byte limit boundary, grammar source one byte over the limit.
+The `yaml` npm package processes anchors (`&name`) and aliases (`*name`) before schema validation. A malicious grammar file with nested aliases can trigger exponential expansion — a classic "billion laughs" attack — exhausting the Workers isolate's 128MB memory ceiling long before `schema: 'json'` type coercion checks run. Example: a grammar with 9 levels of aliased arrays, each alias referenced 9 times, expands to 9^9 ≈ 387 million entries. **Mitigation**: Enforce a `MAX_GRAMMAR_SOURCE_BYTES` limit before calling `yaml.parse()` — reject inputs larger than 256KB with `GrammarParseError("Grammar source exceeds maximum size")`. Additionally, configure `yaml.parse` with `{ maxAliasCount: 100 }` (supported by the `yaml` npm package since v2.0.0) to abort on excessive alias expansion. Add adversarial test cases: deeply nested anchors/aliases exceeding the alias limit, grammar source at the byte limit boundary, grammar source one byte over the limit.
 
 ### yaml Package Version Constraint
 
-The billion-laughs mitigation depends on the `maxAliasCount` option, which is only available in `yaml` package version ≥ 2.3.0. If a developer runs `npm install yaml` without a version constraint, npm may resolve to an older 1.x version (still published) that silently ignores the `maxAliasCount` option — leaving the billion-laughs mitigation completely ineffective while appearing to work. **Mitigation**: (1) The install command MUST specify `npm install yaml@^2.3.0`. (2) In `grammarParser.ts`, add a build-time or startup assertion that the installed `yaml` package exports the expected API shape (specifically that `parse` accepts an options object with `maxAliasCount`). (3) Pin the version range in `package.json` as `"yaml": "^2.3.0"` to prevent accidental downgrade. Add a test case verifying that `yaml.parse` with `maxAliasCount: 1` throws on a YAML document with 2 alias references (confirms the option is actually enforced by the installed version).
+The billion-laughs mitigation depends on the `maxAliasCount` option, which is available in `yaml` package since v2.0.0 (the entire 2.x line). If a developer runs `npm install yaml` without a version constraint, npm may resolve to an older 1.x version (still published) that silently ignores the `maxAliasCount` option — leaving the billion-laughs mitigation completely ineffective while appearing to work. **Mitigation**: (1) The install command MUST specify `npm install yaml@^2.3.0` (pinned above 2.3.0 for stability, not because earlier 2.x lacks the option). (2) In `grammarParser.ts`, add a build-time or startup assertion that the installed `yaml` package exports the expected API shape (specifically that `parse` accepts an options object with `maxAliasCount`). (3) Pin the version range in `package.json` as `"yaml": "^2.3.0"` to prevent accidental downgrade to 1.x. Add a test case verifying that `yaml.parse` with `maxAliasCount: 1` throws on a YAML document with 2 alias references (confirms the option is actually enforced by the installed version).
 
 ### YAML Deserialization Safety
 
@@ -563,7 +574,7 @@ The spec's edge cases section states: "What happens when seed string is empty? �
 
 The YAML specification allows duplicate keys with "last wins" semantics. The `yaml` npm package follows this behavior by default. A grammar with two definitions of rule `"planet"` silently uses only the last definition — the first is discarded without warning. This is a content authoring error that goes undetected at parse time, potentially producing confusing render results when the author intended both rules.
 
-**Mitigation**: In `grammarParser.ts`, configure `yaml.parse` with `{ uniqueKeys: true }` (supported by the `yaml` package ≥ 2.1) to throw on duplicate keys. If the `yaml` package version does not support `uniqueKeys`, manually check for duplicates by collecting keys during iteration and throwing `GrammarParseError("Duplicate rule name '{name}' in grammar")` on collision. Add test cases: grammar YAML with duplicate rule names → `GrammarParseError`.
+**Mitigation**: In `grammarParser.ts`, configure `yaml.parse` with `{ uniqueKeys: true }` (supported by the `yaml` package since v2.0.0) to throw on duplicate keys. If the `yaml` package version does not support `uniqueKeys`, manually check for duplicates by collecting keys during iteration and throwing `GrammarParseError("Duplicate rule name '{name}' in grammar")` on collision. Add test cases: grammar YAML with duplicate rule names → `GrammarParseError`.
 
 ### grammarToDto Serialization Failure (Medium — ErrorHandling)
 
