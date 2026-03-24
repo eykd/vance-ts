@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { Classification } from '../../domain/galaxy/types.js';
 
 import {
+  assertConnectedSystemRow,
   assertStarSystemRow,
   mapRowToConnectedSystem,
   mapRowToStarSystem,
@@ -212,6 +213,41 @@ describe('mapRowToStarSystem', () => {
         worldTradeNumber: 8.5,
       },
     });
+  });
+});
+
+describe('assertConnectedSystemRow', () => {
+  it('returns the row when all star_systems columns plus cost are present', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), cost: 3.75 };
+    expect(assertConnectedSystemRow(row)).toEqual({ ...starSystemColumns(), cost: 3.75 });
+  });
+
+  it('throws when cost column is missing', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns() };
+    expect(() => assertConnectedSystemRow(row)).toThrow(
+      "Missing or invalid column 'cost' in connected_system row"
+    );
+  });
+
+  it('throws when cost column has wrong type', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), cost: 'not-a-number' };
+    expect(() => assertConnectedSystemRow(row)).toThrow(
+      "Missing or invalid column 'cost' in connected_system row"
+    );
+  });
+
+  it('throws when a base star_systems column is missing', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), cost: 2.0 };
+    delete row['name'];
+    expect(() => assertConnectedSystemRow(row)).toThrow(
+      "Missing or invalid column 'name' in star_systems row"
+    );
+  });
+
+  it('throws when the input is null', () => {
+    expect(() => assertConnectedSystemRow(null)).toThrow(
+      'Expected a non-null object for star_systems row'
+    );
   });
 });
 

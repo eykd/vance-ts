@@ -244,6 +244,25 @@ export type ConnectedSystemRow = StarSystemRow & {
 };
 
 /**
+ * Validate that a raw D1 result row contains all required connected_system columns
+ * (star_systems columns plus cost) with the correct primitive types before casting.
+ *
+ * @param row - The raw D1 query result (Record&lt;string, unknown&gt;)
+ * @returns The validated row typed as ConnectedSystemRow
+ * @throws {Error} If the row fails star_systems validation or cost is missing/wrong type
+ */
+export function assertConnectedSystemRow(row: unknown): ConnectedSystemRow {
+  const base = assertStarSystemRow(row);
+  const record = row as Record<string, unknown>;
+
+  if (typeof record['cost'] !== 'number') {
+    throw new Error("Missing or invalid column 'cost' in connected_system row");
+  }
+
+  return { ...base, cost: record['cost'] };
+}
+
+/**
  * Convert a joined routes + star_systems row to a ConnectedSystem DTO.
  *
  * @param row - The raw D1 row from a routes JOIN star_systems query

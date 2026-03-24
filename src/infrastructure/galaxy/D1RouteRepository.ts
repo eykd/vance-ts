@@ -6,8 +6,7 @@
 
 import type { ConnectedSystem, RouteRepository } from '../../domain/interfaces/RouteRepository.js';
 
-import type { ConnectedSystemRow } from './mappers.js';
-import { mapRowToConnectedSystem } from './mappers.js';
+import { assertConnectedSystemRow, mapRowToConnectedSystem } from './mappers.js';
 
 /**
  * Retrieves route data from a Cloudflare D1 database.
@@ -49,6 +48,6 @@ export class D1RouteRepository implements RouteRepository {
 
     const rows = await this.db.prepare(sql).bind(systemId, systemId).all();
 
-    return rows.results.map((row) => mapRowToConnectedSystem(row as unknown as ConnectedSystemRow));
+    return rows.results.map((row) => mapRowToConnectedSystem(assertConnectedSystemRow(row)));
   }
 }
