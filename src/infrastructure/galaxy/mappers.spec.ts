@@ -237,6 +237,27 @@ describe('assertConnectedSystemRow', () => {
     );
   });
 
+  it('throws when cost is NaN', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), cost: NaN };
+    expect(() => assertConnectedSystemRow(row)).toThrow(
+      "Missing or invalid column 'cost' in connected_system row"
+    );
+  });
+
+  it('throws when cost is Infinity', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), cost: Infinity };
+    expect(() => assertConnectedSystemRow(row)).toThrow(
+      "Missing or invalid column 'cost' in connected_system row"
+    );
+  });
+
+  it('throws when cost is -Infinity', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), cost: -Infinity };
+    expect(() => assertConnectedSystemRow(row)).toThrow(
+      "Missing or invalid column 'cost' in connected_system row"
+    );
+  });
+
   it('throws when a base star_systems column is missing', () => {
     const row: Record<string, unknown> = { ...starSystemColumns(), cost: 2.0 };
     delete row['name'];

@@ -255,7 +255,7 @@ export function assertConnectedSystemRow(row: unknown): ConnectedSystemRow {
   const base = assertStarSystemRow(row);
   const record = row as Record<string, unknown>;
 
-  if (typeof record['cost'] !== 'number') {
+  if (typeof record['cost'] !== 'number' || !Number.isFinite(record['cost'])) {
     throw new Error("Missing or invalid column 'cost' in connected_system row");
   }
 
