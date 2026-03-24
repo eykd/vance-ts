@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { Classification } from '../../domain/galaxy/types';
 import type { StarSystem } from '../../domain/galaxy/types';
 
 import type { StarSystemRepository } from './StarSystemRepository';
@@ -10,11 +11,7 @@ import type { StarSystemRepository } from './StarSystemRepository';
  * @param overrides - Partial overrides for specific methods.
  * @returns A fully typed StarSystemRepository stub.
  */
-function createStub(
-  overrides: Partial<{
-    [K in keyof StarSystemRepository]: StarSystemRepository[K];
-  }> = {}
-): StarSystemRepository {
+function createStub(overrides: Partial<StarSystemRepository> = {}): StarSystemRepository {
   return {
     findById: vi.fn<StarSystemRepository['findById']>(),
     findByName: vi.fn<StarSystemRepository['findByName']>(),
@@ -113,7 +110,7 @@ function stubStarSystem(): StarSystem {
     x: 0,
     y: 0,
     isOikumene: true,
-    classification: 'oikumene' as StarSystem['classification'],
+    classification: Classification.OIKUMENE,
     density: { neighborCount: 5, environmentPenalty: 0 },
     attributes: { technology: 10, environment: 8, resources: 7 },
     planetary: { size: 8, atmosphere: 6, temperature: 7, hydrography: 7 },
