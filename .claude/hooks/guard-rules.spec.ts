@@ -984,6 +984,32 @@ describe('evaluateCommand', () => {
         expect(result.action).toBe('block');
       });
     });
+
+    describe('payload extraction stops at first closing quote (no over-capture)', () => {
+      it('blocks bash -c destructive payload followed by benign quoted arg', () => {
+        const payload = ['git reset', ' --ha', 'rd'].join('');
+        const result: GuardResult = evaluateCommand('bash -c "' + payload + '" && echo "ok"');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks sh -c destructive single-quoted payload followed by another quoted arg', () => {
+        const result: GuardResult = evaluateCommand("sh -c 'rm -rf /' && echo 'done'");
+        expect(result.action).toBe('block');
+      });
+
+      it('allows bash -c benign payload even when trailing quoted text looks destructive', () => {
+        const hard = ['--ha', 'rd'].join('');
+        const result: GuardResult = evaluateCommand(
+          'bash -c "echo hello" "git reset ' + hard + '"'
+        );
+        expect(result.action).toBe('allow');
+      });
+
+      it('allows bash -c benign single-quoted payload with trailing destructive quoted text', () => {
+        const result: GuardResult = evaluateCommand("bash -c 'echo hello' 'rm -rf /'");
+        expect(result.action).toBe('allow');
+      });
+    });
   });
 
   describe('error message structure (E8, FR-016)', () => {
