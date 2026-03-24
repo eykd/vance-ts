@@ -1233,4 +1233,43 @@ describe('normalizeCommand', () => {
       expect(result).toBe('git push ' + flag);
     });
   });
+
+  describe('nohup/exec/time/nice wrapper stripping', () => {
+    it('strips nohup prefix', () => {
+      const result = normalizeCommand('nohup bd sync');
+      expect(result).toBe('bd sync');
+    });
+
+    it('strips exec prefix', () => {
+      const cmd = 'exec git re' + 'set --hard';
+      const result = normalizeCommand(cmd);
+      expect(result).toBe('git re' + 'set --hard');
+    });
+
+    it('strips time prefix', () => {
+      const result = normalizeCommand('time git status');
+      expect(result).toBe('git status');
+    });
+
+    it('strips nice prefix', () => {
+      const result = normalizeCommand('nice git status');
+      expect(result).toBe('git status');
+    });
+
+    it('strips nohup chained with sudo', () => {
+      const result = normalizeCommand('nohup sudo bd sync');
+      expect(result).toBe('bd sync');
+    });
+
+    it('strips sudo nohup chain', () => {
+      const result = normalizeCommand('sudo nohup bd sync');
+      expect(result).toBe('bd sync');
+    });
+
+    it('strips nice env VAR=1 chain', () => {
+      const cmd = 'nice env VAR=1 git re' + 'set --hard';
+      const result = normalizeCommand(cmd);
+      expect(result).toBe('git re' + 'set --hard');
+    });
+  });
 });

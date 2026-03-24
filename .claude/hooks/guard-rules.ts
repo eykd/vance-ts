@@ -342,7 +342,9 @@ export function normalizeCommand(command: string): string {
   let prev: string;
   do {
     prev = result;
-    result = result.replace(/^(sudo|command)\s+/, '').replace(/^env\s+(\w+=\S+\s+)*/, '');
+    result = result
+      .replace(/^(sudo|command|nohup|exec|time|nice)\s+/, '')
+      .replace(/^env\s+(\w+=\S+\s+)*/, '');
   } while (result !== prev);
   return result;
 }
