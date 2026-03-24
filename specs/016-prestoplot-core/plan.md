@@ -189,7 +189,7 @@ async getSeedInt(scopedSeed: string): Promise<number> {
 
 **PRNG reuse**: The existing `Mulberry32` class in `src/domain/galaxy/prng.ts` provides `random(): number` (returns [0,1)) and `randint(min, max): number`. The `Rng` interface in `RandomSource.ts` wraps this with a `next(): number` contract. Construction: `new Mulberry32(seedInt)`.
 
-**PICK mode statefulness**: PICK maintains per-render depletion state. The `SelectionState` (a shuffled index array + cursor) is held in RenderEngine keyed by rule name. Each render pass starts fresh — PICK state does not carry across requests. When the cursor reaches the end, a new epoch begins with a fresh Fisher-Yates shuffle seeded from `baseSeed-{ruleName}-epoch-{N}`.
+**PICK mode statefulness**: PICK maintains per-render depletion state. The `SelectionState` (a shuffled index array + cursor) is held in RenderEngine keyed by rule name. Each render pass starts fresh — PICK state does not carry across requests. When the cursor reaches the end, a new epoch begins with a fresh Fisher-Yates shuffle seeded from `baseSeed-{ruleName}-epoch-{N}`. The epoch counter is stored in `RenderContext.selectionState` and is reset to 0 at the start of each render call. It is impossible for epoch counters to accumulate across requests because `RenderContext` is discarded after each `render()` call completes. Add a test verifying that two separate calls to `renderStoryService.render()` with the same seed produce identical output (confirming state isolation between calls).
 
 **Include resolution order**: Breadth-first, left-to-right. Circular detection uses a `Set<string>` of visited grammar keys built during resolution. `CircularIncludeError` thrown before any rule merging occurs. Resolution loads each included grammar from storage, merges rules (included grammar's rules do NOT override the including grammar's same-named rules).
 
@@ -249,6 +249,18 @@ Custom tokenizers for `{expression}` and `{{ expression }}` syntaxes MUST use it
 
 The ftemplate expression grammar `identifier accessor*` places no limit on accessor chain length. While the 10,000-char template length limit indirectly bounds this, a pathological expression like `{a.b.c.d...}` with 1,000+ dot accessors would create a large token array cached in the singleton FtemplateEngine. **Mitigation**: Add `MAX_ACCESSOR_DEPTH = 10` in the tokenizer. Throw `TemplateError("Accessor chain exceeds maximum depth")` when exceeded. StructRule nesting beyond 10 levels is not a realistic grammar pattern.
 
+### Grammar Key Sanitization
+
+Grammar keys are used directly as KV namespace keys. Rule names are validated with `[A-Za-z_][A-Za-z0-9_]*` but grammar keys have no equivalent validation. Keys containing path-like characters (e.g., `../admin/secrets`), `__proto__`, empty strings, or null bytes could behave unexpectedly. **Mitigation**: In `grammarParser.ts`, validate grammar keys match `[A-Za-z][A-Za-z0-9_-]*` (hyphens allowed for keys like `system-descriptions`). Reject keys with path separators, null bytes, or non-ASCII characters with `GrammarParseError`. Add test cases: `'../other'`, `''`, `'__proto__'` as grammar keys.
+
+### Grammar Key Namespace Conventions
+
+Grammar keys are global within the `GRAMMAR_KV` namespace. Multiple features or content domains storing grammars without a naming convention will collide silently (overwriting each other). **Decision**: Flat keys are acceptable for Phase 1 since there is only one content domain. Document that Phase 4+ should adopt a prefix convention (e.g., `feature:grammar-name`) if multiple content domains share the namespace. Make this decision explicit so grammar authors do not accidentally create key conflicts.
+
+### Seed Metadata Exposure in RenderStoryResult
+
+`RenderedString` tracks `ruleName` and `seed` as metadata. If `RenderStoryResult` includes the full `RenderedString`, callers exposing results in API responses could leak the seed. For a deterministic system, leaking seed + grammar key allows anyone to reproduce the exact output. **Decision**: `RenderStoryResult.ok: true` exposes only the rendered `text: string`. Keep `RenderedString` as an internal value object within `RenderEngine`. This prevents accidental seed exposure and keeps the public API minimal.
+
 ### D1 Parameterized Queries Required
 
 `D1Storage` MUST use D1's `prepare().bind()` API for all queries — never string interpolation or template literals for SQL construction. Grammar keys are developer-defined strings that could contain SQL metacharacters. **Mitigation**: Enforce in code review and add a test case with a grammar key containing SQL injection payload (e.g., `"'; DROP TABLE grammars; --"`) verifying it is stored and retrieved correctly without side effects.
@@ -258,6 +270,10 @@ The ftemplate expression grammar `identifier accessor*` places no limit on acces
 ### MARKOV Dead-Ends
 
 MARKOV generation with `order > training-item-length` produces dead-end states where no transition exists from the start key. Dead-ends surface as `template_error` in `RenderStoryResult` with no automatic retry. **Guidance for grammar authors**: Ensure Markov training corpus items are longer than the configured order. Add test cases covering MARKOV with `order > training-item-length` to verify `MarkovDeadEndError` propagation.
+
+### MARKOV Items With Template Syntax
+
+A ListRule with `selectionMode: MARKOV` trains its Markov model on `items[]`. If items contain template expressions (e.g., `{adjective} ship`), the training corpus includes un-rendered template syntax. The Markov model trains on literal text like `{adjective}`, producing nonsense output with partial `{` sequences. **Mitigation**: MARKOV training items are treated as PLAIN strings — they are NOT rendered through the template engine before training. Enforce at parse time by rejecting MARKOV list items containing `{` or `{{` with `GrammarParseError('MARKOV rule items must be plain strings, not templates')`. Add a test case verifying this validation.
 
 ### MARKOV Deterministic Identity
 
@@ -294,6 +310,10 @@ Accented vowels (é, è, â, ô, etc.) are treated as consonants → return "a".
 ### Entry Rule Validation
 
 No validation ensures `Grammar.entry` refers to an existing rule in `Grammar.rules`. A grammar with `entry: "nonexistent"` passes parsing but fails at render time with an unclear `RuleNotFoundError`. **Mitigation**: In `grammarParser.ts`, after building the rules map, verify that `entry` is a key in `rules`. Throw `GrammarParseError("Entry rule '{entry}' not found in grammar rules")` at parse time. This catches authoring errors early.
+
+### StructRule Field Dangling References
+
+StructRule fields map field names to rule names (e.g., `fields: { name: 'planetName' }`). The plan validates `entry` references at parse time, but there is no equivalent validation for StructRule field values. A struct with a dangling field reference fails at render time with an unclear `RuleNotFoundError` rather than a clear `GrammarParseError`. Additionally, struct field references can point to rules provided by includes — which are only known after include resolution. **Mitigation**: Add a post-include-resolution validation pass in `renderStoryService.ts`: after all includes are merged into the final rule set, verify that every StructRule field value is a valid rule name in the merged grammar. Surface missing references as `{ ok: false, kind: 'parse_error' }`. Add test case: StructRule referencing a rule that only exists in an included grammar (valid), and one referencing a non-existent rule (error).
 
 ### Include Rule Name Conflicts Between Included Grammars
 
@@ -342,8 +362,9 @@ The plan references `seed_error` (crypto.subtle failure) and implies `render_bud
 - `| { readonly ok: false; readonly kind: 'seed_error'; readonly message: string }`
 - `| { readonly ok: false; readonly kind: 'render_budget'; readonly evaluationCount: number }`
 - `| { readonly ok: false; readonly kind: 'parse_error'; readonly moduleName: string; readonly message: string }`
+- `| { readonly ok: false; readonly kind: 'storage_error'; readonly moduleName: string; readonly message: string }`
 
-All error types must be mapped in `RenderStoryService.render()` to maintain the "never throws" contract.
+All error types — including `StorageError` from `storage.load()` / `storage.save()` failures (KV network errors, D1 connection failures) — must be caught and mapped in `RenderStoryService.render()` to maintain the "never throws" contract. Add test cases: mock storage that throws on `load()`, verify result is `{ ok: false, kind: 'storage_error' }`.
 
 ### Single-Alternative TextRule Weight Warning
 
@@ -374,6 +395,10 @@ get renderStoryService(): RenderStoryService {
 
 The recursion depth limit (MAX_DEPTH = 50) prevents stack overflow for linear chains but not exponential time for branching mutual recursion. A rule rendering `"{B} and {B}"` where B renders `"{C} and {C}"` produces 2^N evaluations before depth N is reached. **Mitigation**: Add `MAX_EVALUATIONS = 10_000` to `RenderContext`. Increment on every `renderRule` call. Throw `RenderBudgetError` when exceeded. This is distinct from recursion depth — it bounds total work regardless of tree shape.
 
+### Template Depth vs. Render Depth Interaction
+
+The plan defines `MAX_DEPTH = 50` (template recursion, per template engine) and `MAX_EVALUATIONS = 10_000` (rule evaluation counter, in RenderContext). These are two independent depth counters that interact when templates invoke rule references: `renderEngine.renderRule()` → `templateEngine.evaluate()` → `{ruleName}` → `renderEngine.renderRule()`. If tracked independently, the effective maximum depth could be `50 × 50 = 2,500` nested calls. **Clarification**: Template engine `depth` tracks recursive template evaluation calls within one `evaluate()` invocation. RenderEngine recursion depth tracks `renderRule` call depth. The evaluation counter (`MAX_EVALUATIONS`) is the unified budget that bounds total work regardless of which counter fires first. Add a test demonstrating that a `renderRule → evaluate → {rule ref} → renderRule → evaluate` chain correctly increments both counters.
+
 ### Template String Length Limit
 
 Template strings exceeding `MAX_TEMPLATE_LENGTH = 10_000` characters should throw `GrammarParseError` at parse time. This prevents oversized cache entries in the singleton `FtemplateEngine` template cache and bounds tokenizer runtime.
@@ -385,6 +410,10 @@ Template strings exceeding `MAX_TEMPLATE_LENGTH = 10_000` characters should thro
 ### Markov Training Corpus Limits
 
 `trainMarkovChain` with large corpus and high order can exceed Workers' 50ms synchronous CPU budget. **Mitigation**: Validate that `totalCorpusChars × order` does not exceed 100,000. Throw `RangeError` if exceeded. Recommended corpus: < 1,000 total characters × order for Workers runtime.
+
+### Markov Model Per-Render Training Cost
+
+`RenderContext` holds `markovCache: Map<string, MarkovChainModel>` scoped to a single render pass. Markov training on the same corpus is deterministic and grammar-static — the model does not change between requests. Re-training on every render call wastes CPU. **Decision**: Accept per-render training cost for Phase 1. The Markov training corpus limit (< 1,000 chars × order, bounded to 100,000 char×order product) makes training fast enough (~0.1ms). Cross-request caching would require coupling the cache to grammar version, adding complexity. If profiling shows Markov training as a hotspot in Phase 4 batch rendering, add a grammar-keyed singleton cache at that time.
 
 ### Include Depth Limit
 
