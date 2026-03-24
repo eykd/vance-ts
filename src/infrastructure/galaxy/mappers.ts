@@ -293,11 +293,15 @@ export function assertTradePairPartnerRow(row: unknown): TradePairPartnerRow {
   const base = assertStarSystemRow(row);
   const record = row as Record<string, unknown>;
 
-  if (typeof record['btn'] !== 'number') {
+  if (typeof record['btn'] !== 'number' || !Number.isFinite(record['btn'])) {
     throw new Error("Missing or invalid column 'btn' in trade_pair_partner row");
   }
 
-  if (typeof record['hops'] !== 'number') {
+  if (
+    typeof record['hops'] !== 'number' ||
+    !Number.isFinite(record['hops']) ||
+    !Number.isInteger(record['hops'])
+  ) {
     throw new Error("Missing or invalid column 'hops' in trade_pair_partner row");
   }
 

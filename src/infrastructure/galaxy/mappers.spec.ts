@@ -324,6 +324,41 @@ describe('assertTradePairPartnerRow', () => {
     );
   });
 
+  it('throws when btn is NaN', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), btn: NaN, hops: 3 };
+    expect(() => assertTradePairPartnerRow(row)).toThrow(
+      "Missing or invalid column 'btn' in trade_pair_partner row"
+    );
+  });
+
+  it('throws when btn is Infinity', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), btn: Infinity, hops: 3 };
+    expect(() => assertTradePairPartnerRow(row)).toThrow(
+      "Missing or invalid column 'btn' in trade_pair_partner row"
+    );
+  });
+
+  it('throws when hops is NaN', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), btn: 7.2, hops: NaN };
+    expect(() => assertTradePairPartnerRow(row)).toThrow(
+      "Missing or invalid column 'hops' in trade_pair_partner row"
+    );
+  });
+
+  it('throws when hops is Infinity', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), btn: 7.2, hops: Infinity };
+    expect(() => assertTradePairPartnerRow(row)).toThrow(
+      "Missing or invalid column 'hops' in trade_pair_partner row"
+    );
+  });
+
+  it('throws when hops is not an integer', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), btn: 7.2, hops: 3.5 };
+    expect(() => assertTradePairPartnerRow(row)).toThrow(
+      "Missing or invalid column 'hops' in trade_pair_partner row"
+    );
+  });
+
   it('throws when a base star_systems column is missing', () => {
     const row: Record<string, unknown> = { ...starSystemColumns(), btn: 7.2, hops: 3 };
     delete row['name'];
