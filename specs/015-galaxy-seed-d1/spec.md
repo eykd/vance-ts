@@ -98,7 +98,7 @@ A game system or developer searches for star systems by name (exact or partial m
 
 ### Edge Cases
 
-- What happens when the seeder is run twice against the same database? (Idempotent: should clear and re-seed, or fail with a clear error)
+- What happens when the seeder is run twice against the same database? The seeder MUST fail with a clear error if galaxy tables already contain data. The operator must manually clear tables before re-seeding.
 - What happens when a route references a system ID not present in the systems directory? (Seeder should fail with a clear validation error)
 - What happens when the generator output is incomplete (missing metadata.json or routes.json)? (Seeder should fail early with a clear error message)
 - How are very large galaxies (~12,000 systems) handled in a single D1 database? (D1 supports up to 10GB; galaxy data should be well under this limit)
@@ -109,20 +109,20 @@ A game system or developer searches for star systems by name (exact or partial m
 
 - **FR-001**: System MUST store star system records in D1 with all fields from the generator output (id, name, coordinates, classification, density, TER attributes, planetary data, civilization data, trade codes, economics).
 - **FR-002**: System MUST store pre-computed routes in D1 with origin ID, destination ID, and traversal cost.
-- **FR-003**: System MUST pre-compute and store Bilateral Trade Numbers (BTN) for all connected system pairs during seeding, using the formula: `BTN = clamp(WTN_A + WTN_B - distance_modifier, 0, min(WTN_A, WTN_B) + 5)`.
+- **FR-003**: System MUST pre-compute and store Bilateral Trade Numbers (BTN) for all system pairs within 5 hops of each other (via the route graph) during seeding, using the formula: `BTN = clamp(WTN_A + WTN_B - distance_modifier, 0, min(WTN_A, WTN_B) + 5)`. The seeder MUST perform BFS on the route graph to discover multi-hop pairs and compute hop-count distance modifiers. Pairs with BTN = 0 MUST be omitted.
 - **FR-004**: System MUST provide a repository interface for querying star systems by ID, returning the full system record or null.
 - **FR-005**: System MUST provide a repository interface for querying all routes from a given system, returning connected systems and route costs.
 - **FR-006**: System MUST provide a repository interface for querying trade pairs by system ID, returning partner systems with BTN values.
 - **FR-007**: System MUST provide a repository interface for searching star systems by name (exact and prefix match).
 - **FR-008**: The seeder CLI MUST read the galaxy generator's output directory structure (metadata.json, systems/\*.json, routes.json) and produce SQL for D1 insertion.
-- **FR-009**: The seeder MUST validate input data integrity before insertion (all route system IDs exist, required fields present).
+- **FR-009**: The seeder MUST validate input data integrity before insertion (all route system IDs exist, required fields present). The seeder MUST also check that galaxy tables are empty before proceeding and fail with a clear error if data already exists.
 - **FR-010**: Route storage MUST be bidirectional — querying routes from system A returns route to B, and querying from B returns route to A, even though routes are stored with lexicographic ordering (originId < destinationId).
 
 ### Key Entities
 
 - **Star System**: A unique location in the galaxy with identity, coordinates, classification, physical attributes, civilization data, trade codes, and economic indicators. Stored as a single row with structured JSON columns for nested data.
 - **Route**: A pre-computed navigable path between two star systems, with traversal cost. Path coordinates are not stored in the runtime database (only needed for visualization, not gameplay).
-- **Trade Pair**: A pre-computed bilateral trade relationship between two connected systems, storing the BTN value that drives job generation volume. Derived from route connectivity and system World Trade Numbers.
+- **Trade Pair**: A pre-computed bilateral trade relationship between two systems within 5 hops of each other, storing the BTN value and hop distance that drive job generation volume. Derived from route-graph BFS and system World Trade Numbers. Zero-BTN pairs are excluded.
 
 ## Success Criteria _(mandatory)_
 
@@ -138,16 +138,24 @@ A game system or developer searches for star systems by name (exact or partial m
 
 - The galaxy generator output format is stable and matches the contract defined in `specs/010-galaxy-generation/contracts/output-format.md`.
 - Route path coordinates (the sequence of grid cells) are not needed at runtime for gameplay — only origin, destination, and total cost are stored. Path data remains in the generator output for visualization purposes.
-- BTN distance modifier uses hop count (number of route segments between systems) rather than raw traversal cost, consistent with the GURPS Far Trader model.
+- BTN distance modifier uses hop count (number of route segments in the shortest path between systems) rather than raw traversal cost, consistent with the GURPS Far Trader model. Trade pairs are computed for all system pairs within 5 hops, not just directly adjacent systems.
 - The seeder is a developer-facing CLI tool run during deployment/setup, not a player-facing feature.
 - Storage capacity is sufficient for the full galaxy dataset (estimated well under 100MB for ~12,000 systems).
+
+## Clarifications
+
+### Session 2026-03-24
+
+- Q: What is the scope of trade pairs to pre-compute? → A: All pairs within N hops (via route graph), not just directly connected systems. Requires BFS in the seeder to discover multi-hop pairs and compute hop distances.
+- Q: What maximum hop count (N) for trade pair computation? → A: 5 hops. Captures nearly all non-zero BTN pairs while keeping table size manageable (~20,000-40,000 rows).
+- Q: What should happen when the seeder is run against an already-seeded database? → A: Fail with a clear error. Operator must manually clear tables before re-seeding.
 
 ## Interview
 
 ### Open Questions
 
-_(No open questions — specification is complete based on roadmap and existing specs.)_
-
 ### Answer Log
 
-_(No questions asked yet.)_
+- **Q1** (2026-03-24): Trade pair scope? → **A:** All pairs within N hops via route graph (Option B).
+- **Q2** (2026-03-24): Maximum hop count N? → **A:** 5 hops (Option B).
+- **Q3** (2026-03-24): Re-seeding behavior? → **A:** Fail with error if data exists (Option B).
