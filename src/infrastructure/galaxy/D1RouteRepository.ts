@@ -6,13 +6,8 @@
 
 import type { ConnectedSystem, RouteRepository } from '../../application/ports/RouteRepository.js';
 
-import type { StarSystemRow } from './mappers.js';
+import type { ConnectedSystemRow } from './mappers.js';
 import { mapRowToConnectedSystem } from './mappers.js';
-
-/** D1 row shape for joined routes + star_systems query. */
-type ConnectedSystemRow = StarSystemRow & {
-  readonly cost: number;
-};
 
 /**
  * Retrieves route data from a Cloudflare D1 database.

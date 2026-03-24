@@ -64,7 +64,7 @@ export function mapRowToStarSystem(row: StarSystemRow): StarSystem {
 }
 
 /** D1 row shape for a joined routes + star_systems query. */
-type ConnectedSystemRow = StarSystemRow & {
+export type ConnectedSystemRow = StarSystemRow & {
   readonly cost: number;
 };
 
