@@ -50,7 +50,7 @@ interface RouteRepository {
 ## TradePairRepository
 
 ```typescript
-/** A trade partner with its BTN value and hop distance. */
+/** A trade partner with its BTN value and hop count. */
 interface TradePairPartner {
   readonly system: StarSystem;
   readonly btn: number;

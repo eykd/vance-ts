@@ -30,7 +30,7 @@ A developer or game system queries a star system by its unique ID and receives t
 
 **Acceptance Scenarios**:
 
-1. **Given** a seeded D1 database with galaxy data, **When** a system is queried by its ID, **Then** all fields (name, coordinates, classification, TER attributes, planetary data, civilization data, trade codes, economics) are returned matching the original generator output.
+1. **Given** a seeded D1 database with galaxy data, **When** a system is queried by its ID, **Then** all fields (name, coordinates, classification, TER rating, planetary data, civilization data, trade codes, economics) are returned matching the original generator output.
 2. **Given** a seeded D1 database, **When** a non-existent system ID is queried, **Then** the repository returns null/undefined (no error thrown).
 
 ---
@@ -107,7 +107,7 @@ A game system or developer searches for star systems by name (exact or partial m
 
 ### Functional Requirements
 
-- **FR-001**: System MUST store star system records in D1 with all fields from the generator output (id, name, coordinates, classification, density, TER attributes, planetary data, civilization data, trade codes, economics).
+- **FR-001**: System MUST store star system records in D1 with all fields from the generator output (id, name, coordinates, classification, density, TER rating, planetary data, civilization data, trade codes, economics).
 - **FR-002**: System MUST store pre-computed routes in D1 with origin ID, destination ID, and traversal cost.
 - **FR-003**: System MUST pre-compute and store Bilateral Trade Numbers (BTN) for all system pairs within 5 hops of each other (via the route graph) during seeding, using the formula: `BTN = clamp(WTN_A + WTN_B - distance_modifier, 0, min(WTN_A, WTN_B) + 5)`. The seeder MUST perform BFS on the route graph to discover multi-hop pairs and compute hop-count distance modifiers. Pairs with BTN = 0 MUST be omitted.
 - **FR-004**: System MUST provide a repository interface for querying star systems by ID, returning the full system record or null.
@@ -122,7 +122,7 @@ A game system or developer searches for star systems by name (exact or partial m
 
 - **Star System**: A unique location in the galaxy with identity, coordinates, classification, physical attributes, civilization data, trade codes, and economic indicators. Stored as a single row with structured JSON columns for nested data.
 - **Route**: A pre-computed navigable path between two star systems, with traversal cost. Path coordinates are not stored in the runtime database (only needed for visualization, not gameplay).
-- **Trade Pair**: A pre-computed bilateral trade relationship between two systems within 5 hops of each other, storing the BTN value and hop distance that drive job generation volume. Derived from route-graph BFS and system World Trade Numbers. Zero-BTN pairs are excluded.
+- **Trade Pair**: A pre-computed bilateral trade relationship between two systems within 5 hops of each other, storing the BTN value and hop count that drive job generation volume. Derived from route-graph BFS and system World Trade Numbers. Zero-BTN pairs are excluded.
 
 ## Success Criteria _(mandatory)_
 

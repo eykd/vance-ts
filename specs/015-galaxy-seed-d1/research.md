@@ -56,7 +56,7 @@ At 5 hops max, the maximum distance modifier is 1.0, meaning BTN is reduced by a
 
 ## Decision 5: Route Graph BFS — Implementation Approach
 
-**Decision**: Build an in-memory adjacency list from routes.json, then run BFS from each system up to depth 5. Store discovered pairs with their hop distance.
+**Decision**: Build an in-memory adjacency list from routes.json, then run BFS from each system up to depth 5. Store discovered pairs with their hop count.
 
 **Rationale**: With ~12,000 systems and ~1,000 routes (Oikumene-only), the graph is sparse. BFS to depth 5 from each connected system is O(V \* branching_factor^5) which is tractable. Most systems are Beyond (unconnected), so BFS only runs from ~250 Oikumene systems.
 
