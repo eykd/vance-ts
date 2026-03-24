@@ -10,7 +10,7 @@ Implement the Prestoplot grammar-based text generation engine — a deterministi
 ## Technical Context
 
 **Language/Version**: TypeScript ES2022 (Cloudflare Workers runtime)
-**Primary Dependencies**: yaml (YAML parsing — NOT yet installed, must `npm install yaml`), @cloudflare/workers-types, existing Mulberry32 PRNG
+**Primary Dependencies**: yaml ≥ 2.3.0 (YAML parsing — NOT yet installed, must `npm install yaml@^2.3.0`; version ≥ 2.3 is REQUIRED for `maxAliasCount` option used in billion-laughs mitigation), @cloudflare/workers-types, existing Mulberry32 PRNG
 **Storage**: Cloudflare KV (primary), D1 (alternative), InMemory (testing)
 **Testing**: Vitest with @cloudflare/vitest-pool-workers (Workers project), strict TDD
 **Target Platform**: Cloudflare Workers V8 isolate
@@ -237,6 +237,10 @@ All gates pass. No violations to justify.
 
 The `yaml` npm package processes anchors (`&name`) and aliases (`*name`) before schema validation. A malicious grammar file with nested aliases can trigger exponential expansion — a classic "billion laughs" attack — exhausting the Workers isolate's 128MB memory ceiling long before `schema: 'json'` type coercion checks run. Example: a grammar with 9 levels of aliased arrays, each alias referenced 9 times, expands to 9^9 ≈ 387 million entries. **Mitigation**: Enforce a `MAX_GRAMMAR_SOURCE_BYTES` limit before calling `yaml.parse()` — reject inputs larger than 256KB with `GrammarParseError("Grammar source exceeds maximum size")`. Additionally, configure `yaml.parse` with `{ maxAliasCount: 100 }` (supported by the `yaml` npm package ≥ v2.3) to abort on excessive alias expansion. Add adversarial test cases: deeply nested anchors/aliases exceeding the alias limit, grammar source at the byte limit boundary, grammar source one byte over the limit.
 
+### yaml Package Version Constraint
+
+The billion-laughs mitigation depends on the `maxAliasCount` option, which is only available in `yaml` package version ≥ 2.3.0. If a developer runs `npm install yaml` without a version constraint, npm may resolve to an older 1.x version (still published) that silently ignores the `maxAliasCount` option — leaving the billion-laughs mitigation completely ineffective while appearing to work. **Mitigation**: (1) The install command MUST specify `npm install yaml@^2.3.0`. (2) In `grammarParser.ts`, add a build-time or startup assertion that the installed `yaml` package exports the expected API shape (specifically that `parse` accepts an options object with `maxAliasCount`). (3) Pin the version range in `package.json` as `"yaml": "^2.3.0"` to prevent accidental downgrade. Add a test case verifying that `yaml.parse` with `maxAliasCount: 1` throws on a YAML document with 2 alias references (confirms the option is actually enforced by the installed version).
+
 ### YAML Deserialization Safety
 
 The `yaml` npm package may coerce values unexpectedly (YAML 1.1 `yes`/`no` → booleans, numeric keys → numbers, `null` values in lists). **Mitigation**: Use `yaml.parse(source, { schema: 'json' })` to prevent type coercions. In `grammarParser.ts`, explicitly type-check all values — reject non-string list items (including `null`, `undefined`, `boolean`, `number`) with `GrammarParseError`. Validate rule name keys match `[A-Za-z_][A-Za-z0-9_]*`.
@@ -252,6 +256,10 @@ There is no `MAX_GRAMMAR_SOURCE_BYTES` guard before the `yaml.parse()` call. An 
 ### Template Tokenizer ReDoS Prevention
 
 Custom tokenizers for `{expression}` and `{{ expression }}` syntaxes MUST use iterative character-by-character scanning, not regex-based matching. Nested or malformed delimiters (e.g., `{{{{{{{{{`, `{{ {{ {{ }}`) could trigger catastrophic backtracking in regex engines. **Mitigation**: Implement both `ftemplateEngine.ts` and `jinja2Engine.ts` tokenizers as single-pass state machines scanning character-by-character. Add adversarial test cases: deeply nested delimiters (`{` × 1000), unclosed delimiters, interleaved `{` and `{{` markers. Verify tokenizer completes in O(n) time for input length n.
+
+### Error Message Information Leakage in Error Variants
+
+`RenderStoryResult` error variants expose `moduleName`, `sourcePath`, and `message` fields containing internal grammar structure (rule names, include chains, validation details). If error results are surfaced directly in HTTP API responses, they leak internal content architecture to end users — module naming reveals the grammar catalog, and `sourcePath` values like `"system-descriptions.planetType"` reveal rule hierarchy. **Mitigation**: (1) `RenderStoryResult` error variants are internal to the application layer. (2) Presentation-layer handlers that expose render results via HTTP MUST map all `ok: false` variants to a generic user-facing error (e.g., `{ error: "Content generation failed" }`) and log the detailed error server-side at WARN level. (3) Document this contract in `RenderStoryService` JSDoc: "Error variants contain internal details intended for logging, not for end-user display." Add a test in the presentation layer verifying that no `moduleName`, `sourcePath`, or `message` from error variants appears in HTTP response bodies.
 
 ### Template Expression Accessor Chain Depth
 
@@ -308,6 +316,14 @@ The design specs in `docs/spec/systems/prestoplot/02-ports-and-adapters.md` and 
 - **RandomPort** splits into `seedToInt` (async SHA-256) + `createRng` (sync construction) — cleaner separation of async and sync concerns. `Rng.next()` is minimal; `randint` and `choice` are utility functions in `selectionModes.ts`.
 
 **Action**: The design specs are reference documents for the original Prestoplot design. Where they conflict with plan contracts, the plan contracts govern implementation. Do not update the design specs — they serve as historical context.
+
+### UTF-16 Surrogate Pair Corruption in Template Tokenizers
+
+The ReDoS prevention mandate requires character-by-character scanning via `str[i]` or `str.charAt(i)`. In JavaScript, these return individual UTF-16 code units, not Unicode code points. Characters outside the Basic Multilingual Plane (U+10000+) — including emoji, some CJK ideographs, and mathematical symbols — are encoded as surrogate pairs (two 16-bit code units). A tokenizer scanning `str[i]` will see two separate code units for a single astral character. If either surrogate code unit happens to match a delimiter byte value (unlikely but possible with `{` = U+007B), the tokenizer could misidentify it. More critically, splitting surrogate pairs produces lone surrogates in output strings, which are invalid UTF-16 and render as replacement characters (U+FFFD) or cause encoding errors. **Mitigation**: Tokenizers in `ftemplateEngine.ts` and `jinja2Engine.ts` MUST iterate using `for...of` (which yields code points, not code units) or use `String.prototype.codePointAt()` with proper index advancement. The delimiter characters (`{`, `}`, `#`) are all BMP ASCII — surrogate code units will never match them — but output slicing must respect code point boundaries to avoid corrupting non-BMP content. Add test cases: template containing emoji (e.g., `"The {animal} says 🚀"`) and astral math symbols (e.g., `"Score: 𝟙𝟘𝟘"`) — verify output preserves characters intact without replacement characters.
+
+### MARKOV Empty Corpus Validation
+
+A `ListRule` with `selectionMode: MARKOV` and an empty `items[]` array (or items that are all empty strings) trains the Markov model on nothing — producing a model with only start sentinels and no transitions. `generateMarkov` immediately hits a dead-end on the first step. While `MarkovDeadEndError` catches this at render time, the error message ("no transitions from start key") is confusing for grammar authors — the real problem is an empty corpus, not a Markov modeling issue. **Mitigation**: In `grammarParser.ts`, validate that MARKOV rules have at least one non-empty item. Throw `GrammarParseError("MARKOV rule '{name}' requires at least one non-empty training item")` at parse time. This catches the authoring error early with an actionable message. Add test cases: MARKOV with `items: []` → `GrammarParseError`; MARKOV with `items: [""]` → `GrammarParseError`.
 
 ### MARKOV Dead-Ends
 
@@ -507,6 +523,14 @@ The spec (09-storage-adapters.md) defines `CachedStorage` as using a secondary K
 
 Cloudflare Workers handle concurrent requests via the event loop (single-threaded but cooperative at `await` points). Two concurrent render calls for the same uncached grammar will both observe a cache miss, both call `backing.load()`, and both write to the in-memory Map on resolution. This is benign for correctness (last write wins, both values are identical) but wastes a backing store call. **Decision**: Accept duplicate backing store calls for Phase 1 — the waste is bounded to one extra KV/D1 read per concurrent miss. If profiling shows this as a hotspot, implement a `pending: Map<string, Promise<GrammarDto | null>>` to coalesce concurrent misses: store the in-flight promise before the first `await`, subsequent misses for the same key return the same promise.
 
+### GrammarDto KV Value Size Limit
+
+Cloudflare KV values are limited to 25MB. A grammar with thousands of rules, each containing long weighted alternatives or large Markov training corpora, could produce a JSON-serialized `GrammarDto` approaching this limit. `kv.put()` with an oversized value throws a runtime error that would escape the "never throws" contract if uncaught. **Mitigation**: In `kvStorage.ts`, validate `JSON.stringify(dto).length < MAX_KV_VALUE_BYTES` (set to `24_000_000` — 24MB, leaving headroom for KV metadata) before calling `kv.put()`. Throw `StorageError("Grammar exceeds maximum storage size")` if exceeded. This is a defensive guard — at documented scale (hundreds of rules per grammar), typical DTOs are well under 1MB. Add a test verifying the size check triggers for an oversized DTO.
+
 ### Template Cache Eviction
 
 `FtemplateEngine` caches tokenized templates on the DI singleton instance. When grammars are updated and `CachedStorage` TTL expires, old tokenized templates remain in the cache indefinitely. Since the cache is keyed by template string content and tokens are deterministic, stale entries are harmless for correctness — only a memory issue. **Decision**: Implement `MAX_CACHE_SIZE = 500` with FIFO eviction from Phase 1. Workers isolate lifetimes are bounded (minutes to hours), making unbounded growth tolerable at current scale, but the eviction guard is cheap insurance. Add a test verifying that the cache evicts the oldest entry when the limit is reached.
+
+### Deterministic Oracle Seed Recovery
+
+The system is fully deterministic: given the same grammar and seed, output is identical. An attacker who obtains the grammar file (e.g., from a public repo or leaked deployment artifact) can brute-force seeds by rendering the grammar with candidate seeds and comparing output to observed game text. For SHA-256-based seeds, the search space is 2^32 (Mulberry32 seed width) — exhaustible in seconds on commodity hardware. **Risk assessment**: Low for Phase 1 — grammars are developer-authored, seeds are internal, and game text prediction has limited exploit value. **Decision**: Accept this risk. Document as a known property of the deterministic design. If future phases expose seed-sensitive content (e.g., hidden locations, loot tables), consider: (1) adding a server-side secret salt to `scopeSeed` derivation so grammar+output alone is insufficient for seed recovery, or (2) using a wider PRNG state (64-bit or higher).
