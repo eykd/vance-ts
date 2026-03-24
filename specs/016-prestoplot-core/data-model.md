@@ -26,7 +26,8 @@ RenderContext (runtime, not persisted)
 ├── holds → seedIntCache (Map<string, number>)
 ├── holds → selectionState (Map<string, SelectionState>)
 ├── holds → markovCache (Map<string, MarkovChainModel>)
-└── tracks → recursionDepth (number)
+├── tracks → recursionDepth (number)
+└── tracks → evaluationCount (number, capped at MAX_EVALUATIONS = 10,000)
 ```
 
 ## Domain Entities
@@ -79,9 +80,9 @@ RenderContext (runtime, not persisted)
 
 ### Seed (Value Object)
 
-| Field | Type   | Constraints                                            |
-| ----- | ------ | ------------------------------------------------------ |
-| value | string | Branded type, non-empty recommended but empty is valid |
+| Field | Type   | Constraints                                                         |
+| ----- | ------ | ------------------------------------------------------------------- |
+| value | string | Branded type, non-empty required (empty rejected with invalid_seed) |
 
 ### ScopedSeed (Value Object)
 
@@ -123,6 +124,7 @@ Serialized as JSON in KV/D1:
 
 ```json
 {
+  "version": 1,
   "key": "system-descriptions",
   "entry": "main",
   "includes": ["shared-names", "shared-adjectives"],
@@ -135,6 +137,8 @@ Serialized as JSON in KV/D1:
   }
 }
 ```
+
+`version` is required (forward-compatibility). Only `1` is accepted in Phase 1; unrecognized versions throw `StorageError`.
 
 ### D1 Schema (if needed)
 

@@ -203,6 +203,42 @@ async getSeedInt(scopedSeed: string): Promise<number> {
 
 **No D1 migration in this phase**: The D1 storage adapter is included for completeness but grammars will initially be stored in KV. D1 migration SQL is prepared but not applied unless needed.
 
+### Constants Placement
+
+All limits and thresholds with their owning files:
+
+| Constant                    | Value      | File                              | Scope                       |
+| --------------------------- | ---------- | --------------------------------- | --------------------------- |
+| `MAX_GRAMMAR_SOURCE_BYTES`  | 262,144    | `grammarParser.ts`                | Parse-time input guard      |
+| `MAX_TEMPLATE_LENGTH`       | 10,000     | `grammarParser.ts`                | Parse-time per-rule guard   |
+| `MAX_DEPTH`                 | 50         | `jinja2Engine.ts`                 | Template recursion limit    |
+| `MAX_EVALUATIONS`           | 10,000     | `renderEngine.ts` (RenderContext) | Per-render work budget      |
+| `MAX_INCLUDE_DEPTH`         | 20         | `renderStoryService.ts`           | Include chain depth limit   |
+| `MAX_INCLUDE_COUNT`         | 50         | `renderStoryService.ts`           | Total resolved grammars     |
+| `MAX_ACCESSOR_DEPTH`        | 10         | `jinja2Engine.ts`                 | Dot-access chain limit      |
+| `MAX_CACHE_SIZE`            | 500        | `jinja2Engine.ts`                 | Template token cache (FIFO) |
+| `MAX_KV_VALUE_BYTES`        | 24,000,000 | `kvStorage.ts`                    | KV put size guard           |
+| `MAX_MARKOV_CORPUS_PRODUCT` | 100,000    | `grammarParser.ts`                | chars × order budget        |
+| `MAX_MARKOV_ORDER`          | 10         | `grammarParser.ts`                | Markov order upper bound    |
+
+### Validation Rules Placement
+
+All regex patterns and reject-lists in `grammarParser.ts`:
+
+| Validation                  | Pattern / Rule                                                                                                                                                                               | Error Type          |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Grammar key format          | `/^[a-z][a-z0-9_-]*$/`                                                                                                                                                                       | `GrammarParseError` |
+| Rule name format            | `/^[A-Za-z_][A-Za-z0-9_]*$/`                                                                                                                                                                 | `GrammarParseError` |
+| Rule name reject-list       | `constructor`, `toString`, `valueOf`, `__proto__`, `hasOwnProperty`, `isPrototypeOf`, `propertyIsEnumerable`, `__defineGetter__`, `__defineSetter__`, `__lookupGetter__`, `__lookupSetter__` | `GrammarParseError` |
+| Reserved rule names         | `include`, `render`                                                                                                                                                                          | `GrammarParseError` |
+| Weight range                | finite number > 0                                                                                                                                                                            | `GrammarParseError` |
+| MARKOV order range          | integer in [1, 10]                                                                                                                                                                           | `GrammarParseError` |
+| MARKOV items no templates   | reject items containing `{` or `{{`                                                                                                                                                          | `GrammarParseError` |
+| MARKOV non-empty corpus     | at least one non-empty item                                                                                                                                                                  | `GrammarParseError` |
+| StructRule non-empty fields | at least one field                                                                                                                                                                           | `GrammarParseError` |
+| Entry rule exists           | `entry` key in `rules` map                                                                                                                                                                   | `GrammarParseError` |
+| Scoped seed separator       | Rule names must not contain `-` (hyphen)                                                                                                                                                     | `GrammarParseError` |
+
 ## Applied Learnings
 
 No relevant solutions found in `.specify/solutions/` — solutions index is empty.
@@ -276,7 +312,7 @@ The jinja2 expression grammar `identifier accessor*` places no limit on accessor
 
 ### Grammar Key Sanitization
 
-Grammar keys are used directly as KV namespace keys. Rule names are validated with `[A-Za-z_][A-Za-z0-9_]*` but grammar keys have no equivalent validation. Keys containing path-like characters (e.g., `../admin/secrets`), `__proto__`, empty strings, or null bytes could behave unexpectedly. **Mitigation**: In `grammarParser.ts`, validate grammar keys match `[A-Za-z][A-Za-z0-9_-]*` (hyphens allowed for keys like `system-descriptions`). Reject keys with path separators, null bytes, or non-ASCII characters with `GrammarParseError`. Add test cases: `'../other'`, `''`, `'__proto__'` as grammar keys.
+Grammar keys are used directly as KV namespace keys. Rule names are validated with `[A-Za-z_][A-Za-z0-9_]*` but grammar keys have no equivalent validation. Keys containing path-like characters (e.g., `../admin/secrets`), `__proto__`, empty strings, or null bytes could behave unexpectedly. **Mitigation**: In `grammarParser.ts`, validate grammar keys match `[a-z][a-z0-9_-]*` (lowercase-only, hyphens allowed for keys like `system-descriptions`). This eliminates KV case-normalization divergence (see KV Key Case-Normalization Consistency below). Reject keys with path separators, null bytes, uppercase, or non-ASCII characters with `GrammarParseError`. Add test cases: `'../other'`, `''`, `'__proto__'`, `'SystemDesc'` (uppercase) as grammar keys.
 
 ### Prototype Pollution via Rule Names
 
@@ -436,6 +472,10 @@ The plan references `seed_error` (crypto.subtle failure) and implies `render_bud
 - `| { readonly ok: false; readonly kind: 'render_budget'; readonly evaluationCount: number }`
 - `| { readonly ok: false; readonly kind: 'parse_error'; readonly moduleName: string; readonly message: string }`
 - `| { readonly ok: false; readonly kind: 'storage_error'; readonly moduleName: string; readonly message: string }`
+- `| { readonly ok: false; readonly kind: 'include_depth'; readonly moduleName: string; readonly depth: number }`
+- `| { readonly ok: false; readonly kind: 'include_limit'; readonly count: number }`
+
+Domain error types in `errors.ts` MUST include: `IncludeDepthError` (thrown when include chain exceeds `MAX_INCLUDE_DEPTH = 20`), `IncludeLimitError` (thrown when total resolved grammars exceed `MAX_INCLUDE_COUNT = 50`), and `RenderBudgetError` (thrown when `evaluationCount` exceeds `MAX_EVALUATIONS = 10_000`). All are caught and mapped in `RenderStoryService.render()`.
 
 All error types — including `StorageError` from `storage.load()` / `storage.save()` failures (KV network errors, D1 connection failures) — must be caught and mapped in `RenderStoryService.render()` to maintain the "never throws" contract. Add test cases: mock storage that throws on `load()`, verify result is `{ ok: false, kind: 'storage_error' }`.
 
@@ -494,7 +534,7 @@ Template strings exceeding `MAX_TEMPLATE_LENGTH = 10_000` characters should thro
 
 ### Template Cache Bounds
 
-`Jinja2Engine` caches tokenized templates in a `Map<string, Jinja2Token[]>` on the singleton instance. Growth is bounded by the total number of distinct rule templates across all grammars (finite for a finite grammar set). Document this invariant. If unbounded growth becomes a concern, add `MAX_CACHE_SIZE = 1000` with FIFO eviction.
+`Jinja2Engine` caches tokenized templates in a `Map<string, Jinja2Token[]>` on the singleton instance. Growth is bounded by the total number of distinct rule templates across all grammars (finite for a finite grammar set). Document this invariant. **Decision**: Implement `MAX_CACHE_SIZE = 500` with FIFO eviction from Phase 1 (consistent with Template Cache Eviction section below).
 
 ### Markov Training Corpus Limits
 
