@@ -239,6 +239,10 @@ The `yaml` npm package may coerce values unexpectedly (YAML 1.1 `yes`/`no` → b
 
 `RenderStoryRequest.seed` is typed as `string` but `makeSeed` requires exactly 32 lowercase hex characters. **Decision**: The service accepts any non-empty string as a seed and hashes it directly via `seedToInt` — it does NOT require the 32-char hex format externally. `generateSeed()` produces that format for callers who want a canonical seed. Invalid/empty seed maps to a `{ ok: false, kind: 'invalid_seed' }` result variant.
 
+### Template Tokenizer ReDoS Prevention
+
+Custom tokenizers for `{expression}` and `{{ expression }}` syntaxes MUST use iterative character-by-character scanning, not regex-based matching. Nested or malformed delimiters (e.g., `{{{{{{{{{`, `{{ {{ {{ }}`) could trigger catastrophic backtracking in regex engines. **Mitigation**: Implement both `ftemplateEngine.ts` and `jinja2Engine.ts` tokenizers as single-pass state machines scanning character-by-character. Add adversarial test cases: deeply nested delimiters (`{` × 1000), unclosed delimiters, interleaved `{` and `{{` markers. Verify tokenizer completes in O(n) time for input length n.
+
 ## Edge Cases & Error Handling
 
 ### MARKOV Dead-Ends
@@ -272,6 +276,26 @@ Accessing an out-of-bounds index via `{Name[N]}` in template expressions MUST th
 ### Article Generation Non-ASCII Limitation
 
 Accented vowels (é, è, â, ô, etc.) are treated as consonants → return "a". This is a known limitation acceptable for English-language game content. Grammar authors should avoid leading non-ASCII characters in rule outputs used with article accessors. Add an explicit test verifying fallback behavior for words like "élan".
+
+### WeightedAlternative Zero/Negative Weight
+
+`WeightedAlternative.weight` is documented as "Positive number, default 1" but without parse-time validation, a grammar with `weight: 0` causes division-by-zero in weighted random selection (total weight sums to zero), and `weight: -1` corrupts cumulative probability distributions, producing undefined selection behavior. **Mitigation**: In `grammarParser.ts`, validate that every `weight` is a finite number > 0. Reject with `GrammarParseError("Rule '{name}': weight must be a positive number, got {value}")`. Add test cases: `weight: 0`, `weight: -1`, `weight: NaN`, `weight: Infinity`, `weight: "not a number"`.
+
+### Entry Rule Validation
+
+No validation ensures `Grammar.entry` refers to an existing rule in `Grammar.rules`. A grammar with `entry: "nonexistent"` passes parsing but fails at render time with an unclear `RuleNotFoundError`. **Mitigation**: In `grammarParser.ts`, after building the rules map, verify that `entry` is a key in `rules`. Throw `GrammarParseError("Entry rule '{entry}' not found in grammar rules")` at parse time. This catches authoring errors early.
+
+### Include Rule Name Conflicts Between Included Grammars
+
+The plan specifies that included grammars' rules do not override the parent's same-named rules, but does not define behavior when two _included_ grammars (neither the parent) define the same rule name. **Resolution**: Apply left-to-right precedence matching the breadth-first include order. If grammar A includes [B, C] and both B and C define rule "color", B's definition wins because it appears first in the includes array. Document this precedence rule in the grammar format specification. Add test case: two includes with conflicting rule names, verify left-to-right precedence.
+
+### CachedStorage TTL Determinism Within Request Batches
+
+`CachedStorage` is a DI singleton with TTL-based cache expiry. If TTL expires during a request that renders multiple grammars in sequence, earlier renders use cached grammar version X while later renders fetch fresh version Y from KV. This breaks within-request determinism for systems rendering multiple descriptions in one handler. **Mitigation**: Document that `CachedStorage` is acceptable for single-render requests. For batch rendering (multiple grammars per request), callers should pre-warm all needed grammars before rendering begins, or use a request-scoped cache snapshot. Implementation deferred — not needed for Phase 1 single-render use case, but note the constraint for Phase 4 game turn integration.
+
+### RenderContext Evaluation Counter
+
+The plan describes `MAX_EVALUATIONS = 10_000` but `RenderContext` in the data model tracks only `recursionDepth`. Add `evaluationCount: number` to `RenderContext`, initialized to 0. Increment on every `renderRule` call. The evaluation counter is the primary defense against exponential-time grammar expansion (branching mutual recursion), while recursion depth guards against stack overflow in linear chains. Both limits must be enforced independently.
 
 ## Performance Considerations
 
@@ -309,6 +333,14 @@ Template strings exceeding `MAX_TEMPLATE_LENGTH = 10_000` characters should thro
 ### Include Depth Limit
 
 Separate from template recursion depth. A deep acyclic include chain (200 levels) triggers 200 sequential KV reads. **Mitigation**: Add `MAX_INCLUDE_DEPTH = 20`. Throw `IncludeDepthError` when exceeded. This is distinct from circular detection — it bounds operational latency.
+
+### Include Fan-Out Limit
+
+`MAX_INCLUDE_DEPTH = 20` bounds vertical depth but not horizontal breadth. A grammar including 100 other grammars at depth 1 triggers 100 KV reads, far exceeding the 50ms budget even with caching cold starts. **Mitigation**: Add `MAX_INCLUDE_COUNT = 50` bounding the total number of unique grammars resolved (including transitive includes) per render pass. Throw `IncludeLimitError` when exceeded. Track count in the include resolver alongside the visited set.
+
+### Parallel Include Resolution
+
+Include resolution is breadth-first but currently implied as sequential — each grammar loaded one at a time from storage. At each depth level, all grammars at that level are independent and can be loaded concurrently via `Promise.all`. **Optimization**: In the include resolver, batch-load all grammars at the same depth level using `Promise.all(keys.map(k => storage.get(k)))`. This reduces latency from O(totalIncludes × kvLatency) to O(maxDepth × kvLatency). Important for grammars with wide include trees.
 
 ### Seed Cache Memory
 
