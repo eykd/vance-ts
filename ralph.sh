@@ -965,7 +965,7 @@ find_leaf_task() {
         local orphan_ready
         orphan_ready=$(br ready --json 2>/dev/null | \
             jq --arg p "$EPIC_ID" \
-               '[.[] | select(.id != $p and .issue_type != "event" and ((.priority // 4) | tonumber) <= 2)]')
+               '[.[] | select(.id != $p and .issue_type != "event" and ((.priority // 4) | tonumber) <= 3)]')
         local orphan_count
         orphan_count=$(echo "$orphan_ready" | jq 'length')
         if [[ "$orphan_count" -gt 0 ]]; then
@@ -2374,7 +2374,7 @@ run_loop() {
                 local open_tasks open_count
                 open_tasks=$(get_open_tasks "$epic_id")
                 open_count=$(echo "$open_tasks" | jq 'length')
-                log WARN "No ready tasks, but $open_count open task(s) remain (possibly P3 or blocked tasks)"
+                log WARN "No ready tasks, but $open_count open task(s) remain (possibly blocked tasks)"
                 log_block "Remaining Open Tasks" "$(echo "$open_tasks" | jq -r '.[] | "\(.id): \(.title) [priority: \(.priority // "none")]"')"
                 log ERROR "Cannot complete epic with open tasks remaining"
                 echo "" >&2
@@ -2382,7 +2382,6 @@ run_loop() {
                 echo "$open_tasks" | jq -r '.[] | "  - \(.id): \(.title) [priority: \(.priority // "none"), status: \(.status)]"' >&2
                 echo "" >&2
                 echo "These tasks may be:" >&2
-                echo "  - Low priority (P3) tasks waiting to be started" >&2
                 echo "  - Tasks blocked by dependencies" >&2
                 echo "  - Tasks that need manual intervention" >&2
                 echo "" >&2
