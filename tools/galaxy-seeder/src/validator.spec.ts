@@ -684,6 +684,206 @@ describe('validateInput', () => {
     });
   });
 
+  describe('route path validation', () => {
+    it('should return an error when route path is missing', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [{ originId: 'sys-001', destinationId: 'sys-002', cost: 1.5 }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([expect.stringContaining('route[0] path is not an array')])
+        );
+      }
+    });
+
+    it('should return an error when route path is not an array', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [{ originId: 'sys-001', destinationId: 'sys-002', cost: 1.5, path: 'not-array' }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([expect.stringContaining('route[0] path is not an array')])
+        );
+      }
+    });
+
+    it('should return an error when path element is not an object', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [
+          { originId: 'sys-001', destinationId: 'sys-002', cost: 1.5, path: ['not-object'] },
+        ],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('route[0] path[0] is not a coordinate object'),
+          ])
+        );
+      }
+    });
+
+    it('should return an error when path element is missing x', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [{ originId: 'sys-001', destinationId: 'sys-002', cost: 1.5, path: [{ y: 10 }] }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([expect.stringContaining('route[0] path[0] x is not a number')])
+        );
+      }
+    });
+
+    it('should return an error when path element is missing y', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [{ originId: 'sys-001', destinationId: 'sys-002', cost: 1.5, path: [{ x: 5 }] }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([expect.stringContaining('route[0] path[0] y is not a number')])
+        );
+      }
+    });
+
+    it('should return an error when path element x is not a number', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [
+          {
+            originId: 'sys-001',
+            destinationId: 'sys-002',
+            cost: 1.5,
+            path: [{ x: 'bad', y: 10 }],
+          },
+        ],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([expect.stringContaining('route[0] path[0] x is not a number')])
+        );
+      }
+    });
+
+    it('should return an error when path element y is not a number', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [
+          {
+            originId: 'sys-001',
+            destinationId: 'sys-002',
+            cost: 1.5,
+            path: [{ x: 5, y: null }],
+          },
+        ],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([expect.stringContaining('route[0] path[0] y is not a number')])
+        );
+      }
+    });
+
+    it('should accept a valid path with coordinate objects', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [
+          {
+            originId: 'sys-001',
+            destinationId: 'sys-002',
+            cost: 1.5,
+            path: [
+              { x: 10, y: 20 },
+              { x: 30, y: 40 },
+            ],
+          },
+        ],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('should accept an empty path array', () => {
+      const input = validInput();
+      input.systems = [
+        validSystem({ id: 'sys-001' }),
+        validSystem({ id: 'sys-002', name: 'Beta', x: 30, y: 40 }),
+      ];
+      input.routes = {
+        routes: [{ originId: 'sys-001', destinationId: 'sys-002', cost: 1.5, path: [] }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(true);
+    });
+  });
+
   describe('multiple errors', () => {
     it('should collect all errors at once', () => {
       const result = validateInput({

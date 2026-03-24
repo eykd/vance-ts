@@ -213,6 +213,25 @@ function validateRouteReferences(
     if (typeof cost !== 'number' || !Number.isFinite(cost)) {
       errors.push(`route[${String(i)}] cost is not a finite number`);
     }
+
+    const path = route['path'];
+    if (!Array.isArray(path)) {
+      errors.push(`route[${String(i)}] path is not an array`);
+    } else {
+      for (let j = 0; j < path.length; j++) {
+        const point = path[j] as unknown;
+        if (!isObject(point)) {
+          errors.push(`route[${String(i)}] path[${String(j)}] is not a coordinate object`);
+          continue;
+        }
+        if (typeof point['x'] !== 'number') {
+          errors.push(`route[${String(i)}] path[${String(j)}] x is not a number`);
+        }
+        if (typeof point['y'] !== 'number') {
+          errors.push(`route[${String(i)}] path[${String(j)}] y is not a number`);
+        }
+      }
+    }
   }
 }
 
