@@ -32,8 +32,8 @@ A content author writes a YAML grammar file defining text rules with weighted al
 
 1. **Given** a valid YAML grammar with text rules, **When** rendered with seed "alpha", **Then** the output is a specific deterministic string that never changes for that seed.
 2. **Given** the same grammar rendered with seed "beta", **When** compared to seed "alpha", **Then** the outputs differ.
-3. **Given** a grammar with nested rule references (e.g., `{animal}` inside a `{creature}` rule), **When** rendered, **Then** nested references are fully resolved to plain text.
-4. **Given** a grammar with template expressions (e.g., `{name}` inside rendered text), **When** rendered, **Then** template expressions are evaluated and replaced.
+3. **Given** a grammar with nested rule references (e.g., `{{ animal }}` inside a `{{ creature }}` rule), **When** rendered, **Then** nested references are fully resolved to plain text.
+4. **Given** a grammar with template expressions (e.g., `{{ name }}` inside rendered text), **When** rendered, **Then** template expressions are evaluated and replaced.
 
 ---
 
@@ -90,7 +90,7 @@ A content author writes grammar files in YAML format following a defined schema.
 
 ### User Story 5 - Template Expression Evaluation (Priority: P2)
 
-Rendered text can contain template expressions that reference other rules or context values. The system evaluates these expressions, supporting both a simple `{expression}` syntax (ftemplate) and a `{{ expression }}` syntax (jinja2 subset).
+Rendered text can contain template expressions that reference other rules or context values. The system evaluates these expressions using `{{ expression }}` syntax (jinja2 subset).
 
 **Why this priority**: Templates connect rules together and allow dynamic text composition. Without templates, each rule is isolated.
 
@@ -98,7 +98,7 @@ Rendered text can contain template expressions that reference other rules or con
 
 **Acceptance Scenarios**:
 
-1. **Given** text containing `{animal}` and a rule named "animal", **When** rendered, **Then** `{animal}` is replaced with the rendered output of the "animal" rule.
+1. **Given** text containing `{{ animal }}` and a rule named "animal", **When** rendered, **Then** `{{ animal }}` is replaced with the rendered output of the "animal" rule.
 2. **Given** text containing `{{ planet.name }}` and a struct rule "planet" with a "name" field, **When** rendered, **Then** the expression is replaced with the planet's name value.
 3. **Given** text containing a reference to a non-existent rule, **When** rendered, **Then** a clear error identifies the missing reference.
 
@@ -170,7 +170,7 @@ A grammar file can include rules from other grammar files, enabling content reus
 - **FR-002**: System MUST render a grammar from a given seed, producing deterministic text output — same seed always yields same output.
 - **FR-003**: System MUST support five selection modes: REUSE (with replacement), PICK (without replacement, Fisher-Yates), RATCHET (sequential cycling), LIST (index access), and MARKOV (character-level chain generation).
 - **FR-004**: System MUST derive sub-random sequences from scoped seeds using SHA-256 hashing, so that each rule's random choices are independently reproducible.
-- **FR-005**: System MUST evaluate template expressions in rendered text, supporting `{expression}` (ftemplate) and `{{ expression }}` (jinja2 subset) syntaxes.
+- **FR-005**: System MUST evaluate template expressions in rendered text using `{{ expression }}` syntax (jinja2 subset).
 - **FR-006**: System MUST generate correct English indefinite articles ("a"/"an") with special-case handling for silent-h, "uni-" prefix, "eu-" prefix, and similar pronunciation exceptions.
 - **FR-007**: System MUST store and retrieve grammars from Cloudflare KV, D1, or in-memory storage via a common storage port interface.
 - **FR-008**: System MUST support grammar includes (one grammar referencing rules from another) with circular include detection.
@@ -219,7 +219,7 @@ A grammar file can include rules from other grammar files, enabling content reus
 - Grammar parsing (YAML → Grammar objects)
 - Deterministic rendering with seed-based PRNG
 - Five selection modes (REUSE, PICK, RATCHET, MARKOV, LIST)
-- Template expression evaluation (ftemplate and jinja2 subset)
+- Template expression evaluation (jinja2 subset)
 - Indefinite article generation
 - Storage adapters (InMemory, KV, D1, Cached)
 - Grammar includes with circular detection

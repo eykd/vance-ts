@@ -18,12 +18,13 @@ interface TemplateEnginePort {
 }
 ```
 
-## Implementations
+## Implementation
 
-| Adapter         | File                                               | Syntax                                              |
-| --------------- | -------------------------------------------------- | --------------------------------------------------- |
-| FtemplateEngine | `src/infrastructure/prestoplot/ftemplateEngine.ts` | `{expression}` — single braces                      |
-| Jinja2Engine    | `src/infrastructure/prestoplot/jinja2Engine.ts`    | `{{ expression }}` — double braces, no control flow |
+| Adapter      | File                                            | Syntax                                              |
+| ------------ | ----------------------------------------------- | --------------------------------------------------- |
+| Jinja2Engine | `src/infrastructure/prestoplot/jinja2Engine.ts` | `{{ expression }}` — double braces, no control flow |
+
+_Note: FtemplateEngine (`{expression}` syntax) was removed during red team review to eliminate template dispatch ambiguity. Jinja2 subset is a strict superset of ftemplate capabilities._
 
 ## Behavior
 

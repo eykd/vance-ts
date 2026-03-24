@@ -23,15 +23,15 @@ Implement the Prestoplot grammar-based text generation engine — a deterministi
 
 _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
-| Principle                         | Status | Notes                                                                     |
-| --------------------------------- | ------ | ------------------------------------------------------------------------- |
-| I. Test-First Development         | PASS   | Strict TDD, 100% coverage, Workers vitest pool                            |
-| II. Type Safety & Static Analysis | PASS   | All types readonly, explicit returns, no any, branded types               |
-| III. Code Quality Standards       | PASS   | JSDoc on all public APIs, consistent naming, import order                 |
-| IV. Pre-commit Quality Gates      | PASS   | Existing husky + lint-staged pipeline                                     |
-| V. Warning & Deprecation Policy   | PASS   | Zero warnings tolerance maintained                                        |
-| VI. Workers Target Environment    | PASS   | crypto.subtle (not Node crypto), KV/D1 (not fs), Web Standard APIs        |
-| VII. Simplicity & Maintainability | PASS   | Port-adapter pattern justified by 4 storage backends + 2 template engines |
+| Principle                         | Status | Notes                                                                    |
+| --------------------------------- | ------ | ------------------------------------------------------------------------ |
+| I. Test-First Development         | PASS   | Strict TDD, 100% coverage, Workers vitest pool                           |
+| II. Type Safety & Static Analysis | PASS   | All types readonly, explicit returns, no any, branded types              |
+| III. Code Quality Standards       | PASS   | JSDoc on all public APIs, consistent naming, import order                |
+| IV. Pre-commit Quality Gates      | PASS   | Existing husky + lint-staged pipeline                                    |
+| V. Warning & Deprecation Policy   | PASS   | Zero warnings tolerance maintained                                       |
+| VI. Workers Target Environment    | PASS   | crypto.subtle (not Node crypto), KV/D1 (not fs), Web Standard APIs       |
+| VII. Simplicity & Maintainability | PASS   | Port-adapter pattern justified by 4 storage backends + 1 template engine |
 
 No violations. No complexity tracking needed.
 
@@ -84,8 +84,7 @@ src/
 │       ├── kvStorage.ts          # KVStorage implements GrammarStorage
 │       ├── d1Storage.ts          # D1Storage implements GrammarStorage
 │       ├── cachedStorage.ts      # CachedStorage decorator with TTL
-│       ├── ftemplateEngine.ts    # {expression} tokenizer + evaluator
-│       ├── jinja2Engine.ts       # {{ expression }} subset interpreter
+│       ├── jinja2Engine.ts       # {{ expression }} template engine (sole implementation)
 │       ├── mulberry32Random.ts   # RandomPort adapter wrapping existing Mulberry32
 │       ├── seedHasher.ts         # seedToInt via crypto.subtle SHA-256
 │       └── *.spec.ts             # Colocated tests
@@ -98,7 +97,7 @@ migrations/
 └── 0002_grammar_store.sql        # D1 table for grammar storage (if D1 adapter needed)
 ```
 
-**Structure Decision**: Follows existing Clean Architecture layout. Port interfaces go in `src/application/ports/` (one file per port, matching existing StarSystemRepository.ts, RouteRepository.ts convention). Domain and infrastructure get `prestoplot/` subdirectories mirroring `galaxy/` pattern. Tests colocated with source (Workers vitest pool requirement).
+**Structure Decision**: Follows existing Clean Architecture layout. Port interfaces go in `src/application/ports/` (one file per port, matching existing StarSystemRepository.ts, RouteRepository.ts convention). Domain and infrastructure get `prestoplot/` subdirectories mirroring `galaxy/` pattern. Tests colocated with source (Workers vitest pool requirement). Single template engine (jinja2 subset) — no ftemplate.
 
 **Coverage Note**: Workers vitest project (`src/**/*.spec.ts`) cannot contribute to v8 coverage reports — the Workers runtime lacks `node:inspector`. The 100% coverage threshold applies to `acceptance/**/*.ts` only. Prestoplot tests run and must pass but are coverage-exempt by runtime constraint.
 
@@ -136,24 +135,23 @@ Build adapters with InMemoryStorage first (needed for all service tests):
 
 12. **seedHasher.ts** — `seedToInt` using crypto.subtle SHA-256 (async, first 4 bytes → uint32)
 13. **mulberry32Random.ts** — RandomPort wrapping existing Mulberry32 + seedHasher
-14. **ftemplateEngine.ts** — Ftemplate tokenizer/evaluator implementing TemplateEnginePort
-15. **jinja2Engine.ts** — Jinja2 subset implementing TemplateEnginePort
-16. **inMemoryStorage.ts** — InMemoryStorage implementing GrammarStorage (needed for all service tests)
-17. **kvStorage.ts** — KVStorage implementing GrammarStorage
-18. **d1Storage.ts** — D1Storage implementing GrammarStorage + migration
-19. **cachedStorage.ts** — CachedStorage decorator wrapping any GrammarStorage
+14. **jinja2Engine.ts** — Jinja2 subset implementing TemplateEnginePort (sole template engine)
+15. **inMemoryStorage.ts** — InMemoryStorage implementing GrammarStorage (needed for all service tests)
+16. **kvStorage.ts** — KVStorage implementing GrammarStorage
+17. **d1Storage.ts** — D1Storage implementing GrammarStorage + migration
+18. **cachedStorage.ts** — CachedStorage decorator wrapping any GrammarStorage
 
 ### Layer 4: Application Services
 
-20. **dto.ts** — GrammarDto ↔ Grammar conversion
-21. **grammarParser.ts** — YAML string → Grammar parsing + validation (circular include detection, missing reference detection)
-22. **renderEngine.ts** — Per-render execution engine (rule resolution, template evaluation, selection state, seed scoping)
-23. **renderStoryService.ts** — Top-level orchestrator: load grammar, parse, create RenderEngine, render entry rule, return result
+19. **dto.ts** — GrammarDto ↔ Grammar conversion
+20. **grammarParser.ts** — YAML string → Grammar parsing + validation (circular include detection, missing reference detection)
+21. **renderEngine.ts** — Per-render execution engine (rule resolution, template evaluation, selection state, seed scoping)
+22. **renderStoryService.ts** — Top-level orchestrator: load grammar, parse, create RenderEngine, render entry rule, return result
 
 ### Layer 5: Integration & Wiring
 
-24. **Env binding** — Add `GRAMMAR_KV: KVNamespace` to `src/shared/env.ts` and `wrangler.toml`
-25. **DI wiring** — Register Prestoplot services in `src/di/serviceFactory.ts` using lazy singleton pattern:
+23. **Env binding** — Add `GRAMMAR_KV: KVNamespace` to `src/shared/env.ts` and `wrangler.toml`
+24. **DI wiring** — Register Prestoplot services in `src/di/serviceFactory.ts` using lazy singleton pattern:
 
 ```typescript
 // In ServiceFactory class:
@@ -163,7 +161,7 @@ private _renderStoryService: RenderStoryService | null = null;
 get renderStoryService(): RenderStoryService {
   this._renderStoryService ??= new RenderStoryService(
     new KVStorage(this.env.GRAMMAR_KV),
-    new FtemplateEngine(),
+    new Jinja2Engine(),
     new Mulberry32Random()
   );
   return this._renderStoryService;
@@ -193,7 +191,7 @@ async getSeedInt(scopedSeed: string): Promise<number> {
 
 **Include resolution order**: Breadth-first, left-to-right. Circular detection uses a `Set<string>` of visited grammar keys built during resolution. `CircularIncludeError` thrown before any rule merging occurs. Resolution loads each included grammar from storage, merges rules (included grammar's rules do NOT override the including grammar's same-named rules).
 
-**Template recursion limit**: Both ftemplate and jinja2 engines enforce `MAX_DEPTH = 50`. The `depth` parameter is incremented on each recursive `evaluate()` call. Exceeding MAX_DEPTH throws `TemplateError`.
+**Template recursion limit**: The jinja2 engine enforces `MAX_DEPTH = 50`. The `depth` parameter is incremented on each recursive `evaluate()` call. Exceeding MAX_DEPTH throws `TemplateError`.
 
 **Markov chain sentinels**: Uses STX (`\x02`) and ETX (`\x03`) as start/end sentinels instead of spaces. Training pads with configurable order (default 3) STX sentinels at start and one ETX at end. Model is a `Map<string, Map<string, number>>` (ngram → next-char → count).
 
@@ -255,7 +253,7 @@ There is no `MAX_GRAMMAR_SOURCE_BYTES` guard before the `yaml.parse()` call. An 
 
 ### Template Tokenizer ReDoS Prevention
 
-Custom tokenizers for `{expression}` and `{{ expression }}` syntaxes MUST use iterative character-by-character scanning, not regex-based matching. Nested or malformed delimiters (e.g., `{{{{{{{{{`, `{{ {{ {{ }}`) could trigger catastrophic backtracking in regex engines. **Mitigation**: Implement both `ftemplateEngine.ts` and `jinja2Engine.ts` tokenizers as single-pass state machines scanning character-by-character. Add adversarial test cases: deeply nested delimiters (`{` × 1000), unclosed delimiters, interleaved `{` and `{{` markers. Verify tokenizer completes in O(n) time for input length n.
+The custom tokenizer for `{{ expression }}` syntax MUST use iterative character-by-character scanning, not regex-based matching. Nested or malformed delimiters (e.g., `{{ {{ {{ }}`) could trigger catastrophic backtracking in regex engines. **Mitigation**: Implement the `jinja2Engine.ts` tokenizer as a single-pass state machine scanning character-by-character. Add adversarial test cases: deeply nested delimiters (`{{` × 1000), unclosed delimiters. Verify tokenizer completes in O(n) time for input length n.
 
 ### Error Message Information Leakage in Error Variants
 
@@ -263,7 +261,7 @@ Custom tokenizers for `{expression}` and `{{ expression }}` syntaxes MUST use it
 
 ### Template Expression Accessor Chain Depth
 
-The ftemplate expression grammar `identifier accessor*` places no limit on accessor chain length. While the 10,000-char template length limit indirectly bounds this, a pathological expression like `{a.b.c.d...}` with 1,000+ dot accessors would create a large token array cached in the singleton FtemplateEngine. **Mitigation**: Add `MAX_ACCESSOR_DEPTH = 10` in the tokenizer. Throw `TemplateError("Accessor chain exceeds maximum depth")` when exceeded. StructRule nesting beyond 10 levels is not a realistic grammar pattern.
+The jinja2 expression grammar `identifier accessor*` places no limit on accessor chain length. While the 10,000-char template length limit indirectly bounds this, a pathological expression like `{{ a.b.c.d... }}` with 1,000+ dot accessors would create a large token array cached in the singleton Jinja2Engine. **Mitigation**: Add `MAX_ACCESSOR_DEPTH = 10` in the tokenizer. Throw `TemplateError("Accessor chain exceeds maximum depth")` when exceeded. StructRule nesting beyond 10 levels is not a realistic grammar pattern.
 
 ### Grammar Key Sanitization
 
@@ -306,20 +304,20 @@ The design specs in `docs/spec/systems/prestoplot/02-ports-and-adapters.md` and 
 | Port           | Design Spec                                              | Plan Contract (Canonical)                                                |
 | -------------- | -------------------------------------------------------- | ------------------------------------------------------------------------ |
 | StoragePort    | `resolveModule(name): Promise<Grammar>`, `listModules()` | `load(key): Promise<GrammarDto \| null>`, `save()`, `delete()`, `keys()` |
-| TemplateEngine | `render(template, sourcePath, context): RenderedString`  | `evaluate(template, context, depth): string`                             |
+| TemplateEngine | `render(template, sourcePath, context): RenderedString`  | `evaluate(template, context, depth): string` (jinja2 only)               |
 | RandomPort     | `getRng(seed)` with rich `Rng` (random, randint, choice) | `seedToInt(seed): Promise<number>`, `createRng(seed): Rng` (next only)   |
 
 **Key design decisions behind divergence**:
 
 - **StoragePort** returns `GrammarDto | null` (not `Grammar`) — keeps infrastructure layer unaware of domain types. Null return for missing keys (not exception) follows the existing codebase pattern.
-- **TemplateEnginePort** takes a flat `Record<string, string>` context (not `RenderContext`) — keeps template engines decoupled from domain state. `depth` is passed explicitly for recursion tracking. Returns `string` (not `RenderedString`) — article accessor resolution is handled in `RenderEngine`, not the template engine.
+- **TemplateEnginePort** takes a flat `Record<string, string>` context (not `RenderContext`) — keeps the jinja2 engine decoupled from domain state. `depth` is passed explicitly for recursion tracking. Returns `string` (not `RenderedString`) — article accessor resolution is handled in `RenderEngine`, not the template engine. Single implementation (Jinja2Engine) — ftemplate syntax dropped for simplicity.
 - **RandomPort** splits into `seedToInt` (async SHA-256) + `createRng` (sync construction) — cleaner separation of async and sync concerns. `Rng.next()` is minimal; `randint` and `choice` are utility functions in `selectionModes.ts`.
 
 **Action**: The design specs are reference documents for the original Prestoplot design. Where they conflict with plan contracts, the plan contracts govern implementation. Do not update the design specs — they serve as historical context.
 
 ### UTF-16 Surrogate Pair Corruption in Template Tokenizers
 
-The ReDoS prevention mandate requires character-by-character scanning via `str[i]` or `str.charAt(i)`. In JavaScript, these return individual UTF-16 code units, not Unicode code points. Characters outside the Basic Multilingual Plane (U+10000+) — including emoji, some CJK ideographs, and mathematical symbols — are encoded as surrogate pairs (two 16-bit code units). A tokenizer scanning `str[i]` will see two separate code units for a single astral character. If either surrogate code unit happens to match a delimiter byte value (unlikely but possible with `{` = U+007B), the tokenizer could misidentify it. More critically, splitting surrogate pairs produces lone surrogates in output strings, which are invalid UTF-16 and render as replacement characters (U+FFFD) or cause encoding errors. **Mitigation**: Tokenizers in `ftemplateEngine.ts` and `jinja2Engine.ts` MUST iterate using `for...of` (which yields code points, not code units) or use `String.prototype.codePointAt()` with proper index advancement. The delimiter characters (`{`, `}`, `#`) are all BMP ASCII — surrogate code units will never match them — but output slicing must respect code point boundaries to avoid corrupting non-BMP content. Add test cases: template containing emoji (e.g., `"The {animal} says 🚀"`) and astral math symbols (e.g., `"Score: 𝟙𝟘𝟘"`) — verify output preserves characters intact without replacement characters.
+The ReDoS prevention mandate requires character-by-character scanning via `str[i]` or `str.charAt(i)`. In JavaScript, these return individual UTF-16 code units, not Unicode code points. Characters outside the Basic Multilingual Plane (U+10000+) — including emoji, some CJK ideographs, and mathematical symbols — are encoded as surrogate pairs (two 16-bit code units). A tokenizer scanning `str[i]` will see two separate code units for a single astral character. More critically, splitting surrogate pairs produces lone surrogates in output strings, which are invalid UTF-16 and render as replacement characters (U+FFFD) or cause encoding errors. **Mitigation**: The tokenizer in `jinja2Engine.ts` MUST iterate using `for...of` (which yields code points, not code units) or use `String.prototype.codePointAt()` with proper index advancement. The delimiter characters (`{`, `}`, `#`) are all BMP ASCII — surrogate code units will never match them — but output slicing must respect code point boundaries to avoid corrupting non-BMP content. Add test cases: template containing emoji (e.g., `"The {{ animal }} says 🚀"`) and astral math symbols (e.g., `"Score: 𝟙𝟘𝟘"`) — verify output preserves characters intact without replacement characters.
 
 ### MARKOV Empty Corpus Validation
 
@@ -349,7 +347,7 @@ Circular include detection requires tracking the **current resolution path** (a 
 
 ### LIST Mode Out-of-Bounds
 
-Accessing an out-of-bounds index via `{Name[N]}` in template expressions MUST throw `TemplateError` with message `"Index N out of range for list 'Name' (length M)"`. The `Datalist.get()` method returns `undefined` for out-of-range, but the template engine converts this to an actionable error. Add test cases in both `ftemplateEngine.spec.ts` and `jinja2Engine.spec.ts`.
+Accessing an out-of-bounds index via `{{ Name[N] }}` in template expressions MUST throw `TemplateError` with message `"Index N out of range for list 'Name' (length M)"`. The `Datalist.get()` method returns `undefined` for out-of-range, but the template engine converts this to an actionable error. Add test cases in `jinja2Engine.spec.ts`.
 
 ### crypto.subtle Failure
 
@@ -464,7 +462,7 @@ The DI wiring MUST use `CachedStorage` wrapping `KVStorage` by default — not j
 get renderStoryService(): RenderStoryService {
   this._renderStoryService ??= new RenderStoryService(
     new CachedStorage(new KVStorage(this.env.GRAMMAR_KV), { ttlMs: 60_000 }),
-    new FtemplateEngine(),
+    new Jinja2Engine(),
     new Mulberry32Random()
   );
   return this._renderStoryService;
@@ -477,15 +475,15 @@ The recursion depth limit (MAX_DEPTH = 50) prevents stack overflow for linear ch
 
 ### Template Depth vs. Render Depth Interaction
 
-The plan defines `MAX_DEPTH = 50` (template recursion, per template engine) and `MAX_EVALUATIONS = 10_000` (rule evaluation counter, in RenderContext). These are two independent depth counters that interact when templates invoke rule references: `renderEngine.renderRule()` → `templateEngine.evaluate()` → `{ruleName}` → `renderEngine.renderRule()`. If tracked independently, the effective maximum depth could be `50 × 50 = 2,500` nested calls. **Clarification**: Template engine `depth` tracks recursive template evaluation calls within one `evaluate()` invocation. RenderEngine recursion depth tracks `renderRule` call depth. The evaluation counter (`MAX_EVALUATIONS`) is the unified budget that bounds total work regardless of which counter fires first. Add a test demonstrating that a `renderRule → evaluate → {rule ref} → renderRule → evaluate` chain correctly increments both counters.
+The plan defines `MAX_DEPTH = 50` (template recursion, per jinja2 engine) and `MAX_EVALUATIONS = 10_000` (rule evaluation counter, in RenderContext). These are two independent depth counters that interact when templates invoke rule references: `renderEngine.renderRule()` → `jinja2Engine.evaluate()` → `{{ ruleName }}` → `renderEngine.renderRule()`. If tracked independently, the effective maximum depth could be `50 × 50 = 2,500` nested calls. **Clarification**: Template engine `depth` tracks recursive template evaluation calls within one `evaluate()` invocation. RenderEngine recursion depth tracks `renderRule` call depth. The evaluation counter (`MAX_EVALUATIONS`) is the unified budget that bounds total work regardless of which counter fires first. Add a test demonstrating that a `renderRule → evaluate → {{ rule ref }} → renderRule → evaluate` chain correctly increments both counters.
 
 ### Template String Length Limit
 
-Template strings exceeding `MAX_TEMPLATE_LENGTH = 10_000` characters should throw `GrammarParseError` at parse time. This prevents oversized cache entries in the singleton `FtemplateEngine` template cache and bounds tokenizer runtime.
+Template strings exceeding `MAX_TEMPLATE_LENGTH = 10_000` characters should throw `GrammarParseError` at parse time. This prevents oversized cache entries in the singleton `Jinja2Engine` template cache and bounds tokenizer runtime.
 
 ### Template Cache Bounds
 
-`FtemplateEngine` caches tokenized templates in a `Map<string, FtemplateToken[]>` on the singleton instance. Growth is bounded by the total number of distinct rule templates across all grammars (finite for a finite grammar set). Document this invariant. If unbounded growth becomes a concern, add `MAX_CACHE_SIZE = 1000` with FIFO eviction.
+`Jinja2Engine` caches tokenized templates in a `Map<string, Jinja2Token[]>` on the singleton instance. Growth is bounded by the total number of distinct rule templates across all grammars (finite for a finite grammar set). Document this invariant. If unbounded growth becomes a concern, add `MAX_CACHE_SIZE = 1000` with FIFO eviction.
 
 ### Markov Training Corpus Limits
 
@@ -529,7 +527,7 @@ Cloudflare KV values are limited to 25MB. A grammar with thousands of rules, eac
 
 ### Template Cache Eviction
 
-`FtemplateEngine` caches tokenized templates on the DI singleton instance. When grammars are updated and `CachedStorage` TTL expires, old tokenized templates remain in the cache indefinitely. Since the cache is keyed by template string content and tokens are deterministic, stale entries are harmless for correctness — only a memory issue. **Decision**: Implement `MAX_CACHE_SIZE = 500` with FIFO eviction from Phase 1. Workers isolate lifetimes are bounded (minutes to hours), making unbounded growth tolerable at current scale, but the eviction guard is cheap insurance. Add a test verifying that the cache evicts the oldest entry when the limit is reached.
+`Jinja2Engine` caches tokenized templates on the DI singleton instance. When grammars are updated and `CachedStorage` TTL expires, old tokenized templates remain in the cache indefinitely. Since the cache is keyed by template string content and tokens are deterministic, stale entries are harmless for correctness — only a memory issue. **Decision**: Implement `MAX_CACHE_SIZE = 500` with FIFO eviction from Phase 1. Workers isolate lifetimes are bounded (minutes to hours), making unbounded growth tolerable at current scale, but the eviction guard is cheap insurance. Add a test verifying that the cache evicts the oldest entry when the limit is reached.
 
 ### Deterministic Oracle Seed Recovery
 
@@ -539,11 +537,9 @@ The system is fully deterministic: given the same grammar and seed, output is id
 
 _Added by adversarial review (sp:04-red-team, 2026-03-24)._
 
-### Template Engine Dispatch Strategy (High — EdgeCase)
+### Template Engine Dispatch Strategy — RESOLVED
 
-The plan defines two `TemplateEnginePort` implementations (FtemplateEngine for `{expr}`, Jinja2Engine for `{{ expr }}`) but does not specify how `RenderEngine` dispatches between them. Key unresolved questions: (1) Does `RenderEngine` run both engines in sequence (ftemplate first, then jinja2 on the result)? If so, ftemplate output containing `{{ }}` would be re-evaluated by jinja2. (2) Does it select one engine per rule based on a flag? No such flag exists in the `Rule` type. (3) Can a single template contain both syntaxes (e.g., `"{name} is {{ type }}"`)?
-
-**Mitigation**: Define a two-pass evaluation order in `RenderEngine`: (1) Evaluate all `{{ expr }}` jinja2 expressions first (double-brace has higher specificity). (2) Evaluate remaining `{expr}` ftemplate expressions second. This prevents ftemplate output from being re-processed by jinja2 (since jinja2 ran first) while allowing mixed-syntax templates. Document this order in `renderEngine.ts` JSDoc. Add test cases: (a) mixed-syntax template `"{name} is {{ type }}"` — verify both engines fire correctly; (b) ftemplate output containing `{{ }}` literal text — verify jinja2 does NOT re-evaluate it since it already ran; (c) jinja2 output containing `{expr}` — verify ftemplate DOES evaluate it (intentional chaining).
+~~The plan originally defined two template engines (FtemplateEngine and Jinja2Engine), creating dispatch ambiguity.~~ **Resolution**: Simplified to a single jinja2 engine. All template expressions use `{{ expr }}` syntax exclusively. FtemplateEngine (`{expr}`) has been removed from the plan. This eliminates the entire class of dispatch, mixed-syntax, and delimiter ambiguity issues.
 
 ### MARKOV `order` Parameter Parse-Time Validation (Medium — EdgeCase)
 
