@@ -199,6 +199,8 @@ async getSeedInt(scopedSeed: string): Promise<number> {
 
 **YAML parsing**: Use the `yaml` npm package (must be installed — not currently in package.json). Pure JavaScript, no Node.js deps, Workers-compatible. Parser validates schema structure at parse time and reports errors with rule names via `GrammarParseError`.
 
+**Markov rng.choice implementation**: The Markov spec references `rng.choice(successors)` but the `Rng` interface only exposes `next(): number`. Implement `choice` as a utility function: `function rngChoice<T>(rng: Rng, items: readonly T[]): T { return items[Math.floor(rng.next() * items.length)]!; }`. Place in `selectionModes.ts` or `markovChain.ts` as a private helper. This has the same modulo bias as `randint` (documented in Edge Cases) — acceptable for text generation.
+
 **Port naming convention**: Follows existing codebase pattern — port interfaces in `src/application/ports/` as individual files (e.g., `GrammarStorage.ts`, `TemplateEngine.ts`, `RandomSource.ts`), matching `StarSystemRepository.ts`, `RouteRepository.ts` pattern. No `I` prefix on interface names.
 
 **No D1 migration in this phase**: The D1 storage adapter is included for completeness but grammars will initially be stored in KV. D1 migration SQL is prepared but not applied unless needed.
@@ -242,6 +244,14 @@ The `yaml` npm package may coerce values unexpectedly (YAML 1.1 `yes`/`no` → b
 ### Template Tokenizer ReDoS Prevention
 
 Custom tokenizers for `{expression}` and `{{ expression }}` syntaxes MUST use iterative character-by-character scanning, not regex-based matching. Nested or malformed delimiters (e.g., `{{{{{{{{{`, `{{ {{ {{ }}`) could trigger catastrophic backtracking in regex engines. **Mitigation**: Implement both `ftemplateEngine.ts` and `jinja2Engine.ts` tokenizers as single-pass state machines scanning character-by-character. Add adversarial test cases: deeply nested delimiters (`{` × 1000), unclosed delimiters, interleaved `{` and `{{` markers. Verify tokenizer completes in O(n) time for input length n.
+
+### Template Expression Accessor Chain Depth
+
+The ftemplate expression grammar `identifier accessor*` places no limit on accessor chain length. While the 10,000-char template length limit indirectly bounds this, a pathological expression like `{a.b.c.d...}` with 1,000+ dot accessors would create a large token array cached in the singleton FtemplateEngine. **Mitigation**: Add `MAX_ACCESSOR_DEPTH = 10` in the tokenizer. Throw `TemplateError("Accessor chain exceeds maximum depth")` when exceeded. StructRule nesting beyond 10 levels is not a realistic grammar pattern.
+
+### D1 Parameterized Queries Required
+
+`D1Storage` MUST use D1's `prepare().bind()` API for all queries — never string interpolation or template literals for SQL construction. Grammar keys are developer-defined strings that could contain SQL metacharacters. **Mitigation**: Enforce in code review and add a test case with a grammar key containing SQL injection payload (e.g., `"'; DROP TABLE grammars; --"`) verifying it is stored and retrieved correctly without side effects.
 
 ## Edge Cases & Error Handling
 
@@ -297,6 +307,52 @@ The plan specifies that included grammars' rules do not override the parent's sa
 
 The plan describes `MAX_EVALUATIONS = 10_000` but `RenderContext` in the data model tracks only `recursionDepth`. Add `evaluationCount: number` to `RenderContext`, initialized to 0. Increment on every `renderRule` call. The evaluation counter is the primary defense against exponential-time grammar expansion (branching mutual recursion), while recursion depth guards against stack overflow in linear chains. Both limits must be enforced independently.
 
+### Mulberry32 Seed-Zero and NaN Collapse
+
+SHA-256 first-4-bytes can legitimately produce 0, and corrupted ArrayBuffer data could yield NaN from DataView.getUint32. Both collapse to seed 0 via the `| 0` coercion in Mulberry32's constructor. **Mitigation**: In `seedToInt`, validate that `DataView.getUint32` returns a finite number; if not, throw rather than silently using 0. Add a test case verifying behavior with a seed string whose SHA-256 starts with four zero bytes (construct one via brute force or mock). Document that seed 0 is valid but has known correlation with seed 0x6d2b79f5 in early sequence positions — acceptable for game text but worth noting.
+
+### Fisher-Yates Modulo Bias in randint
+
+Mulberry32's `randint(min, max)` uses `Math.floor(random() * range)` which has inherent modulo bias: the 2^32 possible PRNG outputs do not divide evenly into arbitrary ranges. For PICK mode Fisher-Yates shuffles, this produces slightly non-uniform permutation probabilities. The bias magnitude is approximately `range / 2^32` — negligible for game text generation (< 100 items per list). **Decision**: Accept this bias. Document as a known limitation. If a future use case requires cryptographic-quality shuffling, `randint` must be replaced with rejection sampling.
+
+### GrammarDto Schema Version
+
+`GrammarDto` stored in KV/D1 has no version discriminator. While grammar versioning is out of scope for this phase, adding a `version: 1` field to `GrammarDto` now costs nothing and prevents a painful heuristic-based migration later. **Mitigation**: Add `readonly version: 1` to the `GrammarDto` interface. In `grammarFromDto`, validate that `version === 1` and throw `StorageError("Unsupported grammar version: {N}")` for unrecognized versions. This is a forward-compatibility measure — the field is required but only one value is accepted in Phase 1.
+
+### Jinja2 Comment Syntax Silent Content Suppression
+
+The jinja2 subset supports `{# comment #}` (rendered as empty string). A grammar author writing literal `{#` (e.g., "Room {#42}") will have content silently swallowed between `{#` and the next `#}`, or get an unclosed-comment error if no `#}` exists. **Mitigation**: (1) Unclosed `{#` without matching `#}` MUST throw `TemplateError("Unclosed comment")`. (2) Document the comment syntax prominently in grammar authoring docs. (3) Add test cases: unclosed comment, comment containing braces, comment at end of template.
+
+### KV List Pagination
+
+Cloudflare KV `list()` returns at most 1,000 keys per call with cursor-based pagination. `KVStorage.listModules()` must handle pagination to avoid silently truncating results. **Mitigation**: Implement cursor-following loop in `listModules()`: repeat `kv.list({ prefix, cursor })` while `list_complete === false`. Even though current scale is dozens of grammars, the implementation should be correct for the documented KV API contract. Add test case with mock KV returning paginated results.
+
+### RATCHET Counter Shared State Across Template References
+
+RATCHET mode maintains a single call counter per rule name in `RenderContext.selectionState`. If a template references the same RATCHET rule from two different positions (e.g., `{Color} hat and {Color} boots`), the second reference sees counter=1 (next item), not counter=0 (same item). This is correct stateful behavior but counterintuitive — authors expecting the same color twice must use REUSE mode instead. **Mitigation**: Document this behavior explicitly in grammar authoring docs and add a test case demonstrating two references to the same RATCHET rule producing different items within one render pass.
+
+### GrammarParseError Result Mapping
+
+`RenderStoryResult` has no `parse_error` variant. `GrammarParseError` thrown by `GrammarParser.parse()` would escape the "never throws" contract if not caught and mapped. **Mitigation**: Add `| { readonly ok: false; readonly kind: 'parse_error'; readonly moduleName: string; readonly message: string }` to `RenderStoryResult`. Map `GrammarParseError` to this variant in `RenderStoryService.render()`. This ensures grammar validation failures surface as typed results, not uncaught exceptions.
+
+### RenderStoryResult Type Must Include All Error Variants
+
+The plan references `seed_error` (crypto.subtle failure) and implies `render_budget` (evaluation counter exceeded) but neither appears in the `RenderStoryResult` type definition from the spec. **Mitigation**: The implementation MUST extend `RenderStoryResult` with:
+
+- `| { readonly ok: false; readonly kind: 'seed_error'; readonly message: string }`
+- `| { readonly ok: false; readonly kind: 'render_budget'; readonly evaluationCount: number }`
+- `| { readonly ok: false; readonly kind: 'parse_error'; readonly moduleName: string; readonly message: string }`
+
+All error types must be mapped in `RenderStoryService.render()` to maintain the "never throws" contract.
+
+### Single-Alternative TextRule Weight Warning
+
+A `TextRule` with exactly one `WeightedAlternative` always selects that alternative regardless of weight. A non-default weight on a single alternative is likely an authoring mistake (e.g., the author intended multiple alternatives but only wrote one). **Mitigation**: In `grammarParser.ts`, emit a parse-time warning (not error) when a TextRule has exactly one alternative with `weight != 1`. Log at WARN level via the service logger. This catches common authoring mistakes without blocking valid grammars.
+
+### StructRule Field Rendering Independence
+
+StructRule fields are rendered lazily on access in template expressions. Each field access MUST create its own scoped seed: `scopeSeed(baseSeed, "{structName}-{fieldName}")`. Fields must NOT share a single Rng instance — otherwise the order of field access in the template would affect output, breaking determinism when two templates access the same struct's fields in different orders. Add test case: two templates accessing the same struct fields in different orders, verify identical per-field output.
+
 ## Performance Considerations
 
 ### CachedStorage Required for KV
@@ -345,3 +401,11 @@ Include resolution is breadth-first but currently implied as sequential — each
 ### Seed Cache Memory
 
 `RenderContext.seedIntCache` is bounded by unique scoped seeds per render pass: at most O(rules × depth). For grammars within documented scale (hundreds of rules, MAX_DEPTH 50), this is ~5,000 entries (~300KB). The cache is GC'd after each render call. This is a known tradeoff vs. redundant SHA-256 calls.
+
+### KV Eventual Consistency on Grammar Updates
+
+Cloudflare KV is eventually consistent — writes may take up to 60 seconds to propagate across edge locations. Combined with `CachedStorage` TTL (default 60s), the total staleness window after a grammar update is up to 120 seconds. During this window, renders at different edge locations may use different grammar versions, breaking cross-request determinism for the same seed. **Mitigation**: Document this as a known operational constraint. For development iteration, authors should use `InMemoryStorage` (instant consistency). For production grammar updates, recommend a "deploy and wait" window of 2× TTL before relying on new grammar content. This is inherent to KV and cannot be fixed at the application layer.
+
+### CachedStorage Design: In-Memory vs KV Cache
+
+The spec (09-storage-adapters.md) defines `CachedStorage` as using a secondary KV namespace for cross-request persistence: `constructor(backing, cache: KVNamespace, ttlSeconds)`. The plan's DI wiring uses `new CachedStorage(new KVStorage(...), { ttlMs: 60_000 })` suggesting an in-memory Map cache. These are different designs with different behavior. **Decision**: Use in-memory `Map<string, { dto: GrammarDto; expiresAt: number }>` for Phase 1. The primary storage is already KV — caching KV reads in another KV namespace adds latency and complexity. Update the DI wiring to match the chosen design and update or override the spec.
