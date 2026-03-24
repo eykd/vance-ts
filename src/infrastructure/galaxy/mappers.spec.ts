@@ -11,6 +11,7 @@ import { Classification } from '../../domain/galaxy/types.js';
 import {
   assertConnectedSystemRow,
   assertStarSystemRow,
+  assertTradePairPartnerRow,
   mapRowToConnectedSystem,
   mapRowToStarSystem,
   mapRowToTradePairPartner,
@@ -265,6 +266,55 @@ describe('mapRowToConnectedSystem', () => {
     expect(result.system.name).toBe('Sol');
     expect(result.system.isOikumene).toBe(true);
     expect(result.system.classification).toBe(Classification.OIKUMENE);
+  });
+});
+
+describe('assertTradePairPartnerRow', () => {
+  it('returns the row when all star_systems columns plus btn and hops are present', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), btn: 7.2, hops: 3 };
+    expect(assertTradePairPartnerRow(row)).toEqual({ ...starSystemColumns(), btn: 7.2, hops: 3 });
+  });
+
+  it('throws when btn column is missing', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), hops: 3 };
+    expect(() => assertTradePairPartnerRow(row)).toThrow(
+      "Missing or invalid column 'btn' in trade_pair_partner row"
+    );
+  });
+
+  it('throws when btn column has wrong type', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), btn: 'not-a-number', hops: 3 };
+    expect(() => assertTradePairPartnerRow(row)).toThrow(
+      "Missing or invalid column 'btn' in trade_pair_partner row"
+    );
+  });
+
+  it('throws when hops column is missing', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), btn: 7.2 };
+    expect(() => assertTradePairPartnerRow(row)).toThrow(
+      "Missing or invalid column 'hops' in trade_pair_partner row"
+    );
+  });
+
+  it('throws when hops column has wrong type', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), btn: 7.2, hops: 'not-a-number' };
+    expect(() => assertTradePairPartnerRow(row)).toThrow(
+      "Missing or invalid column 'hops' in trade_pair_partner row"
+    );
+  });
+
+  it('throws when a base star_systems column is missing', () => {
+    const row: Record<string, unknown> = { ...starSystemColumns(), btn: 7.2, hops: 3 };
+    delete row['name'];
+    expect(() => assertTradePairPartnerRow(row)).toThrow(
+      "Missing or invalid column 'name' in star_systems row"
+    );
+  });
+
+  it('throws when the input is null', () => {
+    expect(() => assertTradePairPartnerRow(null)).toThrow(
+      'Expected a non-null object for star_systems row'
+    );
   });
 });
 

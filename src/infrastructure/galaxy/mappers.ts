@@ -276,10 +276,33 @@ export function mapRowToConnectedSystem(row: ConnectedSystemRow): ConnectedSyste
 }
 
 /** D1 row shape for a joined trade_pairs + star_systems query. */
-type TradePairPartnerRow = StarSystemRow & {
+export type TradePairPartnerRow = StarSystemRow & {
   readonly btn: number;
   readonly hops: number;
 };
+
+/**
+ * Validate that a raw D1 result row contains all required trade_pair_partner columns
+ * (star_systems columns plus btn and hops) with the correct primitive types before casting.
+ *
+ * @param row - The raw D1 query result (Record&lt;string, unknown&gt;)
+ * @returns The validated row typed as TradePairPartnerRow
+ * @throws {Error} If the row fails star_systems validation or btn/hops are missing/wrong type
+ */
+export function assertTradePairPartnerRow(row: unknown): TradePairPartnerRow {
+  const base = assertStarSystemRow(row);
+  const record = row as Record<string, unknown>;
+
+  if (typeof record['btn'] !== 'number') {
+    throw new Error("Missing or invalid column 'btn' in trade_pair_partner row");
+  }
+
+  if (typeof record['hops'] !== 'number') {
+    throw new Error("Missing or invalid column 'hops' in trade_pair_partner row");
+  }
+
+  return { ...base, btn: record['btn'], hops: record['hops'] };
+}
 
 /**
  * Convert a joined trade_pairs + star_systems row to a TradePairPartner DTO.

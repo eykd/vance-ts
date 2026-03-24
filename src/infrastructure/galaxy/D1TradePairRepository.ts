@@ -9,14 +9,7 @@ import type {
   TradePairRepository,
 } from '../../domain/interfaces/TradePairRepository.js';
 
-import type { StarSystemRow } from './mappers.js';
-import { mapRowToTradePairPartner } from './mappers.js';
-
-/** D1 row shape for a joined trade_pairs + star_systems query. */
-type TradePairPartnerRow = StarSystemRow & {
-  readonly btn: number;
-  readonly hops: number;
-};
+import { assertTradePairPartnerRow, mapRowToTradePairPartner } from './mappers.js';
 
 /**
  * Retrieves trade pair data from a Cloudflare D1 database.
@@ -59,8 +52,6 @@ export class D1TradePairRepository implements TradePairRepository {
 
     const rows = await this.db.prepare(sql).bind(systemId, systemId).all();
 
-    return rows.results.map((row) =>
-      mapRowToTradePairPartner(row as unknown as TradePairPartnerRow)
-    );
+    return rows.results.map((row) => mapRowToTradePairPartner(assertTradePairPartnerRow(row)));
   }
 }
