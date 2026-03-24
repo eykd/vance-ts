@@ -235,6 +235,41 @@ describe('generateSQL', () => {
     expect(sql).toBe('BEGIN TRANSACTION;\nCOMMIT;\n');
   });
 
+  it('throws on NaN in star system x coordinate', () => {
+    const sys = makeSystem({ x: NaN });
+    expect(() => generateSQL([sys], [], [])).toThrow('Non-finite numeric value');
+  });
+
+  it('throws on Infinity in star system y coordinate', () => {
+    const sys = makeSystem({ y: Infinity });
+    expect(() => generateSQL([sys], [], [])).toThrow('Non-finite numeric value');
+  });
+
+  it('throws on -Infinity in star system x coordinate', () => {
+    const sys = makeSystem({ x: -Infinity });
+    expect(() => generateSQL([sys], [], [])).toThrow('Non-finite numeric value');
+  });
+
+  it('throws on NaN in route cost', () => {
+    const route = makeRoute({ cost: NaN });
+    expect(() => generateSQL([], [route], [])).toThrow('Non-finite numeric value');
+  });
+
+  it('throws on Infinity in route cost', () => {
+    const route = makeRoute({ cost: Infinity });
+    expect(() => generateSQL([], [route], [])).toThrow('Non-finite numeric value');
+  });
+
+  it('throws on NaN in trade pair btn', () => {
+    const pair = makeTradePair({ btn: NaN });
+    expect(() => generateSQL([], [], [pair])).toThrow('Non-finite numeric value');
+  });
+
+  it('throws on Infinity in trade pair hops', () => {
+    const pair = makeTradePair({ hops: Infinity });
+    expect(() => generateSQL([], [], [pair])).toThrow('Non-finite numeric value');
+  });
+
   it('does not include RAISE guard', () => {
     const sys = makeSystem();
     const sql = generateSQL([sys], [], []);

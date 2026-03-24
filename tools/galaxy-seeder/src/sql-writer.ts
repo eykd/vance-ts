@@ -60,12 +60,27 @@ function sqlJson(value: unknown): string {
 }
 
 /**
+ * Asserts that a numeric value is finite (not NaN or Infinity).
+ *
+ * @param value - The number to validate
+ * @param label - Descriptive label for the error message
+ * @throws {Error} If the value is NaN, Infinity, or -Infinity
+ */
+function assertFinite(value: number, label: string): void {
+  if (!Number.isFinite(value)) {
+    throw new Error(`Non-finite numeric value for ${label}: ${String(value)}`);
+  }
+}
+
+/**
  * Formats a single star system as a SQL VALUES tuple.
  *
  * @param sys - The star system to format
  * @returns A parenthesized SQL VALUES row
  */
 function formatStarSystemRow(sys: StarSystem): string {
+  assertFinite(sys.x, 'star system x');
+  assertFinite(sys.y, 'star system y');
   const values = [
     sqlString(sys.id),
     sqlString(sys.name),
@@ -90,6 +105,7 @@ function formatStarSystemRow(sys: StarSystem): string {
  * @returns A parenthesized SQL VALUES row
  */
 function formatRouteRow(route: Route): string {
+  assertFinite(route.cost, 'route cost');
   return `(${sqlString(route.originId)}, ${sqlString(route.destinationId)}, ${String(route.cost)})`;
 }
 
@@ -100,6 +116,8 @@ function formatRouteRow(route: Route): string {
  * @returns A parenthesized SQL VALUES row
  */
 function formatTradePairRow(pair: TradePairRow): string {
+  assertFinite(pair.btn, 'trade pair btn');
+  assertFinite(pair.hops, 'trade pair hops');
   return `(${sqlString(pair.systemAId)}, ${sqlString(pair.systemBId)}, ${String(pair.btn)}, ${String(pair.hops)})`;
 }
 
