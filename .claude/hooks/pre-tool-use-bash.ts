@@ -1,26 +1,14 @@
 import * as readline from 'readline';
 
-/**
- * Hook input structure from Claude Code.
- */
-interface HookInput {
-  tool_input?: {
-    command?: string;
-  };
-}
+import { evaluateCommand } from './guard-rules';
 
 /**
- * Reads JSON input from stdin and returns it as a string.
+ * Reads all of stdin into a string.
  *
  * @returns Promise resolving to the complete stdin content.
  */
 async function readStdin(): Promise<string> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: false,
-  });
-
+  const rl = readline.createInterface({ input: process.stdin, terminal: false });
   let input = '';
   for await (const line of rl) {
     input += line + '\n';
@@ -28,87 +16,35 @@ async function readStdin(): Promise<string> {
   return input;
 }
 
-/**
- * Main hook logic: validates git commands and blocks dangerous flags.
- *
- * @returns Promise that resolves when hook completes.
- */
+/** Pre-tool-use hook entry point. Thin I/O wrapper around evaluateCommand(). */
 async function main(): Promise<void> {
+  const TIMEOUT_MS = 5000;
   try {
-    const hookInput = await readStdin();
-    const inputData = JSON.parse(hookInput) as HookInput;
-
-    const bashCommand =
-      (typeof inputData.tool_input?.command === 'string' ? inputData.tool_input.command : null) ??
-      '';
-
-    // Check for prohibited git flags
-    const prohibitedPattern =
-      /git.*(--no-verify|--no-gpg-sign)|git\s+push.*(--force([^-]|$)|-f\s|--force-with-lease)/;
-
-    if (prohibitedPattern.test(bashCommand)) {
-      const errorMsg = `BLOCKED: Hook bypass or force flags detected.
-
-Prohibited flags: --no-verify, --no-gpg-sign, --force, -f, --force-with-lease
-
-Instead of bypassing safety checks:
-- If pre-commit hook fails: Fix the linting/formatting/type errors it found
-- If commit-msg fails: Write a proper conventional commit message
-- If pre-push fails: Fix the issues preventing push
-- If force push needed: This usually indicates a workflow problem
-
-Fix the root problem rather than bypassing the safety mechanism.
-Only use these flags when explicitly requested by the user.
-`;
-
-      process.stderr.write(errorMsg);
-      process.exit(2); // Exit 2 = blocking error
+    const raw = await Promise.race([
+      readStdin(),
+      new Promise<string>((resolve) => {
+        const timer = setTimeout(() => resolve(''), TIMEOUT_MS);
+        timer.unref();
+      }),
+    ]);
+    const data: unknown = JSON.parse(raw === '' ? '{}' : raw);
+    const obj = data as Record<string, unknown>;
+    const toolInput =
+      typeof obj?.['tool_input'] === 'object' && obj['tool_input'] !== null
+        ? (obj['tool_input'] as Record<string, unknown>)
+        : undefined;
+    const cmd = typeof toolInput?.['command'] === 'string' ? toolInput['command'] : '';
+    const result = evaluateCommand(cmd);
+    if (result.action === 'block') {
+      console.error(result.message);
+      process.exitCode = 2;
     }
-
-    // Strip quoted string content to avoid false positives (e.g. commit messages mentioning br init --force)
-    const commandUnquoted = bashCommand
-      .replace(/<<'?[A-Z_]+'?\n[\s\S]*?\n[A-Z_]+/gu, '') // heredocs
-      .replace(/"(?:[^"\\]|\\.)*"/gu, '""') // double-quoted strings
-      .replace(/'[^']*'/gu, "''"); // single-quoted strings
-
-    // Check for legacy bd commands (must use br instead)
-    const legacyBdPattern = /(?:^|&&|\|\||[;(|])\s*(?:npx\s+)?bd(?:\s|$)/mu;
-
-    if (legacyBdPattern.test(commandUnquoted)) {
-      const errorMsg = `BLOCKED: \`bd\` (legacy beads) is not permitted. Use \`br\` (beads_rust) instead.
-
-This project has migrated from @beads/bd to beads_rust.
-
-Replace:
-  npx bd <subcommand>
-  bd <subcommand>
-
-With:
-  br <subcommand>
-`;
-      process.stderr.write(errorMsg);
-      process.exit(2);
-    }
-
-    // Check for br init --force (or -f)
-    const brInitPattern = /\bbr\s+init\b.*(-f\b|--force\b)/u;
-
-    if (brInitPattern.test(commandUnquoted)) {
-      const errorMsg = `BLOCKED: br init --force is not permitted.
-
-Reinitializing the beads database would destroy all issue history.
-
-If you genuinely need to reset beads, have the user run this manually.
-`;
-      process.stderr.write(errorMsg);
-      process.exit(2);
-    }
-
-    process.exit(0); // Allow the command
-  } catch (error) {
-    process.stderr.write(`Hook error: ${error instanceof Error ? error.message : String(error)}`);
-    process.exit(1);
+  } catch {
+    // Malformed JSON or unexpected error — allow (fail-open per E1).
+    process.stderr.write('guard-hook: failed to parse stdin, allowing command\n');
   }
 }
 
-main().catch(console.error);
+main().catch((err: unknown) => {
+  process.stderr.write(String(err) + '\n');
+});

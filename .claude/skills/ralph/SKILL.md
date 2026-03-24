@@ -97,20 +97,9 @@ Orphaned tasks (no epic):
 - Check dependencies: `br dep tree <epic-id>`
 - Manually address orphaned tasks
 
-### P3 Tasks Remaining
+### Blocked Tasks Remaining
 
-Ralph stops if only low-priority (P3) tasks remain:
-
-```
-No ready tasks, but 2 open task(s) remain (possibly P3 or blocked tasks)
-
-These tasks may be:
-- Low priority (P3) tasks waiting to be started
-- Tasks blocked by dependencies
-- Tasks that need manual intervention
-
-Please review and either close, unblock, or complete manually.
-```
+Ralph stops if open tasks remain but none are ready (likely blocked by dependencies or needing manual intervention). Review the listed tasks with `br dep tree <epic-id>` to identify blockers.
 
 ## Error Diagnosis
 
