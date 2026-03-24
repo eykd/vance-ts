@@ -127,6 +127,13 @@ describe('mapRowToStarSystem — JSON validation', () => {
       "Failed to parse JSON in column 'density' for system 'sys-001'"
     );
   });
+
+  it('throws on invalid classification value', () => {
+    const row = { ...starSystemColumns(), classification: 'bogus_value' };
+    expect(() => mapRowToStarSystem(row)).toThrow(
+      "Invalid classification 'bogus_value' for system 'sys-001'"
+    );
+  });
 });
 
 describe('mapRowToStarSystem', () => {

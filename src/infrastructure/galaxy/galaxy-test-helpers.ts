@@ -142,7 +142,7 @@ export function makeSystemRow(
     x: n * 100,
     y: n * 100,
     is_oikumene: 1,
-    classification: 'OIKUMENE',
+    classification: 'oikumene',
     density: JSON.stringify({ neighborCount: 5, environmentPenalty: 0 }),
     attributes: JSON.stringify({ technology: 10, environment: 8, resources: 7 }),
     planetary: JSON.stringify({ size: 8, atmosphere: 6, temperature: 7, hydrography: 7 }),

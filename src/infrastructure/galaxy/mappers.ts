@@ -4,14 +4,14 @@
  * @module infrastructure/galaxy/mappers
  */
 
-import type {
-  CivilizationData,
+import {
   Classification,
-  DensityData,
-  EconomicsData,
-  PlanetaryData,
-  StarSystem,
-  TerRating,
+  type CivilizationData,
+  type DensityData,
+  type EconomicsData,
+  type PlanetaryData,
+  type StarSystem,
+  type TerRating,
 } from '../../domain/galaxy/types.js';
 import type { ConnectedSystem } from '../../domain/interfaces/RouteRepository.js';
 import type { TradePairPartner } from '../../domain/interfaces/TradePairRepository.js';
@@ -115,6 +115,23 @@ function isEconomicsData(v: unknown): v is EconomicsData {
   );
 }
 
+/** Set of valid Classification enum values for O(1) membership checks. */
+const VALID_CLASSIFICATIONS = new Set<string>(Object.values(Classification));
+
+/**
+ * Validate that a raw string is a valid Classification enum member.
+ *
+ * @param value - The raw database string
+ * @param systemId - The star system ID for error context
+ * @returns The validated Classification value
+ */
+function validateClassification(value: string, systemId: string): Classification {
+  if (!VALID_CLASSIFICATIONS.has(value)) {
+    throw new Error(`Invalid classification '${value}' for system '${systemId}'`);
+  }
+  return value as Classification;
+}
+
 /**
  * Type guard for a readonly string array.
  *
@@ -165,7 +182,7 @@ export function mapRowToStarSystem(row: StarSystemRow): StarSystem {
     x: row.x,
     y: row.y,
     isOikumene: row.is_oikumene === 1,
-    classification: row.classification as Classification,
+    classification: validateClassification(row.classification, row.id),
     density: parseJsonColumn(row.density, row.id, 'density', isDensityData),
     attributes: parseJsonColumn(row.attributes, row.id, 'attributes', isTerRating),
     planetary: parseJsonColumn(row.planetary, row.id, 'planetary', isPlanetaryData),

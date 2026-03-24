@@ -93,7 +93,7 @@ describe('D1RouteRepository', () => {
         id: 'fields-neighbor',
         name: 'Fields Neighbor',
         is_oikumene: 0,
-        classification: 'FRONTIER',
+        classification: 'uninhabited',
       });
       await insertStarSystem(tEnv.DB, sys1);
       await insertStarSystem(tEnv.DB, sys2);
@@ -107,7 +107,7 @@ describe('D1RouteRepository', () => {
       expect(connected?.system.id).toBe('fields-neighbor');
       expect(connected?.system.name).toBe('Fields Neighbor');
       expect(connected?.system.isOikumene).toBe(false);
-      expect(connected?.system.classification).toBe('FRONTIER');
+      expect(connected?.system.classification).toBe('uninhabited');
       expect(connected?.system.tradeCodes).toEqual(['Hi', 'In']);
       expect(connected?.cost).toBe(7.2);
     });
