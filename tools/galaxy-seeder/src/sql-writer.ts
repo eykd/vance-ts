@@ -66,25 +66,21 @@ function sqlJson(value: unknown): string {
  * @returns A parenthesized SQL VALUES row
  */
 function formatStarSystemRow(sys: StarSystem): string {
-  const isOikumene = sys.isOikumene ? 1 : 0;
-  return [
-    '(',
-    [
-      sqlString(sys.id),
-      sqlString(sys.name),
-      String(sys.x),
-      String(sys.y),
-      String(isOikumene),
-      sqlString(sys.classification),
-      sqlJson(sys.density),
-      sqlJson(sys.attributes),
-      sqlJson(sys.planetary),
-      sqlJson(sys.civilization),
-      sqlJson(sys.tradeCodes),
-      sqlJson(sys.economics),
-    ].join(', '),
-    ')',
-  ].join('');
+  const values = [
+    sqlString(sys.id),
+    sqlString(sys.name),
+    String(sys.x),
+    String(sys.y),
+    String(sys.isOikumene ? 1 : 0),
+    sqlString(sys.classification),
+    sqlJson(sys.density),
+    sqlJson(sys.attributes),
+    sqlJson(sys.planetary),
+    sqlJson(sys.civilization),
+    sqlJson(sys.tradeCodes),
+    sqlJson(sys.economics),
+  ].join(', ');
+  return `(${values})`;
 }
 
 /**
