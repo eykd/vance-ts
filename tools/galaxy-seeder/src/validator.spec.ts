@@ -549,6 +549,109 @@ describe('validateInput', () => {
     });
   });
 
+  describe('string length validation', () => {
+    it('should return an error when system id exceeds 256 characters', () => {
+      const input = validInput();
+      const longId = 'x'.repeat(257);
+      input.systems = [validSystem({ id: longId })];
+      input.routes = { routes: [] };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('system[0] id exceeds maximum length of 256'),
+          ])
+        );
+      }
+    });
+
+    it('should return an error when system name exceeds 256 characters', () => {
+      const input = validInput();
+      const longName = 'n'.repeat(257);
+      input.systems = [validSystem({ name: longName })];
+      input.routes = { routes: [] };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('system[0] name exceeds maximum length of 256'),
+          ])
+        );
+      }
+    });
+
+    it('should accept system id and name at exactly 256 characters', () => {
+      const input = validInput();
+      const exactId = 'i'.repeat(256);
+      const exactName = 'n'.repeat(256);
+      input.systems = [validSystem({ id: exactId, name: exactName })];
+      input.routes = { routes: [] };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('should return an error when route originId exceeds 256 characters', () => {
+      const input = validInput();
+      const longId = 'o'.repeat(257);
+      input.systems = [validSystem({ id: 'sys-001' })];
+      input.routes = {
+        routes: [{ originId: longId, destinationId: 'sys-001', cost: 1.0, path: [] }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('route[0] originId exceeds maximum length of 256'),
+          ])
+        );
+      }
+    });
+
+    it('should return an error when route destinationId exceeds 256 characters', () => {
+      const input = validInput();
+      const longId = 'd'.repeat(257);
+      input.systems = [validSystem({ id: 'sys-001' })];
+      input.routes = {
+        routes: [{ originId: 'sys-001', destinationId: longId, cost: 1.0, path: [] }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('route[0] destinationId exceeds maximum length of 256'),
+          ])
+        );
+      }
+    });
+
+    it('should accept route originId and destinationId at exactly 256 characters', () => {
+      const input = validInput();
+      const exactId = 'r'.repeat(256);
+      input.systems = [validSystem({ id: exactId })];
+      input.routes = {
+        routes: [{ originId: exactId, destinationId: exactId, cost: 1.0, path: [] }],
+      };
+
+      const result = validateInput(input);
+
+      expect(result.ok).toBe(true);
+    });
+  });
+
   describe('coordinate type validation', () => {
     it('should return an error when x is not an integer', () => {
       const input = validInput();

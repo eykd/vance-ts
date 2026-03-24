@@ -4,6 +4,9 @@
  * @module validator
  */
 
+/** Maximum allowed length for string fields to prevent oversized SQL statements. */
+const MAX_STRING_LENGTH = 256;
+
 /** Valid classification values from the domain. */
 const VALID_CLASSIFICATIONS = new Set(['oikumene', 'uninhabited', 'lost_colony', 'hidden_enclave']);
 
@@ -107,10 +110,21 @@ function validateSystems(systems: unknown[], errors: string[]): Set<string> {
     }
 
     if (typeof sys['id'] === 'string') {
+      if (sys['id'].length > MAX_STRING_LENGTH) {
+        errors.push(
+          `system[${String(i)}] id exceeds maximum length of ${String(MAX_STRING_LENGTH)}`
+        );
+      }
       if (systemIds.has(sys['id'])) {
         errors.push(`duplicate system id: ${sys['id']}`);
       }
       systemIds.add(sys['id']);
+    }
+
+    if (typeof sys['name'] === 'string' && sys['name'].length > MAX_STRING_LENGTH) {
+      errors.push(
+        `system[${String(i)}] name exceeds maximum length of ${String(MAX_STRING_LENGTH)}`
+      );
     }
 
     if (typeof sys['x'] === 'number' && typeof sys['y'] === 'number') {
@@ -170,16 +184,30 @@ function validateRouteReferences(
 
     if (typeof originId !== 'string') {
       errors.push(`route[${String(i)}] originId is not a string`);
-    } else if (!systemIds.has(originId)) {
-      errors.push(`route[${String(i)}] references non-existent origin system: ${originId}`);
+    } else {
+      if (originId.length > MAX_STRING_LENGTH) {
+        errors.push(
+          `route[${String(i)}] originId exceeds maximum length of ${String(MAX_STRING_LENGTH)}`
+        );
+      }
+      if (!systemIds.has(originId)) {
+        errors.push(`route[${String(i)}] references non-existent origin system: ${originId}`);
+      }
     }
 
     if (typeof destinationId !== 'string') {
       errors.push(`route[${String(i)}] destinationId is not a string`);
-    } else if (!systemIds.has(destinationId)) {
-      errors.push(
-        `route[${String(i)}] references non-existent destination system: ${destinationId}`
-      );
+    } else {
+      if (destinationId.length > MAX_STRING_LENGTH) {
+        errors.push(
+          `route[${String(i)}] destinationId exceeds maximum length of ${String(MAX_STRING_LENGTH)}`
+        );
+      }
+      if (!systemIds.has(destinationId)) {
+        errors.push(
+          `route[${String(i)}] references non-existent destination system: ${destinationId}`
+        );
+      }
     }
 
     if (typeof cost !== 'number' || !Number.isFinite(cost)) {
