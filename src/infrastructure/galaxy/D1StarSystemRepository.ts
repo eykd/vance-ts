@@ -12,6 +12,9 @@ import { assertStarSystemRow, mapRowToStarSystem } from './mappers.js';
 /** Default maximum number of results for prefix search. */
 const DEFAULT_PREFIX_LIMIT = 50;
 
+/** Hard cap on prefix search results to prevent D1 resource exhaustion. */
+export const MAX_LIMIT = 200;
+
 /** Minimum prefix length required for prefix search. */
 const MIN_PREFIX_LENGTH = 2;
 
@@ -94,10 +97,11 @@ export class D1StarSystemRepository implements StarSystemRepository {
       return [];
     }
 
+    const safeLimit = Math.min(limit, MAX_LIMIT);
     const escapedPrefix = escapeLikePattern(prefix);
     const rows = await this.db
       .prepare("SELECT * FROM star_systems WHERE name LIKE ? ESCAPE '\\' ORDER BY name LIMIT ?")
-      .bind(`${escapedPrefix}%`, limit)
+      .bind(`${escapedPrefix}%`, safeLimit)
       .all();
 
     return rows.results.map((row) => mapRowToStarSystem(assertStarSystemRow(row)));
