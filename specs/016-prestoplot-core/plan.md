@@ -473,7 +473,7 @@ The jinja2 subset supports `{# comment #}` (rendered as empty string). A grammar
 
 ### KV List Pagination
 
-Cloudflare KV `list()` returns at most 1,000 keys per call with cursor-based pagination. `KVStorage.listModules()` must handle pagination to avoid silently truncating results. **Mitigation**: Implement cursor-following loop in `listModules()`: repeat `kv.list({ prefix, cursor })` while `list_complete === false`. Even though current scale is dozens of grammars, the implementation should be correct for the documented KV API contract. Add test case with mock KV returning paginated results.
+Cloudflare KV `list()` returns at most 1,000 keys per call with cursor-based pagination. `KVStorage.listModules()` must handle pagination to avoid silently truncating results. **Mitigation**: Implement cursor-following loop in `listModules()`: repeat `kv.list({ prefix, cursor })` while `list_complete === false`. Even though current scale is dozens of grammars, the implementation MUST be correct for the documented KV API contract. Add test case with mock KV returning paginated results.
 
 ### RATCHET Counter Shared State Across Template References
 
@@ -639,7 +639,7 @@ The YAML specification allows duplicate keys with "last wins" semantics. The `ya
 
 `RenderStoryResult` maps `StorageError` from `storage.load()` to `{ ok: false, kind: 'storage_error' }`, but `storage.save()` calls `JSON.stringify(dto)` internally. If any grammar value is non-serializable (e.g., `undefined` values stripped silently, circular references from a future code change), `JSON.stringify` throws `TypeError`. Additionally, `kv.put()` can throw for network errors. Neither failure path is explicitly caught in `kvStorage.ts` or `d1Storage.ts`.
 
-**Mitigation**: In `kvStorage.ts` and `d1Storage.ts`, wrap the entire `save()` implementation in try/catch. Catch `TypeError` from `JSON.stringify` and KV/D1 runtime errors, wrapping both as `StorageError`. The "never throws" contract applies to `RenderStoryService.render()` (which only calls `load`), but `save()` is called by content deployment tooling which should also receive typed errors rather than raw exceptions. Add test case: mock a grammar DTO that causes `JSON.stringify` to throw → verify `StorageError` is thrown, not `TypeError`.
+**Mitigation**: In `kvStorage.ts` and `d1Storage.ts`, wrap the entire `save()` implementation in try/catch. Catch `TypeError` from `JSON.stringify` and KV/D1 runtime errors, wrapping both as `StorageError`. The "never throws" contract applies to `RenderStoryService.render()` (which only calls `load`), but `save()` is called by content deployment tooling which MUST also receive typed errors rather than raw exceptions. Add test case: mock a grammar DTO that causes `JSON.stringify` to throw → verify `StorageError` is thrown, not `TypeError`.
 
 ### StructRule With Zero Fields (Low — EdgeCase)
 
