@@ -7,6 +7,7 @@ Cross-cutting utilities used by multiple layers. Keep this directory minimal.
 - `authCookieNames.ts` — Plain-HTTP localhost detection utility
 - `env.ts` — Environment binding types and helpers
 - `hex.ts` — Hex encoding/decoding utilities
+- `type-guards.ts` — Shared type guard utilities (e.g. `isObject`)
 
 ## Scope Rules
 

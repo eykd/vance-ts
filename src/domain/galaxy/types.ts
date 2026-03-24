@@ -157,6 +157,18 @@ export interface RouteConfig {
   readonly maxRange: number;
 }
 
+/** A trade pair row ready for SQL insertion. */
+export interface TradePairRow {
+  /** Lexicographically smaller system ID. */
+  readonly systemAId: string;
+  /** Lexicographically larger system ID. */
+  readonly systemBId: string;
+  /** Bilateral Trade Number. */
+  readonly btn: number;
+  /** Shortest path hop count. */
+  readonly hops: number;
+}
+
 /** Pipeline summary statistics. */
 export interface GenerationStats {
   readonly totalSystems: number;
