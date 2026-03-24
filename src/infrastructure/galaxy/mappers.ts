@@ -4,9 +4,11 @@
  * @module infrastructure/galaxy/mappers
  */
 
-import type { StarSystem, Classification } from '../../domain/galaxy/types.js';
+import type { ConnectedSystem } from '../../application/ports/RouteRepository.js';
+import type { TradePairPartner } from '../../application/ports/TradePairRepository.js';
+import type { Classification, StarSystem } from '../../domain/galaxy/types.js';
 
-/** D1 row shape for the star_systems table. */
+/** D1 row shape for the star_systems table columns. */
 interface StarSystemRow {
   readonly id: string;
   readonly name: string;
@@ -58,5 +60,43 @@ export function mapRowToStarSystem(row: StarSystemRow): StarSystem {
     civilization: parseJsonColumn(row.civilization, row.id, 'civilization'),
     tradeCodes: parseJsonColumn(row.trade_codes, row.id, 'trade_codes'),
     economics: parseJsonColumn(row.economics, row.id, 'economics'),
+  };
+}
+
+/** D1 row shape for a joined routes + star_systems query. */
+type ConnectedSystemRow = StarSystemRow & {
+  readonly cost: number;
+};
+
+/**
+ * Convert a joined routes + star_systems row to a ConnectedSystem DTO.
+ *
+ * @param row - The raw D1 row from a routes JOIN star_systems query
+ * @returns A ConnectedSystem with the mapped star system and route cost
+ */
+export function mapRowToConnectedSystem(row: ConnectedSystemRow): ConnectedSystem {
+  return {
+    system: mapRowToStarSystem(row),
+    cost: row.cost,
+  };
+}
+
+/** D1 row shape for a joined trade_pairs + star_systems query. */
+type TradePairPartnerRow = StarSystemRow & {
+  readonly btn: number;
+  readonly hops: number;
+};
+
+/**
+ * Convert a joined trade_pairs + star_systems row to a TradePairPartner DTO.
+ *
+ * @param row - The raw D1 row from a trade_pairs JOIN star_systems query
+ * @returns A TradePairPartner with the mapped star system, BTN, and hop count
+ */
+export function mapRowToTradePairPartner(row: TradePairPartnerRow): TradePairPartner {
+  return {
+    system: mapRowToStarSystem(row),
+    btn: row.btn,
+    hops: row.hops,
   };
 }

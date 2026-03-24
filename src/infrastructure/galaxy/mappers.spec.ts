@@ -8,7 +8,58 @@ import { describe, expect, it } from 'vitest';
 
 import { Classification } from '../../domain/galaxy/types.js';
 
-import { mapRowToStarSystem } from './mappers.js';
+import {
+  mapRowToConnectedSystem,
+  mapRowToStarSystem,
+  mapRowToTradePairPartner,
+} from './mappers.js';
+
+/**
+ * Minimal valid star_systems row for reuse across tests.
+ *
+ * @returns A complete star_systems row with valid JSON columns
+ */
+function starSystemColumns(): {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  is_oikumene: number;
+  classification: string;
+  density: string;
+  attributes: string;
+  planetary: string;
+  civilization: string;
+  trade_codes: string;
+  economics: string;
+} {
+  return {
+    id: 'sys-001',
+    name: 'Sol',
+    x: 10,
+    y: 20,
+    is_oikumene: 1,
+    classification: 'oikumene',
+    density: JSON.stringify({ neighborCount: 5, environmentPenalty: 0 }),
+    attributes: JSON.stringify({ technology: 8, environment: 6, resources: 7 }),
+    planetary: JSON.stringify({ size: 8, atmosphere: 6, temperature: 5, hydrography: 7 }),
+    civilization: JSON.stringify({
+      population: 9,
+      starport: 5,
+      government: 7,
+      factions: 3,
+      lawLevel: 6,
+    }),
+    trade_codes: JSON.stringify(['Hi', 'In', 'Ri']),
+    economics: JSON.stringify({
+      gurpsTechLevel: 10,
+      perCapitaIncome: 45000,
+      grossWorldProduct: 1.2e12,
+      resourceMultiplier: 1.5,
+      worldTradeNumber: 8.5,
+    }),
+  };
+}
 
 describe('mapRowToStarSystem', () => {
   it('converts a valid D1 row to a StarSystem', () => {
@@ -61,5 +112,41 @@ describe('mapRowToStarSystem', () => {
         worldTradeNumber: 8.5,
       },
     });
+  });
+});
+
+describe('mapRowToConnectedSystem', () => {
+  it('converts a joined route + star_systems row to a ConnectedSystem', () => {
+    const row = {
+      ...starSystemColumns(),
+      cost: 3.75,
+    };
+
+    const result = mapRowToConnectedSystem(row);
+
+    expect(result.cost).toBe(3.75);
+    expect(result.system.id).toBe('sys-001');
+    expect(result.system.name).toBe('Sol');
+    expect(result.system.isOikumene).toBe(true);
+    expect(result.system.classification).toBe(Classification.OIKUMENE);
+  });
+});
+
+describe('mapRowToTradePairPartner', () => {
+  it('converts a joined trade_pairs + star_systems row to a TradePairPartner', () => {
+    const row = {
+      ...starSystemColumns(),
+      btn: 7.2,
+      hops: 3,
+    };
+
+    const result = mapRowToTradePairPartner(row);
+
+    expect(result.btn).toBe(7.2);
+    expect(result.hops).toBe(3);
+    expect(result.system.id).toBe('sys-001');
+    expect(result.system.name).toBe('Sol');
+    expect(result.system.isOikumene).toBe(true);
+    expect(result.system.classification).toBe(Classification.OIKUMENE);
   });
 });
