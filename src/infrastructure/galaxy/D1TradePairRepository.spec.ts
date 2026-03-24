@@ -7,167 +7,114 @@
 import { applyD1Migrations, env } from 'cloudflare:test';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import type { Env } from '../../shared/env.js';
-
 import { D1TradePairRepository } from './D1TradePairRepository.js';
+import {
+  FULL_GALAXY_MIGRATION,
+  insertStarSystem,
+  insertTradePair,
+  makeSystemRow,
+  typedEnv,
+} from './galaxy-test-helpers.js';
 
 /** Typed environment bindings from cloudflare:test. */
-const typedEnv = env as unknown as Env;
-
-/**
- * Galaxy schema migration, inlined for Workers runtime compatibility.
- *
- * SOURCE OF TRUTH: migrations/0002_galaxy_schema.sql
- */
-const GALAXY_MIGRATIONS = [
-  {
-    name: '0002_galaxy_schema.sql',
-    queries: [
-      `CREATE TABLE star_systems (
-  id             TEXT    NOT NULL PRIMARY KEY,
-  name           TEXT    NOT NULL UNIQUE,
-  x              INTEGER NOT NULL,
-  y              INTEGER NOT NULL,
-  is_oikumene    INTEGER NOT NULL,
-  classification TEXT    NOT NULL,
-  density        TEXT    NOT NULL,
-  attributes     TEXT    NOT NULL,
-  planetary      TEXT    NOT NULL,
-  civilization   TEXT    NOT NULL,
-  trade_codes    TEXT    NOT NULL,
-  economics      TEXT    NOT NULL
-)`,
-      'CREATE UNIQUE INDEX idx_star_systems_coords ON star_systems (x, y)',
-      'CREATE INDEX idx_star_systems_name ON star_systems (name)',
-      'CREATE INDEX idx_star_systems_classification ON star_systems (classification)',
-      `CREATE TABLE routes (
-  origin_id      TEXT NOT NULL,
-  destination_id TEXT NOT NULL,
-  cost           REAL NOT NULL,
-  PRIMARY KEY (origin_id, destination_id)
-)`,
-      'CREATE INDEX idx_routes_destination ON routes (destination_id)',
-      `CREATE TABLE trade_pairs (
-  system_a_id TEXT    NOT NULL,
-  system_b_id TEXT    NOT NULL,
-  btn         REAL    NOT NULL,
-  hops        INTEGER NOT NULL,
-  PRIMARY KEY (system_a_id, system_b_id)
-)`,
-      'CREATE INDEX idx_trade_pairs_system_b ON trade_pairs (system_b_id)',
-    ],
-  },
-];
-
-/** Auto-incrementing counter for unique coordinates across tests. */
-let coordCounter = 0;
-
-/**
- * Create a star system row with unique coordinates.
- *
- * @param overrides - Fields to override from the default row template
- * @returns A complete star_systems row with unique coordinates
- */
-function makeSystemRow(
-  overrides: Partial<{
-    readonly id: string;
-    readonly name: string;
-    readonly x: number;
-    readonly y: number;
-    readonly is_oikumene: number;
-    readonly classification: string;
-  }> = {}
-): {
-  readonly id: string;
-  readonly name: string;
-  readonly x: number;
-  readonly y: number;
-  readonly is_oikumene: number;
-  readonly classification: string;
-  readonly density: string;
-  readonly attributes: string;
-  readonly planetary: string;
-  readonly civilization: string;
-  readonly trade_codes: string;
-  readonly economics: string;
-} {
-  const n = coordCounter++;
-  return {
-    id: `sys-${n}`,
-    name: `System ${n}`,
-    x: n * 100,
-    y: n * 100,
-    is_oikumene: 1,
-    classification: 'OIKUMENE',
-    density: JSON.stringify({ neighborCount: 5, environmentPenalty: 0 }),
-    attributes: JSON.stringify({ technology: 10, environment: 8, resources: 7 }),
-    planetary: JSON.stringify({ size: 8, atmosphere: 6, temperature: 7, hydrography: 7 }),
-    civilization: JSON.stringify({
-      population: 10,
-      starport: 5,
-      government: 3,
-      factions: 4,
-      lawLevel: 5,
-    }),
-    trade_codes: JSON.stringify(['Hi', 'In']),
-    economics: JSON.stringify({
-      gurpsTechLevel: 10,
-      perCapitaIncome: 50000,
-      grossWorldProduct: 1e12,
-      resourceMultiplier: 1.0,
-      worldTradeNumber: 5.5,
-    }),
-    ...overrides,
-  };
-}
-
-/**
- * Insert a star system row into the D1 database.
- *
- * @param db - The D1 database instance
- * @param fields - Column values for the star_systems row
- */
-async function insertStarSystem(
-  db: D1Database,
-  fields: ReturnType<typeof makeSystemRow>
-): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO star_systems (id, name, x, y, is_oikumene, classification, density, attributes, planetary, civilization, trade_codes, economics)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .bind(
-      fields.id,
-      fields.name,
-      fields.x,
-      fields.y,
-      fields.is_oikumene,
-      fields.classification,
-      fields.density,
-      fields.attributes,
-      fields.planetary,
-      fields.civilization,
-      fields.trade_codes,
-      fields.economics
-    )
-    .run();
-}
+const tEnv = typedEnv(env);
 
 describe('D1TradePairRepository', () => {
   beforeAll(async () => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- cloudflare:test types unresolvable in ESLint tsconfig
-    await applyD1Migrations(typedEnv.DB, GALAXY_MIGRATIONS);
+    await applyD1Migrations(tEnv.DB, FULL_GALAXY_MIGRATION);
   });
 
   describe('findTradePartners', () => {
     it('returns an empty array when no trade pairs exist for the system', async () => {
       const isolated = makeSystemRow({ id: 'isolated-tp', name: 'Isolated Trade System' });
-      await insertStarSystem(typedEnv.DB, isolated);
+      await insertStarSystem(tEnv.DB, isolated);
 
-      const repo = new D1TradePairRepository(typedEnv.DB);
+      const repo = new D1TradePairRepository(tEnv.DB);
       const results = await repo.findTradePartners('isolated-tp');
 
       expect(results).toHaveLength(0);
+    });
+
+    it('returns partners where the system is system_a', async () => {
+      const origin = makeSystemRow({ id: 'tp-origin-a', name: 'Origin A' });
+      const partner = makeSystemRow({ id: 'tp-partner-a', name: 'Partner A' });
+      await insertStarSystem(tEnv.DB, origin);
+      await insertStarSystem(tEnv.DB, partner);
+      await insertTradePair(tEnv.DB, 'tp-origin-a', 'tp-partner-a', 8.5, 2);
+
+      const repo = new D1TradePairRepository(tEnv.DB);
+      const results = await repo.findTradePartners('tp-origin-a');
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.system.id).toBe('tp-partner-a');
+      expect(results[0]?.system.name).toBe('Partner A');
+      expect(results[0]?.btn).toBe(8.5);
+      expect(results[0]?.hops).toBe(2);
+    });
+
+    it('returns partners where the system is system_b', async () => {
+      const systemA = makeSystemRow({ id: 'tp-sys-a', name: 'System A Side' });
+      const systemB = makeSystemRow({ id: 'tp-sys-b', name: 'System B Side' });
+      await insertStarSystem(tEnv.DB, systemA);
+      await insertStarSystem(tEnv.DB, systemB);
+      await insertTradePair(tEnv.DB, 'tp-sys-a', 'tp-sys-b', 6.0, 3);
+
+      const repo = new D1TradePairRepository(tEnv.DB);
+      const results = await repo.findTradePartners('tp-sys-b');
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.system.id).toBe('tp-sys-a');
+      expect(results[0]?.system.name).toBe('System A Side');
+      expect(results[0]?.btn).toBe(6.0);
+      expect(results[0]?.hops).toBe(3);
+    });
+
+    it('returns multiple partners ordered by BTN descending', async () => {
+      const hub = makeSystemRow({ id: 'tp-hub', name: 'Trade Hub' });
+      const low = makeSystemRow({ id: 'tp-low', name: 'Low BTN' });
+      const mid = makeSystemRow({ id: 'tp-mid', name: 'Mid BTN' });
+      const high = makeSystemRow({ id: 'tp-high', name: 'High BTN' });
+      await insertStarSystem(tEnv.DB, hub);
+      await insertStarSystem(tEnv.DB, low);
+      await insertStarSystem(tEnv.DB, mid);
+      await insertStarSystem(tEnv.DB, high);
+      await insertTradePair(tEnv.DB, 'tp-hub', 'tp-low', 3.0, 5);
+      await insertTradePair(tEnv.DB, 'tp-hub', 'tp-mid', 6.5, 3);
+      await insertTradePair(tEnv.DB, 'tp-high', 'tp-hub', 9.0, 1);
+
+      const repo = new D1TradePairRepository(tEnv.DB);
+      const results = await repo.findTradePartners('tp-hub');
+
+      expect(results).toHaveLength(3);
+      expect(results[0]?.btn).toBe(9.0);
+      expect(results[0]?.system.name).toBe('High BTN');
+      expect(results[1]?.btn).toBe(6.5);
+      expect(results[1]?.system.name).toBe('Mid BTN');
+      expect(results[2]?.btn).toBe(3.0);
+      expect(results[2]?.system.name).toBe('Low BTN');
+    });
+
+    it('combines both directions in a single result set', async () => {
+      const center = makeSystemRow({ id: 'tp-center', name: 'Center' });
+      const left = makeSystemRow({ id: 'tp-left', name: 'Left' });
+      const right = makeSystemRow({ id: 'tp-right', name: 'Right' });
+      await insertStarSystem(tEnv.DB, center);
+      await insertStarSystem(tEnv.DB, left);
+      await insertStarSystem(tEnv.DB, right);
+      // center is system_a for left, system_b for right
+      await insertTradePair(tEnv.DB, 'tp-center', 'tp-left', 5.0, 2);
+      await insertTradePair(tEnv.DB, 'tp-right', 'tp-center', 7.0, 1);
+
+      const repo = new D1TradePairRepository(tEnv.DB);
+      const results = await repo.findTradePartners('tp-center');
+
+      expect(results).toHaveLength(2);
+      // Ordered by BTN descending
+      expect(results[0]?.btn).toBe(7.0);
+      expect(results[0]?.system.name).toBe('Right');
+      expect(results[1]?.btn).toBe(5.0);
+      expect(results[1]?.system.name).toBe('Left');
     });
   });
 });
