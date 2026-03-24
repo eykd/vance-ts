@@ -297,7 +297,7 @@ Instead:
     name: 'd1-delete-no-where',
     category: 'platform-ops',
     pattern: /wrangler\s+d1\s+execute\b.*\bDELETE\s+FROM\b/i,
-    safePatterns: [/wrangler\s+d1\s+execute\b.*\bDELETE\s+FROM\b.*\bWHERE\b/i],
+    safePatterns: [/--command[\s=]+["'][^"']*\bDELETE\s+FROM\b[^"']*\bWHERE\b[^"']*["']/i],
     message: `BLOCKED: Destructive D1 SQL detected (DELETE FROM without WHERE).
 
 DELETE FROM without a WHERE clause removes all rows from the table.

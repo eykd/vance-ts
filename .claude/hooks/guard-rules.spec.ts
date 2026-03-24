@@ -593,6 +593,28 @@ describe('evaluateCommand', () => {
         expect(result.message).toBeDefined();
       });
 
+      it('blocks d1 DELETE FROM when WHERE only appears in annotation (bypass)', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "DELETE FROM users" --annotation "WHERE reminder"'
+        );
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it('blocks d1 DELETE FROM when WHERE appears in a later flag value', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "DELETE FROM sessions" --description "WHERE clause needed"'
+        );
+        expect(result.action).toBe('block');
+      });
+
+      it('allows d1 DELETE FROM with WHERE inside --command using equals syntax', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command="DELETE FROM users WHERE id = 1"'
+        );
+        expect(result).toEqual({ action: 'allow' });
+      });
+
       it('blocks d1 drop table lowercase (Fix 3 case sensitivity)', () => {
         const result: GuardResult = evaluateCommand(
           'wrangler d1 execute DB --command "drop table users"'
