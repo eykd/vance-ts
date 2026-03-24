@@ -162,6 +162,17 @@ Spec: specs/013-import-design-skills/spec.md
 
 ---
 
+## Guard Hook Hardening
+
+Keywords: hook, guard, pre-tool-use, bash, destructive, blocked, git reset, git checkout,
+git clean, git restore, rm -rf, git commit --amend, git merge --squash, git stash drop,
+git stash clear, git branch -D, git add, wrangler, gh repo delete, command normalization,
+safe pattern, whitelist, false positive, exit code, warning, advisory, DCG, PreToolUse,
+dangerous command, force push, hook bypass, pre-commit
+Spec: specs/014-guard-hook-hardening/spec.md
+
+---
+
 ## How to Update This File
 
 When adding a new spec via `/sp:01-specify`, the workflow updates this file automatically.
