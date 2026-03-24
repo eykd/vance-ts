@@ -420,8 +420,11 @@ function extractShellPayload(command: string, prefix: RegExp): string | null {
   return stripped;
 }
 
+/** Maximum recursion depth for shell wrapper unwrapping. */
+const MAX_SHELL_DEPTH = 1;
+
 /**
- * Evaluates a command string against all guard rules.
+ * Internal recursive implementation of command evaluation.
  *
  * First normalizes the command (collapsing line continuations and stripping
  * wrappers like sudo/env/command). Then checks PRE_STRIP_RULES, PLATFORM_RULES,
@@ -430,10 +433,10 @@ function extractShellPayload(command: string, prefix: RegExp): string | null {
  * each sub-command independently.
  *
  * @param command - The raw command string from tool_input.command.
- * @param maxDepth - Maximum recursion depth for shell wrapper detection (default 1).
+ * @param depth - Remaining recursion depth for shell wrapper detection.
  * @returns A GuardResult indicating whether the command is allowed or blocked.
  */
-export function evaluateCommand(command: string, maxDepth: number = 1): GuardResult {
+function evaluateCommandInner(command: string, depth: number): GuardResult {
   const normalized = normalizeCommand(command);
 
   if (normalized.trim() === '') {
@@ -459,7 +462,7 @@ export function evaluateCommand(command: string, maxDepth: number = 1): GuardRes
   }
 
   // S5/S8: two-pass shell wrapper detection (skipped at depth < 0)
-  if (maxDepth >= 0) {
+  if (depth >= 0) {
     let payload: string | null = null;
     if (SHELL_WRAPPER_RE.test(normalized)) {
       payload = extractShellPayload(normalized, SHELL_WRAPPER_RE);
@@ -467,7 +470,7 @@ export function evaluateCommand(command: string, maxDepth: number = 1): GuardRes
       payload = extractShellPayload(normalized, EVAL_WRAPPER_RE);
     }
     if (payload !== null) {
-      const innerResult = evaluateCommand(payload, maxDepth - 1);
+      const innerResult = evaluateCommandInner(payload, depth - 1);
       if (innerResult.action === 'block') {
         return innerResult;
       }
@@ -489,4 +492,18 @@ export function evaluateCommand(command: string, maxDepth: number = 1): GuardRes
   }
 
   return { action: 'allow' };
+}
+
+/**
+ * Evaluates a command string against all guard rules.
+ *
+ * Delegates to an internal recursive implementation with a fixed recursion
+ * depth for shell wrapper detection. The recursion depth is not configurable
+ * by callers.
+ *
+ * @param command - The raw command string from tool_input.command.
+ * @returns A GuardResult indicating whether the command is allowed or blocked.
+ */
+export function evaluateCommand(command: string): GuardResult {
+  return evaluateCommandInner(command, MAX_SHELL_DEPTH);
 }

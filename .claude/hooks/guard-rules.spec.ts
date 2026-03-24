@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { GuardResult } from './guard-rules';
+import * as guardRulesModule from './guard-rules';
 import {
   evaluateCommand,
   normalizeCommand,
@@ -9,6 +10,11 @@ import {
 } from './guard-rules';
 
 describe('evaluateCommand', () => {
+  it('does not export internal recursion helper', () => {
+    // evaluateCommandInner should be an unexported implementation detail
+    expect(guardRulesModule).not.toHaveProperty('evaluateCommandInner');
+  });
+
   describe('safe commands (allow)', () => {
     it('returns allow for empty command (E2)', () => {
       const result: GuardResult = evaluateCommand('');
