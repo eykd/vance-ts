@@ -534,3 +534,55 @@ Cloudflare KV values are limited to 25MB. A grammar with thousands of rules, eac
 ### Deterministic Oracle Seed Recovery
 
 The system is fully deterministic: given the same grammar and seed, output is identical. An attacker who obtains the grammar file (e.g., from a public repo or leaked deployment artifact) can brute-force seeds by rendering the grammar with candidate seeds and comparing output to observed game text. For SHA-256-based seeds, the search space is 2^32 (Mulberry32 seed width) — exhaustible in seconds on commodity hardware. **Risk assessment**: Low for Phase 1 — grammars are developer-authored, seeds are internal, and game text prediction has limited exploit value. **Decision**: Accept this risk. Document as a known property of the deterministic design. If future phases expose seed-sensitive content (e.g., hidden locations, loot tables), consider: (1) adding a server-side secret salt to `scopeSeed` derivation so grammar+output alone is insufficient for seed recovery, or (2) using a wider PRNG state (64-bit or higher).
+
+## Red Team Findings
+
+_Added by adversarial review (sp:04-red-team, 2026-03-24)._
+
+### Template Engine Dispatch Strategy (High — EdgeCase)
+
+The plan defines two `TemplateEnginePort` implementations (FtemplateEngine for `{expr}`, Jinja2Engine for `{{ expr }}`) but does not specify how `RenderEngine` dispatches between them. Key unresolved questions: (1) Does `RenderEngine` run both engines in sequence (ftemplate first, then jinja2 on the result)? If so, ftemplate output containing `{{ }}` would be re-evaluated by jinja2. (2) Does it select one engine per rule based on a flag? No such flag exists in the `Rule` type. (3) Can a single template contain both syntaxes (e.g., `"{name} is {{ type }}"`)?
+
+**Mitigation**: Define a two-pass evaluation order in `RenderEngine`: (1) Evaluate all `{{ expr }}` jinja2 expressions first (double-brace has higher specificity). (2) Evaluate remaining `{expr}` ftemplate expressions second. This prevents ftemplate output from being re-processed by jinja2 (since jinja2 ran first) while allowing mixed-syntax templates. Document this order in `renderEngine.ts` JSDoc. Add test cases: (a) mixed-syntax template `"{name} is {{ type }}"` — verify both engines fire correctly; (b) ftemplate output containing `{{ }}` literal text — verify jinja2 does NOT re-evaluate it since it already ran; (c) jinja2 output containing `{expr}` — verify ftemplate DOES evaluate it (intentional chaining).
+
+### MARKOV `order` Parameter Parse-Time Validation (Medium — EdgeCase)
+
+The plan validates MARKOV empty corpus, items with template syntax, and corpus size limits, but does not validate the `order` parameter at parse time. `order: 0` creates zero-length ngrams (every character maps to every other character — near-random output). `order: -1` creates negative-length string slices producing empty ngrams. `order: 1.5` is non-integer, causing inconsistent ngram lengths. `order: 100` on a 10-character corpus creates no transitions (dead end).
+
+**Mitigation**: In `grammarParser.ts`, validate MARKOV `order` is a finite integer in range `[1, 10]`. Throw `GrammarParseError("MARKOV rule '{name}': order must be an integer between 1 and 10, got {value}")`. Upper bound of 10 is generous — character-level Markov chains with order > 5 reproduce training data verbatim. Add test cases: `order: 0`, `order: -1`, `order: 1.5`, `order: 11`, `order: "three"` → `GrammarParseError`.
+
+### WeightedAlternative Floating-Point Cumulative Selection (Medium — EdgeCase)
+
+Weighted random selection accumulates weights to build a cumulative distribution, then compares `rng.next() * totalWeight` against cumulative sums. With many alternatives (e.g., 50+ items with fractional weights like 0.1), IEEE 754 floating-point addition accumulates rounding errors. The final cumulative sum may be slightly less than `totalWeight`, creating a tiny unreachable range at the top. If `rng.next() * totalWeight` falls in this gap, no alternative is selected.
+
+**Mitigation**: In the weighted selection algorithm (`selectionModes.ts`), always select the last alternative as a fallback if no cumulative threshold is reached. This guarantees termination regardless of float precision. Alternatively, normalize using integer weights (multiply all weights by a common factor to eliminate fractions). Add a test case with 100 alternatives each weighted 0.1 and a mock rng returning 0.9999999 — verify an alternative is always selected.
+
+### Spec/Plan Empty Seed String Contradiction (Medium — EdgeCase)
+
+The spec's edge cases section states: "What happens when seed string is empty? → SHA-256 of empty string is valid; produces a deterministic (if unusual) seed." The plan's seed validation (Security Considerations) states: "Invalid/empty seed maps to a `{ ok: false, kind: 'invalid_seed' }` result variant." These are contradictory — one says empty is valid, the other rejects it.
+
+**Resolution**: The plan's decision to reject empty seeds is correct and takes precedence. Empty seeds are technically hashable but produce a fixed, publicly known hash — any game content rendered with an empty seed is trivially reproducible by anyone who knows the grammar. Update the spec's edge case answer to: "What happens when seed string is empty? → Rejected with `invalid_seed` error. While SHA-256 of empty string is valid, empty seeds produce a publicly known hash, making all output trivially reproducible."
+
+### YAML Duplicate Key Silent Override (Medium — EdgeCase)
+
+The YAML specification allows duplicate keys with "last wins" semantics. The `yaml` npm package follows this behavior by default. A grammar with two definitions of rule `"planet"` silently uses only the last definition — the first is discarded without warning. This is a content authoring error that goes undetected at parse time, potentially producing confusing render results when the author intended both rules.
+
+**Mitigation**: In `grammarParser.ts`, configure `yaml.parse` with `{ uniqueKeys: true }` (supported by the `yaml` package ≥ 2.1) to throw on duplicate keys. If the `yaml` package version does not support `uniqueKeys`, manually check for duplicates by collecting keys during iteration and throwing `GrammarParseError("Duplicate rule name '{name}' in grammar")` on collision. Add test cases: grammar YAML with duplicate rule names → `GrammarParseError`.
+
+### grammarToDto Serialization Failure (Medium — ErrorHandling)
+
+`RenderStoryResult` maps `StorageError` from `storage.load()` to `{ ok: false, kind: 'storage_error' }`, but `storage.save()` calls `JSON.stringify(dto)` internally. If any grammar value is non-serializable (e.g., `undefined` values stripped silently, circular references from a future code change), `JSON.stringify` throws `TypeError`. Additionally, `kv.put()` can throw for network errors. Neither failure path is explicitly caught in `kvStorage.ts` or `d1Storage.ts`.
+
+**Mitigation**: In `kvStorage.ts` and `d1Storage.ts`, wrap the entire `save()` implementation in try/catch. Catch `TypeError` from `JSON.stringify` and KV/D1 runtime errors, wrapping both as `StorageError`. The "never throws" contract applies to `RenderStoryService.render()` (which only calls `load`), but `save()` is called by content deployment tooling which should also receive typed errors rather than raw exceptions. Add test case: mock a grammar DTO that causes `JSON.stringify` to throw → verify `StorageError` is thrown, not `TypeError`.
+
+### StructRule With Zero Fields (Low — EdgeCase)
+
+A `StructRule` with an empty `fields` map (`fields: {}`) is not rejected at parse time. It would render its template with no field context, leaving all `{field}` references unresolved and triggering `TemplateError` at render time. Like zero-rule grammars and single-alternative TextRules, this is likely an authoring mistake.
+
+**Mitigation**: In `grammarParser.ts`, validate that StructRule has at least one field. Throw `GrammarParseError("StructRule '{name}' must have at least one field")`. Add test case: struct with empty fields → `GrammarParseError`.
+
+### Include Resolution Wall-Clock Budget (Low — Performance)
+
+`MAX_INCLUDE_DEPTH = 20` and `MAX_INCLUDE_COUNT = 50` bound iterations but not wall-clock time. With parallel resolution at each depth level, worst case is 20 sequential depth levels × KV cold read latency (10-40ms) = 200-800ms per render for deep include chains. While the 50ms performance goal applies to "typical grammars (< 100 rules)", deep include trees could exceed Workers' CPU time limits (10-50ms on free tier, 30s on paid).
+
+**Mitigation**: Document that deep include chains (> 5 levels) should be avoided in grammar design. For Phase 1, the practical include depth is 2-3 levels. If Phase 4 batch rendering hits latency issues, consider pre-resolving includes at grammar upload time (flattening the include tree into a single merged grammar stored as one KV entry). This eliminates per-render include resolution entirely.
