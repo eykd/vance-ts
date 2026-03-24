@@ -10,7 +10,7 @@ Implement the Prestoplot grammar-based text generation engine — a deterministi
 ## Technical Context
 
 **Language/Version**: TypeScript ES2022 (Cloudflare Workers runtime)
-**Primary Dependencies**: yaml ^2.3.0 (YAML parsing — NOT yet installed, must `npm install yaml@^2.3.0`; `maxAliasCount` and `uniqueKeys` options are available since 2.0.0 but ^2.3.0 is pinned for stability; browser build used via conditional exports — Workers-compatible, no Node.js imports), @cloudflare/workers-types, existing Mulberry32 PRNG
+**Primary Dependencies**: yaml ^2.3.0 (YAML parsing — present in `node_modules/` v2.8.2 as transitive dep but NOT a direct dependency; must `npm install yaml@^2.3.0` to make it explicit and prevent silent removal; `maxAliasCount` and `uniqueKeys` options are available since 2.0.0 but ^2.3.0 is pinned for stability; browser build used via conditional exports — Workers-compatible, no Node.js imports), @cloudflare/workers-types, existing Mulberry32 PRNG
 **Storage**: Cloudflare KV (primary), D1 (alternative), InMemory (testing)
 **Testing**: Vitest with @cloudflare/vitest-pool-workers (Workers project), strict TDD
 **Target Platform**: Cloudflare Workers V8 isolate
@@ -195,9 +195,9 @@ async getSeedInt(scopedSeed: string): Promise<number> {
 
 **Markov chain sentinels**: Uses STX (`\x02`) and ETX (`\x03`) as start/end sentinels instead of spaces. Training pads with configurable order (default 3) STX sentinels at start and one ETX at end. Model is a `Map<string, Map<string, number>>` (ngram → next-char → count).
 
-**YAML parsing**: Use the `yaml` npm package (must be installed — not currently in package.json). Pure JavaScript, no Node.js deps, Workers-compatible. Parser validates schema structure at parse time and reports errors with rule names via `GrammarParseError`.
+**YAML parsing**: Use the `yaml` npm package (present as transitive dep at v2.8.2 in `node_modules/`, but MUST be added as a direct dependency via `npm install yaml@^2.3.0` to prevent silent removal on dependency tree changes). Pure JavaScript, no Node.js deps, Workers-compatible. Parser validates schema structure at parse time and reports errors with rule names via `GrammarParseError`.
 
-**Markov rng.choice implementation**: The Markov spec references `rng.choice(successors)` but the `Rng` interface only exposes `next(): number`. Implement `choice` as a utility function: `function rngChoice<T>(rng: Rng, items: readonly T[]): T { return items[Math.floor(rng.next() * items.length)]!; }`. Place in `selectionModes.ts` or `markovChain.ts` as a private helper. This has the same modulo bias as `randint` (documented in Edge Cases) — acceptable for text generation.
+**Markov rng.choice implementation**: The Markov spec references `rng.choice(successors)` but the `Rng` interface only exposes `next(): number`. Implement `choice` as a utility function: `function rngChoice<T>(rng: Rng, items: readonly T[]): T { return items[Math.floor(rng.next() * items.length)]!; }`. Place in `markovChain.ts` as a private helper (co-located with its only caller). This has the same modulo bias as `randint` (documented in Edge Cases) — acceptable for text generation.
 
 **Port naming convention**: Follows existing codebase pattern — port interfaces in `src/application/ports/` as individual files (e.g., `GrammarStorage.ts`, `TemplateEngine.ts`, `RandomSource.ts`), matching `StarSystemRepository.ts`, `RouteRepository.ts` pattern. No `I` prefix on interface names.
 
@@ -255,6 +255,24 @@ Verified plan assumptions against current codebase state:
 5. **Port conventions** (`src/application/ports/`): 6 existing ports confirm pattern — PascalCase, no `I` prefix, one file per port, JSDoc on all methods. Proposed `GrammarStorage.ts`, `TemplateEngine.ts`, `RandomSource.ts` fit perfectly.
 6. **yaml package**: Not in `package.json` (present in `node_modules/` v2.8.2 as transitive dep). `maxAliasCount` and `uniqueKeys` available since v2.0.0 (not 2.3.0/2.1 as originally stated — corrected above). Browser build via conditional exports ensures Workers compatibility.
 
+### Deepening Research — Uncertainty Resolution (2026-03-24)
+
+Resolved 13 uncertain sections identified by systematic scan:
+
+1. **rngChoice placement**: Decided `markovChain.ts` (co-located with its only caller).
+2. **Scoped seed separator**: Decided hyphen (`-`), NUL rejected (invisible in debug output).
+3. **Storage logging**: Strengthened "should" → "MUST" for INFO-level mutation logging.
+4. **Template length limit**: Strengthened "should" → "MUST" for parse-time enforcement.
+5. **CachedStorage TTL batch determinism**: Remains deferred — Phase 1 is single-render only.
+6. **StoragePort read/write split**: Decided single interface for Phase 1; split deferred to Phase 4+.
+7. **Cross-render SHA-256 cache**: Remains deferred — no interface hooks needed until Phase 4.
+8. **Include wall-clock budget**: Remains documentation-only mitigation — acceptable for Phase 1.
+9. **D1 parameterized queries**: Strengthened from "code review" to test-as-primary-gate.
+10. **Weighted selection float bias**: Decided last-item fallback approach; integer normalization rejected.
+11. **GrammarDto version**: Clarified ownership in `dto.ts`, strengthened to a firm requirement.
+12. **Grammar key namespace docs**: Specified JSDoc in `GrammarStorage.ts` as documentation target.
+13. **yaml package status**: Resolved contradiction — present as transitive dep, MUST be added as direct dep.
+
 ## Post-Design Constitution Re-Check
 
 | Principle                         | Status | Notes                                                           |
@@ -273,11 +291,11 @@ All gates pass. No violations to justify.
 
 ### Storage Namespace Isolation
 
-`GRAMMAR_KV` MUST be a dedicated KV namespace, not shared with other application data. A misconfigured binding pointing at a shared namespace could silently overwrite unrelated KV entries. The DI wiring must enforce this via a dedicated binding name. All mutating operations (save, delete) should log at INFO level for operational traceability.
+`GRAMMAR_KV` MUST be a dedicated KV namespace, not shared with other application data. A misconfigured binding pointing at a shared namespace could silently overwrite unrelated KV entries. The DI wiring must enforce this via a dedicated binding name. All mutating operations (save, delete) MUST log at INFO level for operational traceability.
 
 ### Scoped Seed Separator Collision
 
-`scopeSeed` concatenates as `"{baseSeed}-{scopeKey}"`. A rule named `"a-b"` produces the same scoped seed as rule `"a"` further scoped with `"b"`, breaking determinism isolation. **Mitigation**: Rule names MUST NOT contain the separator character. Enforce at parse time in `grammarParser.ts` — reject rule names containing hyphens with `GrammarParseError`. Alternatively, use NUL (`\x00`) as separator. Document separator choice.
+`scopeSeed` concatenates as `"{baseSeed}-{scopeKey}"`. A rule named `"a-b"` produces the same scoped seed as rule `"a"` further scoped with `"b"`, breaking determinism isolation. **Mitigation**: Rule names MUST NOT contain the separator character (hyphen). Enforce at parse time in `grammarParser.ts` — reject rule names containing hyphens with `GrammarParseError`. **Decision**: Use hyphen (`-`) as the separator. NUL was considered but rejected: hyphen is visible in debug output and already validated against in rule names (see Validation Rules Placement table).
 
 ### YAML Anchor/Alias Bomb (Billion Laughs)
 
@@ -321,7 +339,7 @@ Rule names are validated with `[A-Za-z_][A-Za-z0-9_]*`, but this pattern permits
 
 ### Grammar Key Namespace Conventions
 
-Grammar keys are global within the `GRAMMAR_KV` namespace. Multiple features or content domains storing grammars without a naming convention will collide silently (overwriting each other). **Decision**: Flat keys are acceptable for Phase 1 since there is only one content domain. Document that Phase 4+ should adopt a prefix convention (e.g., `feature:grammar-name`) if multiple content domains share the namespace. Make this decision explicit so grammar authors do not accidentally create key conflicts.
+Grammar keys are global within the `GRAMMAR_KV` namespace. Multiple features or content domains storing grammars without a naming convention will collide silently (overwriting each other). **Decision**: Flat keys are acceptable for Phase 1 since there is only one content domain. Phase 4+ MUST adopt a prefix convention (e.g., `feature:grammar-name`) if multiple content domains share the namespace. Document this constraint in `GrammarStorage.ts` JSDoc: "Keys are global within the KV namespace. Phase 4+ multi-domain usage requires a prefix convention to prevent collisions."
 
 ### Seed Metadata Exposure in RenderStoryResult
 
@@ -329,7 +347,7 @@ Grammar keys are global within the `GRAMMAR_KV` namespace. Multiple features or 
 
 ### D1 Parameterized Queries Required
 
-`D1Storage` MUST use D1's `prepare().bind()` API for all queries — never string interpolation or template literals for SQL construction. Grammar keys are developer-defined strings that could contain SQL metacharacters. **Mitigation**: Enforce in code review and add a test case with a grammar key containing SQL injection payload (e.g., `"'; DROP TABLE grammars; --"`) verifying it is stored and retrieved correctly without side effects.
+`D1Storage` MUST use D1's `prepare().bind()` API for all queries — never string interpolation or template literals for SQL construction. Grammar keys are developer-defined strings that could contain SQL metacharacters. **Mitigation**: (1) The `D1Storage` implementation MUST use `prepare().bind()` exclusively — no string interpolation or template literals in SQL. (2) Add a test case with a grammar key containing SQL injection payload (e.g., `"'; DROP TABLE grammars; --"`) verifying it is stored and retrieved correctly without side effects. The test is the primary enforcement gate; code review is a secondary check.
 
 ### KV Key Case-Normalization Consistency
 
@@ -447,7 +465,7 @@ Mulberry32's `randint(min, max)` uses `Math.floor(random() * range)` which has i
 
 ### GrammarDto Schema Version
 
-`GrammarDto` stored in KV/D1 has no version discriminator. While grammar versioning is out of scope for this phase, adding a `version: 1` field to `GrammarDto` now costs nothing and prevents a painful heuristic-based migration later. **Mitigation**: Add `readonly version: 1` to the `GrammarDto` interface. In `grammarFromDto`, validate that `version === 1` and throw `StorageError("Unsupported grammar version: {N}")` for unrecognized versions. This is a forward-compatibility measure — the field is required but only one value is accepted in Phase 1.
+`GrammarDto` stored in KV/D1 has no version discriminator. While grammar versioning is out of scope for this phase, adding a `version: 1` field to `GrammarDto` now costs nothing and prevents a painful heuristic-based migration later. **Decision**: Add `readonly version: 1` to the `GrammarDto` interface in `src/application/prestoplot/dto.ts`. In `grammarFromDto`, validate that `version === 1` and throw `StorageError("Unsupported grammar version: {N}")` for unrecognized versions. `grammarToDto` MUST set `version: 1` on all serialized DTOs. This is a forward-compatibility requirement — the field is required and only one value is accepted in Phase 1.
 
 ### Jinja2 Comment Syntax Silent Content Suppression
 
@@ -531,7 +549,7 @@ The plan defines `MAX_DEPTH = 50` (template recursion, per jinja2 engine) and `M
 
 ### Template String Length Limit
 
-Template strings exceeding `MAX_TEMPLATE_LENGTH = 10_000` characters should throw `GrammarParseError` at parse time. This prevents oversized cache entries in the singleton `Jinja2Engine` template cache and bounds tokenizer runtime.
+Template strings exceeding `MAX_TEMPLATE_LENGTH = 10_000` characters MUST throw `GrammarParseError` at parse time. This prevents oversized cache entries in the singleton `Jinja2Engine` template cache and bounds tokenizer runtime.
 
 ### Template Cache Bounds
 
@@ -603,7 +621,7 @@ The plan validates MARKOV empty corpus, items with template syntax, and corpus s
 
 Weighted random selection accumulates weights to build a cumulative distribution, then compares `rng.next() * totalWeight` against cumulative sums. With many alternatives (e.g., 50+ items with fractional weights like 0.1), IEEE 754 floating-point addition accumulates rounding errors. The final cumulative sum may be slightly less than `totalWeight`, creating a tiny unreachable range at the top. If `rng.next() * totalWeight` falls in this gap, no alternative is selected.
 
-**Mitigation**: In the weighted selection algorithm (`selectionModes.ts`), always select the last alternative as a fallback if no cumulative threshold is reached. This guarantees termination regardless of float precision. Alternatively, normalize using integer weights (multiply all weights by a common factor to eliminate fractions). Add a test case with 100 alternatives each weighted 0.1 and a mock rng returning 0.9999999 — verify an alternative is always selected.
+**Mitigation**: In the weighted selection algorithm (`selectionModes.ts`), always select the last alternative as a fallback if no cumulative threshold is reached. This guarantees termination regardless of float precision. **Decision**: Use the last-item fallback approach (simpler, no weight type changes). Integer weight normalization was considered but rejected — it requires a common-factor calculation and changes the weight type from `number` to integer, adding complexity without meaningful benefit for game text. Add a test case with 100 alternatives each weighted 0.1 and a mock rng returning 0.9999999 — verify an alternative is always selected.
 
 ### Spec/Plan Empty Seed String Contradiction (Medium — EdgeCase)
 
@@ -649,7 +667,7 @@ _Added by adversarial review (sp:04-red-team, 2026-03-24)._
 
 `StoragePort.save()` and `StoragePort.delete()` are included in the port interface with no authorization contract documented anywhere in the call stack. `RenderStoryService` only calls `load()`, but the port interface is generic — if a future handler wires directly to the storage port, mutating operations on production KV are unguarded. Since `InMemoryStorage` is wired in tests without restriction, the absence of an authorization contract is invisible in unit tests.
 
-**Mitigation**: (1) Add JSDoc to `StoragePort.save()` and `StoragePort.delete()`: "Administrative operation — must not be exposed in public-facing handlers without authorization." (2) Document in the DI wiring section: "StoragePort save/delete are administrative operations. The `renderStoryService` getter only needs `load()` and `keys()`. A separate admin service or authorized middleware must gate save/delete access in production." (3) Consider splitting the port into `GrammarReader` (load, keys) and `GrammarWriter` (save, delete) to enforce the distinction at the type level. This split is optional for Phase 1 but recommended.
+**Mitigation**: (1) Add JSDoc to `StoragePort.save()` and `StoragePort.delete()`: "Administrative operation — must not be exposed in public-facing handlers without authorization." (2) Document in the DI wiring section: "StoragePort save/delete are administrative operations. The `renderStoryService` getter only needs `load()` and `keys()`. A separate admin service or authorized middleware must gate save/delete access in production." **Decision on port split**: Keep a single `GrammarStorage` interface for Phase 1 — splitting into `GrammarReader`/`GrammarWriter` adds two interfaces, two implementation targets per adapter, and DI complexity for a distinction that JSDoc + code review enforces adequately at current scale. Revisit if a grammar management API is added in Phase 4+.
 
 ### InMemoryStorage Accidental Production Wiring (Medium — Misuse)
 
