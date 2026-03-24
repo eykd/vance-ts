@@ -85,7 +85,7 @@ jobs:
 
       - name: Upload test results
         if: '!cancelled()'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-results
           path: |
@@ -166,7 +166,7 @@ jobs:
 
       - name: Upload mutation report
         if: steps.check-changes.outputs.has_changes == 'true' && !cancelled()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mutation-report
           path: reports/mutation/
