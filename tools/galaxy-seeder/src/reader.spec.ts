@@ -6,9 +6,27 @@
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
-import { readMetadata, readRoutes, readSystems } from './reader.js';
+import { guardOutputDir, readMetadata, readRoutes, readSystems } from './reader.js';
 
 vi.mock('node:fs/promises');
+
+describe('guardOutputDir', () => {
+  it('should resolve a relative path to absolute', () => {
+    const result = guardOutputDir('relative/path');
+    expect(result).toMatch(/^\//);
+    expect(result).toContain('relative/path');
+  });
+
+  it('should normalize dot-dot segments within a valid path', () => {
+    const result = guardOutputDir('/safe/nested/../output');
+    expect(result).toBe('/safe/output');
+  });
+
+  it('should return the resolved absolute path for a clean input', () => {
+    const result = guardOutputDir('/clean/galaxy/output');
+    expect(result).toBe('/clean/galaxy/output');
+  });
+});
 
 describe('readMetadata', () => {
   beforeEach(() => {

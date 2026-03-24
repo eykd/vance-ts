@@ -9,10 +9,24 @@
  */
 
 import { readFile, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 /** Maximum number of concurrent file reads for system files. */
 const MAX_CONCURRENCY = 100;
+
+/**
+ * Resolve an output directory path to an absolute, normalized form.
+ *
+ * Collapses `.` and `..` segments so that all downstream file operations
+ * use a canonical path. This prevents path traversal via crafted `--input`
+ * values when the tool is invoked from automated pipelines.
+ *
+ * @param outputDir - Raw output directory path from CLI arguments.
+ * @returns Resolved absolute path.
+ */
+export function guardOutputDir(outputDir: string): string {
+  return resolve(outputDir);
+}
 
 /**
  * Run async tasks with a concurrency limit and collect results.
@@ -52,7 +66,8 @@ async function mapWithConcurrency<T>(
  * @returns Parsed metadata object.
  */
 export async function readMetadata(outputDir: string): Promise<unknown> {
-  const content = await readFile(join(outputDir, 'metadata.json'), 'utf-8');
+  const safeDir = guardOutputDir(outputDir);
+  const content = await readFile(join(safeDir, 'metadata.json'), 'utf-8');
   return JSON.parse(content) as unknown;
 }
 
@@ -63,7 +78,8 @@ export async function readMetadata(outputDir: string): Promise<unknown> {
  * @returns Parsed routes object.
  */
 export async function readRoutes(outputDir: string): Promise<unknown> {
-  const content = await readFile(join(outputDir, 'routes.json'), 'utf-8');
+  const safeDir = guardOutputDir(outputDir);
+  const content = await readFile(join(safeDir, 'routes.json'), 'utf-8');
   return JSON.parse(content) as unknown;
 }
 
@@ -77,7 +93,8 @@ export async function readRoutes(outputDir: string): Promise<unknown> {
  * @returns Array of parsed star system objects.
  */
 export async function readSystems(outputDir: string): Promise<unknown[]> {
-  const systemsDir = join(outputDir, 'systems');
+  const safeDir = guardOutputDir(outputDir);
+  const systemsDir = join(safeDir, 'systems');
   const files = await readdir(systemsDir);
   const jsonFiles = files.filter((f) => f.endsWith('.json'));
 
