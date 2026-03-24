@@ -59,13 +59,11 @@ const GALAXY_MIGRATIONS = [
   },
 ];
 
-/** SQLite pragma table_info row shape. */
-interface ColumnInfo {
-  readonly cid: number;
+/** Projected columns from pragma_table_info used in schema assertions. */
+interface ColumnProjection {
   readonly name: string;
   readonly type: string;
   readonly notnull: number;
-  readonly dflt_value: string | null;
   readonly pk: number;
 }
 
@@ -76,16 +74,9 @@ describe('galaxy schema migration', () => {
   });
 
   it('creates the star_systems table with all required columns', async () => {
-    const result = await typedEnv.DB.prepare(
+    const { results: columns } = await typedEnv.DB.prepare(
       'SELECT name, type, "notnull", pk FROM pragma_table_info(\'star_systems\') ORDER BY cid'
-    ).all<ColumnInfo>();
-
-    const columns = result.results.map((c) => ({
-      name: c.name,
-      type: c.type,
-      notnull: c.notnull,
-      pk: c.pk,
-    }));
+    ).all<ColumnProjection>();
 
     expect(columns).toEqual([
       { name: 'id', type: 'TEXT', notnull: 1, pk: 1 },
@@ -101,5 +92,74 @@ describe('galaxy schema migration', () => {
       { name: 'trade_codes', type: 'TEXT', notnull: 1, pk: 0 },
       { name: 'economics', type: 'TEXT', notnull: 1, pk: 0 },
     ]);
+  });
+
+  it('creates the routes table with composite primary key', async () => {
+    const { results: columns } = await typedEnv.DB.prepare(
+      'SELECT name, type, "notnull", pk FROM pragma_table_info(\'routes\') ORDER BY cid'
+    ).all<ColumnProjection>();
+
+    expect(columns).toEqual([
+      { name: 'origin_id', type: 'TEXT', notnull: 1, pk: 1 },
+      { name: 'destination_id', type: 'TEXT', notnull: 1, pk: 2 },
+      { name: 'cost', type: 'REAL', notnull: 1, pk: 0 },
+    ]);
+  });
+
+  it('creates the trade_pairs table with composite primary key', async () => {
+    const { results: columns } = await typedEnv.DB.prepare(
+      'SELECT name, type, "notnull", pk FROM pragma_table_info(\'trade_pairs\') ORDER BY cid'
+    ).all<ColumnProjection>();
+
+    expect(columns).toEqual([
+      { name: 'system_a_id', type: 'TEXT', notnull: 1, pk: 1 },
+      { name: 'system_b_id', type: 'TEXT', notnull: 1, pk: 2 },
+      { name: 'btn', type: 'REAL', notnull: 1, pk: 0 },
+      { name: 'hops', type: 'INTEGER', notnull: 1, pk: 0 },
+    ]);
+  });
+
+  it('creates all required indexes', async () => {
+    const { results: indexes } = await typedEnv.DB.prepare(
+      `SELECT name, tbl_name FROM sqlite_master
+       WHERE type = 'index' AND name LIKE 'idx_%'
+       ORDER BY name`
+    ).all<{ readonly name: string; readonly tbl_name: string }>();
+
+    expect(indexes).toEqual([
+      { name: 'idx_routes_destination', tbl_name: 'routes' },
+      { name: 'idx_star_systems_classification', tbl_name: 'star_systems' },
+      { name: 'idx_star_systems_coords', tbl_name: 'star_systems' },
+      { name: 'idx_star_systems_name', tbl_name: 'star_systems' },
+      { name: 'idx_trade_pairs_system_b', tbl_name: 'trade_pairs' },
+    ]);
+  });
+
+  it('enforces UNIQUE constraint on star_systems name', async () => {
+    await typedEnv.DB.prepare(
+      `INSERT INTO star_systems (id, name, x, y, is_oikumene, classification, density, attributes, planetary, civilization, trade_codes, economics)
+       VALUES ('s1', 'Sol', 0, 0, 1, 'G2V', 'medium', '[]', '[]', '[]', '[]', '{}')`
+    ).run();
+
+    await expect(
+      typedEnv.DB.prepare(
+        `INSERT INTO star_systems (id, name, x, y, is_oikumene, classification, density, attributes, planetary, civilization, trade_codes, economics)
+         VALUES ('s2', 'Sol', 1, 1, 0, 'K0V', 'low', '[]', '[]', '[]', '[]', '{}')`
+      ).run()
+    ).rejects.toThrow(/UNIQUE/);
+  });
+
+  it('enforces UNIQUE constraint on star_systems coordinates', async () => {
+    await typedEnv.DB.prepare(
+      `INSERT INTO star_systems (id, name, x, y, is_oikumene, classification, density, attributes, planetary, civilization, trade_codes, economics)
+       VALUES ('s3', 'Alpha', 5, 5, 0, 'M1V', 'high', '[]', '[]', '[]', '[]', '{}')`
+    ).run();
+
+    await expect(
+      typedEnv.DB.prepare(
+        `INSERT INTO star_systems (id, name, x, y, is_oikumene, classification, density, attributes, planetary, civilization, trade_codes, economics)
+         VALUES ('s4', 'Beta', 5, 5, 1, 'F5V', 'low', '[]', '[]', '[]', '[]', '{}')`
+      ).run()
+    ).rejects.toThrow(/UNIQUE/);
   });
 });
