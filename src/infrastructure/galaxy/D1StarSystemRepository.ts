@@ -4,8 +4,8 @@
  * @module infrastructure/galaxy/D1StarSystemRepository
  */
 
+import type { StarSystemRepository } from '../../application/ports/StarSystemRepository.js';
 import type { StarSystem } from '../../domain/galaxy/types.js';
-import type { StarSystemRepository } from '../../domain/interfaces/StarSystemRepository.js';
 
 import { assertStarSystemRow, mapRowToStarSystem } from './mappers.js';
 

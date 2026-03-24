@@ -16,12 +16,12 @@ import type { AuthService } from '../application/ports/AuthService';
 import type { Logger } from '../application/ports/Logger';
 import type { RateLimiter } from '../application/ports/RateLimiter';
 import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../application/ports/RateLimiter';
+import type { RouteRepository } from '../application/ports/RouteRepository';
+import type { StarSystemRepository } from '../application/ports/StarSystemRepository';
+import type { TradePairRepository } from '../application/ports/TradePairRepository';
 import { SignInUseCase } from '../application/use-cases/SignInUseCase';
 import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
-import type { RouteRepository } from '../domain/interfaces/RouteRepository';
-import type { StarSystemRepository } from '../domain/interfaces/StarSystemRepository';
-import type { TradePairRepository } from '../domain/interfaces/TradePairRepository';
 import { getAuth, resetAuth } from '../infrastructure/auth';
 import {
   getAuthIndicatorCookieName,
