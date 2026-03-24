@@ -9,7 +9,7 @@ import type { TradePairPartner } from '../../application/ports/TradePairReposito
 import type { Classification, StarSystem } from '../../domain/galaxy/types.js';
 
 /** D1 row shape for the star_systems table columns. */
-interface StarSystemRow {
+export interface StarSystemRow {
   readonly id: string;
   readonly name: string;
   readonly x: number;

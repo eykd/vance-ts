@@ -101,33 +101,67 @@ async function insertStarSystem(
     .run();
 }
 
-/** Default row values matching the stubStarSystem fixture. */
-const SOL_ROW = {
-  id: 'sol-001',
-  name: 'Sol',
-  x: 0,
-  y: 0,
-  is_oikumene: 1,
-  classification: 'OIKUMENE',
-  density: JSON.stringify({ neighborCount: 5, environmentPenalty: 0 }),
-  attributes: JSON.stringify({ technology: 10, environment: 8, resources: 7 }),
-  planetary: JSON.stringify({ size: 8, atmosphere: 6, temperature: 7, hydrography: 7 }),
-  civilization: JSON.stringify({
-    population: 10,
-    starport: 5,
-    government: 3,
-    factions: 4,
-    lawLevel: 5,
-  }),
-  trade_codes: JSON.stringify(['Hi', 'In']),
-  economics: JSON.stringify({
-    gurpsTechLevel: 10,
-    perCapitaIncome: 50000,
-    grossWorldProduct: 1e12,
-    resourceMultiplier: 1.0,
-    worldTradeNumber: 5.5,
-  }),
-} as const;
+/** Auto-incrementing counter for unique coordinates across tests. */
+let coordCounter = 0;
+
+/**
+ * Create a star system row with unique coordinates.
+ *
+ * @param overrides - Fields to override from the default row template
+ * @returns A complete star_systems row with unique coordinates
+ */
+function makeRow(
+  overrides: Partial<{
+    readonly id: string;
+    readonly name: string;
+    readonly x: number;
+    readonly y: number;
+    readonly is_oikumene: number;
+    readonly classification: string;
+  }> = {}
+): {
+  readonly id: string;
+  readonly name: string;
+  readonly x: number;
+  readonly y: number;
+  readonly is_oikumene: number;
+  readonly classification: string;
+  readonly density: string;
+  readonly attributes: string;
+  readonly planetary: string;
+  readonly civilization: string;
+  readonly trade_codes: string;
+  readonly economics: string;
+} {
+  const n = coordCounter++;
+  return {
+    id: `sys-${n}`,
+    name: `System ${n}`,
+    x: n * 100,
+    y: n * 100,
+    is_oikumene: 1,
+    classification: 'OIKUMENE',
+    density: JSON.stringify({ neighborCount: 5, environmentPenalty: 0 }),
+    attributes: JSON.stringify({ technology: 10, environment: 8, resources: 7 }),
+    planetary: JSON.stringify({ size: 8, atmosphere: 6, temperature: 7, hydrography: 7 }),
+    civilization: JSON.stringify({
+      population: 10,
+      starport: 5,
+      government: 3,
+      factions: 4,
+      lawLevel: 5,
+    }),
+    trade_codes: JSON.stringify(['Hi', 'In']),
+    economics: JSON.stringify({
+      gurpsTechLevel: 10,
+      perCapitaIncome: 50000,
+      grossWorldProduct: 1e12,
+      resourceMultiplier: 1.0,
+      worldTradeNumber: 5.5,
+    }),
+    ...overrides,
+  };
+}
 
 describe('D1StarSystemRepository', () => {
   beforeAll(async () => {
@@ -137,13 +171,14 @@ describe('D1StarSystemRepository', () => {
 
   describe('findById', () => {
     it('returns the star system when found', async () => {
-      await insertStarSystem(typedEnv.DB, SOL_ROW);
+      const row = makeRow({ id: 'find-by-id-hit', name: 'Sol' });
+      await insertStarSystem(typedEnv.DB, row);
 
       const repo = new D1StarSystemRepository(typedEnv.DB);
-      const result = await repo.findById('sol-001');
+      const result = await repo.findById('find-by-id-hit');
 
       expect(result).not.toBeNull();
-      expect(result?.id).toBe('sol-001');
+      expect(result?.id).toBe('find-by-id-hit');
       expect(result?.name).toBe('Sol');
     });
 
@@ -152,6 +187,86 @@ describe('D1StarSystemRepository', () => {
       const result = await repo.findById('nonexistent');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('findByName', () => {
+    it('returns the star system when the name matches exactly', async () => {
+      const row = makeRow({ id: 'find-by-name-hit', name: 'Vega' });
+      await insertStarSystem(typedEnv.DB, row);
+
+      const repo = new D1StarSystemRepository(typedEnv.DB);
+      const result = await repo.findByName('Vega');
+
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe('find-by-name-hit');
+      expect(result?.name).toBe('Vega');
+    });
+
+    it('returns null when the name does not exist', async () => {
+      const repo = new D1StarSystemRepository(typedEnv.DB);
+      const result = await repo.findByName('Nonexistent');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('searchByNamePrefix', () => {
+    it('returns matching systems for a valid prefix', async () => {
+      const row1 = makeRow({ id: 'prefix-a1', name: 'Proxima Alpha' });
+      const row2 = makeRow({ id: 'prefix-a2', name: 'Proxima Beta' });
+      const row3 = makeRow({ id: 'prefix-a3', name: 'Deneb' });
+      await insertStarSystem(typedEnv.DB, row1);
+      await insertStarSystem(typedEnv.DB, row2);
+      await insertStarSystem(typedEnv.DB, row3);
+
+      const repo = new D1StarSystemRepository(typedEnv.DB);
+      const results = await repo.searchByNamePrefix('Proxima');
+
+      expect(results).toHaveLength(2);
+      expect(results.map((s) => s.name)).toEqual(['Proxima Alpha', 'Proxima Beta']);
+    });
+
+    it('returns empty array when prefix is shorter than 2 characters', async () => {
+      const row = makeRow({ id: 'prefix-short', name: 'Sirius' });
+      await insertStarSystem(typedEnv.DB, row);
+
+      const repo = new D1StarSystemRepository(typedEnv.DB);
+      const results = await repo.searchByNamePrefix('S');
+
+      expect(results).toEqual([]);
+    });
+
+    it('respects the limit parameter', async () => {
+      const row1 = makeRow({ id: 'limit-1', name: 'Betelgeuse Alpha' });
+      const row2 = makeRow({ id: 'limit-2', name: 'Betelgeuse Beta' });
+      await insertStarSystem(typedEnv.DB, row1);
+      await insertStarSystem(typedEnv.DB, row2);
+
+      const repo = new D1StarSystemRepository(typedEnv.DB);
+      const results = await repo.searchByNamePrefix('Betelgeuse', 1);
+
+      expect(results).toHaveLength(1);
+    });
+
+    it('escapes LIKE metacharacters in the prefix', async () => {
+      const row1 = makeRow({ id: 'escape-1', name: '100% Pure' });
+      const row2 = makeRow({ id: 'escape-2', name: '10X Growth' });
+      await insertStarSystem(typedEnv.DB, row1);
+      await insertStarSystem(typedEnv.DB, row2);
+
+      const repo = new D1StarSystemRepository(typedEnv.DB);
+      const results = await repo.searchByNamePrefix('100%');
+
+      expect(results).toHaveLength(1);
+      expect(results[0]?.name).toBe('100% Pure');
+    });
+
+    it('returns empty array when no systems match', async () => {
+      const repo = new D1StarSystemRepository(typedEnv.DB);
+      const results = await repo.searchByNamePrefix('Zz');
+
+      expect(results).toEqual([]);
     });
   });
 });
