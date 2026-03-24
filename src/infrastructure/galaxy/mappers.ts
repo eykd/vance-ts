@@ -4,7 +4,15 @@
  * @module infrastructure/galaxy/mappers
  */
 
-import type { Classification, StarSystem } from '../../domain/galaxy/types.js';
+import type {
+  CivilizationData,
+  Classification,
+  DensityData,
+  EconomicsData,
+  PlanetaryData,
+  StarSystem,
+  TerRating,
+} from '../../domain/galaxy/types.js';
 import type { ConnectedSystem } from '../../domain/interfaces/RouteRepository.js';
 import type { TradePairPartner } from '../../domain/interfaces/TradePairRepository.js';
 
@@ -25,19 +33,123 @@ export interface StarSystemRow {
 }
 
 /**
- * Parse a JSON column from a D1 row, providing a descriptive error on failure.
+ * Check that a value is a non-null object (not an array).
+ *
+ * @param v - The value to check
+ * @returns True if v is a plain object
+ */
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/**
+ * Check that every listed key on an object is a finite number.
+ *
+ * @param obj - The object to check
+ * @param keys - The keys that must be present and numeric
+ * @returns True if all keys exist and are finite numbers
+ */
+function hasNumericKeys(obj: Record<string, unknown>, keys: readonly string[]): boolean {
+  return keys.every((k) => typeof obj[k] === 'number' && Number.isFinite(obj[k]));
+}
+
+/**
+ * Type guard for DensityData.
+ *
+ * @param v - The value to validate
+ * @returns True if v conforms to DensityData
+ */
+function isDensityData(v: unknown): v is DensityData {
+  return isObject(v) && hasNumericKeys(v, ['neighborCount', 'environmentPenalty']);
+}
+
+/**
+ * Type guard for TerRating.
+ *
+ * @param v - The value to validate
+ * @returns True if v conforms to TerRating
+ */
+function isTerRating(v: unknown): v is TerRating {
+  return isObject(v) && hasNumericKeys(v, ['technology', 'environment', 'resources']);
+}
+
+/**
+ * Type guard for PlanetaryData.
+ *
+ * @param v - The value to validate
+ * @returns True if v conforms to PlanetaryData
+ */
+function isPlanetaryData(v: unknown): v is PlanetaryData {
+  return isObject(v) && hasNumericKeys(v, ['size', 'atmosphere', 'temperature', 'hydrography']);
+}
+
+/**
+ * Type guard for CivilizationData.
+ *
+ * @param v - The value to validate
+ * @returns True if v conforms to CivilizationData
+ */
+function isCivilizationData(v: unknown): v is CivilizationData {
+  return (
+    isObject(v) &&
+    hasNumericKeys(v, ['population', 'starport', 'government', 'factions', 'lawLevel'])
+  );
+}
+
+/**
+ * Type guard for EconomicsData.
+ *
+ * @param v - The value to validate
+ * @returns True if v conforms to EconomicsData
+ */
+function isEconomicsData(v: unknown): v is EconomicsData {
+  return (
+    isObject(v) &&
+    hasNumericKeys(v, [
+      'gurpsTechLevel',
+      'perCapitaIncome',
+      'grossWorldProduct',
+      'resourceMultiplier',
+      'worldTradeNumber',
+    ])
+  );
+}
+
+/**
+ * Type guard for a readonly string array.
+ *
+ * @param v - The value to validate
+ * @returns True if v is an array of strings
+ */
+function isStringArray(v: unknown): v is readonly string[] {
+  return Array.isArray(v) && v.every((item) => typeof item === 'string');
+}
+
+/**
+ * Parse a JSON column from a D1 row, validating its shape at runtime.
  *
  * @param value - The raw JSON string from the database
  * @param systemId - The star system ID for error context
  * @param columnName - The column name for error context
- * @returns The parsed JSON value
+ * @param guard - Type guard that validates the parsed value matches T
+ * @returns The parsed and validated JSON value
  */
-function parseJsonColumn<T>(value: string, systemId: string, columnName: string): T {
+function parseJsonColumn<T>(
+  value: string,
+  systemId: string,
+  columnName: string,
+  guard: (v: unknown) => v is T
+): T {
+  let parsed: unknown;
   try {
-    return JSON.parse(value) as T;
+    parsed = JSON.parse(value) as unknown;
   } catch {
     throw new Error(`Failed to parse JSON in column '${columnName}' for system '${systemId}'`);
   }
+  if (!guard(parsed)) {
+    throw new Error(`Invalid JSON shape in column '${columnName}' for system '${systemId}'`);
+  }
+  return parsed;
 }
 
 /**
@@ -54,12 +166,12 @@ export function mapRowToStarSystem(row: StarSystemRow): StarSystem {
     y: row.y,
     isOikumene: row.is_oikumene === 1,
     classification: row.classification as Classification,
-    density: parseJsonColumn(row.density, row.id, 'density'),
-    attributes: parseJsonColumn(row.attributes, row.id, 'attributes'),
-    planetary: parseJsonColumn(row.planetary, row.id, 'planetary'),
-    civilization: parseJsonColumn(row.civilization, row.id, 'civilization'),
-    tradeCodes: parseJsonColumn(row.trade_codes, row.id, 'trade_codes'),
-    economics: parseJsonColumn(row.economics, row.id, 'economics'),
+    density: parseJsonColumn(row.density, row.id, 'density', isDensityData),
+    attributes: parseJsonColumn(row.attributes, row.id, 'attributes', isTerRating),
+    planetary: parseJsonColumn(row.planetary, row.id, 'planetary', isPlanetaryData),
+    civilization: parseJsonColumn(row.civilization, row.id, 'civilization', isCivilizationData),
+    tradeCodes: parseJsonColumn(row.trade_codes, row.id, 'trade_codes', isStringArray),
+    economics: parseJsonColumn(row.economics, row.id, 'economics', isEconomicsData),
   };
 }
 

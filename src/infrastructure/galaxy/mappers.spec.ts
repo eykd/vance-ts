@@ -61,6 +61,74 @@ function starSystemColumns(): {
   };
 }
 
+describe('mapRowToStarSystem — JSON validation', () => {
+  it('throws on malformed density JSON (missing required field)', () => {
+    const row = { ...starSystemColumns(), density: JSON.stringify({ neighborCount: 5 }) };
+    expect(() => mapRowToStarSystem(row)).toThrow(
+      "Invalid JSON shape in column 'density' for system 'sys-001'"
+    );
+  });
+
+  it('throws on density with wrong field type', () => {
+    const row = {
+      ...starSystemColumns(),
+      density: JSON.stringify({ neighborCount: 'five', environmentPenalty: 0 }),
+    };
+    expect(() => mapRowToStarSystem(row)).toThrow(
+      "Invalid JSON shape in column 'density' for system 'sys-001'"
+    );
+  });
+
+  it('throws on malformed attributes JSON', () => {
+    const row = { ...starSystemColumns(), attributes: JSON.stringify({ technology: 8 }) };
+    expect(() => mapRowToStarSystem(row)).toThrow(
+      "Invalid JSON shape in column 'attributes' for system 'sys-001'"
+    );
+  });
+
+  it('throws on malformed planetary JSON', () => {
+    const row = { ...starSystemColumns(), planetary: JSON.stringify({}) };
+    expect(() => mapRowToStarSystem(row)).toThrow(
+      "Invalid JSON shape in column 'planetary' for system 'sys-001'"
+    );
+  });
+
+  it('throws on malformed civilization JSON', () => {
+    const row = { ...starSystemColumns(), civilization: JSON.stringify({ population: 9 }) };
+    expect(() => mapRowToStarSystem(row)).toThrow(
+      "Invalid JSON shape in column 'civilization' for system 'sys-001'"
+    );
+  });
+
+  it('throws on malformed economics JSON', () => {
+    const row = { ...starSystemColumns(), economics: JSON.stringify({ gurpsTechLevel: 10 }) };
+    expect(() => mapRowToStarSystem(row)).toThrow(
+      "Invalid JSON shape in column 'economics' for system 'sys-001'"
+    );
+  });
+
+  it('throws on trade_codes that is not a string array', () => {
+    const row = { ...starSystemColumns(), trade_codes: JSON.stringify('not-an-array') };
+    expect(() => mapRowToStarSystem(row)).toThrow(
+      "Invalid JSON shape in column 'trade_codes' for system 'sys-001'"
+    );
+  });
+
+  it('throws on trade_codes array containing non-strings', () => {
+    const row = { ...starSystemColumns(), trade_codes: JSON.stringify([1, 2, 3]) };
+    expect(() => mapRowToStarSystem(row)).toThrow(
+      "Invalid JSON shape in column 'trade_codes' for system 'sys-001'"
+    );
+  });
+
+  it('throws on unparseable JSON string', () => {
+    const row = { ...starSystemColumns(), density: '{not-valid-json' };
+    expect(() => mapRowToStarSystem(row)).toThrow(
+      "Failed to parse JSON in column 'density' for system 'sys-001'"
+    );
+  });
+});
+
 describe('mapRowToStarSystem', () => {
   it('converts a valid D1 row to a StarSystem', () => {
     const row = starSystemColumns();
