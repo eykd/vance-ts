@@ -21,6 +21,10 @@ describe('forgotPasswordPage', () => {
       expect(result).toContain('action="/auth/forgot-password"');
     });
 
+    it('labels the form for assistive technology', () => {
+      expect(result).toContain('aria-label="Forgot password"');
+    });
+
     it('includes CSRF hidden field with the token value', () => {
       expect.assertions(2);
       expect(result).toContain('name="_csrf"');

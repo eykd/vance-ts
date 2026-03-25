@@ -61,6 +61,7 @@ export function forgotPasswordPage(props: ForgotPasswordPageProps): string {
     <form
       method="POST"
       action="/auth/forgot-password"
+      aria-label="Forgot password"
       x-data="{ submitting: false }"
       @submit="submitting = true"
     >

@@ -121,6 +121,7 @@ export function registerPage(props: RegisterPageProps): string {
     <form
       method="POST"
       action="/auth/sign-up"
+      aria-label="Create an account"
       x-data="{ submitting: false }"
       @submit="submitting = true"
     >

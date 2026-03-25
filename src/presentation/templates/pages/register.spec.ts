@@ -24,6 +24,10 @@ describe('registerPage', () => {
       expect(result).toContain('action="/auth/sign-up"');
     });
 
+    it('labels the form for assistive technology', () => {
+      expect(result).toContain('aria-label="Create an account"');
+    });
+
     it('has label[for="email"] association', () => {
       expect(result).toContain('for="email"');
     });

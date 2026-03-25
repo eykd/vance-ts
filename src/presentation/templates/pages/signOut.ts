@@ -23,6 +23,7 @@ export function signOutPage(props: SignOutPageProps): string {
     <form
       method="POST"
       action="/auth/sign-out"
+      aria-label="Sign out"
       x-data="{ submitting: false }"
       @submit="submitting = true"
     >

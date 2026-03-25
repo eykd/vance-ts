@@ -89,6 +89,7 @@ export function resetPasswordPage(props: ResetPasswordPageProps): string {
     <form
       method="POST"
       action="/auth/reset-password"
+      aria-label="Reset password"
       x-data="{ submitting: false }"
       @submit="submitting = true"
     >

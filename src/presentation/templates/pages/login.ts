@@ -64,6 +64,7 @@ export function loginPage(props: LoginPageProps): string {
     <form
       method="POST"
       action="/auth/sign-in"
+      aria-label="Sign in"
       x-data="{ submitting: false }"
       @submit="submitting = true"
     >

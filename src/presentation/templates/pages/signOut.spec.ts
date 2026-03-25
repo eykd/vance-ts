@@ -20,6 +20,11 @@ describe('signOutPage', () => {
     expect(result).toContain('action="/auth/sign-out"');
   });
 
+  it('labels the form for assistive technology', () => {
+    const result = signOutPage({ csrfToken: 'csrf' });
+    expect(result).toContain('aria-label="Sign out"');
+  });
+
   it('renders a sign-out submit button', () => {
     const result = signOutPage({ csrfToken: 'csrf' });
     expect(result).toContain('type="submit"');

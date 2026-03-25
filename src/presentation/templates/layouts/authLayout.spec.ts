@@ -97,6 +97,35 @@ describe('authLayout', () => {
     expect(result).toContain('<link rel="manifest" href="/site.webmanifest"');
   });
 
+  describe('accessibility landmarks', () => {
+    it('renders a skip-to-content link as the first focusable element in the body', () => {
+      const bodyStart = result.indexOf('<body');
+      const skipLink = result.indexOf('Skip to content');
+      expect(skipLink).toBeGreaterThan(bodyStart);
+      expect(result).toContain('href="#main-content"');
+    });
+
+    it('renders the skip-to-content link with sr-only styling that becomes visible on focus', () => {
+      expect(result).toMatch(/class="[^"]*sr-only[^"]*"/);
+      expect(result).toMatch(/class="[^"]*focus:not-sr-only[^"]*"/);
+    });
+
+    it('wraps page content in a <main> element with id="main-content"', () => {
+      expect(result).toContain('<main');
+      expect(result).toContain('id="main-content"');
+    });
+
+    it('places content inside the <main> element', () => {
+      const mainOpen = result.indexOf('<main');
+      const mainClose = result.indexOf('</main>');
+      const contentIndex = result.indexOf('<form>test</form>');
+      expect(mainOpen).toBeGreaterThan(-1);
+      expect(mainClose).toBeGreaterThan(-1);
+      expect(contentIndex).toBeGreaterThan(mainOpen);
+      expect(contentIndex).toBeLessThan(mainClose);
+    });
+  });
+
   describe('branding header', () => {
     it('renders a link to the home page above the card', () => {
       expect(result).toContain('href="/"');

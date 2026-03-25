@@ -44,13 +44,21 @@ export function authLayout(props: AuthLayoutProps): string {
         <script defer src="${safe(ALPINE_JS_PATH)}"></script>
       </head>
       <body class="min-h-screen bg-base-200 flex flex-col items-center justify-center">
+        <a
+          href="#main-content"
+          class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-content focus:rounded"
+        >
+          Skip to content
+        </a>
         <a href="/" class="flex items-center gap-2 mb-6">
           <img src="/favicon.svg" class="size-8" alt="ClawTask logo" />
           <span class="text-xl font-semibold">ClawTask</span>
         </a>
-        <div class="card w-full max-w-md bg-base-100 shadow-xl">
-          <div class="card-body">${safe(props.content)}</div>
-        </div>
+        <main id="main-content">
+          <div class="card w-full max-w-md bg-base-100 shadow-xl">
+            <div class="card-body">${safe(props.content)}</div>
+          </div>
+        </main>
       </body>
     </html>`;
 }
