@@ -1,16 +1,6 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: design-frontend
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-21 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-frontend
 description: Reference hub for design principles, anti-patterns, and the AI Slop Test. Invoked by design-\* skills for aesthetic guidelines, Context Gathering Protocol, and quality checks. Use when you need design direction, want to avoid generic AI aesthetics, or need the Context Gathering Protocol before design work. Not a workflow orchestrator — see /design-interview for guided workflows.
-
 ---
 
 Reference hub for distinctive, production-grade frontend design. Contains aesthetic guidelines, anti-patterns, and quality checks that all `design-*` skills depend on.
