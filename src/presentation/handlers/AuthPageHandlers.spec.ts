@@ -1860,6 +1860,15 @@ describe('AuthPageHandlers', () => {
       expect(body).toContain('too common');
     });
 
+    it('re-renders form with general error on service_error', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'service_error' });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('An error occurred. Please try again.');
+    });
+
     it('returns 400 when token is empty', async () => {
       const req = makeResetPasswordPostRequest({ token: '' });
       const res = await handlers.handlePostResetPassword(req);
