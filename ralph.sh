@@ -820,22 +820,6 @@ task_has_active_children() {
     [[ "$((open_count + in_progress_count))" -gt 0 ]]
 }
 
-# Check if a task has children (is a parent container)
-task_has_children() {
-    local task_id="$1"
-    local child_count
-    child_count=$(beads list --parent "$task_id" --limit 1 --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
-    [[ "$child_count" -gt 0 ]]
-}
-
-# Check if all direct children of a task are closed
-all_children_closed() {
-    local task_id="$1"
-    local non_closed_count
-    non_closed_count=$(beads list --parent "$task_id" --json 2>/dev/null | \
-        jq '[.[] | select(.status != "closed")] | length' 2>/dev/null) || return 1
-    [[ "$non_closed_count" -eq 0 ]]
-}
 
 # Auto-close parent container tasks when all their children are completed.
 # Walks up from the given task ID, closing ancestors bottom-up.
@@ -920,16 +904,17 @@ get_in_progress_task() {
 task_has_children() {
     local task_id="$1"
     local child_count
-    child_count=$(beads list --parent "$task_id" --limit 1 --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
+    child_count=$(beads list --parent "$task_id" --all --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
     [[ "$child_count" -gt 0 ]]
 }
 
 # Check if all direct children of a task are closed
 all_children_closed() {
     local task_id="$1"
-    local open_count
-    open_count=$(beads list --parent "$task_id" --status open --json 2>/dev/null | jq 'length' 2>/dev/null) || return 1
-    [[ "$open_count" -eq 0 ]]
+    local non_closed_count
+    non_closed_count=$(beads list --parent "$task_id" --all --json 2>/dev/null | \
+        jq '[.[] | select(.status != "closed")] | length' 2>/dev/null) || return 1
+    [[ "$non_closed_count" -eq 0 ]]
 }
 
 # Auto-close parent container tasks when all their children are completed.
@@ -1237,9 +1222,9 @@ Before searching for a spec or existing feature, check specs/readme.md first.
 
 ## Bead Lifecycle Management (REQUIRED)
 1. Start task: beads start $task_id
-2. Track progress: beads comment $task_id "status update message"
+2. Track progress: beads comments add $task_id "status update message"
 3. Complete task: beads close $task_id
-4. If blocked: beads comment $task_id "BLOCKED: reason" (do NOT close)
+4. If blocked: beads comments add $task_id "BLOCKED: reason" (do NOT close)
 
 CRITICAL: You MUST close the bead when the task is complete.
 If you do not close it, ralph will run this task again.
@@ -1795,12 +1780,12 @@ execute_unit_tdd_cycle() {
         local prev_output="${LAST_STEP_OUTPUT:0:2000}"
         if (( red_exit == 2 )); then
             log WARN "RED circuit-breaker: all unit tests pass and no spec to check — closing task as complete"
-            beads comment "$task_id" "Circuit-breaker: all unit tests pass and no failing test could be written after 2 consecutive attempts. Feature appears complete." 2>/dev/null || true
+            beads comments add "$task_id" "Circuit-breaker: all unit tests pass and no failing test could be written after 2 consecutive attempts. Feature appears complete." 2>/dev/null || true
             beads close "$task_id" 2>/dev/null || true
             return 0
         elif (( red_exit != 0 )); then
             log ERROR "TDD step $STEP_RED failed in unit cycle $cycle"
-            beads comment "$task_id" "BLOCKED: TDD step $STEP_RED failed after retries in unit cycle $cycle" 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: TDD step $STEP_RED failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
 
@@ -1809,7 +1794,7 @@ execute_unit_tdd_cycle() {
         head_before=$(git rev-parse HEAD 2>/dev/null)
         if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_GREEN failed in unit cycle $cycle"
-            beads comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed after retries in unit cycle $cycle" 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: TDD step $STEP_GREEN failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
         prev_output="${LAST_STEP_OUTPUT:0:2000}"
@@ -1847,7 +1832,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
         # REFACTOR step (receives GREEN output)
         if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_REFACTOR failed in unit cycle $cycle"
-            beads comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed after retries in unit cycle $cycle" 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
         prev_output="${LAST_STEP_OUTPUT:0:2000}"
@@ -1855,7 +1840,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
         # REVIEW step (receives REFACTOR output)
         if ! execute_tdd_step "$STEP_REVIEW" "$task_json" "$cycle" "" "" "$prev_output"; then
             log ERROR "TDD step $STEP_REVIEW failed in unit cycle $cycle"
-            beads comment "$task_id" "BLOCKED: TDD step $STEP_REVIEW failed after retries in unit cycle $cycle" 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: TDD step $STEP_REVIEW failed after retries in unit cycle $cycle" 2>/dev/null || true
             return 1
         fi
 
@@ -1879,7 +1864,7 @@ After $cycle unit TDD cycle(s), check if this task is complete:
 3. If all tests pass with 100% coverage AND the implementation satisfies the task description:
    - Close the bead: beads close $task_id
    - Run /commit
-4. If NOT complete, add a comment explaining what remains: beads comment $task_id "Cycle $cycle complete. Remaining: ..."
+4. If NOT complete, add a comment explaining what remains: beads comments add $task_id "Cycle $cycle complete. Remaining: ..."
    Do NOT close the bead.
 PROMPT
 )
@@ -1895,7 +1880,7 @@ PROMPT
     done
 
     log WARN "Unit TDD cycle limit reached for task $task_id"
-    beads comment "$task_id" "BLOCKED: Unit TDD cycle limit ($TDD_MAX_CYCLES) reached without task completion" 2>/dev/null || true
+    beads comments add "$task_id" "BLOCKED: Unit TDD cycle limit ($TDD_MAX_CYCLES) reached without task completion" 2>/dev/null || true
     return 1
 }
 
@@ -1954,7 +1939,7 @@ PROMPT
     else
         if ! execute_tdd_step "$STEP_BIND" "$task_json" 1 "" "$spec_file" ""; then
             log ERROR "BIND step failed for task $task_id"
-            beads comment "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: BIND step failed" 2>/dev/null || true
             return 1
         fi
     fi
@@ -1987,12 +1972,12 @@ PROMPT
                 return 0
             else
                 log ERROR "RED circuit-breaker: unit tests pass but acceptance tests still fail — task needs human review"
-                beads comment "$task_id" "BLOCKED: RED circuit-breaker triggered in cycle $cycle. All unit tests pass but no failing test could be written, AND acceptance tests still fail. Feature may be partially implemented. Needs human review." 2>/dev/null || true
+                beads comments add "$task_id" "BLOCKED: RED circuit-breaker triggered in cycle $cycle. All unit tests pass but no failing test could be written, AND acceptance tests still fail. Feature may be partially implemented. Needs human review." 2>/dev/null || true
                 return 1
             fi
         elif (( red_exit != 0 )); then
             log ERROR "TDD step $STEP_RED failed in ATDD cycle $cycle for task $task_id"
-            beads comment "$task_id" "BLOCKED: TDD step $STEP_RED failed in ATDD cycle $cycle" 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: TDD step $STEP_RED failed in ATDD cycle $cycle" 2>/dev/null || true
             return 1
         fi
 
@@ -2001,7 +1986,7 @@ PROMPT
         head_before=$(git rev-parse HEAD 2>/dev/null)
         if ! execute_tdd_step "$STEP_GREEN" "$task_json" "$cycle" "" "$spec_file" "$prev_output"; then
             log ERROR "TDD step $STEP_GREEN failed in ATDD cycle $cycle for task $task_id"
-            beads comment "$task_id" "BLOCKED: TDD step $STEP_GREEN failed in ATDD cycle $cycle" 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: TDD step $STEP_GREEN failed in ATDD cycle $cycle" 2>/dev/null || true
             return 1
         fi
         prev_output="${LAST_STEP_OUTPUT:0:2000}"
@@ -2041,7 +2026,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>" 2>/dev/null || {
         # REFACTOR step (receives GREEN output)
         if ! execute_tdd_step "$STEP_REFACTOR" "$task_json" "$cycle" "" "$spec_file" "$prev_output"; then
             log ERROR "TDD step $STEP_REFACTOR failed in ATDD cycle $cycle for task $task_id"
-            beads comment "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed in ATDD cycle $cycle" 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: TDD step $STEP_REFACTOR failed in ATDD cycle $cycle" 2>/dev/null || true
             return 1
         fi
 
@@ -2072,7 +2057,7 @@ PROMPT
 
     # All cycles exhausted
     log WARN "ATDD inner cycle limit ($ATDD_MAX_INNER_CYCLES) reached for task $task_id"
-    beads comment "$task_id" "BLOCKED: ATDD cycle limit ($ATDD_MAX_INNER_CYCLES) reached without acceptance tests passing" 2>/dev/null || true
+    beads comments add "$task_id" "BLOCKED: ATDD cycle limit ($ATDD_MAX_INNER_CYCLES) reached without acceptance tests passing" 2>/dev/null || true
     return 1
 }
 
@@ -2367,11 +2352,11 @@ triage_blocked_task() {
         if (( defer_count >= MAX_AUTO_DEFERRALS )); then
             log WARN "Task $task_id auto-deferred $defer_count times — escalating to P1"
             beads update "$task_id" --status=open --priority 1 2>/dev/null || true
-            beads comment "$task_id" "BLOCKED: Triage invocation failed $((defer_count + 1)) times. Escalated to P1 for human review." 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: Triage invocation failed $((defer_count + 1)) times. Escalated to P1 for human review." 2>/dev/null || true
         else
             log WARN "Triage invocation failed for $task_id — deferring $FALLBACK_DEFER"
             beads update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
-            beads comment "$task_id" "BLOCKED: Triage invocation failed, auto-deferred $FALLBACK_DEFER" 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: Triage invocation failed, auto-deferred $FALLBACK_DEFER" 2>/dev/null || true
         fi
         return 0
     fi
@@ -2383,11 +2368,11 @@ triage_blocked_task() {
         if (( defer_count >= MAX_AUTO_DEFERRALS )); then
             log WARN "Task $task_id auto-deferred $defer_count times — escalating to P1"
             beads update "$task_id" --status=open --priority 1 2>/dev/null || true
-            beads comment "$task_id" "BLOCKED: Triage produced no signal $((defer_count + 1)) times. Escalated to P1 for human review." 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: Triage produced no signal $((defer_count + 1)) times. Escalated to P1 for human review." 2>/dev/null || true
         else
             log WARN "No RALPH_SIGNAL in triage output for $task_id — deferring $FALLBACK_DEFER"
             beads update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
-            beads comment "$task_id" "BLOCKED: Triage produced no signal, auto-deferred $FALLBACK_DEFER" 2>/dev/null || true
+            beads comments add "$task_id" "BLOCKED: Triage produced no signal, auto-deferred $FALLBACK_DEFER" 2>/dev/null || true
         fi
         return 0
     fi
@@ -2401,7 +2386,7 @@ triage_blocked_task() {
     case "$action" in
         close)
             log INFO "Triage closing task $task_id: $reason"
-            beads comment "$task_id" "TRIAGE: Closing — $reason" 2>/dev/null || true
+            beads comments add "$task_id" "TRIAGE: Closing — $reason" 2>/dev/null || true
             beads close "$task_id" 2>/dev/null || true
             auto_close_completed_parents "$task_id" "$epic_id"
             ;;
@@ -2420,15 +2405,15 @@ triage_blocked_task() {
             log INFO "Triage decomposing: creating sibling task under $parent_id"
             sibling_id=$(beads create "$new_title" --parent "$parent_id" --description "$new_description" --silent 2>/dev/null) || true
             if [[ -n "$sibling_id" ]]; then
-                beads dep "$sibling_id" --blocks "$task_id" 2>/dev/null || true
+                beads dep add "$task_id" "$sibling_id" --type blocks 2>/dev/null || true
                 # Reset to open so find_leaf_task's in_progress fast-path
                 # doesn't bypass the dependency check (beads ready respects deps)
                 beads update "$task_id" --status=open 2>/dev/null || true
-                beads comment "$task_id" "TRIAGE: Decomposed — $reason. Blocked by sibling $sibling_id" 2>/dev/null || true
+                beads comments add "$task_id" "TRIAGE: Decomposed — $reason. Blocked by sibling $sibling_id" 2>/dev/null || true
                 log INFO "Created sibling $sibling_id blocking $task_id"
             else
                 beads update "$task_id" --status=open --defer="$FALLBACK_DEFER" 2>/dev/null || true
-                beads comment "$task_id" "TRIAGE: Decomposed — $reason. Sibling creation failed, deferred $FALLBACK_DEFER" 2>/dev/null || true
+                beads comments add "$task_id" "TRIAGE: Decomposed — $reason. Sibling creation failed, deferred $FALLBACK_DEFER" 2>/dev/null || true
                 log WARN "Could not capture sibling ID for $task_id — fell back to $FALLBACK_DEFER defer"
             fi
             ;;
@@ -2437,7 +2422,7 @@ triage_blocked_task() {
             local duration
             duration=$(get_signal "defer_duration" "$FALLBACK_DEFER")
             log INFO "Triage deferring task $task_id for $duration: $reason"
-            beads comment "$task_id" "TRIAGE: Deferring $duration — $reason" 2>/dev/null || true
+            beads comments add "$task_id" "TRIAGE: Deferring $duration — $reason" 2>/dev/null || true
             beads update "$task_id" --status=open --defer="$duration" 2>/dev/null || true
             ;;
     esac
