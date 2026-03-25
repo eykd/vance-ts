@@ -18,7 +18,7 @@
   </aside>
   {{ if .Site.Menus.footer }}
   <nav>
-    <h6 class="footer-title">Links</h6>
+    <span class="footer-title">Links</span>
     {{ range .Site.Menus.footer }}
       <a class="link link-hover" href="{{ .URL }}">{{ .Name }}</a>
     {{ end }}
@@ -26,7 +26,7 @@
   {{ end }}
   {{ if .Site.Params.social }}
   <nav>
-    <h6 class="footer-title">Social</h6>
+    <span class="footer-title">Social</span>
     {{ with .Site.Params.social.twitter }}
       <a class="link link-hover" href="https://twitter.com/{{ . }}" target="_blank" rel="noopener">Twitter</a>
     {{ end }}
