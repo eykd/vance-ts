@@ -108,8 +108,6 @@ specs/015-static-error-pages/
 hugo/
 ├── layouts/
 │   ├── 404.html                          # MODIFY: extract shared error partial
-│   ├── _default/
-│   │   └── single.html                   # (existing, unchanged)
 │   └── _partials/
 │       └── errors/
 │           └── error-hero.html           # NEW: shared error page partial
@@ -140,6 +138,12 @@ Create `hugo/layouts/_partials/errors/error-hero.html` extracting the common pat
   Shared error page hero component.
   Params: .code (string), .title (string), .message (string),
           .alertClass (string), .iconPath (string - SVG path d attribute)
+
+  CSP NOTE: Worker-served error pages use strict CSP (style-src 'self',
+  script-src 'self') which blocks inline styles and onclick handlers.
+  This partial must NOT use <noscript><style>, onclick=, or any inline
+  script/style attributes. The "Go Home" link is the sole navigation
+  action — it works without JavaScript on all CSP configurations.
 */}}
 <div class="hero min-h-[60vh]">
   <div class="hero-content text-center">
@@ -159,14 +163,6 @@ Create `hugo/layouts/_partials/errors/error-hero.html` extracting the common pat
           </svg>
           Go Home
         </a>
-        {{/* SC-005: Go Back button requires JS — hide when JS is disabled */}}
-        <noscript><style>.js-only{display:none}</style></noscript>
-        <button onclick="history.back()" class="btn btn-outline js-only">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Go Back
-        </button>
       </div>
     </div>
   </div>
@@ -206,7 +202,7 @@ sitemap:
 ---
 ```
 
-Create `hugo/layouts/_default/500.html`:
+Create `hugo/layouts/500.html` (root of layouts — no `_default/` directory exists in this project):
 
 ```html
 {{ define "main" }}
@@ -295,20 +291,21 @@ Add `app.onError()` before route definitions:
 
 ```typescript
 app.onError(async (err, c) => {
-  // Structured logging with request context (consistent with auth handler pattern)
-  getServiceFactory(c.env).logger.error('unhandled error', err, {
-    path: c.req.path,
-    method: c.req.method,
-  });
+  // Logger accepts (message, cause?) — embed request context in the message string
+  getServiceFactory(c.env).logger.error(
+    `unhandled error on ${c.req.method} ${c.req.path}`,
+    err,
+  );
 
   if (isApiRoute(c.req.path)) {
     return c.json({ error: 'Internal server error' }, 500);
   }
 
-  // HTMX partials expect fragments, not full HTML documents
+  // HTMX partials expect fragments, not full HTML documents.
+  // Include a recovery link so the user can reload without manual refresh.
   if (c.req.header('HX-Request') === 'true') {
     return c.html(
-      '<div class="alert alert-error">Something went wrong. Please reload the page.</div>',
+      '<div class="alert alert-error"><span>Something went wrong.</span><a href="" class="link link-neutral underline" hx-boost="false">Reload page</a></div>',
       500,
     );
   }
@@ -353,6 +350,26 @@ test -f hugo/public/500/index.html || { echo "FATAL: 500/index.html missing"; ex
 
 ## Security Considerations
 
+### CSP Conflict: Worker vs Static Headers (CRITICAL)
+
+The project has **two different CSPs** that apply depending on how a page is served:
+
+- **Hugo static pages** (`hugo/static/_headers`): `style-src 'self' 'unsafe-inline'` and `script-src 'self' 'unsafe-inline' ...` — allows inline styles and scripts
+- **Worker-served pages** (`src/presentation/utils/securityHeaders.ts`): `style-src 'self'` and `script-src 'self'` — **blocks all inline styles and scripts**
+
+**Impact on error pages**: The 500 error page is served through `app.onError()` → `serveErrorPage()`, which goes through the Worker's `withSecurityHeaders` middleware. Therefore:
+
+1. **`<noscript><style>` blocks are silently ignored** — the Worker's strict CSP blocks inline `<style>` tags. The proposed `.js-only` CSS class will never be applied, leaving the non-functional "Go Back" button visible when JS is disabled (violates SC-005).
+2. **`onclick="history.back()"` inline handlers are blocked** — the Worker's `script-src 'self'` blocks inline event handlers. The "Go Back" button will not work at all on Worker-served error pages.
+
+**Mitigation**: Error page templates must not rely on inline styles or inline event handlers. Instead:
+
+- Use a CSS class defined in the Tailwind stylesheet (e.g., a `hidden` class on the button by default, removed by Alpine.js `x-data`/`x-bind:class`) to handle no-JS degradation. This is the pattern already used elsewhere in the project (see `securityHeaders.ts` comment lines 1-5).
+- Replace `onclick="history.back()"` with an Alpine.js `@click` directive or an external script, consistent with the project's CSP-safe patterns.
+- Alternatively, since the "Go Home" link works without JS and provides adequate navigation, simply **omit the "Go Back" button from Worker-served error pages** (simplest approach).
+
+**Note**: The existing `hugo/layouts/404.html` also has `onclick="history.back()"` which works on static paths (permissive `_headers` CSP) but would be blocked if the 404 page were ever served through the Worker. Currently this is not an issue because static 404s bypass the Worker, but it is a latent inconsistency to be aware of.
+
 ### Cache-Control on Error Responses
 
 Both `serveErrorPage()` and `fallbackErrorHtml()` responses MUST set `Cache-Control: no-store, no-cache` to prevent CDN edges, shared proxies, or browsers from caching error responses. This is consistent with existing auth error handler behavior and prevents transient 500 errors from being served to subsequent visitors via cached responses.
@@ -367,6 +384,17 @@ Error pages use pre-built static HTML with generic messages. The `app.onError()`
 
 When `app.onError()` catches an exception on an `/app/_/*` route, HTMX partial routes expect HTML **fragments**, not full documents. Injecting a full `<html>...</html>` page into an HTMX swap target produces broken markup. The error handler checks for the `HX-Request` header and returns a styled error fragment instead of a full page.
 
+**Recovery path**: The HTMX error fragment should include an actionable recovery mechanism, not just a message. Add a reload link so the user can recover without manually refreshing:
+
+```html
+<div class="alert alert-error">
+  <span>Something went wrong.</span>
+  <a href="" class="link link-neutral underline" hx-boost="false">Reload page</a>
+</div>
+```
+
+The empty `href=""` reloads the current page. `hx-boost="false"` prevents HTMX from intercepting the navigation (since the error likely came from a boosted request in the first place).
+
 ### Worker-Routed vs Static Paths
 
 `app.onError()` only fires for Worker-handled routes (`/api/*`, `/app/*`, `/auth/*`, `/dashboard/*`). Static content paths never reach the Worker. If ASSETS itself encounters an error on a static path, Cloudflare returns its own error response — the Worker cannot intercept it.
@@ -377,19 +405,40 @@ If ASSETS.fetch() for `/500/` or `/404.html` fails (e.g., incomplete Hugo build)
 
 ### Structured Error Logging
 
-Use the ServiceFactory logger (consistent with existing auth handler pattern) instead of raw `console.error` — includes request path and method for production debugging.
+Use the ServiceFactory logger (consistent with existing auth handler pattern) instead of raw `console.error`.
+
+**Logger Interface Constraint**: The `Logger` interface (`src/application/ports/Logger.ts`) accepts only two arguments: `error(message: string, cause?: unknown): void`. The plan's proposed call `logger.error('unhandled error', err, { path, method })` passes **three arguments** — the request context object will be silently dropped at runtime and may cause a TypeScript strict-mode compilation error.
+
+**Mitigation**: Embed request context in the message string or the cause object:
+
+```typescript
+// Option A: Context in message string
+logger.error(`unhandled error on ${c.req.method} ${c.req.path}`, err);
+
+// Option B: Wrap error with context (preserves structured cause)
+logger.error('unhandled error', { cause: err, path: c.req.path, method: c.req.method });
+```
+
+Option A is simpler and sufficient for debugging. Option B is better if the logger implementation supports structured cause objects.
 
 ## Accessibility Requirements
 
 ### No-JS Degradation (SC-005)
 
-The "Go Back" button uses `onclick="history.back()"` which is inoperable without JavaScript. It is wrapped in a `js-only` class hidden by a `<noscript><style>` block, so only the always-functional "Go Home" link appears when JS is disabled.
+The "Go Back" button uses `onclick="history.back()"` which requires JavaScript. On Worker-served error pages, the Worker's strict CSP (`script-src 'self'`) blocks inline `onclick` handlers entirely — the button will not function regardless of JS availability (see Security Considerations > CSP Conflict).
+
+**Required approach**: Do NOT use `<noscript><style>` (blocked by Worker CSP `style-src 'self'`) or `onclick` handlers. Instead:
+
+- **Simplest (recommended)**: Omit the "Go Back" button from the shared error partial entirely. The "Go Home" link provides adequate navigation and works without JavaScript on all CSP configurations. This is the safest approach given the dual-CSP environment.
+- **If "Go Back" is desired**: Use Alpine.js `x-data` with `x-show` replaced by `x-bind:class` toggling Tailwind's `hidden` class (matching the project's established CSP-safe pattern per `securityHeaders.ts` lines 1-5). The button starts hidden via `class="hidden"` and Alpine removes `hidden` on init.
 
 ### Fallback HTML Completeness
 
-The inline fallback HTML includes `lang="en"` for screen readers and `<meta name="viewport">` for mobile rendering, matching the standards of the main Hugo templates.
+The inline fallback HTML includes `lang="en"` for screen readers and `<meta name="viewport">` for mobile rendering, matching the standards of the main Hugo templates. The fallback will be unstyled (no CSS) since inline `<style>` tags are blocked by the Worker's CSP — this is acceptable for a last-resort fallback.
 
 ## Red Team Review
+
+### Round 1
 
 **Reviewed**: 2026-03-25 | **Findings**: 0 Critical, 1 High, 5 Medium, 2 Low
 
@@ -401,3 +450,17 @@ Key enhancements made to this plan:
 - Switched to structured logging with request context
 - Added Hugo build verification as blocking CI gate
 - Improved fallback HTML with lang and viewport attributes
+
+### Round 2
+
+**Reviewed**: 2026-03-25 | **Findings**: 1 Critical, 2 High, 2 Medium, 0 Low
+
+Round 2 performed deeper adversarial analysis grounded in actual codebase inspection (reading `securityHeaders.ts`, `Logger.ts`, `_headers`, `hugo.yaml`, and layout directories).
+
+| # | Severity | Category | Finding | Resolution |
+|---|----------|----------|---------|------------|
+| 1 | Critical | Security | **Dual CSP conflict**: Worker CSP (`style-src 'self'`, `script-src 'self'`) blocks the `<noscript><style>` and `onclick` patterns proposed in Round 1. Hugo static `_headers` allows `unsafe-inline` but Worker-served 500 pages get the strict CSP. Round 1's fix was itself broken. | Removed "Go Back" button entirely from shared error partial. Documented CSP constraint for future implementers. Only "Go Home" link remains — works on all CSP configs without JS. |
+| 2 | High | ErrorHandling | **Logger interface mismatch**: `Logger.error(message, cause?)` accepts 2 args but `app.onError()` code passed 3 args (`err, { path, method }`). Request context silently dropped. | Changed to `logger.error(\`unhandled error on ${method} ${path}\`, err)` — context in message string. |
+| 3 | High | ErrorHandling | **HTMX error fragment has no recovery action**: Original fragment was a dead-end message with no way to recover. Users stuck in broken UI state. | Added `<a href="" hx-boost="false">Reload page</a>` to fragment. |
+| 4 | Medium | Accessibility | **Fallback HTML unstyled and un-styleable**: Inline fallback cannot use `<style>` (blocked by Worker CSP). Fallback will be plain unstyled HTML. | Documented as acceptable for last-resort fallback. Added note to Accessibility section. |
+| 5 | Medium | EdgeCase | **500.html layout path wrong**: Plan referenced `hugo/layouts/_default/500.html` but no `_default/` directory exists. Project uses root-level layouts (e.g., `layouts/single.html`). | Corrected to `hugo/layouts/500.html`. |
