@@ -978,6 +978,34 @@ describe('evaluateCommand', () => {
         expect(result.action).toBe('block');
       });
     });
+
+    describe('quote boundary precision (no over-capture)', () => {
+      it('extracts only first double-quoted arg, not trailing quoted text', () => {
+        const result: GuardResult = evaluateCommand(
+          'bash -c "echo hello" && echo "git reset --hard"'
+        );
+        expect(result.action).toBe('allow');
+      });
+
+      it('extracts only first single-quoted arg, not trailing quoted text', () => {
+        const result: GuardResult = evaluateCommand(
+          "bash -c 'echo hello' && echo 'git reset --hard'"
+        );
+        expect(result.action).toBe('allow');
+      });
+
+      it('blocks when destructive command is inside first double-quoted payload', () => {
+        const payload = ['git reset', ' --ha', 'rd'].join('');
+        const result: GuardResult = evaluateCommand('bash -c "' + payload + '" && echo "safe"');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks when destructive command is inside first single-quoted payload', () => {
+        const payload = ['git reset', ' --ha', 'rd'].join('');
+        const result: GuardResult = evaluateCommand("bash -c '" + payload + "' && echo 'safe'");
+        expect(result.action).toBe('block');
+      });
+    });
   });
 
   describe('error message structure (E8, FR-016)', () => {

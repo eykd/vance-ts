@@ -401,16 +401,24 @@ function extractShellPayload(command: string, prefix: RegExp): string | null {
   }
   const first = stripped[0];
   if (first === '"') {
-    // Double-quoted: extract content between outermost quotes
-    const end = stripped.lastIndexOf('"');
-    if (end > 0) {
-      return stripped.slice(1, end).replace(/\\"/g, '"');
+    // Double-quoted: scan forward for first unescaped closing quote
+    let i = 1;
+    while (i < stripped.length) {
+      if (stripped[i] === '\\' && i + 1 < stripped.length) {
+        i += 2; // skip escaped character
+        continue;
+      }
+      if (stripped[i] === '"') {
+        return stripped.slice(1, i).replace(/\\"/g, '"');
+      }
+      i++;
     }
+    // No closing quote found
     return stripped.slice(1);
   }
   if (first === "'") {
-    // Single-quoted: extract content between outermost quotes
-    const end = stripped.lastIndexOf("'");
+    // Single-quoted: no escape sequences, find first closing quote
+    const end = stripped.indexOf("'", 1);
     if (end > 0) {
       return stripped.slice(1, end);
     }
