@@ -20,6 +20,14 @@ body {
   display: none !important;
 }
 
+/* Restore visible focus indicator for .link elements inside .menu.
+   DaisyUI's .menu sets outline-style:none on :focus-visible, leaving only
+   a 10% background tint — too subtle for WCAG 2.4.7 compliance. */
+.menu :where(li:not(.menu-title) > :not(ul, details, .menu-title, .btn)):where(.link):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
 /* Featured image hero background */
 .hero-featured {
   background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), var(--hero-bg-image);
