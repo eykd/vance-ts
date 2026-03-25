@@ -593,6 +593,22 @@ describe('evaluateCommand', () => {
         expect(result.message).toBeDefined();
       });
 
+      it('blocks d1 DELETE FROM when WHERE appears only in annotation flag', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "DELETE FROM users" --annotation "WHERE reminder"'
+        );
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
+      it('blocks d1 DELETE FROM when WHERE appears in a trailing flag value', () => {
+        const result: GuardResult = evaluateCommand(
+          'wrangler d1 execute DB --command "DELETE FROM users" --description "use WHERE next time"'
+        );
+        expect(result.action).toBe('block');
+        expect(result.message).toBeDefined();
+      });
+
       it('blocks d1 drop table lowercase (Fix 3 case sensitivity)', () => {
         const result: GuardResult = evaluateCommand(
           'wrangler d1 execute DB --command "drop table users"'
