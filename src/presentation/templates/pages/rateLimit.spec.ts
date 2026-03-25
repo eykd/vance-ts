@@ -56,11 +56,11 @@ describe('rateLimitPage', () => {
       expect(result).toContain('Back to Sign Up');
     });
 
-    it('does not render the default sign-in link when custom backLink is provided', () => {
+    it('does not render the default back-to-sign-in label when custom backLink is provided', () => {
       const result = rateLimitPage({
         backLink: { href: '/auth/sign-up', label: 'Back to Sign Up' },
       });
-      expect(result).not.toContain('href="/auth/sign-in"');
+      expect(result).not.toContain('Back to Sign In');
     });
 
     it('renders forgot password back link', () => {

@@ -127,26 +127,71 @@ describe('authLayout', () => {
     });
   });
 
-  describe('branding header', () => {
-    it('renders a link to the home page above the card', () => {
-      expect(result).toContain('href="/"');
+  describe('navbar', () => {
+    it('renders a frosted glass navbar with site navigation label', () => {
+      expect(result).toContain('aria-label="Site navigation"');
+      expect(result).toContain('navbar bg-base-100/50 backdrop-blur-sm');
     });
 
-    it('includes the favicon as a logo image', () => {
-      expect(result).toContain('src="/favicon.svg"');
-      expect(result).toContain('alt="ClawTask logo"');
+    it('renders the ClawTask logo link in the navbar-start', () => {
+      expect(result).toContain('navbar-start');
+      expect(result).toMatch(/btn btn-ghost font-serif text-xl text-primary[^"]*">ClawTask<\/a>/);
     });
 
-    it('displays the site name', () => {
-      expect(result).toContain('ClawTask');
+    it('links the logo to the home page', () => {
+      const navStart = result.indexOf('navbar-start');
+      const logoLink = result.indexOf('href="/"', navStart);
+      expect(logoLink).toBeGreaterThan(navStart);
     });
 
-    it('places the branding link before the card', () => {
-      const brandingIndex = result.indexOf('href="/"');
-      const cardIndex = result.indexOf('card w-full');
-      expect(brandingIndex).toBeGreaterThan(-1);
-      expect(cardIndex).toBeGreaterThan(-1);
-      expect(brandingIndex).toBeLessThan(cardIndex);
+    it('renders a sign-in link in the navbar-end', () => {
+      expect(result).toContain('navbar-end');
+      expect(result).toContain('href="/auth/sign-in"');
+      expect(result).toContain('Sign In');
+    });
+
+    it('places the navbar before the main content', () => {
+      const navIndex = result.indexOf('<nav');
+      const mainIndex = result.indexOf('<main');
+      expect(navIndex).toBeGreaterThan(-1);
+      expect(mainIndex).toBeGreaterThan(-1);
+      expect(navIndex).toBeLessThan(mainIndex);
+    });
+  });
+
+  describe('footer', () => {
+    it('renders a footer with ClawTask branding', () => {
+      expect(result).toContain('<footer');
+      expect(result).toMatch(/font-serif font-semibold[^"]*">ClawTask<\/p>/);
+    });
+
+    it('includes a copyright notice', () => {
+      expect(result).toContain('&copy; 2026 Worlds Enough Studios. All rights reserved.');
+    });
+
+    it('places the footer after main content', () => {
+      const mainClose = result.indexOf('</main>');
+      const footerIndex = result.indexOf('<footer');
+      expect(mainClose).toBeGreaterThan(-1);
+      expect(footerIndex).toBeGreaterThan(mainClose);
+    });
+  });
+
+  describe('layout structure', () => {
+    it('uses font-sans and bg-base-200 on the body', () => {
+      expect(result).toMatch(/<body[^>]*class="font-sans bg-base-200"/);
+    });
+
+    it('centers the card in main with flex layout', () => {
+      expect(result).toContain('grow flex flex-col items-center justify-center');
+    });
+
+    it('renders the card inside main', () => {
+      const mainOpen = result.indexOf('<main');
+      const mainClose = result.indexOf('</main>');
+      const cardIndex = result.indexOf('card w-full max-w-md');
+      expect(cardIndex).toBeGreaterThan(mainOpen);
+      expect(cardIndex).toBeLessThan(mainClose);
     });
   });
 });

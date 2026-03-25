@@ -35,6 +35,79 @@ body {
   background-position: center;
 }
 
+/* ── Animations & Micro-interactions ─────────────────────────────── */
+
+/* 1. Page entrance: subtle fade-up for main content on load */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out;
+}
+
+/* 2. Staggered list item entrance: items slide in from the left */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out both;
+}
+
+/* 3. Button press: tactile scale-down on active state */
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+/* 4. Card hover glow: warm glow on interactive cards */
+.card-hover-glow {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover-glow:hover {
+  border-color: oklch(50% 0.2 30 / 0.3);
+  box-shadow: 0 0 20px oklch(50% 0.2 30 / 0.08);
+}
+
+/* 5. Focus ring: pulsing outline for keyboard navigation */
+@keyframes focus-pulse {
+  0%, 100% { outline-color: oklch(50% 0.2 30); }
+  50% { outline-color: oklch(50% 0.2 30 / 0.5); }
+}
+:focus-visible {
+  outline: 2px solid oklch(50% 0.2 30);
+  outline-offset: 2px;
+  animation: focus-pulse 2s ease-in-out infinite;
+}
+
+/* 6. Navbar link hover: underline slides in from center */
+.navbar a.link-hover::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: oklch(50% 0.2 30);
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+.navbar a.link-hover:hover::after {
+  transform: scaleX(1);
+}
+
+/* 7. Reduced motion: respect user accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-slide-in {
+    animation: none;
+  }
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
+  :focus-visible {
+    animation: none;
+  }
+}
+
 /* ClawTask Dark Theme - Primary */
 @plugin "daisyui/theme" {
   name: "clawtask-dark";

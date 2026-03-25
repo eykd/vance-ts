@@ -26,9 +26,10 @@ export interface InboxPageProps {
 export function inboxPage(props: InboxPageProps): string {
   const itemsHtml = props.items
     .map(
-      (item) =>
+      (item, index) =>
         html`<li
-          class="flex items-center justify-between p-3 bg-base-100 border border-base-300 rounded-lg"
+          class="flex items-center justify-between p-3 bg-base-100 border border-base-300 rounded-lg animate-slide-in"
+          style="animation-delay: ${safe(String(index * 50))}ms"
         >
           <span>${item.title}</span>
           <button hx-post="/app/_/inbox/${item.id}/clarify" class="btn btn-sm btn-outline">
@@ -38,8 +39,17 @@ export function inboxPage(props: InboxPageProps): string {
     )
     .join('');
 
+  const emptyState =
+    props.items.length === 0
+      ? html`<div class="text-center py-16 text-base-content/60">
+          <p class="text-lg mb-2">Your inbox is empty.</p>
+          <p>That's either very zen or very suspicious. 🦞</p>
+        </div>`
+      : '';
+
   const content = html`<div class="container mx-auto px-4 py-8">
     <h1 class="text-3xl font-bold font-serif mb-8">Inbox</h1>
+    ${safe(emptyState)}
     <ul class="space-y-2">
       ${safe(itemsHtml)}
     </ul>
