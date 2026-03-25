@@ -3,6 +3,13 @@ main = "src/worker.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 [vars]
 BETTER_AUTH_URL = "https://meetclawtask.com"
 
