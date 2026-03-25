@@ -14,10 +14,6 @@ import { authErrorStatusCode } from './presentation/utils/authErrorStatus';
 import { ensureSecureCookies } from './presentation/utils/ensureSecureCookies';
 import { SECURITY_HEADERS } from './presentation/utils/securityHeaders';
 
-// Durable Object class must be exported from the worker entry point so
-// the Workers runtime can register it as a named DO binding.
-export { RateLimitDO } from './infrastructure/RateLimitDO';
-
 const app = new Hono<AppEnv>();
 
 /**
@@ -88,6 +84,15 @@ app.use('/dashboard/*', withRequireAuth);
 
 /** Health check endpoint. */
 app.get('/api/health', healthCheck);
+
+/**
+ * Sentry test endpoint — throws an intentional error to verify error tracking.
+ *
+ * @throws {Error} Always throws to generate a Sentry event.
+ */
+app.get('/api/debug-sentry', (): never => {
+  throw new Error('Sentry integration test');
+});
 
 /**
  * Origin-check middleware for POST /api/auth/*.
