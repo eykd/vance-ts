@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: clarify
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-clarify
 description: Improve unclear UX copy, error messages, microcopy, labels, and instructions. Makes interfaces easier to understand and use. Handles UX microcopy (labels, errors, empty states) — complements hugo-copywriting which handles long-form content.
 args:
-
-- name: target
-  description: The feature or component with unclear copy (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or component with unclear copy (optional)
+    required: false
+    user-invocable: true
 ---
 
 Identify and improve unclear, confusing, or poorly written interface text to make the product easier to understand and use.

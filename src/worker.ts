@@ -5,11 +5,13 @@ import type { MiddlewareHandler } from 'hono/types';
 import { getServiceFactory } from './di/serviceFactory';
 import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
 import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
+import { htmxErrorFragment, serveErrorPage } from './presentation/handlers/ErrorPageHandlers';
 import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandler';
 import { authErrorPage } from './presentation/templates/pages/authError';
 import type { AppEnv } from './presentation/types';
 import { authErrorStatusCode } from './presentation/utils/authErrorStatus';
-import { SECURITY_HEADERS } from './presentation/utils/securityHeaders';
+import { isApiRoute } from './presentation/utils/isApiRoute';
+import { CACHE_CONTROL_NO_STORE, SECURITY_HEADERS } from './presentation/utils/securityHeaders';
 
 // Durable Object class must be exported from the worker entry point so
 // the Workers runtime can register it as a named DO binding.
@@ -42,6 +44,45 @@ const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<
     c.header(name, value);
   }
 };
+
+/**
+ * Global error handler for unhandled exceptions in route handlers/middleware.
+ *
+ * Routes errors to the appropriate response format based on the request:
+ * - `/api/*` paths → JSON `{ error: "Internal server error" }` with 500 status
+ * - HTMX partial requests (HX-Request without HX-Boosted) → HTML error fragment
+ * with HX-Retarget/#main-content and HX-Reswap/innerHTML headers
+ * - All other requests (including HTMX boosted) → pre-built HTML 500 error page
+ *
+ * Logs the error with method and path context via the ServiceFactory logger.
+ * No internal error details are exposed in any response (FR-005).
+ *
+ * @param err - The uncaught error
+ * @param c - The Hono context
+ * @returns An appropriate error response
+ */
+app.onError(async (err, c) => {
+  getServiceFactory(c.env).logger.error(`unhandled error on ${c.req.method} ${c.req.path}`, err);
+
+  if (isApiRoute(c.req.path)) {
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+
+  // HTMX partial requests (not boosted navigations) expect HTML fragments,
+  // not full documents. HX-Boosted navigations are full-page loads and should
+  // receive the full 500 error page instead.
+  const isHtmxPartial =
+    c.req.header('HX-Request') === 'true' && c.req.header('HX-Boosted') !== 'true';
+
+  if (isHtmxPartial) {
+    return c.html(htmxErrorFragment(), 500, {
+      'HX-Retarget': '#main-content',
+      'HX-Reswap': 'innerHTML',
+    });
+  }
+
+  return serveErrorPage(c.env.ASSETS, 500);
+});
 
 app.use('*', withSecurityHeaders);
 
@@ -107,7 +148,10 @@ app.get('/api/auth/error', (c): Response => {
   const errorCode = c.req.query('error') ?? null;
   return new Response(authErrorPage(), {
     status: authErrorStatusCode(errorCode),
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-cache' },
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': CACHE_CONTROL_NO_STORE,
+    },
   });
 });
 

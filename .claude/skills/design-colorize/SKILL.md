@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: colorize
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-colorize
 description: Add strategic color to features that are too monochromatic or lack visual interest. Provides color strategy (when/where to add color) — complements daisyui-design-system-generator which generates OKLCH themes. Use when interfaces feel gray, flat, or lack visual warmth.
 args:
-
-- name: target
-  description: The feature or component to colorize (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or component to colorize (optional)
+    required: false
+    user-invocable: true
 ---
 
 Strategically introduce color to designs that are too monochromatic, gray, or lacking in visual warmth and personality.

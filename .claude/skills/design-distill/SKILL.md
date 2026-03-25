@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: distill
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-distill
 description: Strip designs to their essence by removing unnecessary complexity. Great design is simple, powerful, and clean. Use when interfaces feel cluttered, have too many competing elements, or suffer from feature creep.
 args:
-
-- name: target
-  description: The feature or component to distill (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or component to distill (optional)
+    required: false
+    user-invocable: true
 ---
 
 Remove unnecessary complexity from designs, revealing the essential elements and creating clarity through ruthless simplification.

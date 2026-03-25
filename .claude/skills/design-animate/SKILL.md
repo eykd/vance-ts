@@ -1,23 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: animate
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack;
-  Framer Motion references replaced with CSS animations + Alpine.js x-transition + Web Animations API
--->
-
 ---
-
 name: design-animate
 description: Review a feature and enhance it with purposeful animations, micro-interactions, and motion effects that improve usability and delight. Use when adding motion to Hugo templates, Alpine.js components, or HTMX transitions.
 args:
-
-- name: target
-  description: The feature or component to animate (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or component to animate (optional)
+    required: false
+    user-invocable: true
 ---
 
 Analyze a feature and strategically add animations and micro-interactions that enhance understanding, provide feedback, and create delight.

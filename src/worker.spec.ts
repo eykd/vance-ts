@@ -151,13 +151,14 @@ describe('Worker', () => {
   });
 
   describe('GET /api/nonexistent', () => {
-    it('returns 404 JSON', async () => {
+    it('returns 404 JSON with application/json Content-Type', async () => {
       const env = mockEnv();
       const req = new Request('https://example.com/api/nonexistent');
 
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(404);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
       expect(await res.json()).toEqual({ error: 'Not found' });
     });
 
@@ -824,6 +825,182 @@ describe('Worker', () => {
       expect(res.headers.get('X-Frame-Options')).toBe('DENY');
       expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
       expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+  });
+
+  describe('app.onError (global error handler)', () => {
+    it('returns JSON 500 for API route errors', async () => {
+      const env = mockEnv();
+      mocks.signInApiRateLimitMiddlewareFn.mockRejectedValueOnce(new Error('boom'));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(500);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
+      expect(await res.json()).toEqual({ error: 'Internal server error' });
+    });
+
+    it('logs error with method and path context', async () => {
+      const env = mockEnv();
+      const error = new Error('boom');
+      mocks.signInApiRateLimitMiddlewareFn.mockRejectedValueOnce(error);
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      await app.fetch(req, env);
+
+      expect(mocks.loggerError).toHaveBeenCalledWith(
+        'unhandled error on POST /api/auth/sign-in/email',
+        error
+      );
+    });
+
+    it('returns HTML 500 page for non-API route errors', async () => {
+      const env = mockEnv();
+      mocks.handleGetSignIn.mockImplementation(() => {
+        throw new Error('handler crash');
+      });
+
+      const req = new Request('https://example.com/auth/sign-in');
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(500);
+      expect(res.headers.get('Content-Type')).toContain('text/html');
+    });
+
+    it('returns HTMX error fragment for partial requests (HX-Request without HX-Boosted)', async () => {
+      const env = mockEnv();
+      mocks.handleGetSignIn.mockImplementation(() => {
+        throw new Error('handler crash');
+      });
+
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { 'HX-Request': 'true' },
+      });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(500);
+      const body = await res.text();
+      expect(body).toContain('alert alert-error');
+      expect(body).toContain('Something went wrong.');
+      expect(res.headers.get('HX-Retarget')).toBe('#main-content');
+      expect(res.headers.get('HX-Reswap')).toBe('innerHTML');
+    });
+
+    it('returns full 500 page for HTMX boosted requests (not fragment)', async () => {
+      const env = mockEnv();
+      mocks.handleGetSignIn.mockImplementation(() => {
+        throw new Error('handler crash');
+      });
+
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { 'HX-Request': 'true', 'HX-Boosted': 'true' },
+      });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(500);
+      expect(res.headers.get('Content-Type')).toContain('text/html');
+      expect(res.headers.get('HX-Retarget')).toBeNull();
+      expect(res.headers.get('HX-Reswap')).toBeNull();
+    });
+
+    it('does not expose internal error details in response body', async () => {
+      const env = mockEnv();
+      mocks.handleGetSignIn.mockImplementation(() => {
+        throw new Error('secret database connection string');
+      });
+
+      const req = new Request('https://example.com/auth/sign-in');
+      const res = await app.fetch(req, env);
+      const body = await res.text();
+
+      expect(body).not.toContain('secret');
+      expect(body).not.toContain('database');
+      expect(body).not.toContain('connection');
+    });
+
+    it('includes security headers on JSON error responses', async () => {
+      const env = mockEnv();
+      mocks.signInApiRateLimitMiddlewareFn.mockRejectedValueOnce(new Error('boom'));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+
+    it('includes security headers on HTMX error fragment responses', async () => {
+      const env = mockEnv();
+      mocks.handleGetSignIn.mockImplementation(() => {
+        throw new Error('handler crash');
+      });
+
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { 'HX-Request': 'true' },
+      });
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+
+    it('does not expose internal error details in JSON response', async () => {
+      const env = mockEnv();
+      mocks.signInApiRateLimitMiddlewareFn.mockRejectedValueOnce(
+        new Error('secret database connection string')
+      );
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+      const body = await res.text();
+
+      expect(body).not.toContain('secret');
+      expect(body).not.toContain('database');
+      expect(body).not.toContain('connection');
+    });
+  });
+
+  describe('US-3: API routes continue returning JSON errors', () => {
+    it('returns JSON 404 with application/json for /api/nonexistent', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/nonexistent');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(404);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
+      expect(await res.json()).toEqual({ error: 'Not found' });
+    });
+
+    it('returns JSON 500 with application/json for /api/* unhandled errors', async () => {
+      const env = mockEnv();
+      mocks.signInApiRateLimitMiddlewareFn.mockRejectedValueOnce(new Error('boom'));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(500);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
+      expect(await res.json()).toEqual({ error: 'Internal server error' });
+    });
+
+    it('preserves apiNotFound handler returning JSON 404 for unmatched /api/* routes', async () => {
+      const env = mockEnv();
+
+      const paths = ['/api/foo', '/api/bar/baz', '/api/v1/users'];
+      for (const path of paths) {
+        const req = new Request(`https://example.com${path}`);
+        const res = await app.fetch(req, env);
+
+        expect(res.status).toBe(404);
+        expect(res.headers.get('Content-Type')).toContain('application/json');
+        expect(await res.json()).toEqual({ error: 'Not found' });
+      }
     });
   });
 

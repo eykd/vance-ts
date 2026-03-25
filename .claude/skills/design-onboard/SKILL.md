@@ -1,23 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: onboard
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack;
-  localStorage tracking replaced with privacy warning; React library references replaced with vanilla/Alpine.js equivalents
--->
-
 ---
-
 name: design-onboard
 description: Design or improve onboarding flows, empty states, and first-time user experiences. Helps users get started successfully and understand value quickly. Use when building first-run experiences, empty states, or feature discovery flows.
 args:
-
-- name: target
-  description: The feature or area needing onboarding (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or area needing onboarding (optional)
+    required: false
+    user-invocable: true
 ---
 
 ## MANDATORY PREPARATION
