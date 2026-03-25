@@ -231,7 +231,7 @@ export class ServiceFactory {
     const provisioner = new WorkspaceProvisioningService(provisionUseCase);
     const onUserCreated = (userId: string): Promise<void> => provisioner.onUserCreated(userId);
 
-    this._authInstance = getAuth(env, onUserCreated); // validates BETTER_AUTH_SECRET, throws if invalid
+    this._authInstance = getAuth(env, onUserCreated, this._loggerInstance); // validates BETTER_AUTH_SECRET, throws if invalid
     this._validatedSecret = env.BETTER_AUTH_SECRET;
     this._sessionCookieName = getSessionCookieName(env.BETTER_AUTH_URL);
     this._csrfCookieName = getCsrfCookieName(env.BETTER_AUTH_URL);

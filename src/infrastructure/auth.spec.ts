@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { Logger } from '../application/ports/Logger';
 import type { Env } from '../shared/env';
 
 import { type OnUserCreated, getAuth, resetAuth } from './auth';
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   drizzleAdapter: vi.fn(() => ({ _type: 'drizzle-adapter' })),
   drizzle: vi.fn(() => ({ _type: 'drizzle-db' })),
   mockOnUserCreated: vi.fn<OnUserCreated>(),
+  mockLogger: { info: vi.fn(), error: vi.fn() } satisfies Logger,
 }));
 
 /**
@@ -69,7 +71,7 @@ describe('getAuth', () => {
     it('throws when BETTER_AUTH_SECRET is shorter than 32 characters', () => {
       const env = makeEnv({ BETTER_AUTH_SECRET: 'short' });
 
-      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow(
+      expect(() => getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger)).toThrow(
         'BETTER_AUTH_SECRET must be at least 32 characters'
       );
     });
@@ -77,7 +79,7 @@ describe('getAuth', () => {
     it('throws when BETTER_AUTH_SECRET is exactly 31 characters', () => {
       const env = makeEnv({ BETTER_AUTH_SECRET: 'a'.repeat(31) });
 
-      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow(
+      expect(() => getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger)).toThrow(
         'BETTER_AUTH_SECRET must be at least 32 characters'
       );
     });
@@ -85,7 +87,7 @@ describe('getAuth', () => {
     it('throws when BETTER_AUTH_SECRET is empty', () => {
       const env = makeEnv({ BETTER_AUTH_SECRET: '' });
 
-      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow(
+      expect(() => getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger)).toThrow(
         'BETTER_AUTH_SECRET must be at least 32 characters'
       );
     });
@@ -93,7 +95,7 @@ describe('getAuth', () => {
     it('throws a descriptive error when BETTER_AUTH_SECRET is undefined (missing binding)', () => {
       const env = makeEnv({ BETTER_AUTH_SECRET: undefined });
 
-      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow(
+      expect(() => getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger)).toThrow(
         'BETTER_AUTH_SECRET must be at least 32 characters'
       );
     });
@@ -101,13 +103,13 @@ describe('getAuth', () => {
     it('does not throw when BETTER_AUTH_SECRET is exactly 32 characters', () => {
       const env = makeEnv({ BETTER_AUTH_SECRET: 'a'.repeat(32) });
 
-      expect(() => getAuth(env, mocks.mockOnUserCreated)).not.toThrow();
+      expect(() => getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger)).not.toThrow();
     });
 
     it('does not throw when BETTER_AUTH_SECRET is 64 characters (openssl rand -hex 32)', () => {
       const env = makeEnv({ BETTER_AUTH_SECRET: 'a'.repeat(64) });
 
-      expect(() => getAuth(env, mocks.mockOnUserCreated)).not.toThrow();
+      expect(() => getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger)).not.toThrow();
     });
   });
 
@@ -117,7 +119,7 @@ describe('getAuth', () => {
       mocks.betterAuth.mockReturnValue(authInstance);
       const env = makeEnv();
 
-      const result = getAuth(env, mocks.mockOnUserCreated);
+      const result = getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       expect(mocks.betterAuth).toHaveBeenCalledTimes(1);
       expect(result).toBe(authInstance);
@@ -126,7 +128,7 @@ describe('getAuth', () => {
     it('passes trustedOrigins derived from BETTER_AUTH_URL', () => {
       const env = makeEnv({ BETTER_AUTH_URL: 'https://app.turtlebased.io/some/path' });
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       expect(config['trustedOrigins']).toEqual(['https://app.turtlebased.io']);
@@ -135,7 +137,7 @@ describe('getAuth', () => {
     it('passes emailAndPassword config with required constraints', () => {
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       expect(config).toBeDefined();
@@ -159,7 +161,7 @@ describe('getAuth', () => {
       // handler to eliminate this risk entirely.
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const emailAndPassword = config['emailAndPassword'] as Record<string, unknown>;
@@ -169,7 +171,7 @@ describe('getAuth', () => {
     it('sendResetPassword does not log the reset URL or token in plaintext', async () => {
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const emailAndPassword = config['emailAndPassword'] as Record<string, unknown>;
@@ -178,28 +180,23 @@ describe('getAuth', () => {
         request: Request | undefined
       ) => Promise<void>;
 
-      const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
-      try {
-        await sendResetPassword(
-          { url: 'https://example.com/reset?token=secret-reset-token-abc123' },
-          undefined
-        );
+      mocks.mockLogger.info.mockClear();
 
-        expect(consoleSpy).toHaveBeenCalledTimes(1);
-        const loggedMessage = String(consoleSpy.mock.calls[0]?.[0] ?? '');
-        const loggedArgs = consoleSpy.mock.calls[0]?.slice(1).join(' ') ?? '';
-        const fullLog = `${loggedMessage} ${loggedArgs}`;
-        expect(fullLog).not.toContain('secret-reset-token-abc123');
-        expect(fullLog).toContain('[REDACTED]');
-      } finally {
-        consoleSpy.mockRestore();
-      }
+      await sendResetPassword(
+        { url: 'https://example.com/reset?token=secret-reset-token-abc123' },
+        undefined
+      );
+
+      expect(mocks.mockLogger.info).toHaveBeenCalledTimes(1);
+      const loggedMessage = String(mocks.mockLogger.info.mock.calls[0]?.[0] ?? '');
+      expect(loggedMessage).not.toContain('secret-reset-token-abc123');
+      expect(loggedMessage).toContain('[REDACTED]');
     });
 
     it('passes session config with correct expiresIn and updateAge', () => {
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const session = config['session'] as Record<string, unknown>;
@@ -214,7 +211,7 @@ describe('getAuth', () => {
       // control the Secure attribute via defaultCookieAttributes.
       const env = makeEnv({ BETTER_AUTH_URL: 'https://app.turtlebased.io' });
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
@@ -224,7 +221,7 @@ describe('getAuth', () => {
     it('sets cookiePrefix to __Host-better-auth for production URLs (satisfies __Host- invariant)', () => {
       const env = makeEnv({ BETTER_AUTH_URL: 'https://app.turtlebased.io' });
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
@@ -239,7 +236,7 @@ describe('getAuth', () => {
       // without violating the invariant.
       const env = makeEnv({ BETTER_AUTH_URL: 'http://localhost:8787' });
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
@@ -249,7 +246,7 @@ describe('getAuth', () => {
     it('sets defaultCookieAttributes.secure to true for non-localhost BETTER_AUTH_URL', () => {
       const env = makeEnv({ BETTER_AUTH_URL: 'https://app.turtlebased.io' });
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
@@ -263,7 +260,7 @@ describe('getAuth', () => {
     it('sets defaultCookieAttributes.secure to false for localhost BETTER_AUTH_URL', () => {
       const env = makeEnv({ BETTER_AUTH_URL: 'http://localhost:8787' });
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
@@ -277,7 +274,7 @@ describe('getAuth', () => {
     it('sets CF-Connecting-IP as the sole IP address header', () => {
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const advanced = config['advanced'] as Record<string, unknown>;
@@ -288,7 +285,7 @@ describe('getAuth', () => {
     it('disables built-in rate limiting', () => {
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const rateLimit = config['rateLimit'] as Record<string, unknown>;
@@ -300,7 +297,7 @@ describe('getAuth', () => {
     it('configures databaseHooks with both session and verification create hooks', () => {
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const hooks = config['databaseHooks'] as Record<string, unknown>;
@@ -313,7 +310,7 @@ describe('getAuth', () => {
       const secret = 'x'.repeat(32);
       const env = makeEnv({ BETTER_AUTH_SECRET: secret });
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const hooks = config['databaseHooks'] as Record<string, unknown>;
@@ -335,7 +332,7 @@ describe('getAuth', () => {
     it('session create.before hook produces a 64-character hex output', async () => {
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const hooks = config['databaseHooks'] as Record<string, unknown>;
@@ -356,7 +353,7 @@ describe('getAuth', () => {
       const secret = 'x'.repeat(32);
       const env = makeEnv({ BETTER_AUTH_SECRET: secret });
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const hooks = config['databaseHooks'] as Record<string, unknown>;
@@ -377,7 +374,7 @@ describe('getAuth', () => {
     it('verification create.before hook produces a 64-character hex output', async () => {
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const hooks = config['databaseHooks'] as Record<string, unknown>;
@@ -398,7 +395,7 @@ describe('getAuth', () => {
     it('documents config-only extensibility: no socialProviders are configured yet', () => {
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       // No social providers are configured in the baseline auth setup.
@@ -415,7 +412,7 @@ describe('getAuth', () => {
         .mockResolvedValue(callbackResponse);
       mocks.betterAuth.mockReturnValue({ handler: handlerFn });
       const env = makeEnv();
-      const auth = getAuth(env, mocks.mockOnUserCreated);
+      const auth = getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
       const callbackRequest = new Request(
         'https://example.turtlebased.io/api/auth/callback/google'
       );
@@ -432,8 +429,8 @@ describe('getAuth', () => {
     it('returns the same instance on successive calls (singleton)', () => {
       const env = makeEnv();
 
-      const first = getAuth(env, mocks.mockOnUserCreated);
-      const second = getAuth(env, mocks.mockOnUserCreated);
+      const first = getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
+      const second = getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       expect(first).toBe(second);
       expect(mocks.betterAuth).toHaveBeenCalledTimes(1);
@@ -517,7 +514,7 @@ describe('getAuth', () => {
     it('configures databaseHooks with a user.create.after hook', () => {
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const hooks = config['databaseHooks'] as Record<string, unknown>;
@@ -530,7 +527,7 @@ describe('getAuth', () => {
       mocks.mockOnUserCreated.mockResolvedValue(undefined);
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const hooks = config['databaseHooks'] as Record<string, unknown>;
@@ -549,7 +546,7 @@ describe('getAuth', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((): void => undefined);
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const hooks = config['databaseHooks'] as Record<string, unknown>;
@@ -569,7 +566,7 @@ describe('getAuth', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((): void => undefined);
       const env = makeEnv();
 
-      getAuth(env, mocks.mockOnUserCreated);
+      getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
       const config = capturedBetterAuthConfig();
       const hooks = config['databaseHooks'] as Record<string, unknown>;
@@ -602,12 +599,12 @@ describe('resetAuth', () => {
 
   it('clears the cached auth instance so the next call creates a fresh one', () => {
     const env = makeEnv();
-    const first = getAuth(env, mocks.mockOnUserCreated);
+    const first = getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
     resetAuth();
 
     mocks.betterAuth.mockReturnValue({ _type: 'auth-instance-2' });
-    const second = getAuth(env, mocks.mockOnUserCreated);
+    const second = getAuth(env, mocks.mockOnUserCreated, mocks.mockLogger);
 
     expect(first).not.toBe(second);
     expect(mocks.betterAuth).toHaveBeenCalledTimes(2);

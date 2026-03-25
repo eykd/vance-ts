@@ -47,6 +47,7 @@ import type { Auth, BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 
+import type { Logger } from '../application/ports/Logger.js';
 import { hashPassword, verifyPassword } from '../domain/services/passwordHasher';
 import { isPlainHttpLocalhost } from '../shared/authCookieNames';
 import type { Env } from '../shared/env';
@@ -97,10 +98,15 @@ let _authEnvIdentity: AuthEnvIdentity | null = null;
  *
  * @param env - Cloudflare Workers environment bindings.
  * @param onUserCreated - Callback invoked after a new user is created (workspace provisioning).
+ * @param logger - Logger port for structured logging.
  * @returns The configured better-auth instance.
  * @throws {Error} When `BETTER_AUTH_SECRET` is shorter than 32 characters.
  */
-export function getAuth(env: Env, onUserCreated: OnUserCreated): Auth<BetterAuthOptions> {
+export function getAuth(
+  env: Env,
+  onUserCreated: OnUserCreated,
+  logger: Logger
+): Auth<BetterAuthOptions> {
   if (env.BETTER_AUTH_SECRET === undefined || env.BETTER_AUTH_SECRET.length < 32) {
     throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
   }
@@ -152,8 +158,7 @@ export function getAuth(env: Env, onUserCreated: OnUserCreated): Auth<BetterAuth
           // Email delivery infrastructure is not yet available. Log a redacted
           // confirmation so operators know a reset was triggered without exposing
           // the token. Replace this with a real email sender (e.g. Resend) when available.
-          // eslint-disable-next-line no-console
-          console.info('[PasswordReset] Reset email triggered for token: [REDACTED]');
+          logger.info('[PasswordReset] Reset email triggered for token: [REDACTED]');
         },
         password: {
           hash: hashPassword,
