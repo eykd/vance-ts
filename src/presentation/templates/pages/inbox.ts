@@ -27,16 +27,23 @@ export function inboxPage(props: InboxPageProps): string {
   const itemsHtml = props.items
     .map(
       (item) =>
-        html`<li>
-          ${item.title} <button hx-post="/app/_/inbox/${item.id}/clarify">Clarify</button>
+        html`<li
+          class="flex items-center justify-between p-3 bg-base-100 border border-base-300 rounded-lg"
+        >
+          <span>${item.title}</span>
+          <button hx-post="/app/_/inbox/${item.id}/clarify" class="btn btn-sm btn-outline">
+            Clarify
+          </button>
         </li>`
     )
     .join('');
 
-  const content = html`<h1>Inbox</h1>
-    <ul>
+  const content = html`<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold font-serif mb-8">Inbox</h1>
+    <ul class="space-y-2">
       ${safe(itemsHtml)}
-    </ul>`;
+    </ul>
+  </div>`;
 
   return appLayout({ title: 'Inbox', content });
 }

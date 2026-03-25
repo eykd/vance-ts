@@ -6,7 +6,7 @@
   Menus configured in config/_default/menus.yaml (main)
 */}}
 <header>
-<nav class="navbar bg-base-100 shadow-sm" aria-label="Main navigation">
+<nav class="navbar bg-base-100/50 backdrop-blur-sm border-b border-base-300" aria-label="Main navigation">
   {{/* --- navbar-start: logo + mobile hamburger dropdown --- */}}
   <div class="navbar-start">
     {{/* Mobile hamburger dropdown (visible below lg) */}}
@@ -42,7 +42,7 @@
           <img src="{{ .RelPermalink }}" class="size-6 xl:size-12" alt="{{ $.Site.Title }} logo" />
         {{- end }}
       {{- end }}
-      <span class="text-success-content text-balance font-semibold text-sm sm:text-xl lg:text-2xl">{{ .Site.Title }}</span>
+      <span class="text-primary text-balance font-semibold font-serif text-sm sm:text-xl lg:text-2xl">{{ .Site.Title }}</span>
     </a>
   </div>
   {{/* --- navbar-center: desktop horizontal menu (hidden on mobile) --- */}}

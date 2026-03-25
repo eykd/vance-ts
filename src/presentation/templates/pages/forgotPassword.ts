@@ -53,7 +53,7 @@ export function forgotPasswordPage(props: ForgotPasswordPageProps): string {
     props.error !== undefined ? safe(`aria-describedby="${ERROR_ID}"`) : safe('');
 
   const content = html`
-    <h1 class="card-title text-2xl font-bold mb-6">Forgot Password</h1>
+    <h1 class="card-title text-2xl font-bold font-serif mb-6">Forgot Password</h1>
     ${successBanner} ${errorBanner}
     <p class="text-base-content/70 mb-4">
       Enter your email address and we'll send you a link to reset your password.

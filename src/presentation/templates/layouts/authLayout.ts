@@ -58,10 +58,10 @@ export function authLayout(props: AuthLayoutProps): string {
         </a>
         <a href="/" class="flex items-center gap-2 mb-6">
           <img src="/favicon.svg" class="size-8" alt="ClawTask logo" />
-          <span class="text-xl font-semibold">ClawTask</span>
+          <span class="text-xl font-semibold font-serif text-primary">ClawTask</span>
         </a>
         <main id="main-content">
-          <div class="card w-full max-w-md bg-base-100 shadow-xl">
+          <div class="card w-full max-w-md bg-base-100 border border-base-300">
             <div class="card-body">${safe(props.content)}</div>
           </div>
         </main>

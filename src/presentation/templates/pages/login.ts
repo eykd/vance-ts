@@ -59,7 +59,7 @@ export function loginPage(props: LoginPageProps): string {
     props.error !== undefined ? safe(`aria-describedby="${ERROR_ID}"`) : safe('');
 
   const content = html`
-    <h1 class="card-title text-2xl font-bold mb-6">Sign In</h1>
+    <h1 class="card-title text-2xl font-bold font-serif mb-6">Sign In</h1>
     ${successBanner} ${errorBanner}
     <form
       method="POST"

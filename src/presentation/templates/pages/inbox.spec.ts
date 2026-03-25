@@ -7,7 +7,7 @@ describe('inboxPage', () => {
     const result = inboxPage({ items: [] });
 
     expect(result).toMatch(/^<!DOCTYPE html>/);
-    expect(result).toContain('<h1>Inbox</h1>');
+    expect(result).toContain('>Inbox</h1>');
   });
 
   it('renders each item with its title', () => {
@@ -28,7 +28,7 @@ describe('inboxPage', () => {
     });
 
     expect(result).toContain('hx-post="/app/_/inbox/i1/clarify"');
-    expect(result).toContain('>Clarify</button>');
+    expect(result).toMatch(/Clarify\s*<\/button>/);
   });
 
   it('XSS-escapes item titles', () => {

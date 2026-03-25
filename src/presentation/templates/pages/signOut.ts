@@ -18,7 +18,7 @@ interface SignOutPageProps {
  */
 export function signOutPage(props: SignOutPageProps): string {
   const content = html`
-    <h1 class="card-title text-2xl font-bold mb-6">Sign Out</h1>
+    <h1 class="card-title text-2xl font-bold font-serif mb-6">Sign Out</h1>
     <p class="mb-6">Are you sure you want to sign out?</p>
     <form
       method="POST"

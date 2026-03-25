@@ -7,7 +7,7 @@ describe('actionsPage', () => {
     const result = actionsPage({ actions: [] });
 
     expect(result).toMatch(/^<!DOCTYPE html>/);
-    expect(result).toContain('<h1>Actions</h1>');
+    expect(result).toContain('>Actions</h1>');
   });
 
   it('renders each action with its title and status', () => {
@@ -32,7 +32,7 @@ describe('actionsPage', () => {
     });
 
     expect(result).toContain('hx-post="/app/_/actions/a1/activate"');
-    expect(result).toContain('>Activate</button>');
+    expect(result).toMatch(/Activate\s*<\/button>/);
   });
 
   it('renders an Activate button for ready actions', () => {
@@ -41,7 +41,7 @@ describe('actionsPage', () => {
     });
 
     expect(result).toContain('hx-post="/app/_/actions/a1/activate"');
-    expect(result).toContain('>Activate</button>');
+    expect(result).toMatch(/Activate\s*<\/button>/);
   });
 
   it('renders a Complete button with hx-post for active actions', () => {
@@ -50,7 +50,7 @@ describe('actionsPage', () => {
     });
 
     expect(result).toContain('hx-post="/app/_/actions/a1/complete"');
-    expect(result).toContain('>Complete</button>');
+    expect(result).toMatch(/Complete\s*<\/button>/);
   });
 
   it('does not render a Complete button for inactive actions', () => {
@@ -58,6 +58,6 @@ describe('actionsPage', () => {
       actions: [{ id: 'a1', title: 'Buy groceries', status: 'inactive' }],
     });
 
-    expect(result).not.toContain('>Complete</button>');
+    expect(result).not.toMatch(/Complete\s*<\/button>/);
   });
 });

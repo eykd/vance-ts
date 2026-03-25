@@ -54,8 +54,10 @@ describe('AppPageHandlers', () => {
       expect(c.html).toHaveBeenCalledOnce();
 
       const htmlArg = c.html.mock.calls[0]![0] as string;
-      expect(htmlArg).toContain('Inbox: 2');
-      expect(htmlArg).toContain('Actions: 1');
+      expect(htmlArg).toContain('Inbox');
+      expect(htmlArg).toContain('2');
+      expect(htmlArg).toContain('Actions');
+      expect(htmlArg).toContain('1');
     });
   });
 

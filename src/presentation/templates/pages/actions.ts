@@ -26,16 +26,27 @@ export interface ActionsPageProps {
 function actionItem(action: ActionsPageItem): string {
   const activateButton =
     action.status === 'inactive' || action.status === 'ready'
-      ? html` <button hx-post="/app/_/actions/${action.id}/activate">Activate</button>`
+      ? html` <button hx-post="/app/_/actions/${action.id}/activate" class="btn btn-sm btn-primary">
+          Activate
+        </button>`
       : '';
 
   const completeButton =
     action.status === 'active'
-      ? html` <button hx-post="/app/_/actions/${action.id}/complete">Complete</button>`
+      ? html` <button hx-post="/app/_/actions/${action.id}/complete" class="btn btn-sm btn-success">
+          Complete
+        </button>`
       : '';
 
-  return html`<li data-id="${action.id}">
-    ${action.title} — ${action.status}${safe(activateButton)}${safe(completeButton)}
+  return html`<li
+    data-id="${action.id}"
+    class="flex items-center justify-between p-3 bg-base-100 border border-base-300 rounded-lg"
+  >
+    <div>
+      <span>${action.title}</span>
+      <span class="badge badge-sm ml-2">${action.status}</span>
+    </div>
+    <div class="flex gap-2">${safe(activateButton)}${safe(completeButton)}</div>
   </li>`;
 }
 
@@ -47,10 +58,12 @@ function actionItem(action: ActionsPageItem): string {
  */
 export function actionsPage(props: ActionsPageProps): string {
   const items = props.actions.map(actionItem).join('');
-  const content = html`<h1>Actions</h1>
-    <ul>
+  const content = html`<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold font-serif mb-8">Actions</h1>
+    <ul class="space-y-2">
       ${safe(items)}
-    </ul>`;
+    </ul>
+  </div>`;
 
   return appLayout({ title: 'Actions', content });
 }

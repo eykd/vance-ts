@@ -116,7 +116,7 @@ export function registerPage(props: RegisterPageProps): string {
       : safe('');
 
   const content = html`
-    <h1 class="card-title text-2xl font-bold mb-6">Create an Account</h1>
+    <h1 class="card-title text-2xl font-bold font-serif mb-6">Create an Account</h1>
     ${generalErrorBanner}
     <form
       method="POST"

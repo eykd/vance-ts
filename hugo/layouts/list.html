@@ -6,7 +6,7 @@
 <section class="py-16">
   <div class="container mx-auto px-4">
     {{ with .Title }}
-      <h1 class="mb-8 text-center text-4xl md:text-5xl font-bold">{{ . }}</h1>
+      <h1 class="mb-8 text-center text-4xl md:text-5xl font-bold font-serif">{{ . }}</h1>
     {{ end }}
     {{ with .Description }}
       <p class="mx-auto mb-12 text-center text-lg text-base-content/70 max-w-2xl text-balance">{{ . }}</p>
@@ -22,7 +22,7 @@
     {{ if $paginator.Pages }}
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {{ range $paginator.Pages }}
-        <div class="card bg-base-100 shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+        <div class="card bg-base-100 border border-base-300 hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
           {{ with .Params.featured_image }}
             {{ with resources.Get . }}
             <figure class="aspect-video overflow-hidden">

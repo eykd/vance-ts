@@ -12,7 +12,7 @@ import { authLayout } from '../layouts/authLayout';
  */
 export function authErrorPage(): string {
   const content = html`
-    <h1 class="card-title text-2xl font-bold mb-6">Authentication Error</h1>
+    <h1 class="card-title text-2xl font-bold font-serif mb-6">Authentication Error</h1>
     <div role="alert" class="alert alert-error mb-4">
       <span>Something went wrong during authentication. Please try again.</span>
     </div>

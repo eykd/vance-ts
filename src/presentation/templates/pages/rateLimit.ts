@@ -36,7 +36,7 @@ export function rateLimitPage(props: RateLimitPageProps): string {
   const backLabel = props.backLink?.label ?? 'Back to Sign In';
 
   const content = html`
-    <h1 class="card-title text-2xl font-bold mb-6">Too Many Requests</h1>
+    <h1 class="card-title text-2xl font-bold font-serif mb-6">Too Many Requests</h1>
     <div role="alert" class="alert alert-warning mb-4">
       <div>
         <span>You have made too many requests. Please wait before trying again.</span>
