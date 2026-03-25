@@ -89,6 +89,8 @@ This is correct behavior: static asset serving has no application code that can 
 | `/auth/*` | authLayout (existing) | HTML 500 page (new via onError) |
 | Everything else | Hugo 404.html via ASSETS (existing) | HTML 500 page (new via onError) |
 
+**Clarification**: The 404 column describes **route catch-all handlers** (`apiNotFound`, `appPartialNotFound`, `staticAssetFallthrough`), NOT `app.onError()`. `app.onError()` is ONLY called for **thrown exceptions** in handler/middleware code, not for missing routes. Missing routes fall through to explicit catch-all handlers. Consequence: `serveErrorPage()` will only ever be called with `statusCode=500` from `app.onError()`. The function's status code parameter is reserved for future callers.
+
 ## Project Structure
 
 ### Documentation (this feature)
@@ -137,7 +139,8 @@ Create `hugo/layouts/_partials/errors/error-hero.html` extracting the common pat
 {{/*
   Shared error page hero component.
   Params: .code (string), .title (string), .message (string),
-          .alertClass (string), .iconPath (string - SVG path d attribute)
+          .alertClass (string), .iconPath (string - SVG path d attribute),
+          .baseURL (string - site base URL, defaults to "/")
 
   CSP NOTE: Worker-served error pages use strict CSP (style-src 'self',
   script-src 'self') which blocks inline styles and onclick handlers.
@@ -157,7 +160,7 @@ Create `hugo/layouts/_partials/errors/error-hero.html` extracting the common pat
       <h1 class="text-7xl font-bold text-primary mb-4" aria-label="{{ .code }} — {{ .title }}">{{ .code }}</h1>
       <p class="text-xl text-base-content/70 mb-8">{{ .message }}</p>
       <div class="flex flex-col sm:flex-row gap-4 justify-center">
-        <a href="/" class="btn btn-primary">
+        <a href="{{ .baseURL | default "/" }}" class="btn btn-primary">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
@@ -168,6 +171,8 @@ Create `hugo/layouts/_partials/errors/error-hero.html` extracting the common pat
   </div>
 </div>
 ```
+
+**Home Link URL**: The partial accepts `baseURL` via the dict context, defaulting to `"/"`. Callers MUST pass `$.Site.BaseURL` to ensure the home link works in both development (localhost:1313) and production. This preserves the existing `404.html` convention which uses `{{ .Site.BaseURL }}`.
 
 #### 1b. Refactor 404.html
 
@@ -181,6 +186,7 @@ Update `hugo/layouts/404.html` to use the shared partial:
     "message" "Sorry, the page you're looking for doesn't exist or has been moved."
     "alertClass" "alert-warning"
     "iconPath" "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+    "baseURL" $.Site.BaseURL
   ) }}
 {{ end }}
 ```
@@ -212,6 +218,7 @@ Create `hugo/layouts/500.html` (root of layouts — no `_default/` directory exi
     "message" "We're having trouble processing your request. Please try again in a few moments."
     "alertClass" "alert-error"
     "iconPath" "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+    "baseURL" $.Site.BaseURL
   ) }}
 {{ end }}
 ```
@@ -242,16 +249,19 @@ Create `src/presentation/handlers/ErrorPageHandlers.ts`:
  */
 export async function serveErrorPage(
   assets: Fetcher,
-  requestUrl: string,
   statusCode: number,
 ): Promise<Response> {
   // Map status codes to Hugo-generated error page paths
   const errorPagePath = statusCode >= 500 ? '/500/' : '/404.html';
 
   try {
-    const origin = new URL(requestUrl).origin;
+    // Use a stable synthetic origin — ASSETS routes by path, not origin.
+    // This avoids coupling to the failing request's URL and prevents
+    // new URL(requestUrl) from throwing on malformed URLs.
     const errorPageResponse = await assets.fetch(
-      new Request(`${origin}${errorPagePath}`),
+      new Request(`https://worker.internal${errorPagePath}`, {
+        headers: { Accept: 'text/html' },
+      }),
     );
 
     if (errorPageResponse.ok) {
@@ -268,6 +278,11 @@ export async function serveErrorPage(
   } catch {
     // Fall through to inline fallback
   }
+
+  // ASSETS 304 note: The Request above is constructed fresh with only
+  // Accept: text/html — no If-Modified-Since or If-None-Match headers.
+  // This prevents ASSETS from returning 304 Not Modified when the original
+  // client request carried cache-validation headers.
 
   // FR-008: Fallback if error page itself fails
   const fallbackHeaders = new Headers({
@@ -328,7 +343,7 @@ app.onError(async (err, c) => {
     );
   }
 
-  return serveErrorPage(c.env.ASSETS, c.req.url, 500);
+  return serveErrorPage(c.env.ASSETS, 500);
 });
 ```
 
@@ -390,6 +405,14 @@ The project has **two different CSPs** that apply depending on how a page is ser
 
 **Note**: The existing `hugo/layouts/404.html` also has `onclick="history.back()"` which works on static paths (permissive `_headers` CSP) but would be blocked if the 404 page were ever served through the Worker. Currently this is not an issue because static 404s bypass the Worker, but it is a latent inconsistency to be aware of.
 
+### 404.html Go Back Button: A Documented Tradeoff
+
+The shared `error-hero.html` partial omits the "Go Back" button to ensure compatibility with the Worker's strict CSP (which applies to 500 error pages). However, `404.html` is served directly by ASSETS under the permissive `_headers` CSP (`unsafe-inline`), so the `onclick="history.back()"` button **would actually work** on 404 pages.
+
+**Decision**: Accept the UX regression on 404 to maintain a single shared partial. The "Go Home" link is adequate for recovery on both error pages. If "Go Back" is desired on 404, it must be added to the 404-specific layout rather than the shared partial, since the partial must be safe under the Worker's strict CSP.
+
+Known tradeoff: **404 loses "Go Back"; 500 never had it.** The shared partial is simpler than maintaining two variants.
+
 ### Cache-Control on Error Responses
 
 Both `serveErrorPage()` and `fallbackErrorHtml()` responses MUST set `Cache-Control: no-store, no-cache` to prevent CDN edges, shared proxies, or browsers from caching error responses. This is consistent with existing auth error handler behavior and prevents transient 500 errors from being served to subsequent visitors via cached responses.
@@ -438,6 +461,8 @@ When `app.onError()` catches an exception on an `/app/_/*` route, HTMX partial r
 
 The empty `href=""` reloads the current page. `hx-boost="false"` prevents HTMX from intercepting the navigation (since the error likely came from a boosted request in the first place).
 
+**Reload loop on persistent errors**: If the error was caused by a persistent condition (D1 down, auth infrastructure failure), clicking "Reload page" resubmits the same failing request, immediately returning the same error fragment. This is acceptable because: (1) the HTMX path requires JS, so `href=""` works as expected, (2) the user sees the same error message — not a blank page, and (3) transient errors (the common case) recover on reload. For persistent outages, the error message itself suggests the site is having trouble. No code change needed — document as known behavior.
+
 ### Worker-Routed vs Static Paths
 
 `app.onError()` only fires for Worker-handled routes (`/api/*`, `/app/*`, `/auth/*`, `/dashboard/*`). Static content paths never reach the Worker. If ASSETS itself encounters an error on a static path, Cloudflare returns its own error response — the Worker cannot intercept it.
@@ -455,6 +480,8 @@ The current mapping `statusCode >= 500 ? '/500/' : '/404.html'` is binary: all 5
 The Hugo baseof.html includes the shared header partial, which uses `$store.auth.isAuthenticated` (Alpine.js) to conditionally show signed-in/signed-out navigation. When a 500 error is caused by auth infrastructure failure (D1 down, auth handler crash), `auth-store.js` may fail to determine auth state. The `x-cloak` directive hides the auth menu section until Alpine initializes — if Alpine or auth-store fails, auth navigation is invisible. Users still have the main nav links (Home, Posts, About) and the error page's "Go Home" link.
 
 **Mitigation**: This is acceptable for error pages. Auth navigation is best-effort; the primary recovery action is the "Go Home" link in the error hero. No code change needed — document as known behavior.
+
+**Inverse scenario — Alpine succeeds but auth infrastructure is down**: When a 500 is caused by auth/D1 infrastructure failure, `auth-store.js` may still succeed (it reads the indicator cookie client-side, not the server). An authenticated user sees the "Dashboard" link in the header, clicks it, and gets another 500. This is acceptable — the error page cannot know *why* the 500 occurred. Error pages show best-effort navigation; links may lead to further errors during infrastructure outages. The "Go Home" action is the recommended recovery path.
 
 ### Subrequest Budget on Error Path
 
@@ -500,6 +527,13 @@ The "Go Back" button uses `onclick="history.back()"` which requires JavaScript. 
 The error hero partial's `<h1>` must not contain only a bare status code number ("404", "500"). Screen readers announce the heading first — "heading level 1: four zero four" conveys no meaning. The heading must include descriptive text via `aria-label` (e.g., `aria-label="404 — Page Not Found"`) so screen readers announce a meaningful heading while the visual display retains the large status code number.
 
 The alert component must include `role="alert"` so screen readers announce the error message automatically when the page loads. The decorative SVG icon must include `aria-hidden="true"` to prevent screen readers from attempting to describe it.
+
+### Page Title for Error Pages
+
+The `<title>` element is announced by screen readers when focus shifts to the page. Verify Hugo generates sensible titles for both error pages:
+
+- **500 page**: frontmatter `title: "Server Error"` → baseof.html generates `Server Error | SiteName` — correct.
+- **404 page**: Hugo's `404.html` is a special-cased layout with no corresponding content file. Hugo's default `.Title` for 404 pages varies by theme/config and may be empty or a URL path. Verify with `just hugo-build` that the actual `<title>` in `404.html` is human-readable. If the title is empty or a URL, add a content file at `hugo/content/404.md` with `title: "Page Not Found"` to provide an explicit title.
 
 ### Fallback HTML Completeness
 
@@ -561,3 +595,20 @@ Round 4 focused on defense-in-depth for security headers on error responses, scr
 | 3 | Medium | Accessibility | **Alert component missing `role="alert"` and icon missing `aria-hidden`**: The error alert `<div>` lacks `role="alert"`, so screen readers don't auto-announce the error message on page load. The decorative SVG icon lacks `aria-hidden="true"`, causing screen readers to attempt to describe the path data. | Added `role="alert"` to the alert div and `aria-hidden="true"` to the SVG icon in the error-hero partial. Documented in Accessibility Requirements section. |
 | 4 | Medium | EdgeCase | **ASSETS.fetch subrequest counts against 50-subrequest limit**: If the handler that threw had already consumed many subrequests (D1 queries, KV lookups, external fetches), the error page ASSETS.fetch could exceed Cloudflare's 50-subrequest limit, throwing `TooManyRequestsException`. | Documented in Edge Cases section. The existing try-catch falls back to inline HTML correctly. Added code comment requirement to explain subrequest budget concern. |
 | 5 | Low | EdgeCase | **Auth-aware navigation may show incorrect state on error pages**: The header partial uses `$store.auth.isAuthenticated` (Alpine.js). When a 500 is caused by auth infrastructure failure, auth-store.js may fail, leaving the auth nav section hidden via `x-cloak`. Users lose auth navigation but retain main nav links and the "Go Home" error action. | Documented as acceptable known behavior in Edge Cases. Primary recovery action is the "Go Home" link, which is always visible. |
+
+### Round 5
+
+**Reviewed**: 2026-03-25 | **Findings**: 0 Critical, 2 High, 4 Medium, 2 Low
+
+Round 5 focused on Hugo template idiom correctness, ASSETS runtime behavior (304 responses, URL construction), HTMX reload semantics, and screen reader `<title>` element handling. Verified by cross-referencing existing `404.html` conventions, Cloudflare ASSETS binding behavior, and Hugo's special-cased 404 layout processing.
+
+| # | Severity | Category | Finding | Resolution |
+|---|----------|----------|---------|------------|
+| 1 | High | Security | **404.html "Go Back" button silently dropped without documenting tradeoff**: Shared partial omits `onclick="history.back()"` for Worker CSP safety, but 404.html is served by ASSETS under permissive `_headers` CSP where the button works. The plan silently degrades 404 UX to simplify the shared partial. | Documented as explicit tradeoff in Security Considerations: "404 loses Go Back; 500 never had it." If desired on 404, must be added to 404-specific layout, not the shared partial. |
+| 2 | High | EdgeCase | **Hardcoded `href="/"` breaks Hugo dev mode**: Existing `404.html` uses `{{ .Site.BaseURL }}` for the Go Home link — correct Hugo idiom for dev (localhost:1313) and production. Shared partial hardcoded `/`, silently regressing. | Added `baseURL` parameter to error-hero partial dict context. Callers pass `$.Site.BaseURL`; partial defaults to `"/"`. |
+| 3 | Medium | Security | **Error response table conflates route catch-alls with `onError`**: 404 column describes explicit catch-all handlers, not `app.onError()`. Missing distinction between "missing routes" and "thrown exceptions" could mislead future developers. | Added clarification note below the table: `onError` → always 500; route catch-alls → explicit status codes. |
+| 4 | Medium | Performance | **ASSETS may return 304 if cache headers forwarded**: Original request's `If-Modified-Since`/`If-None-Match` headers could cause ASSETS to return 304 (not `ok`), falling through to inline fallback unnecessarily. | Changed `serveErrorPage` to construct a clean GET request with only `Accept: text/html` — no cache-validation headers forwarded. |
+| 5 | Medium | Misuse | **HTMX reload loop on persistent errors**: `href=""` resubmits the same failing request during infrastructure outages. | Documented as acceptable known behavior — HTMX path requires JS, user sees same error message (not blank page), transient errors recover on reload. |
+| 6 | Medium | Accessibility | **404 page `<title>` may be empty or non-descriptive**: Hugo's `404.html` has no content file, so `.Title` depends on theme/config defaults. Screen readers announce the title on page load. | Added verification step: check `<title>` in built 404.html. If empty, add `hugo/content/404.md` with `title: "Page Not Found"`. |
+| 7 | Low | ErrorHandling | **`serveErrorPage` ASSETS URL coupled to attacker-controlled request origin**: `new URL(requestUrl).origin` ties ASSETS fetch to the failing request. Malformed URLs cause `new URL()` to throw before `assets.fetch`. | Replaced with stable synthetic origin `https://worker.internal`. ASSETS routes by path, not origin. Also removed unused `requestUrl` parameter from function signature. |
+| 8 | Low | EdgeCase | **Authenticated users on 500 page see Dashboard link to broken infrastructure**: When auth infra is down but Alpine succeeds (reads indicator cookie), Dashboard link leads to another 500. | Documented as acceptable known behavior in Auth-Aware Navigation section. Error pages show best-effort navigation; "Go Home" is the recommended recovery path. |
