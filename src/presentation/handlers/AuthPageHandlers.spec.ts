@@ -32,6 +32,9 @@ const PROD_FLASH_REGISTERED_NAME = '__Host-flash_registered';
 /** Production flash reset cookie name used in tests. */
 const PROD_FLASH_RESET_NAME = '__Host-flash_reset';
 
+/** Production flash forgot cookie name used in tests. */
+const PROD_FLASH_FORGOT_NAME = '__Host-flash_forgot';
+
 /** Cookie header containing the test CSRF token. */
 const CSRF_COOKIE = `__Host-csrf=${TEST_CSRF}`;
 
@@ -210,7 +213,8 @@ describe('AuthPageHandlers', () => {
       PROD_CSRF_NAME,
       PROD_INDICATOR_NAME,
       PROD_FLASH_REGISTERED_NAME,
-      PROD_FLASH_RESET_NAME
+      PROD_FLASH_RESET_NAME,
+      PROD_FLASH_FORGOT_NAME
     );
   });
 
@@ -1645,14 +1649,27 @@ describe('AuthPageHandlers', () => {
       expect(body).toContain('/auth/forgot-password');
     });
 
-    it('shows success banner when success=true', async () => {
-      const req = new Request('https://example.com/auth/forgot-password?success=true');
+    it('shows success banner when flash forgot cookie is present', async () => {
+      const req = new Request('https://example.com/auth/forgot-password', {
+        headers: { Cookie: '__Host-flash_forgot=1' },
+      });
       const res = handlers.handleGetForgotPassword(req);
       const body = await res.text();
       expect(body).toContain('password reset link has been sent');
     });
 
-    it('does not show success banner when success is absent', async () => {
+    it('clears flash forgot cookie when present', () => {
+      const req = new Request('https://example.com/auth/forgot-password', {
+        headers: { Cookie: '__Host-flash_forgot=1' },
+      });
+      const res = handlers.handleGetForgotPassword(req);
+      const setCookies = res.headers.getSetCookie();
+      expect(
+        setCookies.some((c) => c.includes('__Host-flash_forgot=') && c.includes('Max-Age=0'))
+      ).toBe(true);
+    });
+
+    it('does not show success banner when flash forgot cookie is absent', async () => {
       const req = new Request('https://example.com/auth/forgot-password');
       const res = handlers.handleGetForgotPassword(req);
       const body = await res.text();
@@ -1698,12 +1715,20 @@ describe('AuthPageHandlers', () => {
       });
     }
 
-    it('redirects to success page on valid request', async () => {
+    it('redirects to forgot-password page on valid request', async () => {
       requestPasswordResetUseCaseMock.execute.mockResolvedValue({ ok: true });
       const req = makeForgotPasswordPostRequest();
       const res = await handlers.handlePostForgotPassword(req);
       expect(res.status).toBe(303);
-      expect(res.headers.get('Location')).toBe('/auth/forgot-password?success=true');
+      expect(res.headers.get('Location')).toBe('/auth/forgot-password');
+    });
+
+    it('sets flash forgot cookie on valid request', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeForgotPasswordPostRequest();
+      const res = await handlers.handlePostForgotPassword(req);
+      const setCookies = res.headers.getSetCookie();
+      expect(setCookies.some((c) => c.includes('__Host-flash_forgot=1'))).toBe(true);
     });
 
     it('passes lowercased trimmed email to use case', async () => {
@@ -1739,7 +1764,7 @@ describe('AuthPageHandlers', () => {
       expect(body).toContain('Back to Forgot Password');
     });
 
-    it('redirects to success page on service_error to prevent email enumeration', async () => {
+    it('redirects with flash cookie on service_error to prevent email enumeration', async () => {
       requestPasswordResetUseCaseMock.execute.mockResolvedValue({
         ok: false,
         kind: 'service_error',
@@ -1747,7 +1772,9 @@ describe('AuthPageHandlers', () => {
       const req = makeForgotPasswordPostRequest();
       const res = await handlers.handlePostForgotPassword(req);
       expect(res.status).toBe(303);
-      expect(res.headers.get('Location')).toBe('/auth/forgot-password?success=true');
+      expect(res.headers.get('Location')).toBe('/auth/forgot-password');
+      const setCookies = res.headers.getSetCookie();
+      expect(setCookies.some((c) => c.includes('__Host-flash_forgot=1'))).toBe(true);
     });
 
     it('returns 403 when CSRF token is invalid', async () => {

@@ -1,6 +1,7 @@
 import {
   getAuthIndicatorCookieName,
   getCsrfCookieName,
+  getFlashForgotCookieName,
   getFlashRegisteredCookieName,
   getFlashResetCookieName,
   getSessionCookieName,
@@ -113,5 +114,27 @@ describe('getFlashResetCookieName', () => {
 
   it('returns __Host-flash_reset for https://localhost URLs', () => {
     expect(getFlashResetCookieName('https://localhost:8787')).toBe('__Host-flash_reset');
+  });
+});
+
+describe('getFlashForgotCookieName', () => {
+  it('returns __Host-flash_forgot for HTTPS production URLs', () => {
+    expect(getFlashForgotCookieName('https://example.com')).toBe('__Host-flash_forgot');
+  });
+
+  it('returns flash_forgot for http://localhost URLs', () => {
+    expect(getFlashForgotCookieName('http://localhost:8787')).toBe('flash_forgot');
+  });
+
+  it('returns flash_forgot for http://localhost without port', () => {
+    expect(getFlashForgotCookieName('http://localhost')).toBe('flash_forgot');
+  });
+
+  it('returns flash_forgot for http://127.0.0.1 URLs', () => {
+    expect(getFlashForgotCookieName('http://127.0.0.1:8787')).toBe('flash_forgot');
+  });
+
+  it('returns __Host-flash_forgot for https://localhost URLs', () => {
+    expect(getFlashForgotCookieName('https://localhost:8787')).toBe('__Host-flash_forgot');
   });
 });

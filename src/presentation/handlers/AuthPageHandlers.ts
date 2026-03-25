@@ -21,17 +21,20 @@ import { signOutPage } from '../templates/pages/signOut.js';
 import {
   buildAuthIndicatorCookie,
   buildCsrfCookie,
+  buildFlashForgotCookie,
   buildFlashRegisteredCookie,
   buildFlashResetCookie,
   buildSessionCookie,
   clearAuthIndicatorCookie,
   clearCsrfCookie,
+  clearFlashForgotCookie,
   clearFlashRegisteredCookie,
   clearFlashResetCookie,
   clearSessionCookie,
   extractCsrfTokenFromCookies,
   extractSessionToken,
   generateCsrfToken,
+  hasFlashForgotCookie,
   hasFlashRegisteredCookie,
   hasFlashResetCookie,
   hasSessionCookie,
@@ -113,6 +116,9 @@ export class AuthPageHandlers {
   /** The flash reset cookie name (drops `__Host-` prefix on localhost). */
   private readonly flashResetCookieName: string;
 
+  /** The flash forgot-password cookie name (drops `__Host-` prefix on localhost). */
+  private readonly flashForgotCookieName: string;
+
   /**
    * Creates a new AuthPageHandlers instance.
    *
@@ -126,6 +132,7 @@ export class AuthPageHandlers {
    * @param authIndicatorCookieName - The auth indicator cookie name (e.g. `__Host-auth_status` or `auth_status` on localhost).
    * @param flashRegisteredCookieName - The flash registered cookie name (e.g. `__Host-flash_registered` or `flash_registered` on localhost).
    * @param flashResetCookieName - The flash reset cookie name (e.g. `__Host-flash_reset` or `flash_reset` on localhost).
+   * @param flashForgotCookieName - The flash forgot-password cookie name (e.g. `__Host-flash_forgot` or `flash_forgot` on localhost).
    */
   constructor(
     signInUseCase: SignInUseCase,
@@ -137,7 +144,8 @@ export class AuthPageHandlers {
     csrfCookieName: string,
     authIndicatorCookieName: string,
     flashRegisteredCookieName: string,
-    flashResetCookieName: string
+    flashResetCookieName: string,
+    flashForgotCookieName: string
   ) {
     this.signInUseCase = signInUseCase;
     this.signUpUseCase = signUpUseCase;
@@ -149,6 +157,7 @@ export class AuthPageHandlers {
     this.authIndicatorCookieName = authIndicatorCookieName;
     this.flashRegisteredCookieName = flashRegisteredCookieName;
     this.flashResetCookieName = flashResetCookieName;
+    this.flashForgotCookieName = flashForgotCookieName;
   }
 
   /**
@@ -516,16 +525,19 @@ export class AuthPageHandlers {
   /**
    * Handles GET /auth/forgot-password.
    *
-   * Renders the forgot-password form with a fresh CSRF token. If a `success=true`
-   * query parameter is present, shows a success banner.
+   * Renders the forgot-password form with a fresh CSRF token. If the flash
+   * forgot-password cookie is present, shows a success banner and clears it.
    *
    * @param request - The incoming HTTP request.
    * @returns A 200 HTML response with the forgot-password form.
    */
   handleGetForgotPassword(request: Request): Response {
-    const url = new URL(request.url);
-    const success = url.searchParams.get('success') === 'true';
+    const cookieHeader = request.headers.get('Cookie');
+    const success = hasFlashForgotCookie(cookieHeader, this.flashForgotCookieName);
     const { headers, csrfToken } = this.makeFreshAuthHeaders();
+    if (success) {
+      headers.append('Set-Cookie', clearFlashForgotCookie(this.flashForgotCookieName));
+    }
     return new Response(forgotPasswordPage({ csrfToken, success }), { headers });
   }
 
@@ -558,7 +570,9 @@ export class AuthPageHandlers {
     }
 
     // Always redirect to success to prevent email enumeration
-    return AuthPageHandlers.buildRedirect('/auth/forgot-password?success=true');
+    return AuthPageHandlers.buildRedirect('/auth/forgot-password', [
+      buildFlashForgotCookie(this.flashForgotCookieName),
+    ]);
   }
 
   /**

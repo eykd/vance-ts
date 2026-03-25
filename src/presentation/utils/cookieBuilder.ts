@@ -200,6 +200,44 @@ export function hasFlashResetCookie(
 }
 
 /**
+ * Builds a Set-Cookie header value for the flash forgot-password cookie.
+ *
+ * This short-lived, HttpOnly cookie replaces the spoofable `?success=true`
+ * query parameter. It is set on the redirect after submitting the
+ * forgot-password form and consumed (cleared) on the forgot-password GET handler.
+ *
+ * @param flashForgotCookieName - The flash cookie name (e.g. `__Host-flash_forgot` or `flash_forgot` on localhost).
+ * @returns A Set-Cookie header value string
+ */
+export function buildFlashForgotCookie(flashForgotCookieName: string): string {
+  return `${flashForgotCookieName}=1; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=${FLASH_MAX_AGE}`;
+}
+
+/**
+ * Builds a Set-Cookie header value that clears the flash forgot-password cookie.
+ *
+ * @param flashForgotCookieName - The flash cookie name (e.g. `__Host-flash_forgot` or `flash_forgot` on localhost).
+ * @returns A Set-Cookie header value string with Max-Age=0
+ */
+export function clearFlashForgotCookie(flashForgotCookieName: string): string {
+  return `${flashForgotCookieName}=; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=0`;
+}
+
+/**
+ * Returns true when the Cookie request header contains the flash forgot-password cookie.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @param flashForgotCookieName - The flash cookie name (e.g. `__Host-flash_forgot` or `flash_forgot` on localhost).
+ * @returns True if the flash forgot-password cookie is present
+ */
+export function hasFlashForgotCookie(
+  cookieHeader: string | null,
+  flashForgotCookieName: string
+): boolean {
+  return extractCookieValue(cookieHeader, flashForgotCookieName) !== null;
+}
+
+/**
  * Returns true when the Cookie request header contains the flash registered cookie.
  *
  * @param cookieHeader - The value of the Cookie request header, or null if absent

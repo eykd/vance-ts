@@ -85,3 +85,17 @@ export function getFlashRegisteredCookieName(authUrl: string): string {
 export function getFlashResetCookieName(authUrl: string): string {
   return isPlainHttpLocalhost(authUrl) ? 'flash_reset' : '__Host-flash_reset';
 }
+
+/**
+ * Returns the flash forgot-password cookie name for the given auth URL.
+ *
+ * This short-lived cookie replaces the spoofable `?success=true` query
+ * parameter on the forgot-password page. On localhost (plain HTTP), the
+ * `__Host-` prefix is dropped.
+ *
+ * @param authUrl - The BETTER_AUTH_URL value from the Workers env.
+ * @returns The flash cookie name (`__Host-flash_forgot` or `flash_forgot`).
+ */
+export function getFlashForgotCookieName(authUrl: string): string {
+  return isPlainHttpLocalhost(authUrl) ? 'flash_forgot' : '__Host-flash_forgot';
+}
