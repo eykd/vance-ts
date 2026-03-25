@@ -78,7 +78,6 @@ Instead:
     name: 'checkout-dot',
     category: 'destructive-git',
     pattern: /git\s+checkout\s+(--\s+)?\.(\s|$)/,
-    safePatterns: [/git\s+checkout\s+-b\s/, /git\s+checkout\s+--orphan\s/],
     message: `BLOCKED: git checkout . detected (discard all changes).
 
 This command discards all uncommitted changes across every file.
@@ -92,7 +91,6 @@ Instead:
     name: 'checkout-treeish-dot',
     category: 'destructive-git',
     pattern: /git\s+checkout\s+.*--\s+\.(\s|$)/,
-    safePatterns: [/git\s+checkout\s+-b\s/, /git\s+checkout\s+--orphan\s/],
     message: `BLOCKED: git checkout <tree-ish> -- . detected (overwrite all files).
 
 This command overwrites all working tree files from another commit.
