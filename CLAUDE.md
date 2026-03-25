@@ -233,6 +233,8 @@ Before implementing any feature, read `specs/readme.md` first. It lists all spec
 Always use subagents liberally and aggressively to conserve the main context window.
 
 ## Active Technologies
+- TypeScript (ES2022) + Hugo Go templates + Hono (HTTP framework), DaisyUI 5, Tailwind CSS 4, Hugo (015-static-error-pages)
+- N/A (no persistence — static pages only) (015-static-error-pages)
 
 - TypeScript (ES2022), executed via `npx tsx` in Node.js + Node.js `readline`, `process` (built-in — hook runs outside Workers) (014-guard-hook-hardening)
 - N/A (stateless — regex matching only, no persistence) (014-guard-hook-hardening)
