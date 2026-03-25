@@ -301,12 +301,23 @@ app.onError(async (err, c) => {
     return c.json({ error: 'Internal server error' }, 500);
   }
 
-  // HTMX partials expect fragments, not full HTML documents.
-  // Include a recovery link so the user can reload without manual refresh.
-  if (c.req.header('HX-Request') === 'true') {
+  // HTMX partial requests (not boosted navigations) expect HTML fragments,
+  // not full documents. HX-Boosted navigations are full-page loads and should
+  // receive the full 500 error page instead.
+  const isHtmxPartial =
+    c.req.header('HX-Request') === 'true' &&
+    c.req.header('HX-Boosted') !== 'true';
+
+  if (isHtmxPartial) {
+    // HX-Retarget + HX-Reswap ensure the fragment is visible even if the
+    // original swap target no longer exists (e.g., form element removed).
     return c.html(
       '<div class="alert alert-error"><span>Something went wrong.</span><a href="" class="link link-neutral underline" hx-boost="false">Reload page</a></div>',
       500,
+      {
+        'HX-Retarget': '#main-content',
+        'HX-Reswap': 'innerHTML',
+      },
     );
   }
 
@@ -320,6 +331,8 @@ app.onError(async (err, c) => {
 
 - **Global error handler**: Verify non-API routes get HTML 500 response
 - **Global error handler**: Verify API routes get JSON 500 response
+- **Global error handler (HTMX partial)**: Verify requests with `HX-Request: true` (no `HX-Boosted`) get an HTML fragment with `HX-Retarget` and `HX-Reswap` headers
+- **Global error handler (HTMX boosted)**: Verify requests with both `HX-Request: true` and `HX-Boosted: true` get the full 500 error page (not fragment)
 - **serveErrorPage()**: Verify correct status code, content-type, and fallback behavior
 - **isApiRoute()**: Verify path classification
 
@@ -374,6 +387,23 @@ The project has **two different CSPs** that apply depending on how a page is ser
 
 Both `serveErrorPage()` and `fallbackErrorHtml()` responses MUST set `Cache-Control: no-store, no-cache` to prevent CDN edges, shared proxies, or browsers from caching error responses. This is consistent with existing auth error handler behavior and prevents transient 500 errors from being served to subsequent visitors via cached responses.
 
+### Direct Access to `/500/` Returns 200 Status
+
+The Hugo-generated 500 page at `/500/` is served by ASSETS with a 200 OK status on direct navigation. While the page is not linked from anywhere and `build: list: never` + `sitemap: disable: true` prevent Hugo from listing it, search crawlers could still discover it via URL enumeration and index it as a real page.
+
+**Mitigation**: Add `<meta name="robots" content="noindex, nofollow">` to the 500 page. This can be done via Hugo frontmatter in `hugo/content/500.md`:
+
+```markdown
+---
+_build:
+  list: never
+  render: always
+robots: "noindex, nofollow"
+---
+```
+
+Then reference `{{ with .Params.robots }}<meta name="robots" content="{{ . }}">{{ end }}` in baseof.html's `<head>`, or add it directly in the 500 layout template. The 404.html should also include this tag since Hugo's default 404 page is served with a 404 status (which crawlers respect), but defense-in-depth is prudent.
+
 ### No Information Leakage (FR-005)
 
 Error pages use pre-built static HTML with generic messages. The `app.onError()` handler logs the error server-side via structured logging but never includes error details in the response. The inline fallback HTML is equally generic.
@@ -384,9 +414,15 @@ Error pages use pre-built static HTML with generic messages. The `app.onError()`
 
 When `app.onError()` catches an exception on an `/app/_/*` route, HTMX partial routes expect HTML **fragments**, not full documents. Injecting a full `<html>...</html>` page into an HTMX swap target produces broken markup. The error handler checks for the `HX-Request` header and returns a styled error fragment instead of a full page.
 
-**Recovery path**: The HTMX error fragment should include an actionable recovery mechanism, not just a message. Add a reload link so the user can recover without manually refreshing:
+**Boosted vs partial distinction**: The `HX-Request` header is present on ALL HTMX requests — both partial fetches and boosted full-page navigations. Boosted navigations (`HX-Boosted: true`) to routes like `/auth/sign-in` or `/dashboard` expect a full HTML document response, not a fragment. The error handler MUST check `HX-Boosted` to distinguish:
+
+- `HX-Request: true` + `HX-Boosted: true` → Full 500 error page (boosted navigation)
+- `HX-Request: true` + no `HX-Boosted` → Error fragment (partial request)
+
+**Retargeting headers**: When returning an HTMX error fragment, the original request's swap target may no longer exist (e.g., a form element was removed, or the target ID is absent). Without retargeting, HTMX silently discards the error — the user sees nothing. The response MUST include `HX-Retarget` and `HX-Reswap` headers to guarantee the fragment is visible:
 
 ```html
+<!-- Response headers: HX-Retarget: #main-content, HX-Reswap: innerHTML -->
 <div class="alert alert-error">
   <span>Something went wrong.</span>
   <a href="" class="link link-neutral underline" hx-boost="false">Reload page</a>
@@ -398,6 +434,14 @@ The empty `href=""` reloads the current page. `hx-boost="false"` prevents HTMX f
 ### Worker-Routed vs Static Paths
 
 `app.onError()` only fires for Worker-handled routes (`/api/*`, `/app/*`, `/auth/*`, `/dashboard/*`). Static content paths never reach the Worker. If ASSETS itself encounters an error on a static path, Cloudflare returns its own error response — the Worker cannot intercept it.
+
+### `serveErrorPage` Status Code Mapping
+
+The current mapping `statusCode >= 500 ? '/500/' : '/404.html'` is binary: all 5xx errors get the 500 page, and everything else gets the 404 page. This is semantically incorrect for non-404 client errors (e.g., a 403 Forbidden would display "Page Not Found" content).
+
+**Current scope**: The spec only requires 404 and 500 pages, and `serveErrorPage` is only called from `app.onError()` with status 500. The function signature accepts any status code for extensibility, but callers should be aware of the mapping limitation.
+
+**Mitigation**: Add a code comment documenting that the function currently only maps 404 and 5xx correctly. If future error pages are needed (403, 429, etc.), the mapping should be extended to a lookup table rather than a binary condition.
 
 ### Fallback When Error Page Missing
 
@@ -464,3 +508,17 @@ Round 2 performed deeper adversarial analysis grounded in actual codebase inspec
 | 3 | High | ErrorHandling | **HTMX error fragment has no recovery action**: Original fragment was a dead-end message with no way to recover. Users stuck in broken UI state. | Added `<a href="" hx-boost="false">Reload page</a>` to fragment. |
 | 4 | Medium | Accessibility | **Fallback HTML unstyled and un-styleable**: Inline fallback cannot use `<style>` (blocked by Worker CSP). Fallback will be plain unstyled HTML. | Documented as acceptable for last-resort fallback. Added note to Accessibility section. |
 | 5 | Medium | EdgeCase | **500.html layout path wrong**: Plan referenced `hugo/layouts/_default/500.html` but no `_default/` directory exists. Project uses root-level layouts (e.g., `layouts/single.html`). | Corrected to `hugo/layouts/500.html`. |
+
+### Round 3
+
+**Reviewed**: 2026-03-25 | **Findings**: 0 Critical, 2 High, 2 Medium, 1 Low
+
+Round 3 focused on HTMX interaction semantics and runtime behavior by inspecting the actual Worker route handlers (`worker.ts` lines 137–212), HTMX header conventions, and the `serveErrorPage` function contract.
+
+| # | Severity | Category | Finding | Resolution |
+|---|----------|----------|---------|------------|
+| 1 | High | EdgeCase | **HTMX boosted requests get fragment instead of full page**: `HX-Request` header check doesn't distinguish partial requests from boosted full-page navigations. Boosted requests to `/auth/*` or `/dashboard/*` include `HX-Request: true` but expect full document responses. Serving a bare `<div>` fragment strips header/footer/layout. | Added `HX-Boosted` header check: `HX-Request: true` + `HX-Boosted: true` → full 500 page; `HX-Request: true` without `HX-Boosted` → fragment. Updated `app.onError()` code and Edge Cases section. |
+| 2 | High | EdgeCase | **HTMX error fragment invisible without retargeting headers**: When `app.onError()` returns an HTMX fragment, HTMX swaps into the original request's target element. If that target doesn't exist (e.g., form removed, target ID absent), the error is silently discarded — user sees nothing. | Added `HX-Retarget: #main-content` and `HX-Reswap: innerHTML` headers to the HTMX fragment response. Documented in Edge Cases section. |
+| 3 | Medium | Security | **`/500/` directly accessible with 200 status**: Hugo-generated 500 page served by ASSETS with 200 OK on direct navigation. Crawlers could index error page content as a real page despite `build: list: never` and `sitemap: disable: true`. | Added `<meta name="robots" content="noindex, nofollow">` requirement to Security Considerations. |
+| 4 | Medium | EdgeCase | **`serveErrorPage` binary status mapping semantically wrong for non-404/500**: `statusCode >= 500 ? '/500/' : '/404.html'` maps all 4xx to "Page Not Found" content. A 403 Forbidden would misleadingly show "not found" message. | Documented as known limitation in Edge Cases. Current scope only calls with 500; added code comment requirement for future extensibility. |
+| 5 | Low | Testing | **HTMX error fragment path lacks explicit test coverage**: Testing strategy mentioned API vs non-API but not the `HX-Request`/`HX-Boosted` branches. | Added two explicit test cases: HTMX partial (fragment + headers) and HTMX boosted (full page). |
