@@ -257,6 +257,19 @@ describe('hasSessionCookie', () => {
       )
     ).toBe(true);
   });
+
+  it('returns false when session cookie has an empty value', () => {
+    expect(hasSessionCookie('__Host-better-auth.session_token=', PROD_COOKIE_NAME)).toBe(false);
+  });
+
+  it('returns false when session cookie has an empty value alongside other cookies', () => {
+    expect(
+      hasSessionCookie(
+        'other=value; __Host-better-auth.session_token=; more=stuff',
+        PROD_COOKIE_NAME
+      )
+    ).toBe(false);
+  });
 });
 
 describe('hasAuthIndicatorCookie', () => {
@@ -286,6 +299,10 @@ describe('hasAuthIndicatorCookie', () => {
 
   it('detects localhost cookie name', () => {
     expect(hasAuthIndicatorCookie('auth_status=1', LOCAL_INDICATOR_NAME)).toBe(true);
+  });
+
+  it('returns false when auth indicator cookie has an empty value', () => {
+    expect(hasAuthIndicatorCookie('__Host-auth_status=', PROD_INDICATOR_NAME)).toBe(false);
   });
 });
 

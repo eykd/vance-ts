@@ -222,7 +222,8 @@ export function extractSessionToken(
  * @returns True if a session cookie is present
  */
 export function hasSessionCookie(cookieHeader: string | null, sessionCookieName: string): boolean {
-  return extractCookieValue(cookieHeader, sessionCookieName) !== null;
+  const value = extractCookieValue(cookieHeader, sessionCookieName);
+  return value !== null && value !== '';
 }
 
 /**
@@ -236,7 +237,8 @@ export function hasAuthIndicatorCookie(
   cookieHeader: string | null,
   authIndicatorCookieName: string
 ): boolean {
-  return extractCookieValue(cookieHeader, authIndicatorCookieName) !== null;
+  const value = extractCookieValue(cookieHeader, authIndicatorCookieName);
+  return value !== null && value !== '';
 }
 
 /**
