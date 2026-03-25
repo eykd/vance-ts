@@ -111,6 +111,12 @@ All error pages share a consistent visual design that matches the site's brandin
 - **SC-004**: Error pages load with no additional network requests beyond what the page's CSS/JS already requires (no external API calls).
 - **SC-005**: Error pages are accessible and readable without JavaScript enabled.
 
+## Clarifications
+
+### Session 2026-03-25
+
+- No critical ambiguities detected. All taxonomy categories assessed as Clear. Proceeding to planning.
+
 ## Interview
 
 ### Open Questions
@@ -119,4 +125,4 @@ _(none — no critical ambiguities remain)_
 
 ### Answer Log
 
-_(no questions asked yet)_
+_(no questions needed — spec passed full coverage scan)_
