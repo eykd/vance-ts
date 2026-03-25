@@ -1,14 +1,13 @@
-// style-src uses 'self' only — no 'unsafe-inline' needed.
-// Alpine.js visibility toggling uses x-bind:class with Tailwind's `hidden`
-// utility class instead of x-show (which sets element.style.display inline).
-// The x-cloak attribute + [x-cloak] { display: none } CSS rule handles
-// initial hide before Alpine processes directives.
+// style-src includes 'unsafe-inline' because htmx injects inline styles
+// for .htmx-indicator visibility toggling during requests.
+// img-src includes data: because DaisyUI uses data:image/svg+xml for
+// noise textures and decorative SVG backgrounds.
 /** CSP directive strings joined to form the Content-Security-Policy header value. */
 const CSP_DIRECTIVES: readonly string[] = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self'",
-  "img-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
   "font-src 'self'",
   "connect-src 'self'",
   "object-src 'none'",

@@ -24,12 +24,20 @@ describe('buildCspHeaderValue', () => {
     expect(scriptDirective).toBe("script-src 'self'");
   });
 
-  it("includes style-src 'self' without unsafe-inline (x-show replaced by x-bind:class)", () => {
+  it("includes style-src 'self' 'unsafe-inline' for htmx inline styles", () => {
     const styleDirective = csp
       .split(';')
       .map((d) => d.trim())
       .find((d) => d.startsWith('style-src'));
-    expect(styleDirective).toBe("style-src 'self'");
+    expect(styleDirective).toBe("style-src 'self' 'unsafe-inline'");
+  });
+
+  it("includes img-src 'self' data: for DaisyUI SVG data URIs", () => {
+    const imgDirective = csp
+      .split(';')
+      .map((d) => d.trim())
+      .find((d) => d.startsWith('img-src'));
+    expect(imgDirective).toBe("img-src 'self' data:");
   });
 
   it("includes object-src 'none' to block plugin content", () => {
