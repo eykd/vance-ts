@@ -68,6 +68,7 @@ export class AppPartialHandlers {
     if (!result.ok) {
       return c.html(html`<li>Error: ${result.kind}</li>`, 422);
     }
+    c.header('HX-Trigger', 'inboxItemCaptured');
     return c.html(html`<li>${result.data.title}</li>`);
   }
 

@@ -23,7 +23,10 @@ export function dashboardPage(props: DashboardPageProps): string {
       ? html`<p class="text-base-content/50 text-sm mt-6">All clear. Enjoy the calm.</p>`
       : '';
 
-  const content = html`<div class="container mx-auto px-4 py-8 animate-fade-up">
+  const content = html`<div
+    class="container mx-auto px-4 py-8 animate-fade-up"
+    hx-on:inboxItemCaptured="var el = document.getElementById('inbox-count'); el.textContent = parseInt(el.textContent) + 1"
+  >
     <div class="mb-8">
       <h1 class="text-3xl font-bold font-serif mb-1">Dashboard</h1>
       <p class="text-base-content/60">What's on your mind?</p>
@@ -31,7 +34,7 @@ export function dashboardPage(props: DashboardPageProps): string {
     <div class="grid gap-4 sm:grid-cols-2 mb-8">
       <div class="card bg-base-100 border border-base-300 p-6">
         <div class="text-sm text-base-content/60 mb-1">📥 Inbox</div>
-        <div class="text-2xl font-bold font-serif">${props.inboxCount}</div>
+        <div id="inbox-count" class="text-2xl font-bold font-serif">${props.inboxCount}</div>
       </div>
       <div class="card bg-base-100 border border-base-300 p-6">
         <div class="text-sm text-base-content/60 mb-1">⚡ Actions</div>

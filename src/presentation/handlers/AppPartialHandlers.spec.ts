@@ -72,6 +72,76 @@ describe('AppPartialHandlers', () => {
       const html = await res.text();
       expect(html).toContain('Buy milk');
     });
+
+    it('sets HX-Trigger header with inboxItemCaptured on success', async () => {
+      const captureInbox = makeUseCaseMock();
+      captureInbox.execute.mockResolvedValue({
+        ok: true,
+        data: { id: 'inbox-1', title: 'Buy milk', status: 'pending' },
+      });
+
+      const handlers = new AppPartialHandlers(
+        captureInbox,
+        makeUseCaseMock(),
+        makeUseCaseMock(),
+        makeUseCaseMock()
+      );
+
+      const formData = new FormData();
+      formData.set('title', 'Buy milk');
+
+      const req = new Request('https://example.com/app/_/inbox', {
+        method: 'POST',
+        body: formData,
+        headers: { 'HX-Request': 'true' },
+      });
+
+      const appWithMiddleware = new Hono();
+      appWithMiddleware.use('*', async (c, next) => {
+        c.set('workspaceId', 'ws-1');
+        await next();
+      });
+      appWithMiddleware.post('/app/_/inbox', async (c) => handlers.handleCaptureInbox(c));
+
+      const res = await appWithMiddleware.fetch(req);
+
+      expect(res.headers.get('HX-Trigger')).toBe('inboxItemCaptured');
+    });
+
+    it('does not set HX-Trigger header on failure', async () => {
+      const captureInbox = makeUseCaseMock();
+      captureInbox.execute.mockResolvedValue({
+        ok: false,
+        kind: 'validation_error',
+      });
+
+      const handlers = new AppPartialHandlers(
+        captureInbox,
+        makeUseCaseMock(),
+        makeUseCaseMock(),
+        makeUseCaseMock()
+      );
+
+      const formData = new FormData();
+      formData.set('title', '');
+
+      const req = new Request('https://example.com/app/_/inbox', {
+        method: 'POST',
+        body: formData,
+        headers: { 'HX-Request': 'true' },
+      });
+
+      const appWithMiddleware = new Hono();
+      appWithMiddleware.use('*', async (c, next) => {
+        c.set('workspaceId', 'ws-1');
+        await next();
+      });
+      appWithMiddleware.post('/app/_/inbox', async (c) => handlers.handleCaptureInbox(c));
+
+      const res = await appWithMiddleware.fetch(req);
+
+      expect(res.headers.get('HX-Trigger')).toBeNull();
+    });
   });
 
   describe('handleActivateAction', () => {

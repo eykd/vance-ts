@@ -41,6 +41,10 @@ describe('dashboardPage', () => {
     it('renders an empty captured-items list', () => {
       expect(result).toContain('id="captured-items"');
     });
+
+    it('renders inbox count with id for dynamic updates', () => {
+      expect(result).toContain('id="inbox-count"');
+    });
   });
 
   describe('with non-zero counts', () => {
