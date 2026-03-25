@@ -166,6 +166,36 @@ describe('getAuth', () => {
       expect(emailAndPassword['requireEmailVerification']).toBe(false);
     });
 
+    it('sendResetPassword does not log the reset URL or token in plaintext', async () => {
+      const env = makeEnv();
+
+      getAuth(env, mocks.mockOnUserCreated);
+
+      const config = capturedBetterAuthConfig();
+      const emailAndPassword = config['emailAndPassword'] as Record<string, unknown>;
+      const sendResetPassword = emailAndPassword['sendResetPassword'] as (
+        opts: { url: string },
+        request: Request | undefined
+      ) => Promise<void>;
+
+      const consoleSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+      try {
+        await sendResetPassword(
+          { url: 'https://example.com/reset?token=secret-reset-token-abc123' },
+          undefined
+        );
+
+        expect(consoleSpy).toHaveBeenCalledTimes(1);
+        const loggedMessage = String(consoleSpy.mock.calls[0]?.[0] ?? '');
+        const loggedArgs = consoleSpy.mock.calls[0]?.slice(1).join(' ') ?? '';
+        const fullLog = `${loggedMessage} ${loggedArgs}`;
+        expect(fullLog).not.toContain('secret-reset-token-abc123');
+        expect(fullLog).toContain('[REDACTED]');
+      } finally {
+        consoleSpy.mockRestore();
+      }
+    });
+
     it('passes session config with correct expiresIn and updateAge', () => {
       const env = makeEnv();
 

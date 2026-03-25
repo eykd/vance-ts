@@ -148,12 +148,12 @@ export function getAuth(env: Env, onUserCreated: OnUserCreated): Auth<BetterAuth
         minPasswordLength: 12,
         maxPasswordLength: 128,
         // eslint-disable-next-line @typescript-eslint/require-await
-        sendResetPassword: async ({ url }, _request): Promise<void> => {
-          // Email delivery infrastructure is not yet available. Log the reset
-          // URL so that operators (and automated tests) can complete the flow.
-          // Replace this with a real email sender (e.g. Resend) when available.
+        sendResetPassword: async ({ url: _url }, _request): Promise<void> => {
+          // Email delivery infrastructure is not yet available. Log a redacted
+          // confirmation so operators know a reset was triggered without exposing
+          // the token. Replace this with a real email sender (e.g. Resend) when available.
           // eslint-disable-next-line no-console
-          console.info('[PasswordReset] Reset URL generated:', url);
+          console.info('[PasswordReset] Reset email triggered for token: [REDACTED]');
         },
         password: {
           hash: hashPassword,
