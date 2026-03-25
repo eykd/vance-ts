@@ -666,6 +666,7 @@ export class AuthPageHandlers {
       token,
       error: RESET_PASSWORD_ERROR_MESSAGES[result.kind],
     });
-    return new Response(body, { headers: errorHeaders });
+    const status = result.kind === 'invalid_token' ? 400 : 200;
+    return new Response(body, { status, headers: errorHeaders });
   }
 }

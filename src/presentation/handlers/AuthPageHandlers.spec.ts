@@ -1888,7 +1888,7 @@ describe('AuthPageHandlers', () => {
       resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'invalid_token' });
       const req = makeResetPasswordPostRequest();
       const res = await handlers.handlePostResetPassword(req);
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(400);
       const body = await res.text();
       expect(body).toContain('invalid or has expired');
     });
