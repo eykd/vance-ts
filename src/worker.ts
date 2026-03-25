@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/cloudflare';
 import type { Context } from 'hono';
 import { Hono } from 'hono/tiny';
 import type { MiddlewareHandler } from 'hono/types';
@@ -52,7 +53,8 @@ const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<
  * @param c - The Hono context.
  * @returns A safe 500 JSON response.
  */
-app.onError((_err, c): Response => {
+app.onError((err, c): Response => {
+  Sentry.captureException(err);
   return c.json(
     { error: { code: 'internal_error', message: 'An unexpected error occurred' } },
     500
@@ -204,10 +206,9 @@ app.on(['GET', 'HEAD', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
 
     const authResponse = await getServiceFactory(c.env).authHandler(c.req.raw);
     if (authResponse.status >= 500) {
-      getServiceFactory(c.env).logger.error(
-        'auth handler error',
-        new Error(`auth handler returned HTTP ${String(authResponse.status)}`)
-      );
+      const authError = new Error(`auth handler returned HTTP ${String(authResponse.status)}`);
+      getServiceFactory(c.env).logger.error('auth handler error', authError);
+      Sentry.captureException(authError);
       return c.json(
         { error: { code: 'service_unavailable', message: 'Service unavailable' } },
         503,
@@ -217,6 +218,7 @@ app.on(['GET', 'HEAD', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
     return ensureSecureCookies(new Response(authResponse.body, authResponse));
   } catch (error: unknown) {
     getServiceFactory(c.env).logger.error('auth handler error', error);
+    Sentry.captureException(error);
     return c.json({ error: { code: 'service_unavailable', message: 'Service unavailable' } }, 503, {
       'Retry-After': '30',
     });
