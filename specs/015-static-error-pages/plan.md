@@ -68,7 +68,7 @@ Request → Worker
 
 **Key behavior: ASSETS.fetch() does NOT throw on 404** — it returns a 404 Response with Hugo's pre-built 404.html content. This means `app.onError()` only catches unhandled exceptions from handler code, not missing static assets. This is the correct behavior: static 404s are already served as branded HTML by Hugo.
 
-**Security headers**: The `withSecurityHeaders` middleware (`app.use('*', ...)`) runs on ALL routes including `app.onError()` responses, so error pages automatically receive security headers (CSP, X-Frame-Options, etc.).
+**Security headers**: The `withSecurityHeaders` middleware (`app.use('*', ...)`) is a post-processing middleware (`await next(); c.header(...)`) — whether its post-`next()` code runs after `app.onError()` handles an exception depends on Hono's internal compose-chain error propagation. As defense-in-depth, `serveErrorPage()` must explicitly call `applySecurityHeaders()` on the Response headers (matching the `AuthPageHandlers.buildRateLimitedResponse()` pattern). The HTMX fragment path uses `c.html()` which flows through Hono's context — middleware should apply there, but `serveErrorPage()` returns a raw `Response` that bypasses the context.
 
 #### Scope of `app.onError()` — Worker-Routed Paths Only
 
@@ -148,13 +148,13 @@ Create `hugo/layouts/_partials/errors/error-hero.html` extracting the common pat
 <div class="hero min-h-[60vh]">
   <div class="hero-content text-center">
     <div class="max-w-md">
-      <div class="alert {{ .alertClass }} mb-8">
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+      <div class="alert {{ .alertClass }} mb-8" role="alert">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24" aria-hidden="true">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ .iconPath }}" />
         </svg>
         <span>{{ .title }}</span>
       </div>
-      <h1 class="text-7xl font-bold text-primary mb-4">{{ .code }}</h1>
+      <h1 class="text-7xl font-bold text-primary mb-4" aria-label="{{ .code }} — {{ .title }}">{{ .code }}</h1>
       <p class="text-xl text-base-content/70 mb-8">{{ .message }}</p>
       <div class="flex flex-col sm:flex-row gap-4 justify-center">
         <a href="/" class="btn btn-primary">
@@ -255,12 +255,14 @@ export async function serveErrorPage(
     );
 
     if (errorPageResponse.ok) {
+      const headers = new Headers({
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store, no-cache',
+      });
+      applySecurityHeaders(headers);
       return new Response(errorPageResponse.body, {
         status: statusCode,
-        headers: {
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-store, no-cache',
-        },
+        headers,
       });
     }
   } catch {
@@ -268,9 +270,14 @@ export async function serveErrorPage(
   }
 
   // FR-008: Fallback if error page itself fails
+  const fallbackHeaders = new Headers({
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store, no-cache',
+  });
+  applySecurityHeaders(fallbackHeaders);
   return new Response(fallbackErrorHtml(statusCode), {
     status: statusCode,
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-cache' },
+    headers: fallbackHeaders,
   });
 }
 
@@ -443,6 +450,18 @@ The current mapping `statusCode >= 500 ? '/500/' : '/404.html'` is binary: all 5
 
 **Mitigation**: Add a code comment documenting that the function currently only maps 404 and 5xx correctly. If future error pages are needed (403, 429, etc.), the mapping should be extended to a lookup table rather than a binary condition.
 
+### Auth-Aware Navigation on Error Pages
+
+The Hugo baseof.html includes the shared header partial, which uses `$store.auth.isAuthenticated` (Alpine.js) to conditionally show signed-in/signed-out navigation. When a 500 error is caused by auth infrastructure failure (D1 down, auth handler crash), `auth-store.js` may fail to determine auth state. The `x-cloak` directive hides the auth menu section until Alpine initializes — if Alpine or auth-store fails, auth navigation is invisible. Users still have the main nav links (Home, Posts, About) and the error page's "Go Home" link.
+
+**Mitigation**: This is acceptable for error pages. Auth navigation is best-effort; the primary recovery action is the "Go Home" link in the error hero. No code change needed — document as known behavior.
+
+### Subrequest Budget on Error Path
+
+When `app.onError()` calls `serveErrorPage()`, it makes an `ASSETS.fetch()` subrequest. Cloudflare Workers limit each invocation to 50 subrequests ([docs](https://developers.cloudflare.com/workers/platform/limits/)). If the handler that threw had already consumed many subrequests (multiple D1 queries, KV lookups, external fetches), the error page fetch could exceed the limit, throwing `TooManyRequestsException`. The try-catch in `serveErrorPage` catches this and falls back to inline HTML.
+
+**Mitigation**: The inline fallback is the correct behavior for this edge case. Add a code comment in `serveErrorPage` noting the subrequest budget concern so future developers understand why the fallback exists beyond just "ASSETS unavailable."
+
 ### Fallback When Error Page Missing
 
 If ASSETS.fetch() for `/500/` or `/404.html` fails (e.g., incomplete Hugo build), the system falls back to minimal inline HTML (FR-008). Hugo build verification is a blocking CI gate to prevent this scenario.
@@ -475,6 +494,12 @@ The "Go Back" button uses `onclick="history.back()"` which requires JavaScript. 
 
 - **Simplest (recommended)**: Omit the "Go Back" button from the shared error partial entirely. The "Go Home" link provides adequate navigation and works without JavaScript on all CSP configurations. This is the safest approach given the dual-CSP environment.
 - **If "Go Back" is desired**: Use Alpine.js `x-data` with `x-show` replaced by `x-bind:class` toggling Tailwind's `hidden` class (matching the project's established CSP-safe pattern per `securityHeaders.ts` lines 1-5). The button starts hidden via `class="hidden"` and Alpine removes `hidden` on init.
+
+### Screen Reader Semantics
+
+The error hero partial's `<h1>` must not contain only a bare status code number ("404", "500"). Screen readers announce the heading first — "heading level 1: four zero four" conveys no meaning. The heading must include descriptive text via `aria-label` (e.g., `aria-label="404 — Page Not Found"`) so screen readers announce a meaningful heading while the visual display retains the large status code number.
+
+The alert component must include `role="alert"` so screen readers announce the error message automatically when the page loads. The decorative SVG icon must include `aria-hidden="true"` to prevent screen readers from attempting to describe it.
 
 ### Fallback HTML Completeness
 
@@ -522,3 +547,17 @@ Round 3 focused on HTMX interaction semantics and runtime behavior by inspecting
 | 3 | Medium | Security | **`/500/` directly accessible with 200 status**: Hugo-generated 500 page served by ASSETS with 200 OK on direct navigation. Crawlers could index error page content as a real page despite `build: list: never` and `sitemap: disable: true`. | Added `<meta name="robots" content="noindex, nofollow">` requirement to Security Considerations. |
 | 4 | Medium | EdgeCase | **`serveErrorPage` binary status mapping semantically wrong for non-404/500**: `statusCode >= 500 ? '/500/' : '/404.html'` maps all 4xx to "Page Not Found" content. A 403 Forbidden would misleadingly show "not found" message. | Documented as known limitation in Edge Cases. Current scope only calls with 500; added code comment requirement for future extensibility. |
 | 5 | Low | Testing | **HTMX error fragment path lacks explicit test coverage**: Testing strategy mentioned API vs non-API but not the `HX-Request`/`HX-Boosted` branches. | Added two explicit test cases: HTMX partial (fragment + headers) and HTMX boosted (full page). |
+
+### Round 4
+
+**Reviewed**: 2026-03-25 | **Findings**: 0 Critical, 1 High, 3 Medium, 1 Low
+
+Round 4 focused on defense-in-depth for security headers on error responses, screen reader accessibility of error page markup, and Cloudflare runtime constraints (subrequest limits). Verified by inspecting `withSecurityHeaders` middleware pattern, `applySecurityHeaders` utility, `baseof.html` Alpine.js integration, and `AuthPageHandlers.buildRateLimitedResponse` as the reference pattern for raw Response construction.
+
+| # | Severity | Category | Finding | Resolution |
+|---|----------|----------|---------|------------|
+| 1 | High | Security | **`serveErrorPage` raw Response bypasses middleware security headers**: `serveErrorPage()` returns `new Response(...)` directly, not via Hono context methods. The `withSecurityHeaders` middleware uses post-processing (`await next(); c.header(...)`) — whether this applies to `app.onError()` responses depends on Hono's internal error propagation in compose. Raw Responses bypass `c.header()` regardless. Error pages could lack CSP, X-Frame-Options, HSTS, and all other security headers. | Added explicit `applySecurityHeaders(headers)` calls in both the ASSETS-fetched and inline-fallback code paths of `serveErrorPage()`, matching the `AuthPageHandlers.buildRateLimitedResponse()` pattern. Updated Architecture section to document the middleware uncertainty. |
+| 2 | Medium | Accessibility | **Error page `<h1>` contains only status code number**: Screen readers announce "heading level 1: four zero four" — meaningless without visual context. The descriptive "Page Not Found" text is in a separate alert element announced after the heading. | Added `aria-label="{{ .code }} — {{ .title }}"` to the `<h1>` element in the error-hero partial. Visual display unchanged; screen readers get the full context. |
+| 3 | Medium | Accessibility | **Alert component missing `role="alert"` and icon missing `aria-hidden`**: The error alert `<div>` lacks `role="alert"`, so screen readers don't auto-announce the error message on page load. The decorative SVG icon lacks `aria-hidden="true"`, causing screen readers to attempt to describe the path data. | Added `role="alert"` to the alert div and `aria-hidden="true"` to the SVG icon in the error-hero partial. Documented in Accessibility Requirements section. |
+| 4 | Medium | EdgeCase | **ASSETS.fetch subrequest counts against 50-subrequest limit**: If the handler that threw had already consumed many subrequests (D1 queries, KV lookups, external fetches), the error page ASSETS.fetch could exceed Cloudflare's 50-subrequest limit, throwing `TooManyRequestsException`. | Documented in Edge Cases section. The existing try-catch falls back to inline HTML correctly. Added code comment requirement to explain subrequest budget concern. |
+| 5 | Low | EdgeCase | **Auth-aware navigation may show incorrect state on error pages**: The header partial uses `$store.auth.isAuthenticated` (Alpine.js). When a 500 is caused by auth infrastructure failure, auth-store.js may fail, leaving the auth nav section hidden via `x-cloak`. Users lose auth navigation but retain main nav links and the "Go Home" error action. | Documented as acceptable known behavior in Edge Cases. Primary recovery action is the "Go Home" link, which is always visible. |
