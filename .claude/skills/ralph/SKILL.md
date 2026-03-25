@@ -94,23 +94,12 @@ Orphaned tasks (no epic):
 **Suggestions**:
 
 - Complete in-progress tasks to unblock others
-- Check dependencies: `npx bd dep tree <epic-id>`
+- Check dependencies: `br dep tree <epic-id>`
 - Manually address orphaned tasks
 
-### P3 Tasks Remaining
+### Blocked Tasks Remaining
 
-Ralph stops if only low-priority (P3) tasks remain:
-
-```
-No ready tasks, but 2 open task(s) remain (possibly P3 or blocked tasks)
-
-These tasks may be:
-- Low priority (P3) tasks waiting to be started
-- Tasks blocked by dependencies
-- Tasks that need manual intervention
-
-Please review and either close, unblock, or complete manually.
-```
+Ralph stops if open tasks remain but none are ready (likely blocked by dependencies or needing manual intervention). Review the listed tasks with `br dep tree <epic-id>` to identify blockers.
 
 ## Error Diagnosis
 
@@ -132,13 +121,13 @@ rm .ralph.lock
 ### Beads Not Initialized
 
 ```
-Error: Beads not initialized. Run 'npx bd init' to initialize beads.
+Error: Beads not initialized. Run 'br init' to initialize beads.
 ```
 
 **Fix**:
 
 ```bash
-npx bd init
+br init
 ```
 
 ### No Epic Found
@@ -152,6 +141,7 @@ Ralph strips the numeric branch prefix (`012-clawtask-vertical-slice` →
 open epics for a title containing those words (case-insensitive).
 
 **Common causes**:
+
 - No open epic exists yet → run `/sp:01-specify`
 - Epic title doesn't contain the branch-name words
 

@@ -61,7 +61,7 @@ CREATE TABLE bar (name text);`;
 
   describe('extractInlinedQueries', () => {
     it('extracts string literals from queries array', () => {
-      const content = `const D1_MIGRATIONS = [
+      const content = `const AUTH_MIGRATIONS = [
   {
     name: '0001_better_auth_schema.sql',
     queries: [
@@ -75,7 +75,7 @@ CREATE TABLE bar (name text);`;
     });
 
     it('handles single-quoted and double-quoted strings', () => {
-      const content = `const D1_MIGRATIONS = [
+      const content = `const AUTH_MIGRATIONS = [
   {
     name: '0001.sql',
     queries: [
@@ -97,7 +97,7 @@ CREATE TABLE bar (name text);`;
   describe('verifyMigrationSync', () => {
     it('returns ok when migration and inlined queries match', () => {
       const migrationSql = 'CREATE TABLE foo (id text);\nCREATE TABLE bar (name text);';
-      const setupContent = `const D1_MIGRATIONS = [
+      const setupContent = `const AUTH_MIGRATIONS = [
   {
     name: '0001.sql',
     queries: [
@@ -112,7 +112,7 @@ CREATE TABLE bar (name text);`;
 
     it('returns error when statements differ', () => {
       const migrationSql = 'CREATE TABLE foo (id text);\nCREATE TABLE bar (name text);';
-      const setupContent = `const D1_MIGRATIONS = [
+      const setupContent = `const AUTH_MIGRATIONS = [
   {
     name: '0001.sql',
     queries: [
@@ -129,7 +129,7 @@ CREATE TABLE bar (name text);`;
 
     it('returns error when statement count differs', () => {
       const migrationSql = 'CREATE TABLE foo (id text);';
-      const setupContent = `const D1_MIGRATIONS = [
+      const setupContent = `const AUTH_MIGRATIONS = [
   {
     name: '0001.sql',
     queries: [

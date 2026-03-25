@@ -10,12 +10,12 @@ This guide demonstrates the `/sp:*` workflow with beads task tracking.
 1. **Install beads CLI**:
 
    ```bash
-   npm install --save-dev @beads/bd
+   npm install --save-dev beads_rust
    ```
 
 2. **Verify installation**:
    ```bash
-   npx bd --version
+   br --version
    ```
 
 ## Workflow Example: Adding a New Feature
@@ -30,7 +30,7 @@ This guide demonstrates the `/sp:*` workflow with beads task tracking.
 **What happens**:
 
 1. Creates git branch `009-user-auth` (or next available number)
-2. Initializes beads if not already done (`bd init`)
+2. Initializes beads if not already done (`br init`)
 3. Creates epic in beads: `Feature: User Authentication`
 4. Writes spec to `specs/009-user-auth/spec.md`
 5. Stores epic ID in spec metadata
@@ -39,7 +39,7 @@ This guide demonstrates the `/sp:*` workflow with beads task tracking.
 
 ```bash
 # Check epic was created
-npx bd list --type epic --json
+br list --type epic --json
 ```
 
 Output:
@@ -89,10 +89,10 @@ Output:
 
 ```bash
 # View task hierarchy
-npx bd dep tree bd-f7a2c1
+br dep tree bd-f7a2c1
 
 # Check ready tasks
-npx bd ready --json
+br ready --json
 ```
 
 Output (ready tasks):
@@ -116,7 +116,7 @@ Output (ready tasks):
 
 **What happens**:
 
-1. Shows ready tasks from `bd ready`
+1. Shows ready tasks from `br ready`
 2. Marks current task as `in_progress`
 3. Guides implementation
 4. Marks tasks `closed` when complete
@@ -126,11 +126,11 @@ Output (ready tasks):
 
 ```bash
 # Manual task status updates (if needed)
-npx bd update bd-f7a2c1.1.1 --status in_progress
-npx bd close bd-f7a2c1.1.1 --reason "OAuth config complete"
+br update bd-f7a2c1.1.1 --status in_progress
+br close bd-f7a2c1.1.1 --reason "OAuth config complete"
 
 # Check what's ready next
-npx bd ready
+br ready
 ```
 
 ### Step 6: Analyze Implementation
@@ -146,19 +146,19 @@ npx bd ready
 ### All tasks for a feature
 
 ```bash
-npx bd list --parent bd-f7a2c1 --json
+br list --parent bd-f7a2c1 --json
 ```
 
 ### Only open tasks
 
 ```bash
-npx bd list --parent bd-f7a2c1 --status open --json
+br list --parent bd-f7a2c1 --status open --json
 ```
 
 ### Dependency tree
 
 ```bash
-npx bd dep tree bd-f7a2c1
+br dep tree bd-f7a2c1
 ```
 
 Output:
@@ -180,14 +180,14 @@ bd-f7a2c1 Feature: User Authentication
 | Command                | Purpose                | Beads Actions                       |
 | ---------------------- | ---------------------- | ----------------------------------- |
 | `/sp:00-constitution`  | Project constitution   | None                                |
-| `/sp:01-specify`       | Create spec + epic     | `bd init`, `bd create -t epic`      |
+| `/sp:01-specify`       | Create spec + epic     | `br init`, `br create -t epic`      |
 | `/sp:02-clarify`       | Clarify requirements   | None                                |
 | `/sp:03-plan`          | Create plan            | None                                |
 | `/sp:04-checklist`     | Generate checklists    | None                                |
-| `/sp:05-tasks`         | Generate tasks         | `bd create`, `bd dep add`           |
-| `/sp:07-implement`     | Execute tasks          | `bd ready`, `bd update`, `bd close` |
-| `/sp:06-analyze`       | Analyze implementation | `bd list`, `bd stats`               |
-| `/sp:08-taskstoissues` | Export to GitHub       | `bd list`                           |
+| `/sp:05-tasks`         | Generate tasks         | `br create`, `br dep add`           |
+| `/sp:07-implement`     | Execute tasks          | `br ready`, `br update`, `br close` |
+| `/sp:06-analyze`       | Analyze implementation | `br list`, `br stats`               |
+| `/sp:08-taskstoissues` | Export to GitHub       | `br list`                           |
 
 ## Comparison: Old vs New Workflow
 
@@ -211,13 +211,13 @@ bd-f7a2c1 Feature: User Authentication
 ### New Workflow (bd:\* with beads)
 
 ```bash
-npx bd ready --json
+br ready --json
 # Shows only unblocked tasks
 
-npx bd list --parent bd-f7a2c1 --status open
+br list --parent bd-f7a2c1 --status open
 # Query open tasks for feature
 
-npx bd dep tree bd-f7a2c1
+br dep tree bd-f7a2c1
 # Visualize dependency graph
 ```
 
@@ -230,32 +230,32 @@ npx bd dep tree bd-f7a2c1
 
 ## Troubleshooting
 
-### "bd: command not found"
+### "br: command not found"
 
 ```bash
-npm install --save-dev @beads/bd
-# Then use: npx bd <command>
+curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh" | bash
+# Then use: br <command>
 ```
 
 ### "not a beads repository"
 
 ```bash
-npx bd init
+br init
 ```
 
 ### "epic not found for feature"
 
 ```bash
 # List all epics to find ID
-npx bd list --type epic --json
+br list --type epic --json
 ```
 
 ### "circular dependency detected"
 
 ```bash
 # Check for cycles
-npx bd dep cycles
+br dep cycles
 
 # Remove problematic dependency
-npx bd dep remove <child-id> <parent-id>
+br dep remove <child-id> <parent-id>
 ```

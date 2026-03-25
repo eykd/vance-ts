@@ -22,7 +22,7 @@ Represents a feature specification created by `/bd:01-specify`.
 | created_at  | datetime | ISO 8601 timestamp                    | `2026-01-15T10:00:00Z`                      |
 | branch      | string   | Git branch name                       | `008-beads-integration`                     |
 
-**Creation**: `bd create "Feature: <name>" -t epic -p 0 --json`
+**Creation**: `br create "Feature: <name>" -t epic -p 0 --json`
 
 ### Task (User Story)
 
@@ -38,23 +38,23 @@ Represents a user story from the specification, created by `/bd:05-tasks`.
 | issue_type  | string | Always "task"                   | `task`                                |
 | parent_id   | string | Epic ID                         | `bd-a3f8e9`                           |
 
-**Creation**: `bd create "<title>" -p <priority> --parent <epic-id> --json`
+**Creation**: `br create "<title>" -p <priority> --parent <epic-id> --json`
 
 ### Sub-task (Implementation Step)
 
 Represents a specific implementation step within a user story.
 
-| Attribute   | Type   | Description                              | Example                            |
-| ----------- | ------ | ---------------------------------------- | ---------------------------------- |
-| id          | string | Task ID + numeric suffix                 | `bd-a3f8e9.1.1`                    |
-| title       | string | Implementation step                      | `Install @beads/bd package`        |
-| description | string | Details or file path                     | `npm install --save-dev @beads/bd` |
-| status      | enum   | open, in_progress, closed                | `open`                             |
-| priority    | number | Inherited from parent task               | `1`                                |
-| issue_type  | string | "task" (sub-tasks are just nested tasks) | `task`                             |
-| parent_id   | string | Task ID                                  | `bd-a3f8e9.1`                      |
+| Attribute   | Type   | Description                              | Example                             |
+| ----------- | ------ | ---------------------------------------- | ----------------------------------- |
+| id          | string | Task ID + numeric suffix                 | `bd-a3f8e9.1.1`                     |
+| title       | string | Implementation step                      | `Install beads_rust package`        |
+| description | string | Details or file path                     | `npm install --save-dev beads_rust` |
+| status      | enum   | open, in_progress, closed                | `open`                              |
+| priority    | number | Inherited from parent task               | `1`                                 |
+| issue_type  | string | "task" (sub-tasks are just nested tasks) | `task`                              |
+| parent_id   | string | Task ID                                  | `bd-a3f8e9.1`                       |
 
-**Creation**: `bd create "<title>" -p <priority> --parent <task-id> --json`
+**Creation**: `br create "<title>" -p <priority> --parent <task-id> --json`
 
 ### Dependency
 
@@ -65,7 +65,7 @@ Represents a blocking relationship between tasks.
 | child_id  | string | Task that is blocked          | `bd-a3f8e9.2` |
 | parent_id | string | Task that must complete first | `bd-a3f8e9.1` |
 
-**Creation**: `bd dep add <child_id> <parent_id>`
+**Creation**: `br dep add <child_id> <parent_id>`
 
 ## Hierarchy Visualization
 
@@ -73,7 +73,7 @@ Represents a blocking relationship between tasks.
 Epic (bd-a3f8e9)
 ├── Task (bd-a3f8e9.1) - US1: Initialize Beads
 │   ├── Sub-task (bd-a3f8e9.1.1) - Install package
-│   ├── Sub-task (bd-a3f8e9.1.2) - Run bd init
+│   ├── Sub-task (bd-a3f8e9.1.2) - Run br init
 │   └── Sub-task (bd-a3f8e9.1.3) - Verify .beads/ created
 ├── Task (bd-a3f8e9.2) - US2: Create Specs as Epics
 │   ├── Sub-task (bd-a3f8e9.2.1) - Add epic creation to specify
@@ -88,7 +88,7 @@ Epic (bd-a3f8e9)
 ### Task Lifecycle
 
 ```text
-┌──────────┐     bd update      ┌─────────────┐     bd close     ┌────────┐
+┌──────────┐     br update      ┌─────────────┐     br close     ┌────────┐
 │   open   │ ────────────────→  │ in_progress │ ──────────────→  │ closed │
 └──────────┘   --status         └─────────────┘    --reason       └────────┘
                 in_progress
@@ -96,9 +96,9 @@ Epic (bd-a3f8e9)
 
 ### Dependency Rules
 
-1. A task with unresolved dependencies does NOT appear in `bd ready`
+1. A task with unresolved dependencies does NOT appear in `br ready`
 2. When a blocking task is closed, dependent tasks become ready
-3. Circular dependencies are prevented by `bd dep cycles` check
+3. Circular dependencies are prevented by `br dep cycles` check
 
 ## Metadata Storage
 

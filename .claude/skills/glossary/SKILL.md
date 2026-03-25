@@ -166,7 +166,7 @@ rg "\buserProfile\b" --type ts --type tsx
 rg -i "user profile" docs/
 
 # Task descriptions
-bd list | grep -i "user profile"
+br list | grep -i "user profile"
 
 # Spec and plan files
 rg -i "user profile" .claude/projects/
@@ -204,7 +204,7 @@ Provide a comprehensive summary:
 2. Manually update file names (git mv)
 3. Update import paths
 4. Update documentation
-5. Update task descriptions via bd edit
+5. Update task descriptions via br edit
 6. Run tests to verify no breakage
 ```
 

@@ -267,7 +267,7 @@ Created 6 tasks under epic `workspace-abc123`:
 - `workspace-abc123-t5`: Refactor complex parser function (P2)
 - `workspace-abc123-t6`: Improve variable naming consistency (P3)
 
-View tasks: `npx bd list --parent workspace-abc123`
+View tasks: `br show workspace-abc123 --json | jq '.[0].dependents'`
 ```
 
 ### When to Skip This Section

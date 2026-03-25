@@ -25,8 +25,8 @@
 
 **Purpose**: Project initialization and beads package installation
 
-- [x] T001 Install @beads/bd as devDependency via `npm install --save-dev @beads/bd`
-- [x] T002 Initialize beads in repository via `npx bd init`
+- [x] T001 Install beads_rust as devDependency via `npm install --save-dev beads_rust`
+- [x] T002 Initialize beads in repository via `br init`
 - [x] T003 Create bd/ command directory at .claude/commands/bd/
 - [x] T004 [P] Create README.md for bd/ namespace at .claude/commands/bd/README.md
 
@@ -56,7 +56,7 @@
 ### Implementation for User Story 1
 
 - [x] T009 [US1] Copy sp/02-specify.md to bd/01-specify.md at .claude/commands/bd/01-specify.md
-- [x] T010 [US1] Add beads initialization step to bd/01-specify.md (check .beads/, run bd init if missing)
+- [x] T010 [US1] Add beads initialization step to bd/01-specify.md (check .beads/, run br init if missing)
 - [x] T011 [US1] Update handoff references in bd/01-specify.md from sp:_ to bd:_ namespace
 - [x] T012 [US1] Add acceptance scenario validation for beads initialization in bd/01-specify.md
 
@@ -72,7 +72,7 @@
 
 ### Implementation for User Story 2
 
-- [x] T013 [US2] Add epic creation step to bd/01-specify.md using `bd create -t epic -p 0 --json`
+- [x] T013 [US2] Add epic creation step to bd/01-specify.md using `br create -t epic -p 0 --json`
 - [x] T014 [US2] Add epic ID storage in spec.md front matter (**Beads Epic**: `bd-xxxx`)
 - [x] T015 [US2] Add duplicate epic detection logic (check existing epic for branch before creating)
 - [x] T016 [US2] Add epic update logic for re-running /bd:01-specify on existing feature
@@ -91,10 +91,10 @@
 
 - [x] T017 [US3] Copy sp/06-tasks.md to bd/05-tasks.md at .claude/commands/bd/05-tasks.md
 - [x] T018 [US3] Add epic ID retrieval from spec.md front matter in bd/05-tasks.md
-- [x] T019 [US3] Replace markdown checkbox generation with `bd create --parent <epic-id>` calls
+- [x] T019 [US3] Replace markdown checkbox generation with `br create --parent <epic-id>` calls
 - [x] T020 [US3] Add user story → beads task mapping (P1→priority 1, P2→priority 2, etc.)
-- [x] T021 [US3] Add sub-task creation for implementation steps using `bd create --parent <task-id>`
-- [x] T022 [US3] Add dependency creation between sequential tasks using `bd dep add`
+- [x] T021 [US3] Add sub-task creation for implementation steps using `br create --parent <task-id>`
+- [x] T022 [US3] Add dependency creation between sequential tasks using `br dep add`
 - [x] T023 [US3] Add parallel task detection ([P] marker → no dependency added)
 - [x] T024 [US3] Update handoff references in bd/05-tasks.md from sp:_ to bd:_ namespace
 
@@ -111,10 +111,10 @@
 ### Implementation for User Story 4
 
 - [x] T025 [US4] Copy sp/07-implement.md to bd/06-implement.md at .claude/commands/bd/06-implement.md
-- [x] T026 [US4] Replace tasks.md checkbox reading with `bd ready --json` call
-- [x] T027 [US4] Add task status update using `bd update --status in_progress`
-- [x] T028 [US4] Replace checkbox marking with `bd close --reason` call
-- [x] T029 [US4] Add remaining work display using `bd list --parent <epic-id> --status open`
+- [x] T026 [US4] Replace tasks.md checkbox reading with `br ready --json` call
+- [x] T027 [US4] Add task status update using `br update --status in_progress`
+- [x] T028 [US4] Replace checkbox marking with `br close --reason` call
+- [x] T029 [US4] Add remaining work display using `br list --parent <epic-id> --status open`
 - [x] T030 [US4] Update handoff references in bd/06-implement.md from sp:_ to bd:_ namespace
 
 **Checkpoint**: User Story 4 complete - /bd:06-implement tracks progress in beads
@@ -130,8 +130,8 @@
 ### Implementation for User Story 5
 
 - [x] T031 [US5] Copy sp/08-analyze.md to bd/07-analyze.md at .claude/commands/bd/07-analyze.md
-- [x] T032 [US5] Add task statistics retrieval using `bd stats --json`
-- [x] T033 [US5] Add feature task listing using `bd list --parent <epic-id> --json`
+- [x] T032 [US5] Add task statistics retrieval using `br stats --json`
+- [x] T033 [US5] Add feature task listing using `br list --parent <epic-id> --json`
 - [x] T034 [US5] Update handoff references in bd/07-analyze.md from sp:_ to bd:_ namespace
 
 **Checkpoint**: User Story 5 complete - /bd:07-analyze shows beads task status
@@ -152,7 +152,7 @@
   - [x] T035c [P] [US6] Copy sp/05-checklist.md to bd/04-checklist.md at .claude/commands/bd/04-checklist.md
   - [x] T035d [P] [US6] Copy sp/09-taskstoissues.md to bd/08-taskstoissues.md at .claude/commands/bd/08-taskstoissues.md
 - [x] T036 [US6] Update all internal references in copied files from sp:_ to bd:_ namespace
-- [x] T037 [US6] Add task export logic to bd/08-taskstoissues.md using `bd list --parent <epic-id> --status open --json`
+- [x] T037 [US6] Add task export logic to bd/08-taskstoissues.md using `br list --parent <epic-id> --status open --json`
 - [x] T038 [US6] Validate all /bd:\* commands work end-to-end on a test feature
 - [x] T039 [US6] Create namespace swap script to backup sp/ and move bd/ to sp/
 - [x] T040 [US6] Execute namespace swap (backup sp/ to sp-backup/, rename bd/ to sp/)

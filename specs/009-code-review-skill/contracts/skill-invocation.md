@@ -180,7 +180,7 @@ When changes include test files (_.spec.ts, _.test.ts, test\__.py, _\_test.py):
 ### Graceful Degradation
 
 - If security-review skill unavailable: Note in output, continue without security section
-- If beads not initialized: Prompt user to run `npx bd init`
+- If beads not initialized: Prompt user to run `br init`
 - If very large changeset (1000+ lines): Switch to summary mode with warning
 
 ---

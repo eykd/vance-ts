@@ -34,6 +34,6 @@
 - Specification is ready for `/sp:03-clarify` or `/sp:04-plan`
 - All validation items passed on first review
 - Key decisions documented in Assumptions section:
-  - Beads package is available via npm as `@beads/bd`
+  - Beads package is available via npm as `beads_rust`
   - Git-backed storage requires `.beads/` directory in version control
   - Existing markdown workflows preserved during transition

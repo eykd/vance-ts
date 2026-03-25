@@ -1,5 +1,5 @@
 /**
- * Build-time check: verifies that inlined D1_MIGRATIONS SQL in
+ * Build-time check: verifies that inlined AUTH_MIGRATIONS SQL in
  * generated-acceptance-tests/setup.ts matches the source migration file.
  *
  * Tested via: npx vitest run scripts/check-migration-sync.spec.ts
@@ -35,7 +35,7 @@ export function parseMigrationSql(sql: string): string[] {
 }
 
 /**
- * Extract the query strings from the D1_MIGRATIONS queries array
+ * Extract the query strings from the AUTH_MIGRATIONS queries array
  * in the acceptance test setup file content.
  *
  * **Limitation:** Uses `[^\]]+` to match the queries array block, which will
@@ -103,7 +103,7 @@ export function verifyMigrationSync(
       return {
         ok: false,
         message:
-          `Inlined D1_MIGRATIONS has diverged from ` +
+          `Inlined AUTH_MIGRATIONS has diverged from ` +
           `${migrationFilename} at statement ${i + 1}.\n` +
           `  Migration: ${migrationStatements[i]}\n` +
           `  Inlined:   ${normalizedInlined[i]}`,

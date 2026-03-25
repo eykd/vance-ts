@@ -34,21 +34,21 @@ exit_code=$?
 
 **Question**: How to query ready tasks for a specific epic?
 
-**Decision**: Use `npx bd ready --json` and filter by epic
+**Decision**: Use `br ready --json` and filter by epic
 
 **Rationale**:
 
-- `bd ready` returns tasks with no blocking dependencies
+- `br ready` returns tasks with no blocking dependencies
 - JSON output enables programmatic parsing with `jq`
 - Filter results to only include tasks under the target epic
 
 **Example**:
 
 ```bash
-npx bd ready --json 2>/dev/null | jq -r ".[] | select(.id | startswith(\"$epic_id\")) | .id" | head -1
+br ready --json 2>/dev/null | jq -r ".[] | select(.id | startswith(\"$epic_id\")) | .id" | head -1
 ```
 
-**Note**: The `bd ready` output includes all ready tasks across all epics. Must filter to current feature's epic.
+**Note**: The `br ready` output includes all ready tasks across all epics. Must filter to current feature's epic.
 
 ### 3. Epic Detection from Branch Name
 
@@ -60,14 +60,14 @@ npx bd ready --json 2>/dev/null | jq -r ".[] | select(.id | startswith(\"$epic_i
 
 - Branch names follow pattern: `NNN-feature-name`
 - Epics are created with title `Feature: feature-name`
-- Use `bd list --type epic --json` and match on title
+- Use `br list --type epic --json` and match on title
 
 **Example**:
 
 ```bash
 branch=$(git branch --show-current)
 feature_name=$(echo "$branch" | sed 's/^[0-9]*-//')
-epic_id=$(npx bd list --type epic --status open --json 2>/dev/null | \
+epic_id=$(br list --type epic --status open --json 2>/dev/null | \
   jq -r ".[] | select(.title | contains(\"$feature_name\")) | .id" | head -1)
 ```
 
@@ -86,7 +86,7 @@ epic_id=$(npx bd list --type epic --status open --json 2>/dev/null | \
 **Example**:
 
 ```bash
-clarify_status=$(npx bd list --parent "$epic_id" --json 2>/dev/null | \
+clarify_status=$(br list --parent "$epic_id" --json 2>/dev/null | \
   jq -r '.[] | select(.title | contains("[sp:02-clarify]")) | .status')
 if [[ "$clarify_status" != "closed" ]]; then
   echo "ERROR: sp:02-clarify not complete. Run /sp:02-clarify first."
@@ -190,7 +190,7 @@ trap 'echo "Interrupted. Completed $iteration iterations."; release_lock; exit 1
 All technical questions resolved. The implementation approach is:
 
 1. **Invocation**: `claude -p "/sp:next"`
-2. **Task query**: `bd ready --json` filtered by epic ID
+2. **Task query**: `br ready --json` filtered by epic ID
 3. **Epic detection**: Parse branch name → search beads epics
 4. **Prerequisites**: Check clarify task status = "closed"
 5. **Retry**: Exponential backoff with 10 retries, max 5min delay
