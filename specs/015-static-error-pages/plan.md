@@ -200,6 +200,7 @@ Create `hugo/content/500.md`:
 title: "Server Error"
 layout: "500"
 url: "/500/"
+robots: "noindex, nofollow"
 build:
   list: never
   render: always
@@ -246,6 +247,11 @@ Create `src/presentation/handlers/ErrorPageHandlers.ts`:
 /**
  * Fetch a pre-built error page from ASSETS and return it with the given status.
  * Falls back to minimal inline HTML if ASSETS fetch fails.
+ *
+ * @remarks Only status code 500 is currently supported. The path mapping
+ * (`>= 500 → /500/`, `< 500 → /404.html`) is semantically correct only for
+ * 404 and 5xx. Future callers requiring 403, 429, etc. should extend the
+ * mapping to a lookup table.
  */
 export async function serveErrorPage(
   assets: Fetcher,
@@ -296,6 +302,15 @@ export async function serveErrorPage(
   });
 }
 
+/**
+ * HTMX error fragment for partial request failures.
+ * Extracted as a template function (consistent with authErrorPage/rateLimitPage pattern)
+ * to enable unit testing and centralize error fragment markup.
+ */
+export function htmxErrorFragment(): string {
+  return '<div class="alert alert-error"><span>Something went wrong.</span><a href="" class="link link-neutral underline" hx-boost="false">Reload page</a></div>';
+}
+
 /** Minimal inline HTML fallback when ASSETS is unavailable. */
 function fallbackErrorHtml(statusCode: number): string {
   const title = statusCode >= 500 ? 'Server Error' : 'Not Found';
@@ -303,7 +318,8 @@ function fallbackErrorHtml(statusCode: number): string {
     statusCode >= 500
       ? 'Something went wrong. Please try again later.'
       : 'The page you requested could not be found.';
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body><h1>${statusCode} ${title}</h1><p>${message}</p><p><a href="/">Go Home</a></p></body></html>`;
+  const safeCode = String(Math.floor(statusCode));
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body><h1>${safeCode} ${title}</h1><p>${message}</p><p><a href="/">Go Home</a></p></body></html>`;
 }
 ```
 
@@ -333,14 +349,10 @@ app.onError(async (err, c) => {
   if (isHtmxPartial) {
     // HX-Retarget + HX-Reswap ensure the fragment is visible even if the
     // original swap target no longer exists (e.g., form element removed).
-    return c.html(
-      '<div class="alert alert-error"><span>Something went wrong.</span><a href="" class="link link-neutral underline" hx-boost="false">Reload page</a></div>',
-      500,
-      {
-        'HX-Retarget': '#main-content',
-        'HX-Reswap': 'innerHTML',
-      },
-    );
+    return c.html(htmxErrorFragment(), 500, {
+      'HX-Retarget': '#main-content',
+      'HX-Reswap': 'innerHTML',
+    });
   }
 
   return serveErrorPage(c.env.ASSETS, 500);
@@ -355,7 +367,9 @@ app.onError(async (err, c) => {
 - **Global error handler**: Verify API routes get JSON 500 response
 - **Global error handler (HTMX partial)**: Verify requests with `HX-Request: true` (no `HX-Boosted`) get an HTML fragment with `HX-Retarget` and `HX-Reswap` headers
 - **Global error handler (HTMX boosted)**: Verify requests with both `HX-Request: true` and `HX-Boosted: true` get the full 500 error page (not fragment)
-- **serveErrorPage()**: Verify correct status code, content-type, and fallback behavior
+- **serveErrorPage()**: Verify correct status code, content-type, and security headers
+- **serveErrorPage() fallback**: When ASSETS.fetch() throws, verify inline HTML fallback with correct status, Content-Type, security headers, and sanitized status code
+- **htmxErrorFragment()**: Verify fragment HTML content and structure
 - **isApiRoute()**: Verify path classification
 
 #### Hugo Build Verification
@@ -366,10 +380,12 @@ app.onError(async (err, c) => {
 - **Blocking CI gate**: Both error pages MUST exist in build output before deployment. If Hugo build is incomplete, the Worker falls back to bare inline HTML for all errors.
 
 ```bash
-# Deployment gate — add to CI or build verification script
+# Deployment gate — integrate into `just ci` / `npm run check` as a post-Hugo-build step
 test -f hugo/public/404.html || { echo "FATAL: 404.html missing"; exit 1; }
 test -f hugo/public/500/index.html || { echo "FATAL: 500/index.html missing"; exit 1; }
 ```
+
+**Integration point**: Add these checks to the `justfile` `ci` recipe (or `scripts/` build verification) immediately after `just hugo-build`. Do not rely on implementers remembering to add them — the task that implements Hugo templates must also wire up the gate.
 
 ### Existing Error Handling — Preserved (No Changes)
 
@@ -612,3 +628,18 @@ Round 5 focused on Hugo template idiom correctness, ASSETS runtime behavior (304
 | 6 | Medium | Accessibility | **404 page `<title>` may be empty or non-descriptive**: Hugo's `404.html` has no content file, so `.Title` depends on theme/config defaults. Screen readers announce the title on page load. | Added verification step: check `<title>` in built 404.html. If empty, add `hugo/content/404.md` with `title: "Page Not Found"`. |
 | 7 | Low | ErrorHandling | **`serveErrorPage` ASSETS URL coupled to attacker-controlled request origin**: `new URL(requestUrl).origin` ties ASSETS fetch to the failing request. Malformed URLs cause `new URL()` to throw before `assets.fetch`. | Replaced with stable synthetic origin `https://worker.internal`. ASSETS routes by path, not origin. Also removed unused `requestUrl` parameter from function signature. |
 | 8 | Low | EdgeCase | **Authenticated users on 500 page see Dashboard link to broken infrastructure**: When auth infra is down but Alpine succeeds (reads indicator cookie), Dashboard link leads to another 500. | Documented as acceptable known behavior in Auth-Aware Navigation section. Error pages show best-effort navigation; "Go Home" is the recommended recovery path. |
+
+### Round 6
+
+**Reviewed**: 2026-03-25 | **Findings**: 0 Critical, 1 High, 3 Medium, 2 Low
+
+Round 6 focused on internal plan consistency (cross-referencing code examples against stated requirements), testing completeness for error fallback paths, and architectural alignment with established project patterns for HTML template functions.
+
+| # | Severity | Category | Finding | Resolution |
+|---|----------|----------|---------|------------|
+| 1 | High | ErrorHandling | **HTMX error fragment is inline HTML, not a template function**: `app.onError()` hardcodes `<div class="alert alert-error">...` directly in the handler. This violates the project pattern where all HTML responses use template functions (`authErrorPage()`, `rateLimitPage()`, `authLayout()`). Inline HTML is harder to test, duplicates styling concerns, and drifts from the DaisyUI component library if alert markup changes. | Extract to `htmxErrorFragment()` function in `ErrorPageHandlers.ts`. Template function returns the HTML string; handler calls it. Enables unit testing of fragment content and keeps `app.onError()` focused on routing logic. Updated Phase 2 implementation details. |
+| 2 | Medium | Testing | **Fallback HTML path lacks explicit test case**: Testing strategy lists `serveErrorPage()` tests but doesn't specify a test for when `assets.fetch()` throws. The fallback is the last line of defense (FR-008) — if it breaks, users see a raw error. | Added explicit test case: "serveErrorPage fallback: when ASSETS.fetch() throws, returns inline HTML with correct status, Content-Type, and security headers." Updated Phase 3 testing strategy. |
+| 3 | Medium | Testing | **Hugo build verification gate has no integration point**: Plan documents `test -f hugo/public/500/index.html` check (Phase 3) but doesn't specify where it runs — not in `package.json`, not in CI config, not in `justfile`. Risk: the check is documented but never wired up. | Added explicit integration point: add to `just ci` / `npm run check` pipeline as a post-build verification step. |
+| 4 | Medium | Security | **500.md frontmatter example missing `robots` directive**: Security Considerations section (line 427) requires `<meta name="robots" content="noindex, nofollow">` via frontmatter, but the 500.md content example in Phase 1c (line 199) omits `robots: "noindex, nofollow"`. Implementers following the Phase 1c example will miss the security requirement. | Updated 500.md frontmatter example in Phase 1c to include `robots: "noindex, nofollow"`. |
+| 5 | Low | ErrorHandling | **`serveErrorPage` accepts `statusCode: number` but only `500` is valid**: Function signature suggests generality but the path mapping (`>= 500 ? '/500/' : '/404.html'`) is semantically wrong for 403, 429, etc. Single caller always passes 500. Misleading API surface. | Added JSDoc `@remarks` noting that only 500 is currently supported. Code comment at the mapping line documents the limitation. Future callers requiring other codes should extend the mapping. |
+| 6 | Low | ErrorHandling | **`fallbackErrorHtml` injects `statusCode` into template literal without type narrowing**: While `statusCode` is typed as `number` (safe from XSS), TypeScript's `number` type doesn't prevent `NaN` or `Infinity` which would produce nonsensical HTML like `<h1>NaN Server Error</h1>`. | Added defensive `String(Math.floor(statusCode))` in the template literal. Minimal cost, prevents edge case nonsense. |
