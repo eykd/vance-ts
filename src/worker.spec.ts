@@ -1227,10 +1227,13 @@ describe('Worker', () => {
     it('returns 429 when signInApiRateLimitMiddleware short-circuits the request', async () => {
       const env = mockEnv();
       mocks.signInApiRateLimitMiddlewareFn.mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: 'Too many requests' }), {
-          status: 429,
-          headers: { 'Retry-After': '60', 'Content-Type': 'application/json' },
-        })
+        new Response(
+          JSON.stringify({ error: { code: 'rate_limit_exceeded', message: 'Too many requests' } }),
+          {
+            status: 429,
+            headers: { 'Retry-After': '60', 'Content-Type': 'application/json' },
+          }
+        )
       );
 
       const req = new Request('https://example.com/api/auth/sign-in/email', {
@@ -1273,10 +1276,13 @@ describe('Worker', () => {
     it('returns 429 when signUpApiRateLimitMiddleware short-circuits the request', async () => {
       const env = mockEnv();
       mocks.signUpApiRateLimitMiddlewareFn.mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: 'Too many requests' }), {
-          status: 429,
-          headers: { 'Retry-After': '60', 'Content-Type': 'application/json' },
-        })
+        new Response(
+          JSON.stringify({ error: { code: 'rate_limit_exceeded', message: 'Too many requests' } }),
+          {
+            status: 429,
+            headers: { 'Retry-After': '60', 'Content-Type': 'application/json' },
+          }
+        )
       );
 
       const req = new Request('https://example.com/api/auth/sign-up/email', {
