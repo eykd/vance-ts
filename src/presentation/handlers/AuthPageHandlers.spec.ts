@@ -747,7 +747,7 @@ describe('AuthPageHandlers', () => {
         const req = makePostRequest({ email: 'User@Example.COM' });
         await handlers.handlePostSignIn(req);
         expect(signInUseCaseMock.execute).toHaveBeenCalledWith(
-          expect.objectContaining({ email: 'user@example.com' })
+          expect.objectContaining({ email: 'user@example.com', ip: 'unknown' })
         );
       });
 
@@ -755,7 +755,7 @@ describe('AuthPageHandlers', () => {
         const req = makePostRequest({ email: '  alice@example.com  ' });
         await handlers.handlePostSignIn(req);
         expect(signInUseCaseMock.execute).toHaveBeenCalledWith(
-          expect.objectContaining({ email: 'alice@example.com' })
+          expect.objectContaining({ email: 'alice@example.com', ip: 'unknown' })
         );
       });
     });
@@ -1306,7 +1306,7 @@ describe('AuthPageHandlers', () => {
         const req = makeSignUpPostRequest({ email: 'User@Example.COM' });
         await handlers.handlePostSignUp(req);
         expect(signUpUseCaseMock.execute).toHaveBeenCalledWith(
-          expect.objectContaining({ email: 'user@example.com' })
+          expect.objectContaining({ email: 'user@example.com', ip: 'unknown' })
         );
       });
 
@@ -1314,7 +1314,7 @@ describe('AuthPageHandlers', () => {
         const req = makeSignUpPostRequest({ email: '  alice@example.com  ' });
         await handlers.handlePostSignUp(req);
         expect(signUpUseCaseMock.execute).toHaveBeenCalledWith(
-          expect.objectContaining({ email: 'alice@example.com' })
+          expect.objectContaining({ email: 'alice@example.com', ip: 'unknown' })
         );
       });
 
@@ -1322,7 +1322,7 @@ describe('AuthPageHandlers', () => {
         const req = makeSignUpPostRequest({ name: '  Alice Smith  ' });
         await handlers.handlePostSignUp(req);
         expect(signUpUseCaseMock.execute).toHaveBeenCalledWith(
-          expect.objectContaining({ name: 'Alice Smith' })
+          expect.objectContaining({ name: 'Alice Smith', ip: 'unknown' })
         );
       });
     });
@@ -1736,7 +1736,7 @@ describe('AuthPageHandlers', () => {
       const req = makeForgotPasswordPostRequest({ email: '  Test@Example.COM  ' });
       await handlers.handlePostForgotPassword(req);
       expect(requestPasswordResetUseCaseMock.execute).toHaveBeenCalledWith(
-        expect.objectContaining({ email: 'test@example.com' })
+        expect.objectContaining({ email: 'test@example.com', ip: 'unknown' })
       );
     });
 
