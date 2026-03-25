@@ -174,6 +174,18 @@ describe('createBodyLimitMiddleware', () => {
       expect(res.status).toBe(200);
     });
 
+    it('passes POST with Content-Length: 0 (empty body)', async () => {
+      const app = makeTestApp(100);
+      const res = await app.fetch(
+        new Request('https://example.com/test', {
+          method: 'POST',
+          headers: { 'Content-Length': '0' },
+        })
+      );
+
+      expect(res.status).toBe(200);
+    });
+
     it('ignores negative Content-Length values', async () => {
       const app = makeTestApp(100);
       const res = await app.fetch(

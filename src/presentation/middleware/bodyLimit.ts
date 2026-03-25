@@ -50,6 +50,7 @@ export function createBodyLimitMiddleware(
     const contentLength = c.req.header('content-length');
     if (contentLength !== undefined) {
       const length = parseInt(contentLength, 10);
+      // Content-Length: 0 is deliberately allowed — an empty body poses no DoS risk.
       if (!Number.isNaN(length) && length > 0 && length > maxBytes) {
         return new Response(CONTENT_TOO_LARGE_BODY, {
           status: 413,
