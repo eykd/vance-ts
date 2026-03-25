@@ -10,16 +10,16 @@ Efficient batching patterns for beads commands to minimize tool calls.
 #!/usr/bin/env bash
 set -euo pipefail
 
-npx bd create --title "Implement user authentication" \
+br create --title "Implement user authentication" \
   --description "Add JWT-based auth system with login/logout endpoints"
 
-npx bd create --title "Add password hashing" \
+br create --title "Add password hashing" \
   --description "Use bcrypt for secure password storage"
 
-npx bd create --title "Create auth middleware" \
+br create --title "Create auth middleware" \
   --description "Middleware to verify JWT tokens on protected routes"
 
-npx bd create --title "Write auth integration tests" \
+br create --title "Write auth integration tests" \
   --description "Test login, logout, and protected route access"
 
 echo "Created 4 authentication tasks"
@@ -32,26 +32,26 @@ echo "Created 4 authentication tasks"
 set -euo pipefail
 
 # Create epic first, capture ID with --silent
-epic_id=$(npx bd create --title "User Authentication Feature" \
+epic_id=$(br create --title "User Authentication Feature" \
   --description "Complete auth system with JWT, password hashing, and middleware" \
   --type epic --silent)
 
 echo "Created epic: $epic_id"
 
 # Create child tasks under the epic
-npx bd create --title "Implement JWT generation" \
+br create --title "Implement JWT generation" \
   --description "Create token signing and verification functions" \
   --parent "$epic_id"
 
-npx bd create --title "Build login endpoint" \
+br create --title "Build login endpoint" \
   --description "POST /api/auth/login with email/password validation" \
   --parent "$epic_id"
 
-npx bd create --title "Build logout endpoint" \
+br create --title "Build logout endpoint" \
   --description "POST /api/auth/logout to invalidate tokens" \
   --parent "$epic_id"
 
-npx bd create --title "Add auth middleware" \
+br create --title "Add auth middleware" \
   --description "Middleware to protect routes requiring authentication" \
   --parent "$epic_id"
 
@@ -67,10 +67,10 @@ echo "Created epic with 4 child tasks"
 set -euo pipefail
 
 # Get all ready tasks and claim them
-ready_tasks=$(npx bd ready --json | jq -r '.[].id')
+ready_tasks=$(br ready --json | jq -r '.[].id')
 
 for task_id in $ready_tasks; do
-  npx bd update "$task_id" --claim
+  br update "$task_id" --claim
   echo "Claimed: $task_id"
 done
 
@@ -83,8 +83,8 @@ echo "Claimed $(echo "$ready_tasks" | wc -l) tasks"
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Close multiple tasks by ID (bd close accepts multiple IDs)
-npx bd close task-001 task-002 task-003 task-004 --reason "Sprint cleanup"
+# Close multiple tasks by ID (br close accepts multiple IDs)
+br close task-001 task-002 task-003 task-004 --reason "Sprint cleanup"
 
 echo "Closed 4 tasks"
 ```
@@ -102,8 +102,8 @@ echo
 
 # Count by status using jq
 echo "Task Counts by Status:"
-npx bd list --json --limit 0 | jq -r '
-  group_by(.status) |
+br list --json --limit 0 | jq -r '
+  .issues | group_by(.status) |
   map({status: .[0].status, count: length}) |
   .[] |
   "  \(.status): \(.count)"
@@ -111,15 +111,15 @@ npx bd list --json --limit 0 | jq -r '
 
 echo
 echo "Ready Tasks:"
-npx bd ready --json | jq -r '.[] | "  - [\(.id)] \(.title)"'
+br ready --json | jq -r '.[] | "  - [\(.id)] \(.title)"'
 
 echo
 echo "In Progress Tasks:"
-npx bd list --json --status=in_progress | jq -r '.[] | "  - [\(.id)] \(.title)"'
+br list --json --status=in_progress | jq -r '.issues[] | "  - [\(.id)] \(.title)"'
 
 echo
 echo "Recently Closed (last 5):"
-npx bd list --json --all --sort=closed --reverse --limit 5 | jq -r '
+br list --json --all --sort=closed --reverse --limit 5 | jq -r '
   .[] |
   select(.status == "closed") |
   "  - [\(.id)] \(.title)"
@@ -134,14 +134,14 @@ set -euo pipefail
 
 # Find high-priority open tasks (priority 0 or 1)
 echo "High Priority Open Tasks:"
-npx bd query "status=open AND priority<=1" --json | jq -r '
+br list --status open --priority-max 1 --json | jq -r '
   .[] | "  [\(.id)] P\(.priority) \(.title)"
 '
 
 # Find tasks with specific labels
 echo
 echo "Tasks Labeled 'security':"
-npx bd list --json --label security | jq -r '
+br list --json --label security | jq -r '
   .[] | "  [\(.id)] \(.title)"
 '
 ```
@@ -155,14 +155,14 @@ npx bd list --json --label security | jq -r '
 set -euo pipefail
 
 # Claim next task only if nothing currently in progress
-in_progress_count=$(npx bd list --json --status=in_progress | jq 'length')
+in_progress_count=$(br list --json --status=in_progress | jq '.issues | length')
 
 if [ "$in_progress_count" -eq 0 ]; then
   echo "No tasks in progress. Claiming next ready task..."
-  next_task=$(npx bd ready --json --limit 1 | jq -r '.[0].id // empty')
+  next_task=$(br ready --json --limit 1 | jq -r '.[0].id // empty')
 
   if [ -n "$next_task" ]; then
-    npx bd update "$next_task" --claim
+    br update "$next_task" --claim
     echo "Claimed: $next_task"
   else
     echo "No ready tasks available"
@@ -191,10 +191,10 @@ for task_def in "${tasks[@]}"; do
   IFS='|' read -r title description <<< "$task_def"
 
   # Check if task with similar title already exists
-  existing=$(npx bd list --json --title "$title" | jq -r '.[0].id // empty')
+  existing=$(br list --json --title-contains "$title" | jq -r '.issues[0].id // empty')
 
   if [ -z "$existing" ]; then
-    npx bd create --title "$title" --description "$description"
+    br create --title "$title" --description "$description"
     echo "Created: $title"
     ((created++))
   else
@@ -218,7 +218,7 @@ set -euo pipefail
 # Generate markdown checklist from ready tasks
 echo "## Ready Tasks Checklist"
 echo
-npx bd ready --json | jq -r '.[] | "- [ ] \(.title) (`\(.id)`)"'
+br ready --json | jq -r '.[] | "- [ ] \(.title) (`\(.id)`)"'
 ```
 
 ### Cross-Reference Tasks
@@ -229,8 +229,8 @@ set -euo pipefail
 
 echo "=== Blocked Tasks ==="
 
-# Use bd blocked for blocker-aware results
-npx bd blocked --json | jq -r '
+# Use br blocked for blocker-aware results
+br blocked --json | jq -r '
   .[] | "Task: \(.title) (\(.id)) - Status: \(.status)"
 '
 ```
@@ -239,9 +239,9 @@ npx bd blocked --json | jq -r '
 
 1. **Always use `set -euo pipefail`** at the start of batch scripts to fail fast on errors
 2. **Always include `--description`** when creating tasks
-3. **Use `--silent`** with `bd create` to capture only IDs in scripts
+3. **Use `--silent`** with `br create` to capture only IDs in scripts
 4. **Use `--json`** (not `--format json`) for machine-readable output
-5. **Use `bd update --claim`** (not `bd start`) to claim tasks
+5. **Use `br update --claim`** (not `br start`) to claim tasks
 6. **Handle edge cases** — check for empty results from jq before processing
 7. **Add summary output** — always end batch operations with a count of what was done
 8. **Store JSON in variables** — query once, filter multiple times

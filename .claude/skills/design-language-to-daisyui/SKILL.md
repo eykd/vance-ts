@@ -71,6 +71,10 @@ Any DaisyUI modifier can be prefixed with Tailwind breakpoints: `btn-sm md:btn-m
 | chrome outline card, pad large         | `card card-border bg-base-100 p-6`                |
 | primary soft badge size small          | `badge badge-soft badge-primary badge-sm`         |
 
+## Related Design Skills
+
+For layout composition strategy, see `/design-arrange`. For design system alignment, see `/design-normalize`.
+
 ## Key Rules
 
 - **Solid emphasis is the default** — no modifier class needed. `btn btn-primary` is already solid.

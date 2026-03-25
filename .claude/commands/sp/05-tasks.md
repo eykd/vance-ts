@@ -26,7 +26,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    b. If not found in spec.md, search beads for epic by feature name:
 
    ```bash
-   npx bd list --type epic --status open --json
+   br list --type epic --status open --json
    ```
 
    - Parse JSON to find epic matching the feature branch name
@@ -35,7 +35,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    c. If no epic exists, create one:
 
    ```bash
-   npx bd create "Feature: <feature-name>" -t epic -p 0 --description "Epic for <feature-name> feature" --json
+   br create "Feature: <feature-name>" -t epic -p 0 --description "Epic for <feature-name> feature" --json
    ```
 
    - Store the returned ID for use in task creation
@@ -58,7 +58,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    **First, find the implement phase task** (created by `/sp:01-specify`):
 
    ```bash
-   IMPLEMENT_TASK_ID=$(npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:07-implement]")) | .id')
+   IMPLEMENT_TASK_ID=$(br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:07-implement]")) | .id')
    ```
 
    Store this ID - all user story tasks will be created as children of this task.
@@ -81,7 +81,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    a. Create a task for the user story **as a child of the implement task** with description:
 
    ```bash
-   npx bd create "US<N>: <user-story-title>" -p <priority> --parent $IMPLEMENT_TASK_ID \
+   br create "US<N>: <user-story-title>" -p <priority> --parent $IMPLEMENT_TASK_ID \
      --description "**Spec**: specs/$BRANCH/spec.md §US-<N>
    **Goal**: <user-story-goal-from-spec>
    **Acceptance**: <acceptance-criteria-summary>
@@ -97,7 +97,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    b. For each implementation step within the user story, create a sub-task with description:
 
    ```bash
-   npx bd create "<step-description>" -p <priority> --parent <user-story-task-id> \
+   br create "<step-description>" -p <priority> --parent <user-story-task-id> \
      --description "**Spec**: specs/$BRANCH/spec.md §US-<N>, plan.md §<section>
    **Skills**: <skill-list-from-mapping>
    **Files**: <target-file-paths>
@@ -112,7 +112,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    c. Establish dependencies between sequential tasks:
 
    ```bash
-   npx bd dep add <dependent-task-id> <blocking-task-id>
+   br dep add <dependent-task-id> <blocking-task-id>
    ```
 
    - Add dependencies where one task must complete before another
@@ -120,16 +120,17 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    d. For parallel tasks (marked [P] in task plan):
    - Create without dependencies between them
-   - They will all appear in `bd ready` once their common parent is ready
+   - They will all appear in `br ready` once their common parent is ready
 
 6. **Verify Task Hierarchy**:
 
    ```bash
-   npx bd dep tree <epic-id>
+   br dep tree <epic-id> --direction up
    ```
 
+   - Note: `--direction up` shows dependents/children (default `down` shows blockers, which is empty for an epic)
    - Verify the hierarchy: Epic → User Story Tasks → Implementation Sub-tasks
-   - Check for any circular dependencies: `npx bd dep cycles`
+   - Check for any circular dependencies: `br dep cycles`
 
 7. **Close Phase Task in Beads**:
 
@@ -138,13 +139,13 @@ You **MUST** consider the user input before proceeding (if not empty).
    a. Find the tasks phase task:
 
    ```bash
-   npx bd list --parent <epic-id> --status open --json | jq -r '.[] | select(.title | contains("[sp:05-tasks]")) | .id'
+   br show <epic-id> --json | jq -r '.[0].dependents[] | select(.title | contains("[sp:05-tasks]") and .status == "open") | .id'
    ```
 
    b. Close the task with a completion summary:
 
    ```bash
-   npx bd close <tasks-task-id> --reason "Created <N> tasks across <M> user stories under [sp:07-implement]"
+   br close <tasks-task-id> --reason "Created <N> tasks across <M> user stories under [sp:07-implement]"
    ```
 
    c. The [sp:06-analyze] phase task is now ready (its dependency on 05-tasks is satisfied).
@@ -159,7 +160,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Independent test criteria for each story
    - Suggested MVP scope (typically just User Story 1)
    - **Next step**: Run `/sp:next` or `/sp:06-analyze` to validate cross-artifact consistency
-   - **How to view ready tasks**: `npx bd ready --json`
+   - **How to view ready tasks**: `br ready --json`
 
 Context for task generation: $ARGUMENTS
 
@@ -198,8 +199,8 @@ Sub-task: "<action> <target> in <file-path>"
 
 ### Dependency Rules
 
-1. **Sequential tasks**: Use `bd dep add <child> <parent>` to create blocking relationships
-2. **Parallel tasks**: Do NOT add dependencies between them - they'll appear together in `bd ready`
+1. **Sequential tasks**: Use `br dep add <child> <parent>` to create blocking relationships
+2. **Parallel tasks**: Do NOT add dependencies between them - they'll appear together in `br ready`
 3. **Cross-story dependencies**: Minimize these; each story should be independently completable
 4. **Setup/Foundational**: These block all user story tasks
 
@@ -246,7 +247,8 @@ If beads commands fail during task creation:
 1. **Epic not found**: Create a new epic for the feature
 2. **Task creation fails**: Log error, continue with remaining tasks, report failures at end
 3. **Dependency cycle detected**: Remove the problematic dependency, log warning
-4. **bd command not found**: Suggest `npm install --save-dev @beads/bd`
+4. **DB cache corruption** (`UNIQUE constraint failed: blocked_issues_cache.issue_id`): Run `br doctor` to auto-repair by rebuilding caches from JSONL. Common when creating many tasks/deps rapidly.
+5. **br command not found**: Suggest installing br via curl
 
 If beads commands fail completely, report failures and suggest troubleshooting steps.
 

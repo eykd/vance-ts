@@ -1,6 +1,6 @@
 # Spec-Kit Commands with Beads Integration
 
-This directory contains the spec-kit workflow commands integrated with [beads](https://github.com/steveyegge/beads) for task tracking and workflow orchestration.
+This directory contains the spec-kit workflow commands integrated with [beads_rust](https://github.com/Dicklesworthstone/beads_rust) for task tracking and workflow orchestration.
 
 ## Command Reference
 
@@ -17,7 +17,7 @@ This directory contains the spec-kit workflow commands integrated with [beads](h
 | `/sp:08-security-review`     | Security review (base..HEAD)     | Creates remediation tasks in beads                                      |
 | `/sp:09-architecture-review` | Architecture review (base..HEAD) | Creates remediation tasks in beads                                      |
 | `/sp:10-code-quality-review` | Code quality review (base..HEAD) | Creates remediation tasks in beads                                      |
-| `/sp:next`                   | **Orchestrate workflow**         | Queries `bd ready`, invokes next command                                |
+| `/sp:next`                   | **Orchestrate workflow**         | Queries `br ready`, invokes next command                                |
 
 ## Workflow: Beads Dependency Chain
 
@@ -52,7 +52,7 @@ The entire workflow is driven by beads task dependencies. `/sp:01-specify` creat
            │         │
            └── [sp:10-code-quality-review] Code quality review  ←── depends on 09
 
-Progress: Run `/sp:next` to query `bd ready` and invoke the next phase
+Progress: Run `/sp:next` to query `br ready` and invoke the next phase
 ```
 
 ## Phase Task Naming Convention
@@ -94,13 +94,13 @@ The `/sp:next` command orchestrates the workflow automatically:
 These commands use beads for task management:
 
 1. **Task Storage**: Tasks stored in beads (`.beads/`) with git-backed persistence
-2. **Dependencies**: Phase tasks created with `bd dep add` to form the workflow chain
-3. **Progress**: Each phase closes itself via `bd close` to unblock the next
-4. **Queries**: `/sp:next` uses `bd ready` to find the next available phase
+2. **Dependencies**: Phase tasks created with `br dep add` to form the workflow chain
+3. **Progress**: Each phase closes itself via `br close` to unblock the next
+4. **Queries**: `/sp:next` uses `br ready` to find the next available phase
 
 ## Prerequisites
 
-- `@beads/bd` installed as devDependency: `npm install --save-dev @beads/bd`
+- `br` (beads_rust) installed: install via curl
 - Git repository (required for beads)
 - Beads initializes automatically on first use via `/sp:01-specify`
 
@@ -132,16 +132,16 @@ These commands use beads for task management:
 
 ```bash
 # View ready tasks (unblocked)
-npx bd ready
+br ready
 
 # View all tasks for a feature epic
-npx bd list --parent <epic-id> --json
+br show <epic-id> --json  # use .[0].dependents array for child tasks
 
 # View dependency tree (shows phase chain)
-npx bd dep tree <epic-id>
+br dep tree <epic-id> --direction up
 
 # Get statistics
-npx bd stats
+br stats
 
 # Check workflow status
 /sp:next --status

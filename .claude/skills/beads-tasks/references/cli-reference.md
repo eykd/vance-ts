@@ -1,15 +1,21 @@
-# bd CLI Reference
+# br CLI Reference
 
-Authoritative command reference derived from actual `bd <cmd> --help` output. When in doubt, run `npx bd <cmd> --help` to verify.
+Authoritative command reference derived from actual `br <cmd> --help` output. When in doubt, run `br <cmd> --help` to verify.
+
+## Installation
+
+```bash
+curl -fsSL "https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh" | bash
+```
 
 ## Global Flags
 
-These flags work with every `bd` command:
+These flags work with every `br` command:
 
 | Flag             | Description                                                               |
 | ---------------- | ------------------------------------------------------------------------- |
 | `--json`         | Output in JSON format                                                     |
-| `--actor <name>` | Actor name for audit trail (default: `$BD_ACTOR`, git user.name, `$USER`) |
+| `--actor <name>` | Actor name for audit trail (default: `$BR_ACTOR`, git user.name, `$USER`) |
 | `--db <path>`    | Database path (default: auto-discover `.beads/*.db`)                      |
 | `-q, --quiet`    | Suppress non-essential output (errors only)                               |
 | `-v, --verbose`  | Enable verbose/debug output                                               |
@@ -17,12 +23,12 @@ These flags work with every `bd` command:
 | `--sandbox`      | Sandbox mode: disables auto-sync                                          |
 | `--allow-stale`  | Allow operations on potentially stale data                                |
 
-## bd create
+## br create
 
 Create a new issue (or multiple issues from markdown file).
 
 ```
-bd create [title] [flags]
+br create [title] [flags]
 ```
 
 **Aliases:** `create`, `new`
@@ -41,7 +47,7 @@ bd create [title] [flags]
 | `-l, --labels <strings>`     | Labels (comma-separated)                                                  |
 | `-e, --estimate <int>`       | Time estimate in minutes                                                  |
 | `--due <string>`             | Due date/time (`+6h`, `+1d`, `tomorrow`, `2025-01-15`)                    |
-| `--defer <string>`           | Defer until date (hidden from `bd ready` until then)                      |
+| `--defer <string>`           | Defer until date (hidden from `br ready` until then)                      |
 | `--deps <strings>`           | Dependencies in format `type:id` or `id`                                  |
 | `--notes <string>`           | Additional notes                                                          |
 | `--acceptance <string>`      | Acceptance criteria                                                       |
@@ -55,75 +61,73 @@ bd create [title] [flags]
 | `--no-inherit-labels`        | Don't inherit labels from parent                                          |
 | `--ephemeral`                | Create as ephemeral (subject to TTL compaction)                           |
 
-## bd list
+## br list
 
 List issues. Default: open issues, limit 50.
 
 ```
-bd list [flags]
+br list [flags]
 ```
 
 ### Key Flags
 
-| Flag                            | Description                                                                                      |
-| ------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `-s, --status <string>`         | Filter by status: `open`, `in_progress`, `blocked`, `deferred`, `closed`                         |
-| `-t, --type <string>`           | Filter by type                                                                                   |
-| `-p, --priority <string>`       | Filter by priority (`0-4` or `P0-P4`)                                                            |
-| `--priority-min/max <string>`   | Priority range (inclusive)                                                                       |
-| `-a, --assignee <string>`       | Filter by assignee                                                                               |
-| `-l, --label <strings>`         | Filter by labels (AND logic)                                                                     |
-| `--label-any <strings>`         | Filter by labels (OR logic)                                                                      |
-| `--parent <id>`                 | Show children of specified parent                                                                |
-| `--no-parent`                   | Exclude child issues (top-level only)                                                            |
-| `-n, --limit <int>`             | Limit results (default 50, use 0 for unlimited)                                                  |
-| `--sort <field>`                | Sort by: `priority`, `created`, `updated`, `closed`, `status`, `id`, `title`, `type`, `assignee` |
-| `-r, --reverse`                 | Reverse sort order                                                                               |
-| `--all`                         | Include closed issues                                                                            |
-| `--ready`                       | Status=open only (NOT blocker-aware; use `bd ready` instead)                                     |
-| `--overdue`                     | Issues with `due_at` in the past                                                                 |
-| `--deferred`                    | Only issues with `defer_until` set                                                               |
-| `--title <string>`              | Filter by title substring (case-insensitive)                                                     |
-| `--desc-contains <string>`      | Filter by description substring                                                                  |
-| `--created-after/before <date>` | Date range filters (YYYY-MM-DD or RFC3339)                                                       |
-| `--updated-after/before <date>` | Date range filters                                                                               |
-| `--pretty` / `--tree`           | Hierarchical tree format                                                                         |
-| `--long`                        | Detailed multi-line output                                                                       |
-| `--id <string>`                 | Filter by specific IDs (comma-separated)                                                         |
-| `--no-assignee`                 | Issues with no assignee                                                                          |
-| `--no-labels`                   | Issues with no labels                                                                            |
-| `--empty-description`           | Issues with empty/missing description                                                            |
-| `--pinned` / `--no-pinned`      | Filter by pinned status                                                                          |
+| Flag                          | Description                                                              |
+| ----------------------------- | ------------------------------------------------------------------------ |
+| `-s, --status <string>`       | Filter by status: `open`, `in_progress`, `blocked`, `deferred`, `closed` |
+| `-t, --type <string>`         | Filter by type (can be repeated)                                         |
+| `-p, --priority <string>`     | Filter by priority (`0-4` or `P0-P4`, can be repeated)                   |
+| `--priority-min/max <string>` | Priority range (inclusive)                                               |
+| `--assignee <string>`         | Filter by assignee                                                       |
+| `--unassigned`                | Filter for unassigned issues only                                        |
+| `-l, --label <strings>`       | Filter by labels (AND logic, can be repeated)                            |
+| `--label-any <strings>`       | Filter by labels (OR logic, can be repeated)                             |
+| `-n, --limit <int>`           | Limit results (default 50, use 0 for unlimited)                          |
+| `--offset <int>`              | Number of results to skip (for pagination, default 0)                    |
+| `--sort <field>`              | Sort by: `priority`, `created_at`, `updated_at`, `title`                 |
+| `-r, --reverse`               | Reverse sort order                                                       |
+| `-a, --all`                   | Include closed issues                                                    |
+| `--overdue`                   | Issues with `due_at` in the past                                         |
+| `--deferred`                  | Include deferred issues                                                  |
+| `--title-contains <string>`   | Filter by title substring (case-insensitive)                             |
+| `--desc-contains <string>`    | Filter by description substring                                          |
+| `--notes-contains <string>`   | Filter by notes substring                                                |
+| `--pretty`                    | Use tree/pretty output format                                            |
+| `--long`                      | Detailed multi-line output                                               |
+| `--id <string>`               | Filter by specific IDs (can be repeated)                                 |
 
-## bd show
+**Note**: `br list` does NOT support `--parent`, `--no-parent`, or `--ready` flags. To list children, use `br show <parent-id> --json` and parse `.[0].dependents[]`. For ready work, use `br ready`.
+
+**JSON output**: `br list --json` returns `{"issues": [...], "total": N, "limit": N, "offset": N, "has_more": bool}` (paginated envelope), NOT a bare array. Use `.issues[]` in jq, not `.[]`.
+
+## br show
 
 Show issue details.
 
 ```
-bd show [id...] [--id=<id>...] [flags]
+br show [id...] [--id=<id>...] [flags]
 ```
 
 **Aliases:** `show`, `view`
 
-| Flag           | Description                             |
-| -------------- | --------------------------------------- |
-| `--children`   | Show only children of this issue        |
-| `--refs`       | Show issues that reference this issue   |
-| `--short`      | Compact one-line output                 |
-| `--local-time` | Timestamps in local time instead of UTC |
-| `-w, --watch`  | Watch for changes                       |
+| Flag                | Description                                          |
+| ------------------- | ---------------------------------------------------- |
+| `--format <FORMAT>` | Output format: `text` (default), `json`, `toon`      |
+| `--wrap`            | Wrap long lines instead of truncating in text output |
+| `--stats`           | Show token savings stats when using TOON output      |
 
-**JSON output note:** `bd show <id> --json` returns an array. For a single issue, the object is at `.[0]`. When the issue has children, they appear in the `dependents` array within the object.
+**Note**: `br show` does NOT support `--children`, `--refs`, `--short`, `--local-time`, or `--watch` flags.
 
-## bd ready
+**JSON output note:** `br show <id> --json` returns an array. For a single issue, the object is at `.[0]`. When the issue has children, they appear in the `dependents` array within the object.
+
+## br ready
 
 Show ready work — open issues with no active blockers.
 
 ```
-bd ready [flags]
+br ready [flags]
 ```
 
-**Important:** `bd ready` is NOT equivalent to `bd list --ready`. It uses the `GetReadyWork` API which applies blocker-aware semantics. `bd list --ready` only filters `status=open` and misses dependency-blocked issues.
+**Important:** `br ready` is the only way to get blocker-aware ready work. `br list` does NOT have a `--ready` flag — filtering by `--status open` alone misses dependency-blocked issues. Always use `br ready` for task selection.
 
 | Flag                      | Description                                    |
 | ------------------------- | ---------------------------------------------- |
@@ -143,12 +147,12 @@ bd ready [flags]
 | `--gated`                 | Find molecules ready for gate-resume dispatch  |
 | `--mol <id>`              | Filter to steps within a molecule              |
 
-## bd update
+## br update
 
 Update one or more issues. If no ID given, updates last touched issue.
 
 ```
-bd update [id...] [flags]
+br update [id...] [flags]
 ```
 
 | Flag                         | Description                                                                                |
@@ -178,12 +182,12 @@ bd update [id...] [flags]
 | `--unset-metadata <key>`     | Remove metadata key (repeatable)                                                           |
 | `--body-file <path>`         | Read description from file                                                                 |
 
-## bd close
+## br close
 
 Close one or more issues. If no ID given, closes last touched issue.
 
 ```
-bd close [id...] [flags]
+br close [id...] [flags]
 ```
 
 | Flag                    | Description                                       |
@@ -194,53 +198,31 @@ bd close [id...] [flags]
 | `--no-auto`             | With `--continue`, show next step but don't claim |
 | `-f, --force`           | Force close pinned issues or unsatisfied gates    |
 
-## bd query
+## br query
 
-Query issues using a simple query language.
+**Changed**: `br query` now manages saved queries only. It no longer accepts inline query expressions.
 
 ```
-bd query [expression] [flags]
+br query <COMMAND>
 ```
 
-### Query Language Syntax
+### Subcommands
 
-| Operator             | Example                                          |
-| -------------------- | ------------------------------------------------ |
-| `=`                  | `status=open`                                    |
-| `!=`                 | `status!=closed`                                 |
-| `>`, `>=`, `<`, `<=` | `priority<=1`, `created>7d`                      |
-| `AND`                | `status=open AND priority<=1`                    |
-| `OR`                 | `type=bug OR type=feature`                       |
-| `NOT`                | `NOT status=closed`                              |
-| `()`                 | `(status=open OR status=blocked) AND priority<2` |
+| Command  | Description                              |
+| -------- | ---------------------------------------- |
+| `save`   | Save current filter set as a named query |
+| `run`    | Run a saved query                        |
+| `list`   | List all saved queries                   |
+| `delete` | Delete a saved query                     |
 
-### Supported Fields
+**To filter issues**, use `br list` flags (`--status`, `--type`, `--priority`, `--title-contains`, etc.) instead of inline query expressions.
 
-`status`, `priority`, `type`, `assignee`, `owner`, `label`, `title`, `description`, `notes`, `created`, `updated`, `closed`, `id`, `spec`, `pinned`, `ephemeral`, `template`, `parent`, `mol_type`
-
-### Date Values
-
-- Relative: `7d`, `24h`, `2w`
-- Absolute: `2025-01-15`, `2025-01-15T10:00:00Z`
-- Natural: `tomorrow`, `"next monday"`, `"in 3 days"`
-
-### Flags
-
-| Flag                | Description                       |
-| ------------------- | --------------------------------- |
-| `-a, --all`         | Include closed issues             |
-| `-n, --limit <int>` | Limit (default 50, 0 = unlimited) |
-| `--sort <field>`    | Sort by field                     |
-| `-r, --reverse`     | Reverse sort                      |
-| `--long`            | Detailed output                   |
-| `--parse-only`      | Show AST (for debugging)          |
-
-## bd search
+## br search
 
 Search issues by text across title, description, and ID.
 
 ```
-bd search [query] [flags]
+br search [query] [flags]
 ```
 
 | Flag                            | Description            |
@@ -261,32 +243,32 @@ bd search [query] [flags]
 | `--no-assignee`                 | No assignee            |
 | `--no-labels`                   | No labels              |
 
-## bd dep
+## br dep
 
 Manage dependencies between issues.
 
 ### Subcommands
 
-**`bd dep add <blocked> <blocker>`** — Add a dependency (blocked depends on blocker).
+**`br dep add <blocked> <blocker>`** — Add a dependency (blocked depends on blocker).
 
 ```bash
-bd dep add bd-42 bd-41             # bd-42 depends on bd-41
-bd dep add bd-42 --blocked-by bd-41  # Same (flag syntax)
-bd dep bd-41 --blocks bd-42        # Same (reverse syntax)
+br dep add bd-42 bd-41             # bd-42 depends on bd-41
+br dep add bd-42 --blocked-by bd-41  # Same (flag syntax)
+br dep bd-41 --blocks bd-42        # Same (reverse syntax)
 ```
 
 Types: `blocks` (default), `tracks`, `related`, `parent-child`, `discovered-from`, `until`, `caused-by`, `validates`, `relates-to`, `supersedes`
 
-**`bd dep remove <blocked> <blocker>`** — Remove a dependency.
+**`br dep remove <blocked> <blocker>`** — Remove a dependency.
 
-**`bd dep list <id>`** — List dependencies or dependents.
+**`br dep list <id>`** — List dependencies or dependents.
 
 | Flag                     | Description                                        |
 | ------------------------ | -------------------------------------------------- |
 | `--direction <down\|up>` | `down` = dependencies (default), `up` = dependents |
 | `-t, --type <string>`    | Filter by dependency type                          |
 
-**`bd dep tree <id>`** — Show dependency tree.
+**`br dep tree <id>`** — Show dependency tree.
 
 | Flag                           | Description                 |
 | ------------------------------ | --------------------------- |
@@ -296,47 +278,53 @@ Types: `blocks` (default), `tracks`, `related`, `parent-child`, `discovered-from
 | `-t, --type <string>`          | Filter by dependency type   |
 | `--format mermaid`             | Output as Mermaid flowchart |
 
-**`bd dep cycles`** — Detect dependency cycles.
+**`br dep cycles`** — Detect dependency cycles.
 
-**`bd dep relate <id1> <id2>`** — Create bidirectional relates_to link.
+**`br dep relate <id1> <id2>`** — Create bidirectional relates_to link.
 
-## bd epic
+## br epic
 
 Epic management commands.
 
-**`bd epic status`** — Show epic completion status.
+**`br epic status`** — Show epic completion status.
 
 | Flag              | Description                          |
 | ----------------- | ------------------------------------ |
 | `--eligible-only` | Show only epics eligible for closure |
 
-**`bd epic close-eligible`** — Close epics where all children are complete.
+**`br epic close-eligible`** — Close epics where all children are complete.
 
 | Flag        | Description             |
 | ----------- | ----------------------- |
 | `--dry-run` | Preview without closing |
 
-## bd children
+## br children (DOES NOT EXIST)
 
-List child issues of a parent. Convenience alias for `bd list --parent <id>`.
+**This subcommand does not exist in br.** To list children, use:
 
+```bash
+# Get children via br show (includes dependents array in JSON output)
+br show <parent-id> --json | jq '.[0].dependents[]'
+
+# Or view hierarchy via dep tree (--direction up shows children/dependents)
+br dep tree <parent-id> --direction up
 ```
-bd children <parent-id> [--json] [--pretty]
-```
 
-## bd blocked
+## br blocked
 
 Show blocked issues.
 
 ```
-bd blocked [--parent <epic-id>] [--json]
+br blocked [--json] [--limit N] [--detailed] [--type TYPE] [--priority P]
 ```
+
+**Note**: `br blocked` does NOT support `--parent`. It lists all blocked issues globally.
 
 ## JSON Output Schema
 
-Actual field names from live `bd --json` output (snake_case):
+Actual field names from live `br --json` output (snake_case):
 
-### Task Object (from `bd list --json`)
+### Task Object (from `br list --json`)
 
 ```json
 {
@@ -357,7 +345,7 @@ Actual field names from live `bd --json` output (snake_case):
 }
 ```
 
-### Task Object with dependents (from `bd show <id> --json`)
+### Task Object with dependents (from `br show <id> --json`)
 
 Additional fields on child/dependent objects:
 
@@ -380,7 +368,7 @@ Additional fields on child/dependent objects:
 | `created_at`       | string  | ISO 8601 UTC timestamp                                                     |
 | `dependency_count` | integer | Number of issues this depends on                                           |
 | `dependent_count`  | integer | Number of issues that depend on this                                       |
-| `dependents`       | array   | Present in `bd show --json` output, contains child/dependent objects       |
+| `dependents`       | array   | Present in `br show --json` output, contains child/dependent objects       |
 | `close_reason`     | string  | Present when closed                                                        |
 
 ### Status Values
@@ -389,5 +377,33 @@ Additional fields on child/dependent objects:
 
 ### List output vs show output
 
-- `bd list --json` returns a flat array of objects with count fields (`dependency_count`, `dependent_count`)
-- `bd show <id> --json` returns an array with full objects including nested `dependents` array
+- `br list --json` returns a paginated envelope: `{"issues": [...], "total": N, "limit": N, "offset": N, "has_more": bool}` (use `.issues[]` in jq)
+- `br show <id> --json` returns a bare array with full objects including nested `dependents` array (use `.[0]` in jq)
+- `br ready --json`, `br blocked --json`, `br search --json` return bare arrays (use `.[]` in jq)
+
+## Additional Commands
+
+These commands are available in `br` (beads_rust):
+
+| Command                          | Description                                                  |
+| -------------------------------- | ------------------------------------------------------------ |
+| `br stale`                       | Find stale issues (no activity for a configurable period)    |
+| `br label`                       | Manage labels (create, list, rename, delete)                 |
+| `br comments`                    | List comments on an issue                                    |
+| `br comments add <id> "message"` | Add a comment to an issue                                    |
+| `br doctor`                      | Diagnose and repair database issues                          |
+| `br stats`                       | Show database and project statistics                         |
+| `br upgrade`                     | Upgrade br to the latest version                             |
+| `br agents`                      | Manage agent configurations                                  |
+| `br reopen`                      | Reopen a previously closed issue                             |
+| `br graph`                       | Visualize issue relationships as a graph                     |
+| `br changelog`                   | Generate a changelog from closed issues                      |
+| `br defer`                       | Defer an issue until a future date                           |
+| `br undefer`                     | Remove deferral from an issue                                |
+| `br lint`                        | Lint issues for common problems (missing descriptions, etc.) |
+| `br orphans`                     | Find orphaned issues with no parent                          |
+| `br schema`                      | Show or manage the database schema                           |
+| `br where`                       | Show the database file path                                  |
+| `br info`                        | Show project/database information                            |
+| `br history`                     | Show change history for an issue                             |
+| `br audit`                       | Show audit trail of operations                               |

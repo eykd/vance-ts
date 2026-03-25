@@ -64,14 +64,9 @@ acceptance-pipeline/ir/
 reports/
 .stryker-tmp/
 
-# Dolt database files (added by bd init)
+# Beads database files
 .dolt/
 *.db
 
-# Beads runtime state
-.beads/*.pid
-.beads/*.port
-.beads/*.lock
-.beads/*.log
-.beads/*.activity
-.beads/dolt/
+# Beads history (operational undo snapshots, not collaborative state)
+.beads/.br_history/

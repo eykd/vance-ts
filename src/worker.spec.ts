@@ -215,6 +215,46 @@ describe('Worker', () => {
     });
   });
 
+  describe('HEAD /api/health', () => {
+    it('does not duplicate response headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/health', { method: 'HEAD' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(200);
+      // Count occurrences of each header name — duplicates would appear as multiple entries
+      const headerCounts = new Map<string, number>();
+      res.headers.forEach((_value, name) => {
+        headerCounts.set(name, (headerCounts.get(name) ?? 0) + 1);
+      });
+      for (const [name, count] of headerCounts) {
+        expect(count, `header "${name}" appeared ${count} times`).toBe(1);
+      }
+    });
+
+    it('includes security headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/health', { method: 'HEAD' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+
+    it('returns an empty body', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/health', { method: 'HEAD' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.body).toBeNull();
+    });
+  });
+
   describe('GET /api/nonexistent', () => {
     it('returns 404 JSON', async () => {
       const env = mockEnv();
@@ -437,6 +477,138 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
 
       expectSecurityHeaders(res);
+    });
+  });
+
+  describe('405 Method Not Allowed on auth page routes', () => {
+    it.each([
+      { path: '/auth/sign-in', method: 'PUT', allow: 'GET, POST' },
+      { path: '/auth/sign-in', method: 'DELETE', allow: 'GET, POST' },
+      { path: '/auth/sign-in', method: 'PATCH', allow: 'GET, POST' },
+      { path: '/auth/sign-up', method: 'PUT', allow: 'GET, POST' },
+      { path: '/auth/sign-up', method: 'DELETE', allow: 'GET, POST' },
+      { path: '/auth/sign-up', method: 'PATCH', allow: 'GET, POST' },
+      { path: '/auth/sign-out', method: 'GET', allow: 'POST' },
+      { path: '/auth/sign-out', method: 'PUT', allow: 'POST' },
+      { path: '/auth/sign-out', method: 'DELETE', allow: 'POST' },
+      { path: '/auth/sign-out', method: 'PATCH', allow: 'POST' },
+    ])('returns 405 for $method $path with Allow: $allow', async ({ path, method, allow }) => {
+      const env = mockEnv();
+      const req = new Request(`https://example.com${path}`, { method });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(405);
+      expect(res.headers.get('Allow')).toBe(allow);
+    });
+
+    it('includes security headers on 405 responses', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/auth/sign-out', { method: 'PUT' });
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(405);
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    });
+
+    it('does not delegate to auth page handlers for unsupported methods', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/auth/sign-out', { method: 'DELETE' });
+
+      await app.fetch(req, env);
+
+      expect(mocks.handlePostSignOut).not.toHaveBeenCalled();
+      expect(mocks.handleGetSignIn).not.toHaveBeenCalled();
+      expect(mocks.handlePostSignIn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /api/auth/error', () => {
+    it('returns a styled HTML error page instead of better-auth default', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(400);
+      expect(res.headers.get('Content-Type')).toContain('text/html');
+      const body = await res.text();
+      expect(body).toMatch(/^<!DOCTYPE html>/);
+      expect(body).toContain('Authentication Error');
+    });
+
+    it('does not delegate to authHandler', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      await app.fetch(req, env);
+
+      expect(mocks.authHandlerFn).not.toHaveBeenCalled();
+    });
+
+    it('does not reveal the auth framework name', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+      const body = await res.text();
+
+      expect(body.toLowerCase()).not.toContain('better-auth');
+    });
+
+    it('does not contain external links', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+      const body = await res.text();
+
+      expect(body).not.toMatch(/href="https?:\/\//);
+    });
+
+    it('includes security headers', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+
+    it('includes Cache-Control: no-store, no-cache to prevent caching error pages', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+    });
+
+    it('renders the page with query parameters (e.g. ?error=state_not_found)', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error?error=state_not_found');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(400);
+      const body = await res.text();
+      expect(body).toContain('Authentication Error');
+    });
+
+    it('returns 500 for internal_server_error', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/auth/error?error=internal_server_error');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(500);
+      const body = await res.text();
+      expect(body).toContain('Authentication Error');
     });
   });
 

@@ -79,6 +79,10 @@ return new Response(html, {
 | `:class`            | Dynamic classes         |
 | `:disabled`         | Dynamic disabled        |
 
+## Related Design Skills
+
+For motion design guidance on HTMX transitions, see `/design-animate`.
+
 ## Related HTMX Skills
 
 **Workflow**: Use hypermedia-pattern-advisor for decisions → Use this skill for implementations → Use htmx-alpine-templates for complete examples

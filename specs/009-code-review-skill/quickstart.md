@@ -17,7 +17,7 @@ The code-review skill is a Claude Code skill (markdown file). No installation re
 
 1. **Git repository**: The skill requires git for diff generation
 2. **Claude Code**: Installed and authenticated
-3. **For sp:review**: Beads initialized (`npx bd init`)
+3. **For sp:review**: Beads initialized (`br init`)
 
 ---
 
@@ -219,8 +219,8 @@ git rev-parse main
 
 ```bash
 # Initialize beads if needed
-npx bd init
+br init
 
 # Check beads status
-npx bd stats
+br stats
 ```

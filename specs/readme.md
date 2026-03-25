@@ -106,9 +106,9 @@ Spec: specs/007-hugo-project-setup/spec.md
 
 ## Beads Integration
 
-Keywords: beads, bd, task tracking, epic, task hierarchy, dependency graph, bd init,
-bd create, bd ready, bd close, bd dep, bd list, spec-kit, /sp:01-specify, namespace
-swap, task status, git-backed, issue tracker, epic ID, sub-task, phase tasks, dolt
+Keywords: beads, br, task tracking, epic, task hierarchy, dependency graph, br init,
+br create, br ready, br close, br dep, br list, spec-kit, /sp:01-specify, namespace
+swap, task status, git-backed, issue tracker, epic ID, sub-task, phase tasks
 Spec: specs/008-beads-integration/spec.md
 
 ---
@@ -149,6 +149,27 @@ dashboard, auth status, session check, authenticated navbar, HTMX swap, Alpine.j
 progressive enhancement, auth guard, client-side redirect, auth endpoint, hypermedia auth,
 Get Started replacement, nav auth area, auth state, fail-closed
 Spec: specs/012-auth-static-integration/spec.md
+
+---
+
+## Import Impeccable Design Skills
+
+Keywords: impeccable, design skills, import, adapt, fork, Apache 2.0, license, attribution,
+NOTICE, pbakaus, frontend design, style, polish, critique, audit, animate, arrange, colorize,
+typeset, clarify, delight, distill, harden, normalize, bolder, quieter, onboard, optimize,
+overdrive, extract, design-prefix, skill namespace, DaisyUI adaptation, Tailwind adaptation
+Spec: specs/013-import-design-skills/spec.md
+
+---
+
+## Guard Hook Hardening
+
+Keywords: hook, guard, pre-tool-use, bash, destructive, blocked, git reset, git checkout,
+git clean, git restore, rm -rf, git commit --amend, git merge --squash, git stash drop,
+git stash clear, git branch -D, git add, wrangler, gh repo delete, command normalization,
+safe pattern, whitelist, false positive, exit code, warning, advisory, DCG, PreToolUse,
+dangerous command, force push, hook bypass, pre-commit
+Spec: specs/014-guard-hook-hardening/spec.md
 
 ---
 

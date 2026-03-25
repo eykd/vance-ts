@@ -38,7 +38,7 @@ This separation allows Hugo-specific copywriting standards to live alongside the
 
 - `hugo-copywriting` skill (this one) - **On every invocation**
 - `hugo-templates` skill - For template conventions
-- `frontend-design` skill - For design decisions
+- `design-frontend` skill - For design decisions
 - Other Hugo-related skills as needed
 
 ## Initialization Workflow (CRITICAL)

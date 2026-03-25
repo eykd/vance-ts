@@ -869,6 +869,37 @@ export default [
     },
   },
 
+  // Build scripts in scripts/ directory can use Node.js APIs
+  // (run via tsx/vitest in Node.js, not in Cloudflare Workers)
+  {
+    files: ['scripts/**/*.ts'],
+    languageOptions: {
+      globals: {
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        process: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearTimeout: 'readonly',
+        clearInterval: 'readonly',
+        describe: 'readonly',
+        test: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+      },
+    },
+    rules: {
+      'no-restricted-imports': 'off',
+      'no-restricted-globals': 'off',
+      'no-console': 'off',
+    },
+  },
+
   // Acceptance pipeline in acceptance/ directory can use Node.js APIs
   // (runs via tsx in Node.js, not in Cloudflare Workers)
   {

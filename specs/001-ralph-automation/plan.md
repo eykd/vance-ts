@@ -10,7 +10,7 @@ Create a `ralph.sh` bash script that orchestrates automated feature development 
 ## Technical Context
 
 **Language/Version**: Bash 5.x (GNU bash)
-**Primary Dependencies**: Claude CLI (`claude`), Beads CLI (`bd` v0.47+), Git, standard POSIX utilities
+**Primary Dependencies**: Claude CLI (`claude`), Beads CLI (`br`), Git, standard POSIX utilities
 **Storage**: N/A (stateless script; beads handles persistence)
 **Testing**: Bash script testing via BATS (Bash Automated Testing System) or manual integration tests
 **Target Platform**: Linux/macOS with bash 5.x, Claude CLI authenticated
@@ -76,7 +76,7 @@ ralph.sh                 # Main automation script (repository root)
 3. Create lock file (exit if already exists)
 4. Main loop:
    while iterations < max_iterations:
-     ready_tasks = bd ready --parent $epic_id --json
+     ready_tasks = br ready --parent $epic_id --json
      if no ready tasks:
        break (success)
      log iteration start
@@ -91,7 +91,7 @@ ralph.sh                 # Main automation script (repository root)
 
 ### Key Design Decisions
 
-1. **Beads as source of truth**: No output parsing or state diffing. Simply check `bd ready` each iteration.
+1. **Beads as source of truth**: No output parsing or state diffing. Simply check `br ready` each iteration.
 
 2. **Exponential backoff**: Delays: 1s, 2s, 4s, 8s, 16s, 32s, 64s, 128s, 256s, 300s (capped at 5 min)
 
@@ -104,5 +104,5 @@ ralph.sh                 # Main automation script (repository root)
 ## Dependencies on Existing Systems
 
 - **sp:next skill**: Must correctly identify and execute the next ready phase task
-- **Phase skills (03-09)**: Each must close its beads task on completion via `bd close`
+- **Phase skills (03-09)**: Each must close its beads task on completion via `br close`
 - **Beads dependency chain**: Must be correctly set up by sp:01-specify so phases execute in order

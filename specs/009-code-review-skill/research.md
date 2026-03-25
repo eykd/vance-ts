@@ -204,9 +204,9 @@ Research conducted on existing skill patterns, command structures, and the GitHu
 
 ### Beads CLI Commands
 
-- `bd create <title> -t <type> -p <priority>` - Create issue
-- `bd list --parent <epic-id>` - List issues under epic
-- `bd update <id> --status <status>` - Update status
+- `br create <title> -t <type> -p <priority>` - Create issue
+- `br list --parent <epic-id>` - List issues under epic
+- `br update <id> --status <status>` - Update status
 - Priority mapping: P0 (highest) to P3 (lowest)
 
 ---
