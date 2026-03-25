@@ -123,6 +123,15 @@ describe('getAuth', () => {
       expect(result).toBe(authInstance);
     });
 
+    it('passes trustedOrigins derived from BETTER_AUTH_URL', () => {
+      const env = makeEnv({ BETTER_AUTH_URL: 'https://app.turtlebased.io/some/path' });
+
+      getAuth(env, mocks.mockOnUserCreated);
+
+      const config = capturedBetterAuthConfig();
+      expect(config['trustedOrigins']).toEqual(['https://app.turtlebased.io']);
+    });
+
     it('passes emailAndPassword config with required constraints', () => {
       const env = makeEnv();
 
@@ -400,16 +409,30 @@ describe('getAuth', () => {
       expect(mocks.betterAuth).toHaveBeenCalledTimes(1);
     });
 
-    it('reuses cached instance when only non-identity env fields differ (e.g., BETTER_AUTH_URL)', () => {
+    it('recreates the auth instance when BETTER_AUTH_URL changes', () => {
       const sharedDb = {} as D1Database;
-      const env1 = makeEnv({ DB: sharedDb });
-      const env2 = makeEnv({ DB: sharedDb, BETTER_AUTH_URL: 'https://other.example.com' });
-
+      const env1 = makeEnv({ DB: sharedDb, BETTER_AUTH_URL: 'https://app.example.com' });
+      mocks.betterAuth.mockReturnValueOnce({ _type: 'auth-instance-1' });
       const first = getAuth(env1, mocks.mockOnUserCreated);
+
+      const env2 = makeEnv({ DB: sharedDb, BETTER_AUTH_URL: 'https://other.example.com' });
+      mocks.betterAuth.mockReturnValueOnce({ _type: 'auth-instance-2' });
       const second = getAuth(env2, mocks.mockOnUserCreated);
 
-      expect(first).toBe(second);
-      expect(mocks.betterAuth).toHaveBeenCalledTimes(1);
+      expect(first).not.toBe(second);
+      expect(mocks.betterAuth).toHaveBeenCalledTimes(2);
+    });
+
+    it('uses the fresh BETTER_AUTH_URL as baseURL after URL-triggered invalidation', () => {
+      const sharedDb = {} as D1Database;
+      const env1 = makeEnv({ DB: sharedDb, BETTER_AUTH_URL: 'https://app.example.com' });
+      getAuth(env1, mocks.mockOnUserCreated);
+
+      const env2 = makeEnv({ DB: sharedDb, BETTER_AUTH_URL: 'https://other.example.com' });
+      getAuth(env2, mocks.mockOnUserCreated);
+
+      const secondConfig = mocks.betterAuth.mock.calls[1]?.[0] as Record<string, unknown>;
+      expect(secondConfig['baseURL']).toBe('https://other.example.com');
     });
   });
 

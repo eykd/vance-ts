@@ -68,14 +68,17 @@ export type OnUserCreated = (userId: string) => Promise<void>;
 
 /**
  * Snapshot of the env bindings that were active when `_auth` was created.
- * Used to detect BETTER_AUTH_SECRET or DB rotation within the same isolate
- * lifetime (defensive guard; rotation normally forces a Worker restart).
+ * Used to detect BETTER_AUTH_SECRET, BETTER_AUTH_URL, or DB rotation within
+ * the same isolate lifetime (defensive guard; rotation normally forces a
+ * Worker restart).
  */
 interface AuthEnvIdentity {
   /** The BETTER_AUTH_SECRET value active when the singleton was created. */
   secret: string;
   /** The D1Database binding reference active when the singleton was created. */
   db: D1Database;
+  /** The BETTER_AUTH_URL value active when the singleton was created. */
+  url: string;
 }
 
 /** Module-level singleton, lives for the lifetime of the Workers isolate. */
@@ -102,11 +105,13 @@ export function getAuth(env: Env, onUserCreated: OnUserCreated): Auth<BetterAuth
     throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
   }
 
-  // Invalidate the cached instance if BETTER_AUTH_SECRET or DB has been rotated.
+  // Invalidate the cached instance if BETTER_AUTH_SECRET, BETTER_AUTH_URL, or DB has been rotated.
   if (
     _auth !== null &&
     _authEnvIdentity !== null &&
-    (env.BETTER_AUTH_SECRET !== _authEnvIdentity.secret || env.DB !== _authEnvIdentity.db)
+    (env.BETTER_AUTH_SECRET !== _authEnvIdentity.secret ||
+      env.DB !== _authEnvIdentity.db ||
+      env.BETTER_AUTH_URL !== _authEnvIdentity.url)
   ) {
     _auth = null;
     _authEnvIdentity = null;
@@ -123,6 +128,7 @@ export function getAuth(env: Env, onUserCreated: OnUserCreated): Auth<BetterAuth
         schema: { account, session, user, verification },
       }),
       baseURL: env.BETTER_AUTH_URL,
+      trustedOrigins: [new URL(env.BETTER_AUTH_URL).origin],
       secret,
       emailAndPassword: {
         enabled: true,
@@ -280,7 +286,7 @@ export function getAuth(env: Env, onUserCreated: OnUserCreated): Auth<BetterAuth
       // better-auth v1.4.x automatically mounts GET /api/auth/callback/google
       // (and the corresponding redirect endpoint) once a provider is configured here.
     }) as unknown as Auth<BetterAuthOptions>;
-    _authEnvIdentity = { secret, db: env.DB };
+    _authEnvIdentity = { secret, db: env.DB, url: env.BETTER_AUTH_URL };
   }
 
   // _auth is guaranteed non-null here: the block above always assigns it when _auth === null.
