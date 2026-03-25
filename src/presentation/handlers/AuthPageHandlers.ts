@@ -22,15 +22,18 @@ import {
   buildAuthIndicatorCookie,
   buildCsrfCookie,
   buildFlashRegisteredCookie,
+  buildFlashResetCookie,
   buildSessionCookie,
   clearAuthIndicatorCookie,
   clearCsrfCookie,
   clearFlashRegisteredCookie,
+  clearFlashResetCookie,
   clearSessionCookie,
   extractCsrfTokenFromCookies,
   extractSessionToken,
   generateCsrfToken,
   hasFlashRegisteredCookie,
+  hasFlashResetCookie,
   hasSessionCookie,
 } from '../utils/cookieBuilder.js';
 import { extractClientIp } from '../utils/extractClientIp.js';
@@ -107,6 +110,9 @@ export class AuthPageHandlers {
   /** The flash registered cookie name (drops `__Host-` prefix on localhost). */
   private readonly flashRegisteredCookieName: string;
 
+  /** The flash reset cookie name (drops `__Host-` prefix on localhost). */
+  private readonly flashResetCookieName: string;
+
   /**
    * Creates a new AuthPageHandlers instance.
    *
@@ -119,6 +125,7 @@ export class AuthPageHandlers {
    * @param csrfCookieName - The CSRF cookie name (e.g. `__Host-csrf` or `csrf` on localhost).
    * @param authIndicatorCookieName - The auth indicator cookie name (e.g. `__Host-auth_status` or `auth_status` on localhost).
    * @param flashRegisteredCookieName - The flash registered cookie name (e.g. `__Host-flash_registered` or `flash_registered` on localhost).
+   * @param flashResetCookieName - The flash reset cookie name (e.g. `__Host-flash_reset` or `flash_reset` on localhost).
    */
   constructor(
     signInUseCase: SignInUseCase,
@@ -129,7 +136,8 @@ export class AuthPageHandlers {
     sessionCookieName: string,
     csrfCookieName: string,
     authIndicatorCookieName: string,
-    flashRegisteredCookieName: string
+    flashRegisteredCookieName: string,
+    flashResetCookieName: string
   ) {
     this.signInUseCase = signInUseCase;
     this.signUpUseCase = signUpUseCase;
@@ -140,6 +148,7 @@ export class AuthPageHandlers {
     this.csrfCookieName = csrfCookieName;
     this.authIndicatorCookieName = authIndicatorCookieName;
     this.flashRegisteredCookieName = flashRegisteredCookieName;
+    this.flashResetCookieName = flashResetCookieName;
   }
 
   /**
@@ -266,12 +275,15 @@ export class AuthPageHandlers {
       cookieHeader,
       this.flashRegisteredCookieName
     );
-    const passwordResetSuccess = url.searchParams.get('reset') === 'true';
+    const passwordResetSuccess = hasFlashResetCookie(cookieHeader, this.flashResetCookieName);
     const redirectTo = validated !== '/' ? validated : undefined;
 
     const { headers, csrfToken } = this.makeFreshAuthHeaders();
     if (registeredSuccess) {
       headers.append('Set-Cookie', clearFlashRegisteredCookie(this.flashRegisteredCookieName));
+    }
+    if (passwordResetSuccess) {
+      headers.append('Set-Cookie', clearFlashResetCookie(this.flashResetCookieName));
     }
     return new Response(
       loginPage({ csrfToken, redirectTo, registeredSuccess, passwordResetSuccess }),
@@ -618,7 +630,9 @@ export class AuthPageHandlers {
     const result = await this.resetPasswordUseCase.execute({ token, newPassword });
 
     if (result.ok) {
-      return AuthPageHandlers.buildRedirect('/auth/sign-in?reset=true');
+      return AuthPageHandlers.buildRedirect('/auth/sign-in', [
+        buildFlashResetCookie(this.flashResetCookieName),
+      ]);
     }
 
     const { headers: errorHeaders, csrfToken } = this.makeFreshAuthHeaders();

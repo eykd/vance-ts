@@ -42,6 +42,7 @@ import {
   getAuthIndicatorCookieName,
   getCsrfCookieName,
   getFlashRegisteredCookieName,
+  getFlashResetCookieName,
   getSessionCookieName,
 } from '../infrastructure/authCookieNames';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
@@ -98,6 +99,9 @@ export class ServiceFactory {
 
   /** Flash registered cookie name derived from BETTER_AUTH_URL. */
   private readonly _flashRegisteredCookieName: string;
+
+  /** Flash reset cookie name derived from BETTER_AUTH_URL. */
+  private readonly _flashResetCookieName: string;
 
   /** Cached AuthService adapter. */
   private _authService: AuthService | null = null;
@@ -229,6 +233,7 @@ export class ServiceFactory {
     this._csrfCookieName = getCsrfCookieName(env.BETTER_AUTH_URL);
     this._authIndicatorCookieName = getAuthIndicatorCookieName(env.BETTER_AUTH_URL);
     this._flashRegisteredCookieName = getFlashRegisteredCookieName(env.BETTER_AUTH_URL);
+    this._flashResetCookieName = getFlashResetCookieName(env.BETTER_AUTH_URL);
   }
 
   /**
@@ -385,7 +390,8 @@ export class ServiceFactory {
       this._sessionCookieName,
       this._csrfCookieName,
       this._authIndicatorCookieName,
-      this._flashRegisteredCookieName
+      this._flashRegisteredCookieName,
+      this._flashResetCookieName
     );
     return this._authPageHandlers;
   }

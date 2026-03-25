@@ -29,6 +29,9 @@ const PROD_INDICATOR_NAME = '__Host-auth_status';
 /** Production flash registered cookie name used in tests. */
 const PROD_FLASH_REGISTERED_NAME = '__Host-flash_registered';
 
+/** Production flash reset cookie name used in tests. */
+const PROD_FLASH_RESET_NAME = '__Host-flash_reset';
+
 /** Cookie header containing the test CSRF token. */
 const CSRF_COOKIE = `__Host-csrf=${TEST_CSRF}`;
 
@@ -206,7 +209,8 @@ describe('AuthPageHandlers', () => {
       PROD_COOKIE_NAME,
       PROD_CSRF_NAME,
       PROD_INDICATOR_NAME,
-      PROD_FLASH_REGISTERED_NAME
+      PROD_FLASH_REGISTERED_NAME,
+      PROD_FLASH_RESET_NAME
     );
   });
 
@@ -1824,7 +1828,19 @@ describe('AuthPageHandlers', () => {
       const req = makeResetPasswordPostRequest();
       const res = await handlers.handlePostResetPassword(req);
       expect(res.status).toBe(303);
-      expect(res.headers.get('Location')).toBe('/auth/sign-in?reset=true');
+      expect(res.headers.get('Location')).toBe('/auth/sign-in');
+    });
+
+    it('sets flash reset cookie on success', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      const setCookies = (res.headers as unknown as { getAll(name: string): string[] }).getAll(
+        'Set-Cookie'
+      );
+      const flashCookie = setCookies.find((c: string) => c.includes('__Host-flash_reset='));
+      expect(flashCookie).toBeDefined();
+      expect(flashCookie).toContain('__Host-flash_reset=1');
     });
 
     it('passes token and password to use case', async () => {
@@ -1918,15 +1934,37 @@ describe('AuthPageHandlers', () => {
   });
 
   describe('handleGetSignIn with password reset success', () => {
-    it('shows password reset success banner when reset=true', async () => {
-      const req = new Request('https://example.com/auth/sign-in?reset=true');
+    it('shows password reset success banner when flash reset cookie is present', async () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: '__Host-flash_reset=1' },
+      });
       const res = handlers.handleGetSignIn(req);
       const body = await res.text();
       expect(body).toContain('Password reset successfully');
     });
 
-    it('does not show password reset banner when reset is absent', async () => {
+    it('clears the flash reset cookie when present', () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: '__Host-flash_reset=1' },
+      });
+      const res = handlers.handleGetSignIn(req);
+      const setCookies = (res.headers as unknown as { getAll(name: string): string[] }).getAll(
+        'Set-Cookie'
+      );
+      const clearCookie = setCookies.find((c: string) => c.includes('__Host-flash_reset='));
+      expect(clearCookie).toBeDefined();
+      expect(clearCookie).toContain('Max-Age=0');
+    });
+
+    it('does not show password reset banner when flash reset cookie is absent', async () => {
       const req = new Request('https://example.com/auth/sign-in');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('Password reset successfully');
+    });
+
+    it('does not show password reset banner from spoofable query parameter', async () => {
+      const req = new Request('https://example.com/auth/sign-in?reset=true');
       const res = handlers.handleGetSignIn(req);
       const body = await res.text();
       expect(body).not.toContain('Password reset successfully');

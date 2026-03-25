@@ -162,6 +162,44 @@ export function clearFlashRegisteredCookie(flashRegisteredCookieName: string): s
 }
 
 /**
+ * Builds a Set-Cookie header value for the flash reset cookie.
+ *
+ * This short-lived, HttpOnly cookie replaces the spoofable `?reset=true`
+ * query parameter. It is set on the redirect after successful password reset
+ * and consumed (cleared) on the sign-in GET handler.
+ *
+ * @param flashResetCookieName - The flash cookie name (e.g. `__Host-flash_reset` or `flash_reset` on localhost).
+ * @returns A Set-Cookie header value string
+ */
+export function buildFlashResetCookie(flashResetCookieName: string): string {
+  return `${flashResetCookieName}=1; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=${FLASH_MAX_AGE}`;
+}
+
+/**
+ * Builds a Set-Cookie header value that clears the flash reset cookie.
+ *
+ * @param flashResetCookieName - The flash cookie name (e.g. `__Host-flash_reset` or `flash_reset` on localhost).
+ * @returns A Set-Cookie header value string with Max-Age=0
+ */
+export function clearFlashResetCookie(flashResetCookieName: string): string {
+  return `${flashResetCookieName}=; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=0`;
+}
+
+/**
+ * Returns true when the Cookie request header contains the flash reset cookie.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @param flashResetCookieName - The flash cookie name (e.g. `__Host-flash_reset` or `flash_reset` on localhost).
+ * @returns True if the flash reset cookie is present
+ */
+export function hasFlashResetCookie(
+  cookieHeader: string | null,
+  flashResetCookieName: string
+): boolean {
+  return extractCookieValue(cookieHeader, flashResetCookieName) !== null;
+}
+
+/**
  * Returns true when the Cookie request header contains the flash registered cookie.
  *
  * @param cookieHeader - The value of the Cookie request header, or null if absent
