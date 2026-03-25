@@ -393,6 +393,25 @@ check_beads_init() {
     return 0
 }
 
+# Ensure git hooks are wired up (husky sets core.hooksPath during npm prepare,
+# but that config is local and doesn't survive fresh clones or env resets)
+ensure_git_hooks() {
+    local hooks_path
+    hooks_path=$(git config core.hooksPath 2>/dev/null || true)
+    if [[ -z "$hooks_path" ]]; then
+        log WARN "Git hooks not wired up (core.hooksPath not set). Running 'npx husky'..."
+        if npx husky 2>/dev/null; then
+            log INFO "Git hooks initialized successfully"
+        else
+            log ERROR "Failed to initialize git hooks — pre-commit validation will be skipped!"
+            return 1
+        fi
+    else
+        log DEBUG "Git hooks already configured (core.hooksPath=$hooks_path)"
+    fi
+    return 0
+}
+
 # Detect whether epic uses spec-kit workflow or generic task workflow
 # Returns "spec-kit" if any [sp:NN-*] phase tasks exist, "generic" otherwise
 detect_task_source() {
@@ -505,6 +524,7 @@ validate_prerequisites() {
     # Always check infrastructure
     check_claude_cli || return 1
     check_beads_init || return 1
+    ensure_git_hooks || return 1
 
     # Detect task source mode
     task_source=$(detect_task_source "$epic_id")

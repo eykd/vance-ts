@@ -929,10 +929,10 @@ describe('BetterAuthService', () => {
     it('returns ok: false kind: weak_password when response is 400 with PASSWORD_TOO_LONG code', async () => {
       expect.assertions(2);
       authMock.api.resetPassword.mockResolvedValue(
-        new Response(
-          JSON.stringify({ code: 'PASSWORD_TOO_LONG', message: 'Password too long' }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        )
+        new Response(JSON.stringify({ code: 'PASSWORD_TOO_LONG', message: 'Password too long' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
       );
 
       const result = await service.resetPassword({

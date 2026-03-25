@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   betterAuth: vi.fn(),
   drizzleAdapter: vi.fn(() => ({ _type: 'drizzle-adapter' })),
   drizzle: vi.fn(() => ({ _type: 'drizzle-db' })),
-  mockOnUserCreated: vi.fn() as ReturnType<typeof vi.fn<OnUserCreated>>,
+  mockOnUserCreated: vi.fn<OnUserCreated>(),
 }));
 
 /**
@@ -69,25 +69,33 @@ describe('getAuth', () => {
     it('throws when BETTER_AUTH_SECRET is shorter than 32 characters', () => {
       const env = makeEnv({ BETTER_AUTH_SECRET: 'short' });
 
-      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow('BETTER_AUTH_SECRET must be at least 32 characters');
+      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow(
+        'BETTER_AUTH_SECRET must be at least 32 characters'
+      );
     });
 
     it('throws when BETTER_AUTH_SECRET is exactly 31 characters', () => {
       const env = makeEnv({ BETTER_AUTH_SECRET: 'a'.repeat(31) });
 
-      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow('BETTER_AUTH_SECRET must be at least 32 characters');
+      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow(
+        'BETTER_AUTH_SECRET must be at least 32 characters'
+      );
     });
 
     it('throws when BETTER_AUTH_SECRET is empty', () => {
       const env = makeEnv({ BETTER_AUTH_SECRET: '' });
 
-      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow('BETTER_AUTH_SECRET must be at least 32 characters');
+      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow(
+        'BETTER_AUTH_SECRET must be at least 32 characters'
+      );
     });
 
     it('throws a descriptive error when BETTER_AUTH_SECRET is undefined (missing binding)', () => {
       const env = makeEnv({ BETTER_AUTH_SECRET: undefined });
 
-      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow('BETTER_AUTH_SECRET must be at least 32 characters');
+      expect(() => getAuth(env, mocks.mockOnUserCreated)).toThrow(
+        'BETTER_AUTH_SECRET must be at least 32 characters'
+      );
     });
 
     it('does not throw when BETTER_AUTH_SECRET is exactly 32 characters', () => {

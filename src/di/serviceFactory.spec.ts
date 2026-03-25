@@ -31,7 +31,9 @@ const mocks = vi.hoisted(() => ({
   D1AuditEventRepository: vi.fn(),
   D1InboxItemRepository: vi.fn(),
   WorkspaceD1BatchAdapter: vi.fn(),
-  WorkspaceProvisioningService: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
+  WorkspaceProvisioningService: vi.fn().mockImplementation(function (
+    this: Record<string, unknown>
+  ) {
     this.onUserCreated = vi.fn().mockResolvedValue(undefined);
   }),
   ClarifyInboxItemD1BatchAdapter: vi.fn(),
