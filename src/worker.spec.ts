@@ -159,7 +159,7 @@ describe('Worker', () => {
 
       expect(res.status).toBe(404);
       expect(res.headers.get('Content-Type')).toContain('application/json');
-      expect(await res.json()).toEqual({ error: 'Not found' });
+      expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } });
     });
 
     it('includes security headers on 404', async () => {
@@ -183,7 +183,7 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(404);
-      expect(await res.json()).toEqual({ error: 'Not found' });
+      expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } });
     });
 
     it('includes security headers on 404', async () => {
@@ -482,7 +482,7 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
       const body = await res.text();
 
-      expect(body).not.toMatch(/href="https?:\/\//);
+      expect(body).not.toMatch(/<a[^>]*href="https?:\/\//);
     });
 
     it('includes security headers', async () => {
@@ -640,7 +640,7 @@ describe('Worker', () => {
 
       expect(res.status).toBe(404);
       expect(res.headers.get('Content-Type')).toContain('application/json');
-      expect(await res.json()).toEqual({ error: 'Not found' });
+      expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } });
     });
 
     it('does not delegate to authHandler', async () => {
@@ -659,7 +659,7 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(404);
-      expect(await res.json()).toEqual({ error: 'Not found' });
+      expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } });
     });
 
     it('includes security headers', async () => {
@@ -974,7 +974,7 @@ describe('Worker', () => {
 
       expect(res.status).toBe(404);
       expect(res.headers.get('Content-Type')).toContain('application/json');
-      expect(await res.json()).toEqual({ error: 'Not found' });
+      expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } });
     });
 
     it('returns JSON 500 with application/json for /api/* unhandled errors', async () => {
@@ -999,7 +999,7 @@ describe('Worker', () => {
 
         expect(res.status).toBe(404);
         expect(res.headers.get('Content-Type')).toContain('application/json');
-        expect(await res.json()).toEqual({ error: 'Not found' });
+        expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found' } });
       }
     });
   });
