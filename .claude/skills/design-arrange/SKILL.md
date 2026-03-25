@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: arrange
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-arrange
 description: Improve layout, spacing, and visual rhythm. Fixes monotonous grids, inconsistent spacing, and weak visual hierarchy to create intentional compositions. Use when layouts feel crowded, monotonous, or structurally weak.
 args:
-
-- name: target
-  description: The feature or component to improve layout for (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or component to improve layout for (optional)
+    required: false
+    user-invocable: true
 ---
 
 Assess and improve layout and spacing that feels monotonous, crowded, or structurally weak — turning generic arrangements into intentional, rhythmic compositions.
@@ -140,3 +129,5 @@ Create a systematic plan:
 - **Responsiveness**: Does the layout adapt gracefully across screen sizes (`sm:`, `md:`, `lg:`, `xl:`, `2xl:`)?
 
 Remember: Space is the most underused design tool. A layout with the right rhythm and hierarchy can make even simple content feel polished and intentional.
+
+Use subagents liberally and aggressively to conserve the main context window.

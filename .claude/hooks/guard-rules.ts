@@ -78,7 +78,6 @@ Instead:
     name: 'checkout-dot',
     category: 'destructive-git',
     pattern: /git\s+checkout\s+(--\s+)?\.(\s|$)/,
-    safePatterns: [/git\s+checkout\s+-b\s/, /git\s+checkout\s+--orphan\s/],
     message: `BLOCKED: git checkout . detected (discard all changes).
 
 This command discards all uncommitted changes across every file.
@@ -92,7 +91,6 @@ Instead:
     name: 'checkout-treeish-dot',
     category: 'destructive-git',
     pattern: /git\s+checkout\s+.*--\s+\.(\s|$)/,
-    safePatterns: [/git\s+checkout\s+-b\s/, /git\s+checkout\s+--orphan\s/],
     message: `BLOCKED: git checkout <tree-ish> -- . detected (overwrite all files).
 
 This command overwrites all working tree files from another commit.
@@ -299,7 +297,7 @@ Instead:
     name: 'd1-delete-no-where',
     category: 'platform-ops',
     pattern: /wrangler\s+d1\s+execute\b.*\bDELETE\s+FROM\b/i,
-    safePatterns: [/wrangler\s+d1\s+execute\b.*\bDELETE\s+FROM\b.*\bWHERE\b/i],
+    safePatterns: [/wrangler\s+d1\s+execute\b.*\bDELETE\s+FROM\b[^"]*\bWHERE\b/i],
     message: `BLOCKED: Destructive D1 SQL detected (DELETE FROM without WHERE).
 
 DELETE FROM without a WHERE clause removes all rows from the table.
@@ -327,7 +325,7 @@ Instead:
 
 /**
  * Normalizes a command by collapsing line continuations and stripping
- * command wrappers (sudo, env, command, leading backslash).
+ * command wrappers (sudo, env, command, nohup, exec, time, nice, leading backslash).
  *
  * Line continuations are collapsed first (S9), then wrappers are
  * iteratively stripped using a do-while loop until the string stabilizes (Fix 1).
@@ -344,7 +342,9 @@ export function normalizeCommand(command: string): string {
   let prev: string;
   do {
     prev = result;
-    result = result.replace(/^(sudo|command)\s+/, '').replace(/^env\s+(\w+=\S+\s+)*/, '');
+    result = result
+      .replace(/^(sudo|command|nohup|exec|time|nice)\s+/, '')
+      .replace(/^env\s+(\w+=\S+\s+)*/, '');
   } while (result !== prev);
   return result;
 }
@@ -401,16 +401,24 @@ function extractShellPayload(command: string, prefix: RegExp): string | null {
   }
   const first = stripped[0];
   if (first === '"') {
-    // Double-quoted: extract content between outermost quotes
-    const end = stripped.lastIndexOf('"');
-    if (end > 0) {
-      return stripped.slice(1, end).replace(/\\"/g, '"');
+    // Double-quoted: scan forward for first unescaped closing quote
+    let i = 1;
+    while (i < stripped.length) {
+      if (stripped[i] === '\\' && i + 1 < stripped.length) {
+        i += 2; // skip escaped character
+        continue;
+      }
+      if (stripped[i] === '"') {
+        return stripped.slice(1, i).replace(/\\"/g, '"');
+      }
+      i++;
     }
+    // No closing quote found
     return stripped.slice(1);
   }
   if (first === "'") {
-    // Single-quoted: extract content between outermost quotes
-    const end = stripped.lastIndexOf("'");
+    // Single-quoted: no escape sequences, find first closing quote
+    const end = stripped.indexOf("'", 1);
     if (end > 0) {
       return stripped.slice(1, end);
     }

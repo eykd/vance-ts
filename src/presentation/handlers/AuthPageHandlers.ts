@@ -41,7 +41,7 @@ import {
 } from '../utils/cookieBuilder.js';
 import { extractClientIp } from '../utils/extractClientIp.js';
 import { validateRedirectTo } from '../utils/redirectValidator.js';
-import { applySecurityHeaders } from '../utils/securityHeaders.js';
+import { CACHE_CONTROL_NO_STORE, applySecurityHeaders } from '../utils/securityHeaders.js';
 import { timingSafeStringEqual } from '../utils/timingSafeEqual.js';
 
 /** Maximum allowed body size for HTML auth form submissions, in bytes (4 KB). */
@@ -174,7 +174,7 @@ export class AuthPageHandlers {
     const headers = new Headers();
     headers.set('Content-Type', 'text/html; charset=utf-8');
     headers.set('Set-Cookie', buildCsrfCookie(csrfToken, this.csrfCookieName));
-    headers.set('Cache-Control', 'no-store, no-cache');
+    headers.set('Cache-Control', CACHE_CONTROL_NO_STORE);
     applySecurityHeaders(headers);
     return { headers, csrfToken };
   }
@@ -250,7 +250,7 @@ export class AuthPageHandlers {
   ): Response {
     const headers = new Headers();
     headers.set('Content-Type', 'text/html; charset=utf-8');
-    headers.set('Cache-Control', 'no-store, no-cache');
+    headers.set('Cache-Control', CACHE_CONTROL_NO_STORE);
     if (retryAfter !== undefined) {
       headers.set('Retry-After', String(retryAfter));
     }
