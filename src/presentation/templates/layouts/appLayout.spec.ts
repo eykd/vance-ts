@@ -17,17 +17,19 @@ describe('appLayout', () => {
     expect(result).toMatch(/^<!DOCTYPE html>/);
   });
 
-  it('includes the title in the <title> tag', () => {
-    expect(result).toContain('<title>Test Page</title>');
+  it('includes the title with ClawTask suffix in the <title> tag', () => {
+    expect(result).toContain('<title>Test Page | ClawTask</title>');
   });
 
   it('XSS-escapes the title', () => {
     const xss = appLayout({ title: '<script>alert("xss")</script>', content: '' });
-    expect(xss).toContain('<title>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</title>');
+    expect(xss).toContain(
+      '<title>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; | ClawTask</title>'
+    );
     expect(xss).not.toContain('<title><script>');
   });
 
-  it('renders content inside the body without escaping', () => {
+  it('renders content inside the main element without escaping', () => {
     expect(result).toContain('<h1>Hello</h1>');
   });
 
@@ -35,9 +37,13 @@ describe('appLayout', () => {
     expect(result).toContain('charset="UTF-8"');
   });
 
-  it('includes viewport meta tag for mobile rendering', () => {
+  it('includes viewport meta tag with shrink-to-fit=no', () => {
     expect(result).toContain('name="viewport"');
-    expect(result).toContain('width=device-width, initial-scale=1.0');
+    expect(result).toContain('width=device-width, initial-scale=1.0, shrink-to-fit=no');
+  });
+
+  it('includes robots meta tag to prevent indexing of app pages', () => {
+    expect(result).toContain('<meta name="robots" content="noindex, nofollow"');
   });
 
   it('uses html lang attribute', () => {
@@ -46,6 +52,25 @@ describe('appLayout', () => {
 
   it('uses the clawtask-dark DaisyUI theme to match Hugo and auth pages', () => {
     expect(result).toContain('data-theme="clawtask-dark"');
+  });
+
+  it('applies font-sans and bg-base-200 classes to the body', () => {
+    expect(result).toMatch(/<body\s[^>]*class="font-sans bg-base-200"/);
+  });
+
+  it('includes a skip-to-content link for accessibility', () => {
+    expect(result).toContain('href="#main-content"');
+    expect(result).toContain('Skip to content');
+    expect(result).toContain('sr-only');
+  });
+
+  it('wraps content in a semantic main element with id and grow class', () => {
+    expect(result).toMatch(/<main\s+id="main-content"\s+class="grow">/);
+    expect(result).toContain('<h1>Hello</h1></main>');
+  });
+
+  it('uses a flex column container for sticky footer layout', () => {
+    expect(result).toContain('flex min-h-screen flex-col');
   });
 
   it('links the fingerprinted CSS file', () => {
@@ -90,5 +115,32 @@ describe('appLayout', () => {
   it('includes a sign-out link in the navigation', () => {
     expect(result).toContain('href="/auth/sign-out"');
     expect(result).toContain('Sign Out');
+  });
+
+  it('includes a mobile hamburger menu button hidden on desktop', () => {
+    expect(result).toContain('lg:hidden');
+    expect(result).toContain('aria-label="Open menu"');
+  });
+
+  it('hides desktop nav links on mobile and shows on large screens', () => {
+    expect(result).toMatch(/navbar-center[^>]*hidden lg:flex/);
+    expect(result).toMatch(/navbar-end[^>]*hidden lg:flex/);
+  });
+
+  it('renders the ClawTask logo linking to the homepage', () => {
+    expect(result).toMatch(
+      /<a\s+href="\/"\s+class="btn btn-ghost font-serif text-xl text-primary">ClawTask<\/a>/
+    );
+  });
+
+  it('renders a footer with copyright text', () => {
+    expect(result).toContain('<footer');
+    expect(result).toContain('&copy; 2026 Worlds Enough Studios. All rights reserved.');
+  });
+
+  it('uses frosted glass navbar styling', () => {
+    expect(result).toContain('bg-base-100/50');
+    expect(result).toContain('backdrop-blur-sm');
+    expect(result).toContain('border-b border-base-300');
   });
 });
