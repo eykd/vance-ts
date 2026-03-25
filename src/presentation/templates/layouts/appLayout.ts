@@ -31,7 +31,7 @@ export function appLayout(props: AppLayoutProps): string {
         <meta name="robots" content="noindex, nofollow" />
         <meta
           name="htmx-config"
-          content='{"selfRequestsOnly":true,"allowScriptTags":false,"allowEval":false}'
+          content='{"selfRequestsOnly":true,"allowScriptTags":false,"allowEval":false,"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true}]}'
         />
         <title>${props.title} | ClawTask</title>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

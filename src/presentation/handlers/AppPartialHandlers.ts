@@ -133,7 +133,12 @@ export class AppPartialHandlers {
       actorId,
     });
     if (!result.ok) {
-      return c.html(html`<li>Error: ${result.kind}</li>`, 422);
+      c.header('HX-Retarget', `#clarify-error-${inboxItemId}`);
+      c.header('HX-Reswap', 'innerHTML');
+      return c.html(
+        html`<div role="alert" class="alert alert-error mt-2"><span>${result.kind}</span></div>`,
+        422
+      );
     }
     return c.html(html`<li>${result.data.title}</li>`);
   }

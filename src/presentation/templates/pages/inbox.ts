@@ -87,6 +87,7 @@ function clarifyModal(
           <option value="" disabled selected>Select a context</option>
           ${safe(contextOptions)}
         </select>
+        <div id="clarify-error-${item.id}"></div>
         <div class="modal-action">
           <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
           <button type="submit" class="btn btn-primary">Clarify</button>

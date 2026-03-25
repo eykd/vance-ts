@@ -96,6 +96,16 @@ describe('inboxPage', () => {
     expect(result).toContain('>Office</option>');
   });
 
+  it('renders an error container inside the clarify modal form', () => {
+    const result = inboxPage({
+      items: [{ id: 'i1', title: 'Buy milk' }],
+      areas,
+      contexts,
+    });
+
+    expect(result).toContain('id="clarify-error-i1"');
+  });
+
   it('XSS-escapes item titles', () => {
     const result = inboxPage({
       items: [{ id: 'i1', title: '<script>alert("xss")</script>' }],
