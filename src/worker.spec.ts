@@ -151,13 +151,14 @@ describe('Worker', () => {
   });
 
   describe('GET /api/nonexistent', () => {
-    it('returns 404 JSON', async () => {
+    it('returns 404 JSON with application/json Content-Type', async () => {
       const env = mockEnv();
       const req = new Request('https://example.com/api/nonexistent');
 
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(404);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
       expect(await res.json()).toEqual({ error: 'Not found' });
     });
 
@@ -931,6 +932,45 @@ describe('Worker', () => {
       expect(body).not.toContain('secret');
       expect(body).not.toContain('database');
       expect(body).not.toContain('connection');
+    });
+  });
+
+  describe('US-3: API routes continue returning JSON errors', () => {
+    it('returns JSON 404 with application/json for /api/nonexistent', async () => {
+      const env = mockEnv();
+      const req = new Request('https://example.com/api/nonexistent');
+
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(404);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
+      expect(await res.json()).toEqual({ error: 'Not found' });
+    });
+
+    it('returns JSON 500 with application/json for /api/* unhandled errors', async () => {
+      const env = mockEnv();
+      mocks.signInApiRateLimitMiddlewareFn.mockRejectedValueOnce(new Error('boom'));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.status).toBe(500);
+      expect(res.headers.get('Content-Type')).toContain('application/json');
+      expect(await res.json()).toEqual({ error: 'Internal server error' });
+    });
+
+    it('preserves apiNotFound handler returning JSON 404 for unmatched /api/* routes', async () => {
+      const env = mockEnv();
+
+      const paths = ['/api/foo', '/api/bar/baz', '/api/v1/users'];
+      for (const path of paths) {
+        const req = new Request(`https://example.com${path}`);
+        const res = await app.fetch(req, env);
+
+        expect(res.status).toBe(404);
+        expect(res.headers.get('Content-Type')).toContain('application/json');
+        expect(await res.json()).toEqual({ error: 'Not found' });
+      }
     });
   });
 
