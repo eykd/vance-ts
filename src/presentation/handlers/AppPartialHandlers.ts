@@ -61,8 +61,16 @@ export class AppPartialHandlers {
    * @returns HTML partial response containing the captured item.
    */
   async handleCaptureInbox(c: Context): Promise<Response> {
-    const formData = await c.req.formData();
-    const title = formData.get('title') as string;
+    let formData: FormData;
+    try {
+      formData = await c.req.formData();
+    } catch {
+      return c.html(html`<li>Error: invalid_form_data</li>`, 422);
+    }
+    const title = formData.get('title');
+    if (typeof title !== 'string' || title.trim().length === 0) {
+      return c.html(html`<li>Error: missing_title</li>`, 422);
+    }
     const workspaceId = c.get('workspaceId') as string;
     const result = await this.captureInbox.execute({ workspaceId, title });
     if (!result.ok) {
@@ -117,13 +125,33 @@ export class AppPartialHandlers {
    * @returns HTML partial response containing the action title.
    */
   async handleClarifyInbox(c: Context): Promise<Response> {
-    const formData = await c.req.formData();
-    const title = formData.get('title') as string;
-    const areaId = formData.get('areaId') as string;
-    const contextId = formData.get('contextId') as string;
+    const inboxItemId = c.req.param('id') as string;
+    let formData: FormData;
+    try {
+      formData = await c.req.formData();
+    } catch {
+      return c.html(
+        html`<div role="alert" class="alert alert-error mt-2">
+          <span>Error: invalid_form_data</span>
+        </div>`,
+        422
+      );
+    }
+    const title = formData.get('title');
+    const areaId = formData.get('areaId');
+    const contextId = formData.get('contextId');
+    if (typeof title !== 'string' || typeof areaId !== 'string' || typeof contextId !== 'string') {
+      c.header('HX-Retarget', `#clarify-error-${inboxItemId}`);
+      c.header('HX-Reswap', 'innerHTML');
+      return c.html(
+        html`<div role="alert" class="alert alert-error mt-2">
+          <span>Error: missing_fields</span>
+        </div>`,
+        422
+      );
+    }
     const workspaceId = c.get('workspaceId') as string;
     const actorId = c.get('actorId') as string;
-    const inboxItemId = c.req.param('id') as string;
     const result = await this.clarifyInbox.execute({
       workspaceId,
       inboxItemId,

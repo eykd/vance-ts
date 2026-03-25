@@ -108,6 +108,65 @@ describe('AppPartialHandlers', () => {
       expect(res.headers.get('HX-Trigger')).toBe('inboxItemCaptured');
     });
 
+    it('returns 422 when request has no form body (missing Content-Type)', async () => {
+      const captureInbox = makeUseCaseMock();
+      const handlers = new AppPartialHandlers(
+        captureInbox,
+        makeUseCaseMock(),
+        makeUseCaseMock(),
+        makeUseCaseMock()
+      );
+
+      const req = new Request('https://example.com/app/_/inbox', {
+        method: 'POST',
+      });
+
+      const appWithMiddleware = new Hono();
+      appWithMiddleware.use('*', async (c, next) => {
+        c.set('workspaceId', 'ws-1');
+        await next();
+      });
+      appWithMiddleware.post('/app/_/inbox', async (c) => handlers.handleCaptureInbox(c));
+
+      const res = await appWithMiddleware.fetch(req);
+
+      expect(res.status).toBe(422);
+      expect(captureInbox.execute).not.toHaveBeenCalled();
+      const html = await res.text();
+      expect(html).toContain('Error');
+    });
+
+    it('returns 422 when title field is missing from form data', async () => {
+      const captureInbox = makeUseCaseMock();
+      const handlers = new AppPartialHandlers(
+        captureInbox,
+        makeUseCaseMock(),
+        makeUseCaseMock(),
+        makeUseCaseMock()
+      );
+
+      const formData = new FormData();
+
+      const req = new Request('https://example.com/app/_/inbox', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const appWithMiddleware = new Hono();
+      appWithMiddleware.use('*', async (c, next) => {
+        c.set('workspaceId', 'ws-1');
+        await next();
+      });
+      appWithMiddleware.post('/app/_/inbox', async (c) => handlers.handleCaptureInbox(c));
+
+      const res = await appWithMiddleware.fetch(req);
+
+      expect(res.status).toBe(422);
+      expect(captureInbox.execute).not.toHaveBeenCalled();
+      const html = await res.text();
+      expect(html).toContain('Error');
+    });
+
     it('does not set HX-Trigger header on failure', async () => {
       const captureInbox = makeUseCaseMock();
       captureInbox.execute.mockResolvedValue({
@@ -287,6 +346,72 @@ describe('AppPartialHandlers', () => {
       const html = await res.text();
       expect(html).toContain('alert');
       expect(html).toContain('validation_error');
+    });
+
+    it('returns 422 when request has no form body (missing Content-Type)', async () => {
+      const clarifyInbox = makeUseCaseMock();
+      const handlers = new AppPartialHandlers(
+        makeUseCaseMock(),
+        clarifyInbox,
+        makeUseCaseMock(),
+        makeUseCaseMock()
+      );
+
+      const req = new Request('https://example.com/app/_/inbox/inbox-1/clarify', {
+        method: 'POST',
+      });
+
+      const appWithMiddleware = new Hono();
+      appWithMiddleware.use('*', async (c, next) => {
+        c.set('workspaceId', 'ws-1');
+        c.set('actorId', 'actor-1');
+        await next();
+      });
+      appWithMiddleware.post('/app/_/inbox/:id/clarify', async (c) =>
+        handlers.handleClarifyInbox(c)
+      );
+
+      const res = await appWithMiddleware.fetch(req);
+
+      expect(res.status).toBe(422);
+      expect(clarifyInbox.execute).not.toHaveBeenCalled();
+      const html = await res.text();
+      expect(html).toContain('Error');
+    });
+
+    it('returns 422 when required form fields are missing', async () => {
+      const clarifyInbox = makeUseCaseMock();
+      const handlers = new AppPartialHandlers(
+        makeUseCaseMock(),
+        clarifyInbox,
+        makeUseCaseMock(),
+        makeUseCaseMock()
+      );
+
+      const formData = new FormData();
+      formData.set('title', 'Some title');
+
+      const req = new Request('https://example.com/app/_/inbox/inbox-1/clarify', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const appWithMiddleware = new Hono();
+      appWithMiddleware.use('*', async (c, next) => {
+        c.set('workspaceId', 'ws-1');
+        c.set('actorId', 'actor-1');
+        await next();
+      });
+      appWithMiddleware.post('/app/_/inbox/:id/clarify', async (c) =>
+        handlers.handleClarifyInbox(c)
+      );
+
+      const res = await appWithMiddleware.fetch(req);
+
+      expect(res.status).toBe(422);
+      expect(clarifyInbox.execute).not.toHaveBeenCalled();
+      const html = await res.text();
+      expect(html).toContain('Error');
     });
 
     it('calls ClarifyInboxItemToActionUseCase and returns HTML partial with action title', async () => {
