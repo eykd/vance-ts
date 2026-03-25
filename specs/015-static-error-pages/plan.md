@@ -66,6 +66,10 @@ Request → Worker
       └─ Not found → ASSETS returns Hugo's 404.html (existing behavior)
 ```
 
+**Key behavior: ASSETS.fetch() does NOT throw on 404** — it returns a 404 Response with Hugo's pre-built 404.html content. This means `app.onError()` only catches unhandled exceptions from handler code, not missing static assets. This is the correct behavior: static 404s are already served as branded HTML by Hugo.
+
+**Security headers**: The `withSecurityHeaders` middleware (`app.use('*', ...)`) runs on ALL routes including `app.onError()` responses, so error pages automatically receive security headers (CSP, X-Frame-Options, etc.).
+
 ### Error Response Strategy by Route Type
 
 | Route Pattern | 404 Behavior | 500 Behavior |
@@ -122,19 +126,35 @@ src/
 Create `hugo/layouts/_partials/errors/error-hero.html` extracting the common pattern from the existing 404.html:
 
 ```html
-{{/* Params: .code (string), .title (string), .message (string), .alertClass (string) */}}
+{{/*
+  Shared error page hero component.
+  Params: .code (string), .title (string), .message (string),
+          .alertClass (string), .iconPath (string - SVG path d attribute)
+*/}}
 <div class="hero min-h-[60vh]">
   <div class="hero-content text-center">
     <div class="max-w-md">
-      <div role="alert" class="alert {{ .alertClass }} mb-8">
-        <!-- alert icon -->
+      <div class="alert {{ .alertClass }} mb-8">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ .iconPath }}" />
+        </svg>
         <span>{{ .title }}</span>
       </div>
-      <h1 class="text-7xl font-bold text-primary">{{ .code }}</h1>
-      <p class="py-6 text-balance">{{ .message }}</p>
-      <div class="flex justify-center gap-4">
-        <a href="/" class="btn btn-primary">Go Home</a>
-        <button onclick="history.back()" class="btn btn-outline">Go Back</button>
+      <h1 class="text-7xl font-bold text-primary mb-4">{{ .code }}</h1>
+      <p class="text-xl text-base-content/70 mb-8">{{ .message }}</p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="/" class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Go Home
+        </a>
+        <button onclick="history.back()" class="btn btn-outline">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Go Back
+        </button>
       </div>
     </div>
   </div>
@@ -150,8 +170,9 @@ Update `hugo/layouts/404.html` to use the shared partial:
   {{ partial "errors/error-hero.html" (dict
     "code" "404"
     "title" "Page Not Found"
-    "message" "Sorry, we couldn't find the page you're looking for. It may have been moved or no longer exists."
+    "message" "Sorry, the page you're looking for doesn't exist or has been moved."
     "alertClass" "alert-warning"
+    "iconPath" "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
   ) }}
 {{ end }}
 ```
@@ -165,7 +186,7 @@ Create `hugo/content/500.md`:
 title: "Server Error"
 layout: "500"
 url: "/500/"
-_build:
+build:
   list: never
   render: always
 sitemap:
@@ -182,6 +203,7 @@ Create `hugo/layouts/_default/500.html`:
     "title" "Something Went Wrong"
     "message" "We're having trouble processing your request. Please try again in a few moments."
     "alertClass" "alert-error"
+    "iconPath" "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
   ) }}
 {{ end }}
 ```
