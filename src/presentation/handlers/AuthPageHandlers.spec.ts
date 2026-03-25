@@ -1735,6 +1735,17 @@ describe('AuthPageHandlers', () => {
       expect(body).toContain('Back to Forgot Password');
     });
 
+    it('redirects to success page on service_error to prevent email enumeration', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({
+        ok: false,
+        kind: 'service_error',
+      });
+      const req = makeForgotPasswordPostRequest();
+      const res = await handlers.handlePostForgotPassword(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/auth/forgot-password?success=true');
+    });
+
     it('returns 403 when CSRF token is invalid', async () => {
       const req = makeForgotPasswordPostRequest({ csrfCookie: 'wrong' });
       const res = await handlers.handlePostForgotPassword(req);
