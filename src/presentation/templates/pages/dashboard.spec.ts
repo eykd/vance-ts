@@ -45,6 +45,14 @@ describe('dashboardPage', () => {
     it('renders inbox count with id for dynamic updates', () => {
       expect(result).toContain('id="inbox-count"');
     });
+
+    it('renders inbox card as a clickable link to /app/inbox', () => {
+      expect(result).toMatch(/<a\s[^>]*href="\/app\/inbox"[^>]*class="[^"]*card[^"]*"/);
+    });
+
+    it('renders actions card as a clickable link to /app/actions', () => {
+      expect(result).toMatch(/<a\s[^>]*href="\/app\/actions"[^>]*class="[^"]*card[^"]*"/);
+    });
   });
 
   describe('with non-zero counts', () => {
