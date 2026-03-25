@@ -234,6 +234,7 @@ try {
     /**
      * Recursively scans a directory for Markdown files with robots: noindex front matter.
      * @param {string} dir - Directory to scan.
+     * @returns {void}
      */
     function findNoindexPages(dir) {
       if (!fs.existsSync(dir)) return;
