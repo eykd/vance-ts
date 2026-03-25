@@ -42,8 +42,9 @@ const config: KnipConfig = {
     // Loaded by prettier at runtime
     'prettier-plugin-go-template',
     'prettier-plugin-tailwindcss',
-    // CLI tool invoked via npx
+    // CLI tools invoked via npx
     '@tktco/node-actionlint',
+    '@sentry/cli',
     // Virtual module provided by @cloudflare/vitest-pool-workers
     'cloudflare',
     // Transitive dep of eslint, imported in eslint.config.mjs
