@@ -919,6 +919,36 @@ describe('Worker', () => {
       expect(body).not.toContain('connection');
     });
 
+    it('includes security headers on JSON error responses', async () => {
+      const env = mockEnv();
+      mocks.signInApiRateLimitMiddlewareFn.mockRejectedValueOnce(new Error('boom'));
+
+      const req = new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' });
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+
+    it('includes security headers on HTMX error fragment responses', async () => {
+      const env = mockEnv();
+      mocks.handleGetSignIn.mockImplementation(() => {
+        throw new Error('handler crash');
+      });
+
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { 'HX-Request': 'true' },
+      });
+      const res = await app.fetch(req, env);
+
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+      expect(res.headers.get('Content-Security-Policy')).toContain("default-src 'self'");
+    });
+
     it('does not expose internal error details in JSON response', async () => {
       const env = mockEnv();
       mocks.signInApiRateLimitMiddlewareFn.mockRejectedValueOnce(
