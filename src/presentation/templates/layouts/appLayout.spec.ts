@@ -44,8 +44,8 @@ describe('appLayout', () => {
     expect(result).toContain('<html lang="en"');
   });
 
-  it('uses the lemonade DaisyUI theme to match Hugo and auth pages', () => {
-    expect(result).toContain('data-theme="lemonade"');
+  it('uses the clawtask-dark DaisyUI theme to match Hugo and auth pages', () => {
+    expect(result).toContain('data-theme="clawtask-dark"');
   });
 
   it('links the fingerprinted CSS file', () => {

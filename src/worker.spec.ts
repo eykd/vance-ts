@@ -663,14 +663,15 @@ describe('Worker', () => {
       expect(body.toLowerCase()).not.toContain('better-auth');
     });
 
-    it('does not contain external links', async () => {
+    it('does not contain external links in body content', async () => {
       const env = mockEnv();
       const req = new Request('https://example.com/api/auth/error');
 
       const res = await app.fetch(req, env);
-      const body = await res.text();
+      const text = await res.text();
+      const bodyContent = text.slice(text.indexOf('<body'));
 
-      expect(body).not.toMatch(/href="https?:\/\//);
+      expect(bodyContent).not.toMatch(/<a[^>]*href="https?:\/\//);
     });
 
     it('includes security headers', async () => {

@@ -26,7 +26,7 @@ interface AuthLayoutProps {
  */
 export function authLayout(props: AuthLayoutProps): string {
   return html`<!DOCTYPE html>
-    <html lang="en" data-theme="lemonade">
+    <html lang="en" data-theme="clawtask-dark">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -39,6 +39,12 @@ export function authLayout(props: AuthLayoutProps): string {
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400..700;1,400..700&family=Fragment+Mono:ital@0;1&family=Lexend:wght@300..700&display=swap"
+          rel="stylesheet"
+        />
         <link rel="stylesheet" href="${safe(STYLES_CSS_PATH)}" />
         <script src="${safe(HTMX_JS_PATH)}"></script>
         <script defer src="${safe(ALPINE_JS_PATH)}"></script>

@@ -3,7 +3,7 @@
   Defines head (meta, SEO, styles), body shell, and "main" block for content.
 */}}
 <!doctype html>
-<html lang="en" data-theme="{{ .Site.Params.theme | default "lemonade" }}">
+<html lang="en" data-theme="{{ .Site.Params.theme | default "clawtask-dark" }}">
   <head>
     <!-- Title -->
     {{ if .IsHome }}
@@ -59,6 +59,14 @@
     {{ with resources.Get "site.webmanifest" -}}
       <link rel="manifest" href="{{ .RelPermalink }}" />
     {{ end -}}
+
+    <!-- Fonts: DM Sans (headings), Lexend (body), Fragment Mono (code) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400..700;1,400..700&family=Fragment+Mono:ital@0;1&family=Lexend:wght@300..700&display=swap"
+      rel="stylesheet"
+    />
 
     <!-- RSS -->
     {{ with .OutputFormats.Get "rss" }}

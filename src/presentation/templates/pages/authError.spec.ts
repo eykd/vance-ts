@@ -43,9 +43,10 @@ describe('authErrorPage', () => {
     expect(result.toLowerCase()).not.toContain('better-auth');
   });
 
-  it('does not contain external links', () => {
+  it('does not contain external links in body content', () => {
     const result = authErrorPage();
-    expect(result).not.toMatch(/href="https?:\/\//);
+    const body = result.slice(result.indexOf('<body'));
+    expect(body).not.toMatch(/<a[^>]*href="https?:\/\//);
   });
 
   it('uses the shared auth layout (DaisyUI card)', () => {

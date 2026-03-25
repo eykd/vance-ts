@@ -54,8 +54,9 @@ describe('authLayout', () => {
     expect(result).not.toContain('integrity=');
   });
 
-  it('does not include crossorigin attributes', () => {
-    expect(result).not.toContain('crossorigin');
+  it('does not include crossorigin attributes on local assets', () => {
+    expect(result).not.toMatch(/stylesheet.*crossorigin/);
+    expect(result).not.toMatch(/script.*crossorigin/);
   });
 
   it('includes HTMX security config meta tag', () => {
@@ -76,8 +77,8 @@ describe('authLayout', () => {
     expect(result).toContain('<html lang="en"');
   });
 
-  it('uses the lemonade DaisyUI theme to match Hugo static pages', () => {
-    expect(result).toContain('data-theme="lemonade"');
+  it('uses the clawtask-dark DaisyUI theme to match Hugo static pages', () => {
+    expect(result).toContain('data-theme="clawtask-dark"');
   });
 
   it('includes robots noindex nofollow meta tag', () => {

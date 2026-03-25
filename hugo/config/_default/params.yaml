@@ -33,9 +33,9 @@ copyright: "© 2026 Worlds Enough Studios. All rights reserved."
 
 googleAnalytics: "G-N6W3PQZFFD"
 
-# DaisyUI theme (default: lemonade)
-# See https://daisyui.com/docs/themes/ for available themes
-theme: "lemonade"
+# DaisyUI theme (default: clawtask-dark)
+# Custom themes defined in assets/css/styles.css
+theme: "clawtask-dark"
 
 # Author information for Schema.org (used in article metadata)
 author:
