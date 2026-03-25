@@ -47,7 +47,7 @@ import type { Auth, BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 
-import { ProvisionWorkspaceUseCase } from '../application/use-cases/ProvisionWorkspaceUseCase';
+import type { Logger } from '../application/ports/Logger.js';
 import { hashPassword, verifyPassword } from '../domain/services/passwordHasher';
 import { isPlainHttpLocalhost } from '../shared/authCookieNames';
 import type { Env } from '../shared/env';
@@ -55,19 +55,31 @@ import type { Env } from '../shared/env';
 import { account, session, user, verification } from './authSchema.js';
 import { wrapD1ForDrizzle } from './d1DateProxy.js';
 import { hashToken } from './tokenHasher';
-import { WorkspaceD1BatchAdapter } from './WorkspaceD1BatchAdapter.js';
-import { WorkspaceProvisioningService } from './WorkspaceProvisioningService.js';
+
+/**
+ * Callback port for workspace provisioning after user creation.
+ *
+ * Accepting this as a parameter decouples the infrastructure auth module
+ * from the application-layer use case, keeping the dependency direction
+ * clean (DI composition root → infrastructure, not infrastructure → application).
+ *
+ * @param userId - The newly created user's ID.
+ */
+export type OnUserCreated = (userId: string) => Promise<void>;
 
 /**
  * Snapshot of the env bindings that were active when `_auth` was created.
- * Used to detect BETTER_AUTH_SECRET or DB rotation within the same isolate
- * lifetime (defensive guard; rotation normally forces a Worker restart).
+ * Used to detect BETTER_AUTH_SECRET, BETTER_AUTH_URL, or DB rotation within
+ * the same isolate lifetime (defensive guard; rotation normally forces a
+ * Worker restart).
  */
 interface AuthEnvIdentity {
   /** The BETTER_AUTH_SECRET value active when the singleton was created. */
   secret: string;
   /** The D1Database binding reference active when the singleton was created. */
   db: D1Database;
+  /** The BETTER_AUTH_URL value active when the singleton was created. */
+  url: string;
 }
 
 /** Module-level singleton, lives for the lifetime of the Workers isolate. */
@@ -85,19 +97,27 @@ let _authEnvIdentity: AuthEnvIdentity | null = null;
  * produces a fresh instance rather than serving stale configuration.
  *
  * @param env - Cloudflare Workers environment bindings.
+ * @param onUserCreated - Callback invoked after a new user is created (workspace provisioning).
+ * @param logger - Logger port for structured logging.
  * @returns The configured better-auth instance.
  * @throws {Error} When `BETTER_AUTH_SECRET` is shorter than 32 characters.
  */
-export function getAuth(env: Env): Auth<BetterAuthOptions> {
+export function getAuth(
+  env: Env,
+  onUserCreated: OnUserCreated,
+  logger: Logger
+): Auth<BetterAuthOptions> {
   if (env.BETTER_AUTH_SECRET === undefined || env.BETTER_AUTH_SECRET.length < 32) {
     throw new Error('BETTER_AUTH_SECRET must be at least 32 characters');
   }
 
-  // Invalidate the cached instance if BETTER_AUTH_SECRET or DB has been rotated.
+  // Invalidate the cached instance if BETTER_AUTH_SECRET, BETTER_AUTH_URL, or DB has been rotated.
   if (
     _auth !== null &&
     _authEnvIdentity !== null &&
-    (env.BETTER_AUTH_SECRET !== _authEnvIdentity.secret || env.DB !== _authEnvIdentity.db)
+    (env.BETTER_AUTH_SECRET !== _authEnvIdentity.secret ||
+      env.DB !== _authEnvIdentity.db ||
+      env.BETTER_AUTH_URL !== _authEnvIdentity.url)
   ) {
     _auth = null;
     _authEnvIdentity = null;
@@ -108,19 +128,13 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
     // below can reference it without TypeScript requiring further narrowing.
     const secret: string = env.BETTER_AUTH_SECRET;
 
-    // Construct the workspace provisioner inside the getAuth closure so it has
-    // access to env.DB (raw D1) for the D1 batch transport.
-    // The provisioner is garbage-collected when _auth is reset (no teardown needed).
-    const batchAdapter = new WorkspaceD1BatchAdapter(env.DB);
-    const provisionUseCase = new ProvisionWorkspaceUseCase(batchAdapter);
-    const provisioner = new WorkspaceProvisioningService(provisionUseCase);
-
     _auth = betterAuth({
       database: drizzleAdapter(drizzle(wrapD1ForDrizzle(env.DB)), {
         provider: 'sqlite',
         schema: { account, session, user, verification },
       }),
       baseURL: env.BETTER_AUTH_URL,
+      trustedOrigins: [new URL(env.BETTER_AUTH_URL).origin],
       secret,
       emailAndPassword: {
         enabled: true,
@@ -139,6 +153,13 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
         requireEmailVerification: false,
         minPasswordLength: 12,
         maxPasswordLength: 128,
+        // eslint-disable-next-line @typescript-eslint/require-await
+        sendResetPassword: async ({ url: _url }, _request): Promise<void> => {
+          // Email delivery infrastructure is not yet available. Log a redacted
+          // confirmation so operators know a reset was triggered without exposing
+          // the token. Replace this with a real email sender (e.g. Resend) when available.
+          logger.info('[PasswordReset] Reset email triggered for token: [REDACTED]');
+        },
         password: {
           hash: hashPassword,
           // Wrapper required: better-auth passes { password, hash } as a single object, but
@@ -200,18 +221,31 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
             /**
              * Hash the verification value with HMAC-SHA256 before it is written to D1.
              * Uses the dedicated 'verification-token-v1' sub-key derived from the master
-             * secret for key separation. Any feature that reads `verification.value` after
-             * a successful lookup will receive the hash; future plugins that store sensitive
-             * tokens in this field must account for this transform.
+             * secret for key separation.
+             *
+             * Password-reset verifications are excluded: better-auth stores the user ID
+             * in `value` and reads it back by identifier lookup. Hashing the user ID
+             * would cause `resetPassword` to receive a hash instead of a valid user ID,
+             * breaking the password update. The token itself is stored in the `identifier`
+             * field (not `value`), so skipping the hash does not expose it.
              *
              * @param verification - The verification data being created, including the raw value.
-             * @returns Updated verification data with the HMAC-SHA256 hash of the value.
+             * @returns Updated verification data, with the value hashed for non-password-reset verifications.
              */
             before: async (
-              verification: { value: string } & Record<string, unknown>
-            ): Promise<{ data: { value: string } }> => ({
-              data: { value: await hashToken(verification.value, secret, 'verification-token-v1') },
-            }),
+              verification: { value: string; identifier?: string } & Record<string, unknown>
+            ): Promise<{ data: { value: string } }> => {
+              const identifier =
+                typeof verification.identifier === 'string' ? verification.identifier : '';
+              if (identifier.startsWith('reset-password:')) {
+                return { data: { value: verification.value } };
+              }
+              return {
+                data: {
+                  value: await hashToken(verification.value, secret, 'verification-token-v1'),
+                },
+              };
+            },
           },
         },
         user: {
@@ -226,13 +260,13 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
              *
              * If provisioning fails, the user will receive a 503 from the
              * `requireWorkspace` middleware on first login. Manual recovery:
-             * call {@link ProvisionWorkspaceUseCase} with the user's ID.
+             * invoke the provisioning use case with the user's ID.
              *
              * @param user - The newly created user record from better-auth.
              */
             after: async (user: { id: string } & Record<string, unknown>): Promise<void> => {
               try {
-                await provisioner.onUserCreated(user.id);
+                await onUserCreated(user.id);
               } catch (err: unknown) {
                 console.error('[WorkspaceProvisioner] Failed to provision workspace', {
                   userId: user.id,
@@ -257,7 +291,7 @@ export function getAuth(env: Env): Auth<BetterAuthOptions> {
       // better-auth v1.4.x automatically mounts GET /api/auth/callback/google
       // (and the corresponding redirect endpoint) once a provider is configured here.
     }) as unknown as Auth<BetterAuthOptions>;
-    _authEnvIdentity = { secret, db: env.DB };
+    _authEnvIdentity = { secret, db: env.DB, url: env.BETTER_AUTH_URL };
   }
 
   // _auth is guaranteed non-null here: the block above always assigns it when _auth === null.

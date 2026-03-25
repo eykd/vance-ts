@@ -25,7 +25,12 @@ export interface InboxPageProps {
  */
 export function inboxPage(props: InboxPageProps): string {
   const itemsHtml = props.items
-    .map((item) => html`<li>${item.title} <button type="button">Clarify</button></li>`)
+    .map(
+      (item) =>
+        html`<li>
+          ${item.title} <button hx-post="/app/_/inbox/${item.id}/clarify">Clarify</button>
+        </li>`
+    )
     .join('');
 
   const content = html`<h1>Inbox</h1>

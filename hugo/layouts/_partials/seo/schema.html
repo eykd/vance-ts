@@ -42,7 +42,7 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "Article",
+  "@type": "{{ cond (eq .Kind "404") "WebPage" "Article" }}",
   "headline": "{{ $title }}",
   "url": "{{ $url }}",
   "description": "{{ $description }}",
@@ -84,7 +84,9 @@
 {{- $breadcrumbs := slice }}
 {{- $breadcrumbs = $breadcrumbs | append (dict "name" "Home" "url" .Site.BaseURL) }}
 {{- with .Parent }}
-  {{- $breadcrumbs = $breadcrumbs | append (dict "name" .Title "url" .Permalink) }}
+  {{- if not .IsHome }}
+    {{- $breadcrumbs = $breadcrumbs | append (dict "name" .Title "url" .Permalink) }}
+  {{- end }}
 {{- end }}
 {{- $breadcrumbs = $breadcrumbs | append (dict "name" .Title "url" .Permalink) }}
 <script type="application/ld+json">

@@ -8,11 +8,17 @@
  * so the store is guaranteed to be available when directives evaluate.
  */
 document.addEventListener('alpine:init', function () {
+  // Mirror server-side logic in src/infrastructure/authCookieNames.ts:
+  // On HTTPS the cookie uses the __Host- prefix; on plain HTTP localhost it does not.
+  var cookieName = window.location.protocol === 'https:'
+    ? '__Host-auth_status'
+    : 'auth_status';
+
   Alpine.store('auth', {
     isAuthenticated: document.cookie
       .split(';')
-      // Cookie name must match AUTH_INDICATOR_COOKIE_NAME in src/presentation/utils/cookieBuilder.ts
-      .some(function (c) { return c.trim() === '__Host-auth_status=1'; })
+      // Cookie name must match getAuthIndicatorCookieName() in src/infrastructure/authCookieNames.ts
+      .some(function (c) { return c.trim() === cookieName + '=1'; })
   });
 
   /**

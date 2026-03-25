@@ -25,6 +25,8 @@ import { ListAreasUseCase } from '../application/use-cases/ListAreasUseCase';
 import { ListContextsUseCase } from '../application/use-cases/ListContextsUseCase';
 import { ListInboxItemsUseCase } from '../application/use-cases/ListInboxItemsUseCase';
 import { ProvisionWorkspaceUseCase } from '../application/use-cases/ProvisionWorkspaceUseCase';
+import { RequestPasswordResetUseCase } from '../application/use-cases/RequestPasswordResetUseCase';
+import { ResetPasswordUseCase } from '../application/use-cases/ResetPasswordUseCase';
 import { SignInUseCase } from '../application/use-cases/SignInUseCase';
 import { SignOutUseCase } from '../application/use-cases/SignOutUseCase';
 import { SignUpUseCase } from '../application/use-cases/SignUpUseCase';
@@ -39,6 +41,9 @@ import { getAuth, resetAuth } from '../infrastructure/auth';
 import {
   getAuthIndicatorCookieName,
   getCsrfCookieName,
+  getFlashForgotCookieName,
+  getFlashRegisteredCookieName,
+  getFlashResetCookieName,
   getSessionCookieName,
 } from '../infrastructure/authCookieNames';
 import { BetterAuthService } from '../infrastructure/BetterAuthService';
@@ -53,6 +58,7 @@ import { D1ContextRepository } from '../infrastructure/repositories/D1ContextRep
 import { D1InboxItemRepository } from '../infrastructure/repositories/D1InboxItemRepository';
 import { D1WorkspaceRepository } from '../infrastructure/repositories/D1WorkspaceRepository';
 import { WorkspaceD1BatchAdapter } from '../infrastructure/WorkspaceD1BatchAdapter';
+import { WorkspaceProvisioningService } from '../infrastructure/WorkspaceProvisioningService';
 import { createActionApiHandlers } from '../presentation/handlers/ActionApiHandlers';
 import { AppPageHandlers } from '../presentation/handlers/AppPageHandlers';
 import { AppPartialHandlers } from '../presentation/handlers/AppPartialHandlers';
@@ -92,6 +98,15 @@ export class ServiceFactory {
   /** Auth indicator cookie name derived from BETTER_AUTH_URL. */
   private readonly _authIndicatorCookieName: string;
 
+  /** Flash registered cookie name derived from BETTER_AUTH_URL. */
+  private readonly _flashRegisteredCookieName: string;
+
+  /** Flash reset cookie name derived from BETTER_AUTH_URL. */
+  private readonly _flashResetCookieName: string;
+
+  /** Flash forgot-password cookie name derived from BETTER_AUTH_URL. */
+  private readonly _flashForgotCookieName: string;
+
   /** Cached AuthService adapter. */
   private _authService: AuthService | null = null;
 
@@ -109,6 +124,12 @@ export class ServiceFactory {
 
   /** Cached SignOutUseCase. */
   private _signOutUseCase: SignOutUseCase | null = null;
+
+  /** Cached RequestPasswordResetUseCase. */
+  private _requestPasswordResetUseCase: RequestPasswordResetUseCase | null = null;
+
+  /** Cached ResetPasswordUseCase. */
+  private _resetPasswordUseCase: ResetPasswordUseCase | null = null;
 
   /** Cached AuthPageHandlers. */
   private _authPageHandlers: AuthPageHandlers | null = null;
@@ -202,11 +223,22 @@ export class ServiceFactory {
    */
   constructor(env: Env) {
     this.env = env;
-    this._authInstance = getAuth(env); // validates BETTER_AUTH_SECRET, throws if invalid
+
+    // Build the workspace provisioner in the composition root and inject it
+    // into getAuth, keeping the infrastructure layer free of application imports.
+    const batchAdapter = new WorkspaceD1BatchAdapter(env.DB);
+    const provisionUseCase = new ProvisionWorkspaceUseCase(batchAdapter);
+    const provisioner = new WorkspaceProvisioningService(provisionUseCase);
+    const onUserCreated = (userId: string): Promise<void> => provisioner.onUserCreated(userId);
+
+    this._authInstance = getAuth(env, onUserCreated, this._loggerInstance); // validates BETTER_AUTH_SECRET, throws if invalid
     this._validatedSecret = env.BETTER_AUTH_SECRET;
     this._sessionCookieName = getSessionCookieName(env.BETTER_AUTH_URL);
     this._csrfCookieName = getCsrfCookieName(env.BETTER_AUTH_URL);
     this._authIndicatorCookieName = getAuthIndicatorCookieName(env.BETTER_AUTH_URL);
+    this._flashRegisteredCookieName = getFlashRegisteredCookieName(env.BETTER_AUTH_URL);
+    this._flashResetCookieName = getFlashResetCookieName(env.BETTER_AUTH_URL);
+    this._flashForgotCookieName = getFlashForgotCookieName(env.BETTER_AUTH_URL);
   }
 
   /**
@@ -300,6 +332,33 @@ export class ServiceFactory {
   }
 
   /**
+   * The request-password-reset use case orchestrator.
+   *
+   * @returns The lazily-initialised RequestPasswordResetUseCase instance.
+   */
+  get requestPasswordResetUseCase(): RequestPasswordResetUseCase {
+    this._requestPasswordResetUseCase ??= new RequestPasswordResetUseCase(
+      this._authServiceInstance,
+      this._rateLimiterInstance,
+      this._loggerInstance
+    );
+    return this._requestPasswordResetUseCase;
+  }
+
+  /**
+   * The reset-password use case orchestrator.
+   *
+   * @returns The lazily-initialised ResetPasswordUseCase instance.
+   */
+  get resetPasswordUseCase(): ResetPasswordUseCase {
+    this._resetPasswordUseCase ??= new ResetPasswordUseCase(
+      this._authServiceInstance,
+      this._loggerInstance
+    );
+    return this._resetPasswordUseCase;
+  }
+
+  /**
    * Hono middleware that guards routes behind session authentication.
    *
    * Pre-injects the AuthService and BETTER_AUTH_SECRET so that `worker.ts`
@@ -331,9 +390,14 @@ export class ServiceFactory {
       this.signInUseCase,
       this.signUpUseCase,
       this.signOutUseCase,
+      this.requestPasswordResetUseCase,
+      this.resetPasswordUseCase,
       this._sessionCookieName,
       this._csrfCookieName,
-      this._authIndicatorCookieName
+      this._authIndicatorCookieName,
+      this._flashRegisteredCookieName,
+      this._flashResetCookieName,
+      this._flashForgotCookieName
     );
     return this._authPageHandlers;
   }

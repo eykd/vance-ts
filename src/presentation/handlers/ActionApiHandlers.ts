@@ -18,6 +18,7 @@ import type {
 import type { ListActionsUseCase } from '../../application/use-cases/ListActionsUseCase.js';
 import type { AppEnv } from '../types.js';
 import { apiErrorResponse } from '../utils/apiErrorResponse.js';
+import { humanizeErrorCode } from '../utils/humanizeErrorCode.js';
 
 /** Use case contract for action state transitions (activate, complete). */
 interface ActionCommandUseCase {
@@ -62,7 +63,7 @@ async function executeActionCommand(
   const result = await useCase.execute({ workspaceId, actionId, actorId });
   if (!result.ok) {
     return c.json(
-      { error: { code: result.kind, message: result.kind } },
+      { error: { code: result.kind, message: humanizeErrorCode(result.kind) } },
       mapKindToStatus(result.kind)
     );
   }
@@ -141,7 +142,10 @@ export function createActionApiHandlers(
             : result.kind === 'already_clarified'
               ? 409
               : 422;
-        return c.json({ error: { code: result.kind, message: result.kind } }, status);
+        return c.json(
+          { error: { code: result.kind, message: humanizeErrorCode(result.kind) } },
+          status
+        );
       }
       return c.json(result.data, 200);
     },

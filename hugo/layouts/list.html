@@ -26,9 +26,9 @@
           {{ with .Params.featured_image }}
             {{ with resources.Get . }}
             <figure class="aspect-video overflow-hidden">
-              <a href="{{ $.Permalink }}">
+              <a href="{{ $.RelPermalink }}">
                 <img
-                  src="{{ .Permalink }}"
+                  src="{{ .RelPermalink }}"
                   alt="{{ $.Title }}"
                   class="object-cover w-full h-full hover:scale-105 transition-transform duration-300"
                 />
@@ -38,7 +38,7 @@
           {{ end }}
           <div class="card-body">
             <h2 class="card-title">
-              <a class="link link-hover" href="{{ .Permalink }}">{{ .Title }}</a>
+              <a class="link link-hover" href="{{ .RelPermalink }}">{{ .Title }}</a>
             </h2>
             {{ with .Description }}
               <p class="text-base-content/70 line-clamp-2">{{ . }}</p>
@@ -47,7 +47,7 @@
               <p class="text-sm text-base-content/50">{{ .Format "January 2, 2006" }}</p>
             {{ end }}
             <div class="card-actions justify-end mt-4">
-              <a href="{{ .Permalink }}" class="btn btn-primary btn-sm">
+              <a href="{{ .RelPermalink }}" class="btn btn-primary btn-sm">
                 Read More
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>

@@ -13,6 +13,8 @@ interface LoginPageProps {
   readonly email?: string;
   /** When true, shows a success banner confirming account creation. */
   readonly registeredSuccess?: boolean;
+  /** When true, shows a success banner confirming password reset. */
+  readonly passwordResetSuccess?: boolean;
 }
 
 /** ID shared between the error container and aria-describedby attributes. */
@@ -29,12 +31,17 @@ const ERROR_ID = 'login-error';
  * @returns A complete HTML document string
  */
 export function loginPage(props: LoginPageProps): string {
-  const successBanner =
+  const registeredBannerHtml =
     props.registeredSuccess === true
-      ? safe(
-          '<div role="alert" class="alert alert-success mb-4">Account created successfully. Please sign in.</div>'
-        )
-      : safe('');
+      ? '<div role="alert" class="alert alert-success mb-4">Account created successfully. Please sign in.</div>'
+      : '';
+
+  const resetBannerHtml =
+    props.passwordResetSuccess === true
+      ? '<div role="alert" class="alert alert-success mb-4">Password reset successfully. Please sign in with your new password.</div>'
+      : '';
+
+  const successBanner = safe(`${registeredBannerHtml}${resetBannerHtml}`);
 
   const errorBanner =
     props.error !== undefined
@@ -54,7 +61,13 @@ export function loginPage(props: LoginPageProps): string {
   const content = html`
     <h1 class="card-title text-2xl font-bold mb-6">Sign In</h1>
     ${successBanner} ${errorBanner}
-    <form method="POST" action="/auth/sign-in">
+    <form
+      method="POST"
+      action="/auth/sign-in"
+      aria-label="Sign in"
+      x-data="{ submitting: false }"
+      @submit="submitting = true"
+    >
       <input type="hidden" name="_csrf" value="${props.csrfToken}" />
       ${redirectToField}
       <div class="form-control mb-4">
@@ -68,7 +81,7 @@ export function loginPage(props: LoginPageProps): string {
           value="${props.email ?? ''}"
           autocomplete="email"
           ${ariaDescribedby}
-          class="input input-bordered"
+          class="input input-bordered w-full"
           required
         />
       </div>
@@ -82,12 +95,15 @@ export function loginPage(props: LoginPageProps): string {
           name="password"
           autocomplete="current-password"
           ${ariaDescribedby}
-          class="input input-bordered"
+          class="input input-bordered w-full"
           required
         />
       </div>
+      <div class="flex justify-end mb-2">
+        <a href="/auth/forgot-password" class="link link-primary text-sm">Forgot password?</a>
+      </div>
       <div class="form-control mt-2">
-        <button type="submit" class="btn btn-primary">Sign In</button>
+        <button type="submit" class="btn btn-primary w-full" :disabled="submitting">Sign In</button>
       </div>
     </form>
     <div class="mt-4 text-center">

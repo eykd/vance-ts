@@ -7,7 +7,7 @@
 {{- if .image -}}
 <style>
   .hero-bg {
-    background-image: url('{{ with resources.Get .image }}{{ .Permalink }}{{ end }}');
+    background-image: url('{{ with resources.Get .image }}{{ .RelPermalink }}{{ end }}');
     background-size: cover;
     background-position: center;
   }

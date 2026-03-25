@@ -26,23 +26,39 @@ interface AuthLayoutProps {
  */
 export function authLayout(props: AuthLayoutProps): string {
   return html`<!DOCTYPE html>
-    <html lang="en" data-theme="turtlebased">
+    <html lang="en" data-theme="lemonade">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="robots" content="noindex, nofollow" />
         <meta
           name="htmx-config"
           content='{"selfRequestsOnly":true,"allowScriptTags":false,"allowEval":false}'
         />
-        <title>${props.title}</title>
+        <title>${props.title} | ClawTask</title>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="manifest" href="/site.webmanifest" />
         <link rel="stylesheet" href="${safe(STYLES_CSS_PATH)}" />
         <script src="${safe(HTMX_JS_PATH)}"></script>
         <script defer src="${safe(ALPINE_JS_PATH)}"></script>
       </head>
-      <body class="min-h-screen bg-base-200 flex items-center justify-center">
-        <div class="card w-full max-w-md bg-base-100 shadow-xl">
-          <div class="card-body">${safe(props.content)}</div>
-        </div>
+      <body class="min-h-screen bg-base-200 flex flex-col items-center justify-center">
+        <a
+          href="#main-content"
+          class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-content focus:rounded"
+        >
+          Skip to content
+        </a>
+        <a href="/" class="flex items-center gap-2 mb-6">
+          <img src="/favicon.svg" class="size-8" alt="ClawTask logo" />
+          <span class="text-xl font-semibold">ClawTask</span>
+        </a>
+        <main id="main-content">
+          <div class="card w-full max-w-md bg-base-100 shadow-xl">
+            <div class="card-body">${safe(props.content)}</div>
+          </div>
+        </main>
       </body>
     </html>`;
 }

@@ -1,9 +1,9 @@
 /**
  * Logger port interface.
  *
- * Defines the contract for structured error logging, decoupled from any
+ * Defines the contract for structured logging, decoupled from any
  * concrete I/O implementation (e.g., `console`). Use cases accept this
- * interface — never call `console.error` directly.
+ * interface — never call `console` methods directly.
  *
  * @module
  */
@@ -16,6 +16,13 @@
  * interface, keeping the application layer free of I/O side effects.
  */
 export interface Logger {
+  /**
+   * Logs an informational message.
+   *
+   * @param message - Human-readable description of the event.
+   */
+  info(message: string): void;
+
   /**
    * Logs an error-level message with an optional cause.
    *

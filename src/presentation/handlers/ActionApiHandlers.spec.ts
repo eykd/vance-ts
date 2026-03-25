@@ -110,8 +110,9 @@ describe('createActionApiHandlers', () => {
       );
 
       expect(res.status).toBe(409);
-      const body: { error: { code: string } } = await res.json();
+      const body: { error: { code: string; message: string } } = await res.json();
       expect(body.error.code).toBe('already_clarified');
+      expect(body.error.message).toBe('Already clarified');
     });
 
     it('returns 404 for area_not_found_or_archived error', async () => {
@@ -253,8 +254,9 @@ describe('createActionApiHandlers', () => {
       );
 
       expect(res.status).toBe(409);
-      const body: { error: { code: string } } = await res.json();
+      const body: { error: { code: string; message: string } } = await res.json();
       expect(body.error.code).toBe('invalid_status_transition');
+      expect(body.error.message).toBe('Invalid status transition');
     });
 
     it('returns 500 for unexpected errors', async () => {

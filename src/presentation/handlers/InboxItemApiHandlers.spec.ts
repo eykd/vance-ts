@@ -91,7 +91,7 @@ describe('createInboxItemApiHandlers', () => {
       expect(res.status).toBe(422);
       const body = await res.json<{ error: { code: string; message: string } }>();
       expect(body.error.code).toBe('title_required');
-      expect(body.error.message).toBe('domain_error');
+      expect(body.error.message).toBe('Title required');
     });
 
     it('returns 400 when title is missing from body', async () => {

@@ -10,6 +10,7 @@ import type { CaptureInboxItemUseCase } from '../../application/use-cases/Captur
 import type { ListInboxItemsUseCase } from '../../application/use-cases/ListInboxItemsUseCase.js';
 import type { AppEnv } from '../types.js';
 import { apiErrorResponse } from '../utils/apiErrorResponse.js';
+import { humanizeErrorCode } from '../utils/humanizeErrorCode.js';
 
 /**
  * Factory that creates the inbox item API handler object.
@@ -58,7 +59,10 @@ export function createInboxItemApiHandlers(
         actorId,
       });
       if (!result.ok) {
-        return c.json({ error: { code: result.code, message: result.kind } }, 422);
+        return c.json(
+          { error: { code: result.code, message: humanizeErrorCode(result.code) } },
+          422
+        );
       }
       return c.json(result.data, 201);
     },

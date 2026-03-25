@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { ALPINE_JS_PATH, HTMX_JS_PATH } from '../../generated/assetPaths';
+
 import { appLayout } from './appLayout.js';
 
 describe('appLayout', () => {
@@ -33,7 +35,48 @@ describe('appLayout', () => {
     expect(result).toContain('charset="UTF-8"');
   });
 
+  it('includes viewport meta tag for mobile rendering', () => {
+    expect(result).toContain('name="viewport"');
+    expect(result).toContain('width=device-width, initial-scale=1.0');
+  });
+
   it('uses html lang attribute', () => {
     expect(result).toContain('<html lang="en"');
+  });
+
+  it('uses the lemonade DaisyUI theme to match Hugo and auth pages', () => {
+    expect(result).toContain('data-theme="lemonade"');
+  });
+
+  it('links the fingerprinted CSS file', () => {
+    expect(result).toMatch(/href="\/css\/styles\.[a-f0-9]+\.css"/);
+  });
+
+  it('includes self-hosted HTMX script using the generated constant', () => {
+    expect(result).toContain(`src="${HTMX_JS_PATH}"`);
+  });
+
+  it('includes self-hosted Alpine.js script with defer using the generated constant', () => {
+    expect(result).toContain(`src="${ALPINE_JS_PATH}"`);
+    expect(result).toMatch(/<script\s[^>]*defer[^>]*src="/);
+  });
+
+  it('includes HTMX security config meta tag', () => {
+    expect(result).toContain('"selfRequestsOnly":true');
+    expect(result).toContain('"allowScriptTags":false');
+    expect(result).toContain('"allowEval":false');
+  });
+
+  it('includes an SVG favicon link tag', () => {
+    expect(result).toContain('<link rel="icon" type="image/svg+xml" href="/favicon.svg"');
+  });
+
+  it('includes an apple-touch-icon link tag', () => {
+    expect(result).toContain('<link rel="apple-touch-icon"');
+    expect(result).toContain('href="/apple-touch-icon.png"');
+  });
+
+  it('includes a web app manifest link tag', () => {
+    expect(result).toContain('<link rel="manifest" href="/site.webmanifest"');
   });
 });

@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   SignInUseCase: vi.fn(),
   SignUpUseCase: vi.fn(),
   SignOutUseCase: vi.fn(),
+  RequestPasswordResetUseCase: vi.fn(),
+  ResetPasswordUseCase: vi.fn(),
   AuthPageHandlers: vi.fn(),
   createRequireAuth: vi.fn(),
   createRequireWorkspace: vi.fn(),
@@ -29,6 +31,11 @@ const mocks = vi.hoisted(() => ({
   D1AuditEventRepository: vi.fn(),
   D1InboxItemRepository: vi.fn(),
   WorkspaceD1BatchAdapter: vi.fn(),
+  WorkspaceProvisioningService: vi.fn().mockImplementation(function (
+    this: Record<string, unknown>
+  ) {
+    this.onUserCreated = vi.fn().mockResolvedValue(undefined);
+  }),
   ClarifyInboxItemD1BatchAdapter: vi.fn(),
   ProvisionWorkspaceUseCase: vi.fn(),
   ListAreasUseCase: vi.fn(),
@@ -75,6 +82,14 @@ vi.mock('../application/use-cases/SignOutUseCase', () => ({
   SignOutUseCase: mocks.SignOutUseCase,
 }));
 
+vi.mock('../application/use-cases/RequestPasswordResetUseCase', () => ({
+  RequestPasswordResetUseCase: mocks.RequestPasswordResetUseCase,
+}));
+
+vi.mock('../application/use-cases/ResetPasswordUseCase', () => ({
+  ResetPasswordUseCase: mocks.ResetPasswordUseCase,
+}));
+
 vi.mock('../presentation/handlers/AuthPageHandlers', () => ({
   AuthPageHandlers: mocks.AuthPageHandlers,
 }));
@@ -113,6 +128,10 @@ vi.mock('../infrastructure/repositories/D1AuditEventRepository', () => ({
 
 vi.mock('../infrastructure/WorkspaceD1BatchAdapter', () => ({
   WorkspaceD1BatchAdapter: mocks.WorkspaceD1BatchAdapter,
+}));
+
+vi.mock('../infrastructure/WorkspaceProvisioningService', () => ({
+  WorkspaceProvisioningService: mocks.WorkspaceProvisioningService,
 }));
 
 vi.mock('../infrastructure/ClarifyInboxItemD1BatchAdapter', () => ({

@@ -123,7 +123,9 @@ describe('createApiAuthRateLimit', () => {
         new Request('https://example.com/api/auth/sign-in/email', { method: 'POST' })
       );
 
-      expect(await res.json()).toEqual({ error: 'Too many requests' });
+      expect(await res.json()).toEqual({
+        error: { code: 'rate_limit_exceeded', message: 'Too many requests' },
+      });
     });
 
     it('passes through to the downstream handler when checkAndIncrement allows the request', async () => {

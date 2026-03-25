@@ -32,4 +32,13 @@ describe('ConsoleLogger', () => {
 
     expect(spy).toHaveBeenCalledWith('something failed', undefined);
   });
+
+  it('delegates info(message) to console.info', () => {
+    const spy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const logger = new ConsoleLogger();
+
+    logger.info('operation completed');
+
+    expect(spy).toHaveBeenCalledWith('operation completed');
+  });
 });

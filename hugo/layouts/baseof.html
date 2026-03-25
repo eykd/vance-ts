@@ -33,7 +33,9 @@
     <link rel="canonical" href="{{ .Permalink }}" />
 
     <!-- Robots -->
-    <meta name="robots" content="{{ .Params.robots | default "index, follow" }}" />
+    {{ $robots := .Params.robots | default "index, follow" }}
+    {{ if eq .Kind "404" }}{{ $robots = "noindex, nofollow" }}{{ end }}
+    <meta name="robots" content="{{ $robots }}" />
 
     <!-- SEO -->
     {{ partial "seo/google_analytics.html" . }}
@@ -43,19 +45,19 @@
 
     <!-- Favicons (graceful degradation if missing) -->
     {{ with resources.Get "favicon-96x96.png" -}}
-      <link rel="icon" type="image/png" href="{{ .Permalink }}" sizes="96x96" />
+      <link rel="icon" type="image/png" href="{{ .RelPermalink }}" sizes="96x96" />
     {{ end -}}
     {{ with resources.Get "favicon.svg" -}}
-      <link rel="icon" type="image/svg+xml" href="{{ .Permalink }}" />
+      <link rel="icon" type="image/svg+xml" href="{{ .RelPermalink }}" />
     {{ end -}}
     {{ with resources.Get "favicon.ico" -}}
-      <link rel="shortcut icon" href="{{ .Permalink }}" />
+      <link rel="shortcut icon" href="{{ .RelPermalink }}" />
     {{ end -}}
     {{ with resources.Get "apple-touch-icon.png" -}}
-      <link rel="apple-touch-icon" sizes="180x180" href="{{ .Permalink }}" />
+      <link rel="apple-touch-icon" sizes="180x180" href="{{ .RelPermalink }}" />
     {{ end -}}
     {{ with resources.Get "site.webmanifest" -}}
-      <link rel="manifest" href="{{ .Permalink }}" />
+      <link rel="manifest" href="{{ .RelPermalink }}" />
     {{ end -}}
 
     <!-- RSS -->
@@ -93,12 +95,28 @@
         ></script>
       {{ end }}
     {{ end }}
+    {{ with resources.Get "js/navigation.js" }}
+      {{ with . | minify | fingerprint }}
+        <script
+          defer
+          src="{{ .RelPermalink }}"
+          integrity="{{ .Data.Integrity }}"
+          crossorigin="anonymous"
+        ></script>
+      {{ end }}
+    {{ end }}
     <script defer src="/js/alpine-csp-3.15.8.min.js"></script>
   </head>
   <body class="font-sans bg-base-200">
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-content focus:rounded"
+    >
+      Skip to content
+    </a>
     <div class="flex min-h-screen flex-col">
       {{ partial "shared/header" . }}
-      <div class="grow">{{ block "main" . }}{{ end }}</div>
+      <main id="main-content" class="grow">{{ block "main" . }}{{ end }}</main>
       {{ partial "shared/footer" . }}
     </div>
   </body>

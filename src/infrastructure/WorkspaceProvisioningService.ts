@@ -3,7 +3,7 @@
  * `databaseHooks.user.create.after` hook to the application-layer provisioning
  * use case.
  *
- * Constructed inside `getAuth(env)` (or the DI composition root) with a
+ * Constructed in the DI composition root (`ServiceFactory`) with a
  * fully-wired {@link ProvisionWorkspaceUseCase}. On user creation, delegates
  * provisioning to the use case which atomically creates the workspace,
  * actor, seeded areas and contexts, and all audit events.

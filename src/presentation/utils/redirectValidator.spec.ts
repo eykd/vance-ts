@@ -29,11 +29,13 @@ describe('validateRedirectTo', () => {
     });
 
     it('accepts /posts/ paths', () => {
-      expect(validateRedirectTo('/posts/sample-post')).toBe('/posts/sample-post');
+      expect(validateRedirectTo('/posts/why-most-okrs-fail')).toBe('/posts/why-most-okrs-fail');
     });
 
     it('accepts /posts/ paths with query string', () => {
-      expect(validateRedirectTo('/posts/sample-post?q=1')).toBe('/posts/sample-post?q=1');
+      expect(validateRedirectTo('/posts/why-most-okrs-fail?q=1')).toBe(
+        '/posts/why-most-okrs-fail?q=1'
+      );
     });
 
     it('accepts /posts without trailing slash', () => {

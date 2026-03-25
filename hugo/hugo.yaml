@@ -3,7 +3,11 @@
 
 baseURL: "https://meetclawtask.com/"
 
+title: "ClawTask"
+
 languageCode: "en-us"
+
+disableHugoGeneratorInject: true
 
 build:
   buildStats:
@@ -29,7 +33,6 @@ module:
       target: "assets"
 
 taxonomies:
-  series: "series"
   tags: "tags"
 
 outputs:

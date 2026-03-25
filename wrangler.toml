@@ -14,7 +14,8 @@ port = 8787
 [assets]
 directory = "./hugo/public"
 binding = "ASSETS"
-run_worker_first = ["/api/*", "/app/*", "/auth/*", "/dashboard", "/dashboard/*"]
+not_found_handling = "404-page"
+run_worker_first = ["/api/*", "/app", "/app/*", "/auth/*", "/dashboard", "/dashboard/*"]
 
 [[d1_databases]]
 binding = "DB"

@@ -16,7 +16,7 @@ it("New user signup automatically provisions workspace with seed data.", async (
   // WHEN registration completes successfully.
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'alice@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'alice@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     csrfToken,
     undefined,
     '198.51.100.71',
@@ -63,7 +63,7 @@ it("Provisioned workspace exposes seeded areas via the API.", async () => {
   const { csrfToken } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'bob@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'bob@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     csrfToken,
     undefined,
     '198.51.100.72',
@@ -92,7 +92,7 @@ it("Provisioned workspace exposes seeded contexts via the API.", async () => {
   const { csrfToken } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'charlie@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'charlie@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     csrfToken,
     undefined,
     '198.51.100.73',

@@ -1,6 +1,6 @@
 /**
- * Build-time check: verifies that inlined AUTH_MIGRATIONS SQL in
- * generated-acceptance-tests/setup.ts matches the source migration file.
+ * Build-time check: verifies that inlined ALL_MIGRATIONS SQL in
+ * generated-acceptance-tests/setup.ts matches the source migration files.
  *
  * Tested via: npx vitest run scripts/check-migration-sync.spec.ts
  * Runs as part of: npx vitest run (node project)
@@ -12,6 +12,14 @@ export interface SyncResult {
   ok: boolean;
   /** Human-readable explanation when ok is false. */
   message?: string;
+}
+
+/** A named migration block extracted from the setup file. */
+export interface InlinedMigration {
+  /** The migration file name (e.g. '0001_better_auth_schema.sql'). */
+  name: string;
+  /** The SQL query strings from the queries array. */
+  queries: string[];
 }
 
 /**
@@ -35,29 +43,14 @@ export function parseMigrationSql(sql: string): string[] {
 }
 
 /**
- * Extract the query strings from the AUTH_MIGRATIONS queries array
- * in the acceptance test setup file content.
+ * Extract string literals from a queries array block.
  *
- * **Limitation:** Uses `[^\]]+` to match the queries array block, which will
- * truncate at the first `]` inside SQL content (e.g. D1 JSON operators like
- * `json_extract(col, '$[0]')`). This is acceptable while migrations contain
- * only DDL without bracket characters. If migrations start using `]` in SQL
- * strings, upgrade to a balanced-bracket or state-machine parser.
+ * @param queriesBlock - the content inside the queries: [...] brackets
  *
- * @param content - TypeScript source of the setup file
- *
- * @returns array of query strings found in the queries array
+ * @returns array of extracted string values
  */
-export function extractInlinedQueries(content: string): string[] {
-  const queriesMatch = content.match(/queries:\s*\[([^\]]+)\]/s);
-  const queriesBlock = queriesMatch?.[1];
-  if (queriesBlock === undefined) {
-    throw new Error('queries array not found in setup file content');
-  }
-
+function extractStringsFromBlock(queriesBlock: string): string[] {
   const strings: string[] = [];
-
-  // Match both single-quoted and double-quoted string literals
   const stringPattern = /(['"])((?:(?!\1).)*)\1/g;
   let match: RegExpExecArray | null;
   while ((match = stringPattern.exec(queriesBlock)) !== null) {
@@ -65,26 +58,70 @@ export function extractInlinedQueries(content: string): string[] {
       strings.push(match[2]);
     }
   }
-
   return strings;
 }
 
 /**
- * Verify that a migration SQL file and the inlined setup.ts queries are in sync.
+ * Extract all named migration blocks from the setup file content.
+ *
+ * Finds each `{ name: '...', queries: [...] }` block in the ALL_MIGRATIONS array.
+ *
+ * **Limitation:** Uses `[^\]]+` to match the queries array block, which will
+ * truncate at the first `]` inside SQL content. This is acceptable while migrations
+ * contain only DDL without bracket characters.
+ *
+ * @param content - TypeScript source of the setup file
+ *
+ * @returns array of inlined migration blocks with name and queries
+ */
+export function extractInlinedMigrations(content: string): InlinedMigration[] {
+  const migrations: InlinedMigration[] = [];
+  const blockPattern = /name:\s*['"]([^'"]+)['"]\s*,\s*queries:\s*\[([^\]]+)\]/gs;
+  let match: RegExpExecArray | null;
+  while ((match = blockPattern.exec(content)) !== null) {
+    const name = match[1];
+    const queriesBlock = match[2];
+    if (name !== undefined && queriesBlock !== undefined) {
+      migrations.push({ name, queries: extractStringsFromBlock(queriesBlock) });
+    }
+  }
+  if (migrations.length === 0) {
+    throw new Error('No migration blocks found in setup file content');
+  }
+  return migrations;
+}
+
+/**
+ * Extract the query strings from the first queries array in the setup file content.
+ *
+ * @deprecated Use extractInlinedMigrations for multi-migration support.
+ * @param content - TypeScript source of the setup file
+ *
+ * @returns array of query strings found in the queries array
+ */
+export function extractInlinedQueries(content: string): string[] {
+  const migrations = extractInlinedMigrations(content);
+  if (migrations.length === 0) {
+    throw new Error('queries array not found in setup file content');
+  }
+  return migrations[0]!.queries;
+}
+
+/**
+ * Verify that a migration SQL file matches the corresponding inlined block in setup.ts.
  *
  * @param migrationSql - raw SQL content from the migration file
- * @param setupContent - TypeScript source of the acceptance test setup file
+ * @param inlinedQueries - query strings extracted from the setup file for this migration
  * @param migrationFilename - display name of the migration file for error messages
  *
  * @returns sync result with ok flag and optional error message
  */
 export function verifyMigrationSync(
   migrationSql: string,
-  setupContent: string,
+  inlinedQueries: string[],
   migrationFilename: string
 ): SyncResult {
   const migrationStatements = parseMigrationSql(migrationSql);
-  const inlinedQueries = extractInlinedQueries(setupContent);
 
   if (migrationStatements.length !== inlinedQueries.length) {
     return {
@@ -103,7 +140,7 @@ export function verifyMigrationSync(
       return {
         ok: false,
         message:
-          `Inlined AUTH_MIGRATIONS has diverged from ` +
+          `Inlined ALL_MIGRATIONS has diverged from ` +
           `${migrationFilename} at statement ${i + 1}.\n` +
           `  Migration: ${migrationStatements[i]}\n` +
           `  Inlined:   ${normalizedInlined[i]}`,

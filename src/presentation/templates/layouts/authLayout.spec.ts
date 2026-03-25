@@ -15,13 +15,15 @@ describe('authLayout', () => {
     expect(result).toMatch(/^<!DOCTYPE html>/);
   });
 
-  it('includes the title in the <title> tag', () => {
-    expect(result).toContain('<title>Sign In</title>');
+  it('includes the title with site name suffix in the <title> tag', () => {
+    expect(result).toContain('<title>Sign In | ClawTask</title>');
   });
 
-  it('XSS-escapes the title', () => {
+  it('XSS-escapes the title while preserving site name suffix', () => {
     const xss = authLayout({ title: '<script>alert("xss")</script>', content: '' });
-    expect(xss).toContain('<title>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;</title>');
+    expect(xss).toContain(
+      '<title>&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; | ClawTask</title>'
+    );
     expect(xss).not.toContain('<title><script>');
   });
 
@@ -72,5 +74,78 @@ describe('authLayout', () => {
 
   it('uses html lang attribute', () => {
     expect(result).toContain('<html lang="en"');
+  });
+
+  it('uses the lemonade DaisyUI theme to match Hugo static pages', () => {
+    expect(result).toContain('data-theme="lemonade"');
+  });
+
+  it('includes robots noindex nofollow meta tag', () => {
+    expect(result).toContain('<meta name="robots" content="noindex, nofollow"');
+  });
+
+  it('includes an SVG favicon link tag', () => {
+    expect(result).toContain('<link rel="icon" type="image/svg+xml" href="/favicon.svg"');
+  });
+
+  it('includes an apple-touch-icon link tag', () => {
+    expect(result).toContain('<link rel="apple-touch-icon"');
+    expect(result).toContain('href="/apple-touch-icon.png"');
+  });
+
+  it('includes a web app manifest link tag', () => {
+    expect(result).toContain('<link rel="manifest" href="/site.webmanifest"');
+  });
+
+  describe('accessibility landmarks', () => {
+    it('renders a skip-to-content link as the first focusable element in the body', () => {
+      const bodyStart = result.indexOf('<body');
+      const skipLink = result.indexOf('Skip to content');
+      expect(skipLink).toBeGreaterThan(bodyStart);
+      expect(result).toContain('href="#main-content"');
+    });
+
+    it('renders the skip-to-content link with sr-only styling that becomes visible on focus', () => {
+      expect(result).toMatch(/class="[^"]*sr-only[^"]*"/);
+      expect(result).toMatch(/class="[^"]*focus:not-sr-only[^"]*"/);
+    });
+
+    it('wraps page content in a <main> element with id="main-content"', () => {
+      expect(result).toContain('<main');
+      expect(result).toContain('id="main-content"');
+    });
+
+    it('places content inside the <main> element', () => {
+      const mainOpen = result.indexOf('<main');
+      const mainClose = result.indexOf('</main>');
+      const contentIndex = result.indexOf('<form>test</form>');
+      expect(mainOpen).toBeGreaterThan(-1);
+      expect(mainClose).toBeGreaterThan(-1);
+      expect(contentIndex).toBeGreaterThan(mainOpen);
+      expect(contentIndex).toBeLessThan(mainClose);
+    });
+  });
+
+  describe('branding header', () => {
+    it('renders a link to the home page above the card', () => {
+      expect(result).toContain('href="/"');
+    });
+
+    it('includes the favicon as a logo image', () => {
+      expect(result).toContain('src="/favicon.svg"');
+      expect(result).toContain('alt="ClawTask logo"');
+    });
+
+    it('displays the site name', () => {
+      expect(result).toContain('ClawTask');
+    });
+
+    it('places the branding link before the card', () => {
+      const brandingIndex = result.indexOf('href="/"');
+      const cardIndex = result.indexOf('card w-full');
+      expect(brandingIndex).toBeGreaterThan(-1);
+      expect(cardIndex).toBeGreaterThan(-1);
+      expect(brandingIndex).toBeLessThan(cardIndex);
+    });
   });
 });

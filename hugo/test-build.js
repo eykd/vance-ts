@@ -222,6 +222,197 @@ try {
     logSuccess('No route collisions with Worker paths (api/, app/_/)');
   }
 
+  // Test 9: Verify noindex pages are excluded from sitemap
+  logInfo('\nTest 9: Checking sitemap excludes noindex pages...');
+  const sitemapPath = path.join(publicDir, 'sitemap.xml');
+  if (fs.existsSync(sitemapPath)) {
+    const sitemapContent = fs.readFileSync(sitemapPath, 'utf-8');
+    // Find all content files with robots: noindex
+    const contentDir = path.join(__dirname, 'content');
+    const noindexPages = [];
+
+    /**
+     * Recursively scans a directory for Markdown files with robots: noindex front matter.
+     * @param {string} dir - Directory to scan.
+     * @returns {void}
+     */
+    function findNoindexPages(dir) {
+      if (!fs.existsSync(dir)) return;
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          findNoindexPages(fullPath);
+        } else if (entry.name.endsWith('.md')) {
+          const content = fs.readFileSync(fullPath, 'utf-8');
+          if (/^robots:\s*noindex/m.test(content)) {
+            // Derive URL path from file path relative to content dir
+            const relPath = path.relative(contentDir, fullPath);
+            const urlPath = relPath
+              .replace(/_index\.md$/, '')
+              .replace(/\.md$/, '/');
+            noindexPages.push(urlPath);
+          }
+        }
+      }
+    }
+
+    findNoindexPages(contentDir);
+
+    if (noindexPages.length === 0) {
+      logInfo('No noindex pages found to check');
+    } else {
+      let sitemapViolation = false;
+      for (const urlPath of noindexPages) {
+        // Check if sitemap contains a URL ending with this path
+        if (sitemapContent.includes(`/${urlPath}</loc>`) || sitemapContent.includes(`/${urlPath.replace(/\/$/, '')}</loc>`)) {
+          logError(`Sitemap includes noindex page: /${urlPath}`);
+          sitemapViolation = true;
+          exitCode = 1;
+        }
+      }
+      if (!sitemapViolation) {
+        logSuccess(`All ${noindexPages.length} noindex page(s) correctly excluded from sitemap`);
+      }
+    }
+  } else {
+    logError('public/sitemap.xml not found');
+    exitCode = 1;
+  }
+
+  // Test 10: Verify favicon files exist
+  logInfo('\nTest 10: Checking favicon files...');
+  const requiredFaviconFiles = [
+    'favicon.ico',
+    'favicon.svg',
+    'favicon-96x96.png',
+    'apple-touch-icon.png',
+    'site.webmanifest',
+  ];
+  for (const faviconFile of requiredFaviconFiles) {
+    const faviconPath = path.join(publicDir, faviconFile);
+    if (fs.existsSync(faviconPath)) {
+      const stats = fs.statSync(faviconPath);
+      logSuccess(`${faviconFile} exists (${stats.size} bytes)`);
+    } else {
+      logError(`${faviconFile} not found in public/ — browsers request /favicon.ico on every page load`);
+      exitCode = 1;
+    }
+  }
+
+  // Test 11: Verify 404 page has no inline event handlers
+  logInfo('\nTest 11: Checking 404 page for inline event handlers...');
+  if (fs.existsSync(notFoundPath)) {
+    const notFoundContent = fs.readFileSync(notFoundPath, 'utf-8');
+    const inlineHandlerPattern = /\bon\w+\s*=/i;
+    if (inlineHandlerPattern.test(notFoundContent)) {
+      logError('404.html contains inline event handler(s) — use addEventListener instead');
+      exitCode = 1;
+    } else {
+      logSuccess('404.html has no inline event handlers');
+    }
+  } else {
+    logInfo('Skipping (404.html not found — covered by Test 5)');
+  }
+
+  // Test 12: Verify 404 page has noindex robots meta
+  logInfo('\nTest 12: Checking 404 page robots meta...');
+  if (fs.existsSync(notFoundPath)) {
+    const notFoundContent = fs.readFileSync(notFoundPath, 'utf-8');
+    const robotsMeta = notFoundContent.match(/<meta\s+name=["']?robots["']?\s+content="([^"]+)"/i);
+    if (robotsMeta) {
+      const robotsValue = robotsMeta[1].toLowerCase();
+      if (robotsValue.includes('noindex')) {
+        logSuccess(`404.html has correct robots meta: "${robotsMeta[1]}"`);
+      } else {
+        logError(`404.html robots meta is "${robotsMeta[1]}" — should contain "noindex"`);
+        exitCode = 1;
+      }
+    } else {
+      logError('404.html is missing robots meta tag');
+      exitCode = 1;
+    }
+  } else {
+    logInfo('Skipping (404.html not found — covered by Test 5)');
+  }
+
+  // Test 13: Verify 404 page has og:type "website" (not "article")
+  logInfo('\nTest 13: Checking 404 page og:type...');
+  if (fs.existsSync(notFoundPath)) {
+    const notFoundContent = fs.readFileSync(notFoundPath, 'utf-8');
+    const ogType = notFoundContent.match(/<meta\s+property="og:type"\s+content="([^"]+)"/i) ||
+      notFoundContent.match(/<meta\s+property=og:type\s+content="([^"]+)"/i);
+    if (ogType) {
+      if (ogType[1] === 'website') {
+        logSuccess(`404.html has correct og:type: "${ogType[1]}"`);
+      } else {
+        logError(`404.html og:type is "${ogType[1]}" — should be "website"`);
+        exitCode = 1;
+      }
+    } else {
+      logError('404.html is missing og:type meta tag');
+      exitCode = 1;
+    }
+  } else {
+    logInfo('Skipping (404.html not found — covered by Test 5)');
+  }
+
+  // Test 14: Verify auth nav links use progressive enhancement (no x-cloak on unauthenticated links)
+  logInfo('\nTest 14: Checking auth nav progressive enhancement...');
+  if (fs.existsSync(indexPath)) {
+    const indexContent = fs.readFileSync(indexPath, 'utf-8');
+
+    // Extract all <li> elements that contain auth links (match within single <li>...</li>)
+    const liElements = indexContent.match(/<li[^>]*>.*?<\/li>/gis) || [];
+
+    /**
+     * Finds the <li> element containing a link with the given href path.
+     * @param {string} href - The href path to search for (e.g., '/auth/sign-in').
+     * @returns {string|null} The matching <li> element HTML, or null.
+     */
+    function findLiWithHref(href) {
+      return liElements.find(li => li.includes(href)) || null;
+    }
+
+    // Sign In link must exist without x-cloak (visible by default for no-JS)
+    const signInLi = findLiWithHref('/auth/sign-in');
+    if (!signInLi) {
+      logError('Sign In link (/auth/sign-in) not found in any <li> element');
+      exitCode = 1;
+    } else if (/x-cloak/.test(signInLi)) {
+      logError('Sign In <li> has x-cloak — would be hidden without JavaScript');
+      exitCode = 1;
+    } else {
+      logSuccess('Sign In link exists and is visible by default (no x-cloak)');
+    }
+
+    // Sign Up link must exist without x-cloak
+    const signUpLi = findLiWithHref('/auth/sign-up');
+    if (!signUpLi) {
+      logError('Sign Up link (/auth/sign-up) not found in any <li> element');
+      exitCode = 1;
+    } else if (/x-cloak/.test(signUpLi)) {
+      logError('Sign Up <li> has x-cloak — would be hidden without JavaScript');
+      exitCode = 1;
+    } else {
+      logSuccess('Sign Up link exists and is visible by default (no x-cloak)');
+    }
+
+    // Dashboard link MUST have x-cloak (hidden by default for no-JS)
+    const dashboardLi = findLiWithHref('/dashboard/');
+    const dashboardUl = indexContent.match(/<ul[^>]*x-cloak[^>]*>[^]*?\/dashboard\//i);
+    if (dashboardLi && /x-cloak/.test(dashboardLi)) {
+      logSuccess('Dashboard link is hidden by default (has x-cloak on <li>)');
+    } else if (dashboardUl) {
+      logSuccess('Dashboard link is hidden by default (has x-cloak on parent <ul>)');
+    } else {
+      logError('Dashboard link should have x-cloak (hidden by default without JavaScript)');
+      exitCode = 1;
+    }
+  } else {
+    logInfo('Skipping (index.html not found — covered by Test 3)');
+  }
+
   // Summary
   console.log('\n' + '='.repeat(50));
   if (exitCode === 0) {

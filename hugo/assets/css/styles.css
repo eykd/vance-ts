@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 /* Scan Worker presentation templates so TailwindCSS includes classes used in server-rendered HTML. */
-@source "../../src/presentation/templates";
+@source "../../../src/presentation/templates";
 @plugin "@tailwindcss/typography";
 @plugin "daisyui";
 
@@ -20,6 +20,14 @@ body {
   display: none !important;
 }
 
+/* Restore visible focus indicator for .link elements inside .menu.
+   DaisyUI's .menu sets outline-style:none on :focus-visible, leaving only
+   a 10% background tint — too subtle for WCAG 2.4.7 compliance. */
+.menu :where(li:not(.menu-title) > :not(ul, details, .menu-title, .btn)):where(.link):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
 /* Featured image hero background */
 .hero-featured {
   background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), var(--hero-bg-image);
@@ -36,7 +44,7 @@ body {
   --color-base-200: oklch(91.8% 0.018 123.72);
   --color-base-300: oklch(84.89% 0.017 123.72);
   --color-base-content: oklch(19.742% 0.004 123.72);
-  --color-primary: oklch(58.92% 0.199 134.6);
+  --color-primary: oklch(51% 0.199 134.6);
   --color-primary-content: oklch(98% 0.022 95.277);
   --color-secondary: oklch(77.75% 0.196 111.09);
   --color-secondary-content: oklch(15.55% 0.039 111.09);

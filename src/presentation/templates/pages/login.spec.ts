@@ -24,6 +24,10 @@ describe('loginPage', () => {
       expect(result).toContain('action="/auth/sign-in"');
     });
 
+    it('labels the form for assistive technology', () => {
+      expect(result).toContain('aria-label="Sign in"');
+    });
+
     it('has label[for="email"] association', () => {
       expect(result).toContain('for="email"');
     });
@@ -46,6 +50,14 @@ describe('loginPage', () => {
 
     it('has autocomplete="current-password" on the password field', () => {
       expect(result).toContain('autocomplete="current-password"');
+    });
+
+    it('renders inputs with w-full class for full-width layout', () => {
+      expect(result).toContain('input input-bordered w-full');
+    });
+
+    it('renders submit button with w-full class for full-width layout', () => {
+      expect(result).toContain('btn btn-primary w-full');
     });
 
     it('does not render an error container', () => {
@@ -153,11 +165,59 @@ describe('loginPage', () => {
     });
   });
 
+  describe('double-submit prevention', () => {
+    let result: string;
+
+    beforeEach(() => {
+      result = loginPage({ csrfToken: 'csrf' });
+    });
+
+    it('adds x-data with submitting state to the form', () => {
+      expect(result).toContain('x-data="{ submitting: false }"');
+    });
+
+    it('sets submitting to true on form submit', () => {
+      expect(result).toContain('@submit="submitting = true"');
+    });
+
+    it('disables the submit button when submitting', () => {
+      expect(result).toContain(':disabled="submitting"');
+    });
+  });
+
   describe('XSS protection for csrfToken', () => {
     it('escapes the CSRF token value', () => {
       const result = loginPage({ csrfToken: '"><script>alert(1)</script>' });
       expect(result).not.toContain('"><script>');
       expect(result).toContain('&quot;&gt;&lt;script&gt;');
+    });
+  });
+
+  describe('forgot password link', () => {
+    it('includes a link to the forgot password page', () => {
+      expect.assertions(1);
+      const result = loginPage({ csrfToken: 'token' });
+      expect(result).toContain('href="/auth/forgot-password"');
+    });
+
+    it('renders "Forgot password?" text', () => {
+      expect.assertions(1);
+      const result = loginPage({ csrfToken: 'token' });
+      expect(result).toContain('Forgot password?');
+    });
+  });
+
+  describe('password reset success banner', () => {
+    it('shows reset success banner when passwordResetSuccess is true', () => {
+      expect.assertions(1);
+      const result = loginPage({ csrfToken: 'token', passwordResetSuccess: true });
+      expect(result).toContain('Password reset successfully');
+    });
+
+    it('does not show reset success banner when passwordResetSuccess is not set', () => {
+      expect.assertions(1);
+      const result = loginPage({ csrfToken: 'token' });
+      expect(result).not.toContain('Password reset successfully');
     });
   });
 });
