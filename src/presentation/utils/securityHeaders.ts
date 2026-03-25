@@ -46,6 +46,14 @@ export const SECURITY_HEADERS: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /**
+ * Cache-Control value for dynamic, non-cacheable responses (auth pages, error pages).
+ *
+ * `no-store` prevents caching entirely; `no-cache` is a belt-and-suspenders
+ * directive for legacy proxies that ignore `no-store`.
+ */
+export const CACHE_CONTROL_NO_STORE = 'no-store, no-cache' as const;
+
+/**
  * Applies a full set of security headers to the given Headers object.
  *
  * Sets Content-Security-Policy, X-Content-Type-Options, X-Frame-Options,

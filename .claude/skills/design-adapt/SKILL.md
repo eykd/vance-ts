@@ -1,26 +1,14 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: adapt
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack;
-  Desktop-first responsive strategy reframed to Tailwind's mobile-first convention with responsive prefixes
--->
-
 ---
-
 name: design-adapt
 description: Adapt designs to work across different screen sizes, devices, contexts, or platforms. Uses Tailwind's mobile-first responsive system. Ensures consistent experience across varied environments.
 args:
-
-- name: target
-  description: The feature or component to adapt (optional)
-  required: false
-- name: context
-  description: What to adapt for (mobile, tablet, desktop, print, email, etc.)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or component to adapt (optional)
+    required: false
+  - name: context
+    description: What to adapt for (mobile, tablet, desktop, print, email, etc.)
+    required: false
+    user-invocable: true
 ---
 
 Adapt existing designs to work effectively across different contexts - different screen sizes, devices, platforms, or use cases.
@@ -271,3 +259,5 @@ Test thoroughly across contexts:
 **Related skills**: `/tailwind-daisyui-design` — responsive design patterns and accessibility; `/htmx-alpine-templates` — responsive Hugo template patterns; `/design-frontend` — responsive design reference docs
 
 Remember: You're a cross-platform design expert. Make experiences that feel native to each context while maintaining brand and functionality consistency. Adapt intentionally, test thoroughly.
+
+Use subagents liberally and aggressively to conserve the main context window.

@@ -151,14 +151,20 @@ try {
     exitCode = 1;
   }
 
-  // Test 5: Check if 404 page exists
-  logInfo('\nTest 5: Checking for 404 page...');
-  const notFoundPath = path.join(publicDir, '404.html');
-  if (fs.existsSync(notFoundPath)) {
-    logSuccess('public/404.html exists');
-  } else {
-    logError('public/404.html not found');
-    exitCode = 1;
+  // Test 5: Check if error pages exist (404.html and 500/index.html)
+  logInfo('\nTest 5: Checking for error pages...');
+  const requiredErrorPages = [
+    { path: '404.html', description: '404 error page' },
+    { path: path.join('500', 'index.html'), description: '500 error page' },
+  ];
+  for (const errorPage of requiredErrorPages) {
+    const errorPagePath = path.join(publicDir, errorPage.path);
+    if (fs.existsSync(errorPagePath)) {
+      logSuccess(`public/${errorPage.path} exists (${errorPage.description})`);
+    } else {
+      logError(`public/${errorPage.path} not found (${errorPage.description})`);
+      exitCode = 1;
+    }
   }
 
   // Test 6: Verify assetPaths.ts matches Hugo build output

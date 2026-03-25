@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: bolder
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-bolder
 description: Amplify safe or boring designs to make them more visually interesting and stimulating. Increases impact while maintaining usability. Use when designs feel too generic, timid, or lack personality.
 args:
-
-- name: target
-  description: The feature or component to make bolder (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or component to make bolder (optional)
+    required: false
+    user-invocable: true
 ---
 
 Increase visual impact and personality in designs that are too safe, generic, or visually underwhelming, creating more engaging and memorable experiences.
@@ -135,3 +124,5 @@ Ensure amplification maintains usability and coherence:
 **The test**: If you showed this to someone and said "AI made this bolder," would they believe you immediately? If yes, you've failed. Bold means distinctive, not "more AI effects."
 
 Remember: Bold design is confident design. It takes risks, makes statements, and creates memorable experiences. But bold without strategy is just loud. Be intentional, be dramatic, be unforgettable.
+
+Use subagents liberally and aggressively to conserve the main context window.
