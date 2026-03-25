@@ -44,6 +44,9 @@
   },
   "homepage": "https://github.com/turtlebased/turtlebased-ts#readme",
   "lint-staged": {
+    "hugo/assets/css/styles.css": [
+      "bash -c 'rm -rf hugo/public && cd hugo && npx hugo --minify && cd .. && node scripts/sync-asset-paths.js && git add src/presentation/generated/assetPaths.ts'"
+    ],
     "*.ts": [
       "prettier --write",
       "eslint --fix --max-warnings 0 --no-warn-ignored",
