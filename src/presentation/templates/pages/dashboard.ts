@@ -21,7 +21,7 @@ export function dashboardPage(props: DashboardPageProps): string {
   const content = html`<h1>Dashboard</h1>
     <div>Inbox: ${props.inboxCount}</div>
     <div>Actions: ${props.actionCount}</div>
-    <form hx-post="/app/_/inbox">
+    <form hx-post="/app/_/inbox/capture">
       <input type="text" name="title" placeholder="Quick capture…" required />
       <button type="submit">Capture</button>
     </form>`;

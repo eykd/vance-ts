@@ -23,7 +23,7 @@ describe('dashboardPage', () => {
     });
 
     it('quick capture form posts to the inbox partial endpoint', () => {
-      expect(result).toContain('hx-post="/app/_/inbox"');
+      expect(result).toContain('hx-post="/app/_/inbox/capture"');
     });
   });
 

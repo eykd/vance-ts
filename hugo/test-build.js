@@ -399,8 +399,8 @@ try {
     }
 
     // Dashboard link MUST have x-cloak (hidden by default for no-JS)
-    const dashboardLi = findLiWithHref('/dashboard/');
-    const dashboardUl = indexContent.match(/<ul[^>]*x-cloak[^>]*>[^]*?\/dashboard\//i);
+    const dashboardLi = findLiWithHref('/app');
+    const dashboardUl = indexContent.match(/<ul[^>]*x-cloak[^>]*>[^]*?\/app/i);
     if (dashboardLi && /x-cloak/.test(dashboardLi)) {
       logSuccess('Dashboard link is hidden by default (has x-cloak on <li>)');
     } else if (dashboardUl) {

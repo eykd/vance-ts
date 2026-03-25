@@ -41,6 +41,21 @@ export function appLayout(props: AppLayoutProps): string {
         <script defer src="${safe(ALPINE_JS_PATH)}"></script>
       </head>
       <body>
+        <nav class="navbar bg-base-100 shadow-sm" aria-label="App navigation">
+          <div class="navbar-start">
+            <a href="/" class="btn btn-ghost text-xl">ClawTask</a>
+          </div>
+          <div class="navbar-center">
+            <ul class="menu menu-horizontal px-1">
+              <li><a href="/app">Dashboard</a></li>
+              <li><a href="/app/inbox">Inbox</a></li>
+              <li><a href="/app/actions">Actions</a></li>
+            </ul>
+          </div>
+          <div class="navbar-end">
+            <a href="/auth/sign-out" class="btn btn-ghost btn-sm">Sign Out</a>
+          </div>
+        </nav>
         ${safe(props.content)}
       </body>
     </html>`;

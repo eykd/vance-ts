@@ -31,7 +31,7 @@
         </li>
         {{/* Authenticated: hidden until Alpine confirms auth (x-cloak prevents FOUC) */}}
         <li x-cloak :class="{ 'hidden': !$store.auth.isAuthenticated }">
-          <a href="/dashboard/">Dashboard</a>
+          <a href="/app">Dashboard</a>
         </li>
       </ul>
     </div>
@@ -71,7 +71,7 @@
       {{/* Authenticated: hidden until Alpine confirms auth (x-cloak prevents FOUC) */}}
       <ul class="menu menu-horizontal" x-cloak :class="{ 'hidden': !$store.auth.isAuthenticated }" aria-label="Account">
         <li class="text-center">
-          {{ partial "components/button/primary" (dict "label" "Dashboard" "href" "/dashboard/") }}
+          {{ partial "components/button/primary" (dict "label" "Dashboard" "href" "/app") }}
         </li>
       </ul>
     </div>

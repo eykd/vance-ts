@@ -79,4 +79,16 @@ describe('appLayout', () => {
   it('includes a web app manifest link tag', () => {
     expect(result).toContain('<link rel="manifest" href="/site.webmanifest"');
   });
+
+  it('renders a navigation bar with app links', () => {
+    expect(result).toContain('aria-label="App navigation"');
+    expect(result).toContain('href="/app"');
+    expect(result).toContain('href="/app/inbox"');
+    expect(result).toContain('href="/app/actions"');
+  });
+
+  it('includes a sign-out link in the navigation', () => {
+    expect(result).toContain('href="/auth/sign-out"');
+    expect(result).toContain('Sign Out');
+  });
 });
