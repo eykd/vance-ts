@@ -137,3 +137,5 @@ Review the DON'T guidelines above — they are the fingerprints of AI-generated 
 Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code. Minimalist designs need restraint, precision, and careful attention to spacing, typography, and subtle details.
 
 Interpret creatively and make unexpected choices that feel genuinely designed for the context. No design should be the same. Vary between light and dark themes (via DaisyUI `data-theme`), different fonts, different aesthetics. NEVER converge on common choices across generations.
+
+Use subagents liberally and aggressively to conserve the main context window.

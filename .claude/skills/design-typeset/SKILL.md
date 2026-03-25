@@ -134,3 +134,5 @@ Build a clear type scale:
 - **Accessibility**: Does text meet WCAG contrast ratios? Is it zoomable to 200%?
 
 Remember: Typography is the foundation of interface design — it carries the majority of information. Getting it right is the highest-leverage improvement you can make.
+
+Use subagents liberally and aggressively to conserve the main context window.

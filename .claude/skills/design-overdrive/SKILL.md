@@ -184,3 +184,5 @@ The gap between "cool" and "extraordinary" is in the last 20% of refinement: the
 **Related skills**: `/design-animate` — purposeful animation strategy; `/design-frontend` — design principles and anti-patterns; `/htmx-pattern-library` — HTMX transition patterns
 
 Remember: "Technically extraordinary" isn't about using the newest API. It's about making an interface do something users didn't think a website could do.
+
+Use subagents liberally and aggressively to conserve the main context window.

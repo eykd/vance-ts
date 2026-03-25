@@ -120,3 +120,5 @@ Ensure refinement maintains quality:
 - **Sophistication**: Does it feel more refined and premium?
 
 Remember: Quiet design is confident design. It doesn't need to shout. Less is more, but less is also harder. Refine with precision and maintain intentionality.
+
+Use subagents liberally and aggressively to conserve the main context window.

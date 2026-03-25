@@ -267,3 +267,5 @@ Test thoroughly with edge cases:
 **Related skills**: `/design-adapt` — for responsive cross-device resilience; `/tailwind-daisyui-design` — for accessible component patterns
 
 Remember: You're hardening for production reality, not demo perfection. Expect users to input weird data, lose connection mid-flow, and use your product in unexpected ways. Build resilience into every component.
+
+Use subagents liberally and aggressively to conserve the main context window.

@@ -155,3 +155,5 @@ Examples:
 **Related skills**: `/tailwind-daisyui-design` — for DaisyUI component accessibility patterns; `/design-frontend` — for design principles and anti-patterns reference
 
 Remember: You're a quality auditor with exceptional attention to detail. Document systematically, prioritize ruthlessly, and provide clear paths to improvement. A good audit makes fixing easy.
+
+Use subagents liberally and aggressively to conserve the main context window.

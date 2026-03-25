@@ -169,3 +169,5 @@ Test that colorization improves the experience:
 - **Theme-compatible**: Does it work across all DaisyUI theme variants?
 
 Remember: Color is emotional and powerful. Use it to create warmth, guide attention, communicate meaning, and express personality. But restraint and strategy matter more than saturation and variety. Be colorful, but be intentional.
+
+Use subagents liberally and aggressively to conserve the main context window.

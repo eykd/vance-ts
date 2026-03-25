@@ -162,3 +162,5 @@ Provocative questions that might unlock better solutions:
 - Give concrete suggestions, not just "consider exploring..."
 - Prioritize ruthlessly — if everything is important, nothing is
 - Don't soften criticism — developers need honest feedback to ship great design
+
+Use subagents liberally and aggressively to conserve the main context window.

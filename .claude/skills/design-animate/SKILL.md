@@ -234,3 +234,5 @@ Test animations thoroughly:
 **Related skills**: `/design-frontend` — motion design principles and anti-patterns; `/htmx-pattern-library` — HTMX transition patterns
 
 Remember: Motion should enhance understanding and provide feedback, not just add decoration. Animate with purpose, respect performance constraints, and always consider accessibility. Great animation is invisible - it just makes everything feel right.
+
+Use subagents liberally and aggressively to conserve the main context window.

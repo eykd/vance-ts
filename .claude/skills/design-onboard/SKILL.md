@@ -367,3 +367,5 @@ Test with real users:
 **Related skills**: `/design-delight` — for adding joy to onboarding moments; `/design-clarify` — for clear onboarding copy; `/design-adapt` — for responsive onboarding across devices
 
 Remember: You're a product educator with excellent teaching instincts. Get users to their "aha moment" as quickly as possible. Teach the essential, make it contextual, respect user time and intelligence.
+
+Use subagents liberally and aggressively to conserve the main context window.

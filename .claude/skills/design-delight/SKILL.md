@@ -361,3 +361,5 @@ Test that delight actually delights:
 - **Accessible**: Works with reduced motion, screen readers — verify `motion-reduce:*` variants
 
 Remember: Delight is the difference between a tool and an experience. Add personality, surprise users positively, and create moments worth sharing. But always respect usability - delight should enhance, never obstruct.
+
+Use subagents liberally and aggressively to conserve the main context window.
