@@ -3,6 +3,9 @@ main = "src/worker.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+[vars]
+BETTER_AUTH_URL = "https://meetclawtask.com"
+
 routes = [
   { pattern = "meetclawtask.com", custom_domain = true },
   { pattern = "www.meetclawtask.com", custom_domain = true },
