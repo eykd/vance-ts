@@ -17,7 +17,7 @@ import { MAX_ATTEMPTS, REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 /**
  * Input DTO for the sign-up use case.
  */
-type SignUpRequest = {
+export type SignUpRequest = {
   /** The user's email address. */
   email: string;
   /** The user's display name. When omitted or empty, derived from the email prefix. */
@@ -40,7 +40,7 @@ type SignUpRequest = {
  * - `rate_limited` — IP exceeded the allowed attempt window (`RateLimiter` or `AuthService`)
  * - `service_error` — infrastructure failure, e.g. DB unavailable (`AuthService` or `RateLimiter`)
  */
-type SignUpResult =
+export type SignUpResult =
   | { ok: true }
   | {
       ok: false;
