@@ -39,7 +39,13 @@ export function dashboardPage(props: DashboardPageProps): string {
       </div>
     </div>
     ${safe(allClear)}
-    <form hx-post="/app/_/inbox/capture" class="flex gap-2">
+    <form
+      hx-post="/app/_/inbox/capture"
+      hx-target="#captured-items"
+      hx-swap="beforeend"
+      hx-on::after-request="if(event.detail.successful) this.reset()"
+      class="flex gap-2"
+    >
       <input
         type="text"
         name="title"
@@ -49,6 +55,7 @@ export function dashboardPage(props: DashboardPageProps): string {
       />
       <button type="submit" class="btn btn-primary">Capture</button>
     </form>
+    <ul id="captured-items" class="mt-4 space-y-1"></ul>
   </div>`;
 
   return appLayout({ title: 'Dashboard', content });

@@ -25,6 +25,22 @@ describe('dashboardPage', () => {
     it('quick capture form posts to the inbox partial endpoint', () => {
       expect(result).toContain('hx-post="/app/_/inbox/capture"');
     });
+
+    it('quick capture form targets the captured-items list', () => {
+      expect(result).toContain('hx-target="#captured-items"');
+    });
+
+    it('quick capture form appends new items', () => {
+      expect(result).toContain('hx-swap="beforeend"');
+    });
+
+    it('quick capture form resets after successful submission', () => {
+      expect(result).toContain('hx-on::after-request="if(event.detail.successful) this.reset()"');
+    });
+
+    it('renders an empty captured-items list', () => {
+      expect(result).toContain('id="captured-items"');
+    });
   });
 
   describe('with non-zero counts', () => {
