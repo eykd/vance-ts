@@ -11,7 +11,7 @@ import { authErrorPage } from './presentation/templates/pages/authError';
 import type { AppEnv } from './presentation/types';
 import { authErrorStatusCode } from './presentation/utils/authErrorStatus';
 import { isApiRoute } from './presentation/utils/isApiRoute';
-import { SECURITY_HEADERS } from './presentation/utils/securityHeaders';
+import { CACHE_CONTROL_NO_STORE, SECURITY_HEADERS } from './presentation/utils/securityHeaders';
 
 // Durable Object class must be exported from the worker entry point so
 // the Workers runtime can register it as a named DO binding.
@@ -148,7 +148,10 @@ app.get('/api/auth/error', (c): Response => {
   const errorCode = c.req.query('error') ?? null;
   return new Response(authErrorPage(), {
     status: authErrorStatusCode(errorCode),
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-cache' },
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': CACHE_CONTROL_NO_STORE,
+    },
   });
 });
 

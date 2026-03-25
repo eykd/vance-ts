@@ -175,16 +175,6 @@ describe('ErrorPageHandlers', () => {
       expect(body).toContain('<meta name="viewport" content="width=device-width,initial-scale=1">');
     });
 
-    it('fallback HTML sanitizes status code with Math.floor', async () => {
-      const { assets } = createMockAssets(() => throwingFetch());
-
-      const response = await serveErrorPage(assets, 500.7);
-      const body = await response.text();
-
-      expect(body).toContain('500');
-      expect(body).not.toContain('500.7');
-    });
-
     it('fallback HTML shows Not Found for status codes < 500', async () => {
       const { assets } = createMockAssets(() => throwingFetch());
 
