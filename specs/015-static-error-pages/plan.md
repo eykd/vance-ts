@@ -70,6 +70,16 @@ Request → Worker
 
 **Security headers**: The `withSecurityHeaders` middleware (`app.use('*', ...)`) runs on ALL routes including `app.onError()` responses, so error pages automatically receive security headers (CSP, X-Frame-Options, etc.).
 
+#### Scope of `app.onError()` — Worker-Routed Paths Only
+
+**Important**: `wrangler.toml` `run_worker_first` only routes `/api/*`, `/app/*`, `/auth/*`, `/dashboard`, and `/dashboard/*` to the Worker. All other requests go directly to the ASSETS binding (Cloudflare static asset serving) and never reach the Worker. Therefore:
+
+- `app.onError()` can only catch exceptions on **Worker-handled routes**
+- Static content paths (`/`, `/about`, `/blog/*`, etc.) never reach the Worker, so they cannot trigger `app.onError()`
+- If ASSETS itself encounters an error on a static path, Cloudflare returns its own error response — the Worker has no opportunity to intercept it
+
+This is correct behavior: static asset serving has no application code that can throw. The 500 error page is specifically for failures in Worker handler/middleware code (auth, rate limiting, D1 queries, etc.).
+
 ### Error Response Strategy by Route Type
 
 | Route Pattern | 404 Behavior | 500 Behavior |
@@ -149,7 +159,9 @@ Create `hugo/layouts/_partials/errors/error-hero.html` extracting the common pat
           </svg>
           Go Home
         </a>
-        <button onclick="history.back()" class="btn btn-outline">
+        {{/* SC-005: Go Back button requires JS — hide when JS is disabled */}}
+        <noscript><style>.js-only{display:none}</style></noscript>
+        <button onclick="history.back()" class="btn btn-outline js-only">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
@@ -251,6 +263,7 @@ export async function serveErrorPage(
         status: statusCode,
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-store, no-cache',
         },
       });
     }
@@ -261,7 +274,7 @@ export async function serveErrorPage(
   // FR-008: Fallback if error page itself fails
   return new Response(fallbackErrorHtml(statusCode), {
     status: statusCode,
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-cache' },
   });
 }
 
@@ -272,7 +285,7 @@ function fallbackErrorHtml(statusCode: number): string {
     statusCode >= 500
       ? 'Something went wrong. Please try again later.'
       : 'The page you requested could not be found.';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title></head><body><h1>${statusCode} ${title}</h1><p>${message}</p><p><a href="/">Go Home</a></p></body></html>`;
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head><body><h1>${statusCode} ${title}</h1><p>${message}</p><p><a href="/">Go Home</a></p></body></html>`;
 }
 ```
 
@@ -282,11 +295,22 @@ Add `app.onError()` before route definitions:
 
 ```typescript
 app.onError(async (err, c) => {
-  // Log the error for observability
-  console.error('Unhandled error:', err);
+  // Structured logging with request context (consistent with auth handler pattern)
+  getServiceFactory(c.env).logger.error('unhandled error', err, {
+    path: c.req.path,
+    method: c.req.method,
+  });
 
   if (isApiRoute(c.req.path)) {
     return c.json({ error: 'Internal server error' }, 500);
+  }
+
+  // HTMX partials expect fragments, not full HTML documents
+  if (c.req.header('HX-Request') === 'true') {
+    return c.html(
+      '<div class="alert alert-error">Something went wrong. Please reload the page.</div>',
+      500,
+    );
   }
 
   return serveErrorPage(c.env.ASSETS, c.req.url, 500);
@@ -307,6 +331,13 @@ app.onError(async (err, c) => {
 - Verify `hugo/public/500/index.html` exists after build
 - Verify `hugo/public/404.html` still exists (no regression)
 - Verify zero warnings, zero errors
+- **Blocking CI gate**: Both error pages MUST exist in build output before deployment. If Hugo build is incomplete, the Worker falls back to bare inline HTML for all errors.
+
+```bash
+# Deployment gate — add to CI or build verification script
+test -f hugo/public/404.html || { echo "FATAL: 404.html missing"; exit 1; }
+test -f hugo/public/500/index.html || { echo "FATAL: 500/index.html missing"; exit 1; }
+```
 
 ### Existing Error Handling — Preserved (No Changes)
 
@@ -319,3 +350,54 @@ app.onError(async (err, c) => {
 | `staticAssetFallthrough()` | ASSETS.fetch() with Hugo 404 | None |
 | Rate limit middleware | JSON 429 for API auth | None |
 | `requireAuth` middleware | 503 on D1 error | None |
+
+## Security Considerations
+
+### Cache-Control on Error Responses
+
+Both `serveErrorPage()` and `fallbackErrorHtml()` responses MUST set `Cache-Control: no-store, no-cache` to prevent CDN edges, shared proxies, or browsers from caching error responses. This is consistent with existing auth error handler behavior and prevents transient 500 errors from being served to subsequent visitors via cached responses.
+
+### No Information Leakage (FR-005)
+
+Error pages use pre-built static HTML with generic messages. The `app.onError()` handler logs the error server-side via structured logging but never includes error details in the response. The inline fallback HTML is equally generic.
+
+## Edge Cases & Error Handling
+
+### HTMX Partial Route 500s
+
+When `app.onError()` catches an exception on an `/app/_/*` route, HTMX partial routes expect HTML **fragments**, not full documents. Injecting a full `<html>...</html>` page into an HTMX swap target produces broken markup. The error handler checks for the `HX-Request` header and returns a styled error fragment instead of a full page.
+
+### Worker-Routed vs Static Paths
+
+`app.onError()` only fires for Worker-handled routes (`/api/*`, `/app/*`, `/auth/*`, `/dashboard/*`). Static content paths never reach the Worker. If ASSETS itself encounters an error on a static path, Cloudflare returns its own error response — the Worker cannot intercept it.
+
+### Fallback When Error Page Missing
+
+If ASSETS.fetch() for `/500/` or `/404.html` fails (e.g., incomplete Hugo build), the system falls back to minimal inline HTML (FR-008). Hugo build verification is a blocking CI gate to prevent this scenario.
+
+### Structured Error Logging
+
+Use the ServiceFactory logger (consistent with existing auth handler pattern) instead of raw `console.error` — includes request path and method for production debugging.
+
+## Accessibility Requirements
+
+### No-JS Degradation (SC-005)
+
+The "Go Back" button uses `onclick="history.back()"` which is inoperable without JavaScript. It is wrapped in a `js-only` class hidden by a `<noscript><style>` block, so only the always-functional "Go Home" link appears when JS is disabled.
+
+### Fallback HTML Completeness
+
+The inline fallback HTML includes `lang="en"` for screen readers and `<meta name="viewport">` for mobile rendering, matching the standards of the main Hugo templates.
+
+## Red Team Review
+
+**Reviewed**: 2026-03-25 | **Findings**: 0 Critical, 1 High, 5 Medium, 2 Low
+
+Key enhancements made to this plan:
+- Added Cache-Control headers to prevent error response caching
+- Clarified `app.onError()` scope (Worker-routed paths only)
+- Fixed "Go Back" button no-JS violation (SC-005)
+- Added HTMX fragment handling for partial route errors
+- Switched to structured logging with request context
+- Added Hugo build verification as blocking CI gate
+- Improved fallback HTML with lang and viewport attributes
