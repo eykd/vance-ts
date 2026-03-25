@@ -994,6 +994,7 @@ describe('evaluateCommand', () => {
       { cmd: 'git restore .', name: 'restore-dot' },
       { cmd: 'git clean -f', name: 'clean-force' },
       { cmd: 'bd list', name: 'legacy-bd' },
+      { cmd: 'nohup bd sync', name: 'legacy-bd' },
       { cmd: 'br init ' + ['--fo', 'rce'].join(''), name: 'br-init-force' },
       { cmd: 'git commit --amend', name: 'commit-amend' },
       { cmd: 'git merge --squash feature', name: 'merge-squash' },
@@ -1201,6 +1202,39 @@ describe('normalizeCommand', () => {
       const flag = ['--fo', 'rce'].join('');
       const result = normalizeCommand('env VAR=1 VAR2=2 git push ' + flag);
       expect(result).toBe('git push ' + flag);
+    });
+  });
+
+  describe('nohup/exec/time/nice wrapper stripping', () => {
+    it('strips nohup prefix', () => {
+      const result = normalizeCommand('nohup bd sync');
+      expect(result).toBe('bd sync');
+    });
+
+    it('strips exec prefix', () => {
+      const result = normalizeCommand('exec git reset --hard');
+      expect(result).toBe('git reset --hard');
+    });
+
+    it('strips time prefix', () => {
+      const flag = ['--fo', 'rce'].join('');
+      const result = normalizeCommand('time git push ' + flag);
+      expect(result).toBe('git push ' + flag);
+    });
+
+    it('strips nice prefix', () => {
+      const result = normalizeCommand('nice git clean -f');
+      expect(result).toBe('git clean -f');
+    });
+
+    it('strips nohup combined with sudo', () => {
+      const result = normalizeCommand('nohup sudo bd sync');
+      expect(result).toBe('bd sync');
+    });
+
+    it('strips sudo nohup chain', () => {
+      const result = normalizeCommand('sudo nohup bd sync');
+      expect(result).toBe('bd sync');
     });
   });
 

@@ -325,7 +325,7 @@ Instead:
 
 /**
  * Normalizes a command by collapsing line continuations and stripping
- * command wrappers (sudo, env, command, leading backslash).
+ * command wrappers (sudo, env, command, nohup, exec, time, nice, leading backslash).
  *
  * Line continuations are collapsed first (S9), then wrappers are
  * iteratively stripped using a do-while loop until the string stabilizes (Fix 1).
@@ -342,7 +342,9 @@ export function normalizeCommand(command: string): string {
   let prev: string;
   do {
     prev = result;
-    result = result.replace(/^(sudo|command)\s+/, '').replace(/^env\s+(\w+=\S+\s+)*/, '');
+    result = result
+      .replace(/^(sudo|command|nohup|exec|time|nice)\s+/, '')
+      .replace(/^env\s+(\w+=\S+\s+)*/, '');
   } while (result !== prev);
   return result;
 }
