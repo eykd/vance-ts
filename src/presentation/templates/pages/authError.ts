@@ -14,7 +14,7 @@ export function authErrorPage(): string {
   const content = html`
     <h1 class="card-title text-2xl font-bold font-serif mb-6">Authentication Error</h1>
     <div role="alert" class="alert alert-error mb-4">
-      <span>Something went wrong during authentication. Please try again.</span>
+      <span>Something went wrong while signing you in. Please try again.</span>
     </div>
     <div class="mt-4 text-center">
       <a href="/auth/sign-in" class="link link-primary">Back to Sign In</a>

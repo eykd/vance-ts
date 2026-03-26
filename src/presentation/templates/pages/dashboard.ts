@@ -34,16 +34,20 @@ export function dashboardPage(props: DashboardPageProps): string {
     <div class="grid gap-4 sm:grid-cols-2 mb-8">
       <a
         href="/app/inbox"
-        class="card bg-base-100 border border-base-300 p-6 hover:border-primary transition-colors"
+        class="card bg-base-100 border border-base-300 p-6 hover:border-primary/30 hover:-translate-y-1 transition-all duration-300"
       >
-        <div class="text-sm text-base-content/60 mb-1">📥 Inbox</div>
+        <div class="text-sm text-base-content/60 mb-1">
+          <span aria-hidden="true">📥</span> Inbox
+        </div>
         <div id="inbox-count" class="text-2xl font-bold font-serif">${props.inboxCount}</div>
       </a>
       <a
         href="/app/actions"
-        class="card bg-base-100 border border-base-300 p-6 hover:border-primary transition-colors"
+        class="card bg-base-100 border border-base-300 p-6 hover:border-primary/30 hover:-translate-y-1 transition-all duration-300"
       >
-        <div class="text-sm text-base-content/60 mb-1">⚡ Actions</div>
+        <div class="text-sm text-base-content/60 mb-1">
+          <span aria-hidden="true">⚡</span> Actions
+        </div>
         <div class="text-2xl font-bold font-serif">${props.actionCount}</div>
       </a>
     </div>
@@ -55,7 +59,9 @@ export function dashboardPage(props: DashboardPageProps): string {
       hx-on::after-request="if(event.detail.successful) this.reset()"
       class="flex gap-2"
     >
+      <label for="capture-title" class="sr-only">Capture a new item</label>
       <input
+        id="capture-title"
         type="text"
         name="title"
         placeholder="What's rattling around in your head?"

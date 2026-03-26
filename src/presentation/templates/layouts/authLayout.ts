@@ -75,7 +75,7 @@ export function authLayout(props: AuthLayoutProps): string {
           </main>
           <footer class="footer sm:footer-horizontal bg-base-300 text-base-content p-10">
             <aside>
-              <p class="font-serif font-semibold">ClawTask</p>
+              <p class="font-serif font-semibold text-primary">ClawTask</p>
               <p>&copy; 2026 Worlds Enough Studios. All rights reserved.</p>
             </aside>
           </footer>

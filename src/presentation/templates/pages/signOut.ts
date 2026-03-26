@@ -33,7 +33,7 @@ export function signOutPage(props: SignOutPageProps): string {
       </div>
     </form>
     <div class="mt-4 text-center">
-      <a href="/" class="link link-primary">${safe('Go back')}</a>
+      <a href="/" class="link link-primary">${safe('Stay signed in')}</a>
     </div>
   `;
 

@@ -56,7 +56,7 @@ function clarifyModal(
 
   return html`<dialog id="clarify-modal-${item.id}" class="modal">
     <div class="modal-box">
-      <h3 class="text-lg font-bold mb-4">Clarify Item</h3>
+      <h3 class="text-lg font-bold font-serif mb-4">Clarify Item</h3>
       <form hx-post="/app/_/inbox/${item.id}/clarify" hx-swap="outerHTML" hx-target="closest li">
         <label class="label" for="clarify-title-${item.id}">Title</label>
         <input
@@ -89,7 +89,9 @@ function clarifyModal(
         </select>
         <div id="clarify-error-${item.id}"></div>
         <div class="modal-action">
-          <button type="button" class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+          <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">
+            Cancel
+          </button>
           <button type="submit" class="btn btn-primary">Clarify</button>
         </div>
       </form>
@@ -134,7 +136,7 @@ export function inboxPage(props: InboxPageProps): string {
     props.items.length === 0
       ? html`<div class="text-center py-16 text-base-content/60">
           <p class="text-lg mb-2">Your inbox is empty.</p>
-          <p>That's either very zen or very suspicious. 🦞</p>
+          <p>That's either very zen or very suspicious. <span aria-hidden="true">🦞</span></p>
         </div>`
       : '';
 

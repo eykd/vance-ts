@@ -30,7 +30,7 @@ describe('authErrorPage', () => {
 
   it('renders a generic error message', () => {
     const result = authErrorPage();
-    expect(result).toContain('Something went wrong during authentication');
+    expect(result).toContain('Something went wrong while signing you in');
   });
 
   it('renders a link back to sign-in', () => {

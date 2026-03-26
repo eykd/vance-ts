@@ -5,7 +5,7 @@
 <footer class="footer sm:footer-horizontal bg-base-300 text-base-content p-10">
   <aside class="flex flex-col">
     <p class="text-center leading-tight">
-      <a href="{{ "/" | relURL }}">{{ site.Title }}</a>
+      <a href="{{ "/" | relURL }}" class="text-primary font-serif font-semibold">{{ site.Title }}</a>
     </p>
     {{ range .Site.Params.location }}
     <p>
@@ -17,7 +17,7 @@
     {{ end }}
   </aside>
   {{ if .Site.Menus.footer }}
-  <nav>
+  <nav aria-label="Footer links">
     <span class="footer-title">Links</span>
     {{ range .Site.Menus.footer }}
       <a class="link link-hover" href="{{ .URL }}">{{ .Name }}</a>
@@ -25,7 +25,7 @@
   </nav>
   {{ end }}
   {{ if .Site.Params.social }}
-  <nav>
+  <nav aria-label="Social links">
     <span class="footer-title">Social</span>
     {{ with .Site.Params.social.twitter }}
       <a class="link link-hover" href="https://twitter.com/{{ . }}" target="_blank" rel="noopener">Twitter</a>

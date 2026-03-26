@@ -106,6 +106,12 @@ body {
   :focus-visible {
     animation: none;
   }
+  .card-hover-glow {
+    transition: none;
+  }
+  .navbar a.link-hover::after {
+    transition: none;
+  }
 }
 
 /* ClawTask Dark Theme - Primary */
