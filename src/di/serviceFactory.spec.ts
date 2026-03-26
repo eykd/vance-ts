@@ -1219,11 +1219,26 @@ describe('ServiceFactory', () => {
         return mockListActions;
       });
 
+      const mockListAreas = { execute: vi.fn() };
+      mocks.ListAreasUseCase.mockImplementation(function () {
+        return mockListAreas;
+      });
+
+      const mockListContexts = { execute: vi.fn() };
+      mocks.ListContextsUseCase.mockImplementation(function () {
+        return mockListContexts;
+      });
+
       const env = makeEnv();
       const factory = getServiceFactory(env);
 
       expect(factory.appPageHandlers).toBe(mockHandlers);
-      expect(mocks.AppPageHandlers).toHaveBeenCalledWith(mockListInboxItems, mockListActions);
+      expect(mocks.AppPageHandlers).toHaveBeenCalledWith(
+        mockListInboxItems,
+        mockListActions,
+        mockListAreas,
+        mockListContexts
+      );
     });
 
     it('returns the same instance on successive calls (lazy singleton)', () => {

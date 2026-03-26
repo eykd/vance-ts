@@ -8,11 +8,25 @@
 
 import type { Context } from 'hono';
 
+import type { AreaDto } from '../../application/dto/AreaDto.js';
+import type { ContextDto } from '../../application/dto/ContextDto.js';
 import type { ListActionsUseCase } from '../../application/use-cases/ListActionsUseCase.js';
 import type { ListInboxItemsUseCase } from '../../application/use-cases/ListInboxItemsUseCase.js';
 import { actionsPage } from '../templates/pages/actions.js';
 import { dashboardPage } from '../templates/pages/dashboard.js';
 import { inboxPage } from '../templates/pages/inbox.js';
+
+/** Use case contract for listing areas. */
+interface ListAreas {
+  /** Returns all areas for the given workspace. */
+  execute(input: { workspaceId: string }): Promise<AreaDto[]>;
+}
+
+/** Use case contract for listing contexts. */
+interface ListContexts {
+  /** Returns all contexts for the given workspace. */
+  execute(input: { workspaceId: string }): Promise<ContextDto[]>;
+}
 
 /**
  * HTTP handlers for authenticated application pages.
@@ -26,10 +40,14 @@ export class AppPageHandlers {
    *
    * @param listInboxItems - Use case for listing inbox items.
    * @param listActions - Use case for listing actions.
+   * @param listAreas - Use case for listing areas.
+   * @param listContexts - Use case for listing contexts.
    */
   constructor(
     private readonly listInboxItems: ListInboxItemsUseCase,
-    private readonly listActions: ListActionsUseCase
+    private readonly listActions: ListActionsUseCase,
+    private readonly listAreas: ListAreas,
+    private readonly listContexts: ListContexts
   ) {}
 
   /**
@@ -69,9 +87,15 @@ export class AppPageHandlers {
   async handleGetInbox(c: Context): Promise<Response> {
     const workspaceId = c.get('workspaceId') as string;
 
-    const items = await this.listInboxItems.execute({ workspaceId });
+    const [items, allAreas, contexts] = await Promise.all([
+      this.listInboxItems.execute({ workspaceId }),
+      this.listAreas.execute({ workspaceId }),
+      this.listContexts.execute({ workspaceId }),
+    ]);
 
-    return c.html(inboxPage({ items }));
+    const areas = allAreas.filter((a) => a.status === 'active');
+
+    return c.html(inboxPage({ items, areas, contexts }));
   }
 
   /**

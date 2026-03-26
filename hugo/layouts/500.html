@@ -1,0 +1,14 @@
+{{/*
+  500 error page - displayed when an internal server error occurs.
+  Uses shared error-hero partial for consistent error page styling.
+*/}}
+{{ define "main" }}
+{{ partial "errors/error-hero.html" (dict
+  "code" "500"
+  "title" "Internal Server Error"
+  "message" "Something went wrong on our end. Please try again later."
+  "alertClass" "alert-error"
+  "iconPath" "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+  "baseURL" $.Site.BaseURL
+) }}
+{{ end }}

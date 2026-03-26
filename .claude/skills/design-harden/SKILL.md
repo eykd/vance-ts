@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: harden
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-harden
 description: Improve interface resilience through better error handling, i18n support, text overflow handling, and edge case management. Makes interfaces robust and production-ready. Use after implementation to catch real-world breakage.
 args:
-
-- name: target
-  description: The feature or area to harden (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or area to harden (optional)
+    required: false
+    user-invocable: true
 ---
 
 ## MANDATORY PREPARATION
@@ -267,3 +256,5 @@ Test thoroughly with edge cases:
 **Related skills**: `/design-adapt` — for responsive cross-device resilience; `/tailwind-daisyui-design` — for accessible component patterns
 
 Remember: You're hardening for production reality, not demo perfection. Expect users to input weird data, lose connection mid-flow, and use your product in unexpected ways. Build resilience into every component.
+
+Use subagents liberally and aggressively to conserve the main context window.

@@ -1496,9 +1496,8 @@ describe('Worker', () => {
       const res = await app.fetch(req, env);
 
       expect(res.status).toBe(500);
-      const body = await res.json<{ error: { code: string; message: string } }>();
-      expect(body.error.code).toBe('internal_error');
-      expect(body.error.message).toBe('An unexpected error occurred');
+      const body = await res.json<{ error: string }>();
+      expect(body.error).toBe('Internal server error');
     });
 
     it('does not leak stack traces or internal details', async () => {

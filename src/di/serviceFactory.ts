@@ -707,7 +707,9 @@ export class ServiceFactory {
   get appPageHandlers(): AppPageHandlers {
     this._appPageHandlers ??= new AppPageHandlers(
       this.listInboxItemsUseCase,
-      this.listActionsUseCase
+      this.listActionsUseCase,
+      this.listAreasUseCase,
+      this.listContextsUseCase
     );
     return this._appPageHandlers;
   }

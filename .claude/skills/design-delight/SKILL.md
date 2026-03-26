@@ -1,23 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: delight
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack;
-  React library references replaced (Framer Motion → CSS/Alpine x-transition; React Spring → Web Animations API; use-sound → Web Audio/Howler.js)
--->
-
 ---
-
 name: design-delight
 description: Add moments of joy, personality, and unexpected touches that make interfaces memorable and enjoyable to use. Elevates functional to delightful. Use when interfaces feel correct but lifeless.
 args:
-
-- name: target
-  description: The feature or area to add delight to (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or area to add delight to (optional)
+    required: false
+    user-invocable: true
 ---
 
 Identify opportunities to add moments of joy, personality, and unexpected polish that transform functional interfaces into delightful experiences.
@@ -361,3 +349,5 @@ Test that delight actually delights:
 - **Accessible**: Works with reduced motion, screen readers — verify `motion-reduce:*` variants
 
 Remember: Delight is the difference between a tool and an experience. Add personality, surprise users positively, and create moments worth sharing. But always respect usability - delight should enhance, never obstruct.
+
+Use subagents liberally and aggressively to conserve the main context window.

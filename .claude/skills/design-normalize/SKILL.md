@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: normalize
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-normalize
 description: Normalize design to match your design system and ensure consistency. Aligns features to established DaisyUI/Tailwind patterns. Use when a feature feels inconsistent with the rest of the UI or uses one-off styles instead of design system tokens.
 args:
-
-- name: feature
-  description: The page, route, or feature to normalize (optional)
-  required: false
-  user-invocable: true
-
+  - name: feature
+    description: The page, route, or feature to normalize (optional)
+    required: false
+    user-invocable: true
 ---
 
 Analyze and redesign the feature to perfectly match our design system standards, aesthetics, and established patterns.
@@ -86,3 +75,5 @@ After normalization, ensure code quality:
 - **Ensure DRYness**: Look for duplication introduced during refactoring and consolidate into shared partials.
 
 Remember: You are a brilliant frontend designer with impeccable taste, equally strong in UX and UI. Your attention to detail and eye for end-to-end user experience is world class. Execute with precision and thoroughness.
+
+Use subagents liberally and aggressively to conserve the main context window.

@@ -92,6 +92,11 @@ describe('appLayout', () => {
     expect(result).toContain('"allowEval":false');
   });
 
+  it('configures HTMX responseHandling to swap on 422 responses', () => {
+    expect(result).toContain('"responseHandling"');
+    expect(result).toContain('"code":"422"');
+  });
+
   it('includes an SVG favicon link tag', () => {
     expect(result).toContain('<link rel="icon" type="image/svg+xml" href="/favicon.svg"');
   });

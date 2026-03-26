@@ -56,6 +56,9 @@
     "hugo/**/*.html": [
       "bash -c 'cd hugo && npm test'"
     ],
+    "hugo/assets/css/styles.css": [
+      "bash -c 'rm -rf hugo/public && cd hugo && npx hugo --minify && cd .. && node scripts/sync-asset-paths.js && git add src/presentation/generated/assetPaths.ts'"
+    ],
     ".github/workflows/*.{yml,yaml}": [
       "prettier --write",
       "npm run actionlint"

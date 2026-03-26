@@ -23,23 +23,38 @@ export function dashboardPage(props: DashboardPageProps): string {
       ? html`<p class="text-base-content/50 text-sm mt-6">All clear. Enjoy the calm.</p>`
       : '';
 
-  const content = html`<div class="container mx-auto px-4 py-8 animate-fade-up">
+  const content = html`<div
+    class="container mx-auto px-4 py-8 animate-fade-up"
+    hx-on:inboxItemCaptured="var el = document.getElementById('inbox-count'); el.textContent = parseInt(el.textContent) + 1"
+  >
     <div class="mb-8">
       <h1 class="text-3xl font-bold font-serif mb-1">Dashboard</h1>
       <p class="text-base-content/60">What's on your mind?</p>
     </div>
     <div class="grid gap-4 sm:grid-cols-2 mb-8">
-      <div class="card bg-base-100 border border-base-300 p-6">
+      <a
+        href="/app/inbox"
+        class="card bg-base-100 border border-base-300 p-6 hover:border-primary transition-colors"
+      >
         <div class="text-sm text-base-content/60 mb-1">📥 Inbox</div>
-        <div class="text-2xl font-bold font-serif">${props.inboxCount}</div>
-      </div>
-      <div class="card bg-base-100 border border-base-300 p-6">
+        <div id="inbox-count" class="text-2xl font-bold font-serif">${props.inboxCount}</div>
+      </a>
+      <a
+        href="/app/actions"
+        class="card bg-base-100 border border-base-300 p-6 hover:border-primary transition-colors"
+      >
         <div class="text-sm text-base-content/60 mb-1">⚡ Actions</div>
         <div class="text-2xl font-bold font-serif">${props.actionCount}</div>
-      </div>
+      </a>
     </div>
     ${safe(allClear)}
-    <form hx-post="/app/_/inbox/capture" class="flex gap-2">
+    <form
+      hx-post="/app/_/inbox/capture"
+      hx-target="#captured-items"
+      hx-swap="beforeend"
+      hx-on::after-request="if(event.detail.successful) this.reset()"
+      class="flex gap-2"
+    >
       <input
         type="text"
         name="title"
@@ -49,6 +64,7 @@ export function dashboardPage(props: DashboardPageProps): string {
       />
       <button type="submit" class="btn btn-primary">Capture</button>
     </form>
+    <ul id="captured-items" class="mt-4 space-y-1"></ul>
   </div>`;
 
   return appLayout({ title: 'Dashboard', content });

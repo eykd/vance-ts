@@ -6,6 +6,7 @@ import type { MiddlewareHandler } from 'hono/types';
 import { getServiceFactory } from './di/serviceFactory';
 import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
 import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
+import { htmxErrorFragment, serveErrorPage } from './presentation/handlers/ErrorPageHandlers';
 import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandler';
 import { createBodyLimitMiddleware } from './presentation/middleware/bodyLimit';
 import { isOriginAllowed } from './presentation/middleware/originCheck';
@@ -13,7 +14,12 @@ import { authErrorPage } from './presentation/templates/pages/authError';
 import type { AppEnv } from './presentation/types';
 import { authErrorStatusCode } from './presentation/utils/authErrorStatus';
 import { ensureSecureCookies } from './presentation/utils/ensureSecureCookies';
+import { isApiRoute } from './presentation/utils/isApiRoute';
 import { SECURITY_HEADERS } from './presentation/utils/securityHeaders';
+
+// Durable Object class must be exported from the worker entry point so
+// the Workers runtime can register it as a named DO binding.
+export { RateLimitDO } from './infrastructure/RateLimitDO';
 
 const app = new Hono<AppEnv>();
 
@@ -44,21 +50,39 @@ const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<
 };
 
 /**
- * Global error handler that catches unhandled exceptions.
+ * Global error handler for unhandled exceptions in route handlers/middleware.
  *
- * Returns a generic 500 JSON response for API routes without leaking
- * stack traces or internal details.
+ * Routes errors to the appropriate response format based on the request:
+ * - `/api/*` paths -> JSON `{ error: "Internal server error" }` with 500 status
+ * - HTMX partial requests (HX-Request without HX-Boosted) -> HTML error fragment
+ * with HX-Retarget/#main-content and HX-Reswap/innerHTML headers
+ * - All other requests (including HTMX boosted) -> pre-built HTML 500 error page
  *
- * @param _err - The caught error (intentionally unused to prevent leakage).
- * @param c - The Hono context.
- * @returns A safe 500 JSON response.
+ * No internal error details are exposed in any response (FR-005).
+ *
+ * @param err - The uncaught error
+ * @param c - The Hono context
+ * @returns An appropriate error response
  */
-app.onError((err, c): Response => {
+app.onError(async (err, c) => {
   Sentry.captureException(err);
-  return c.json(
-    { error: { code: 'internal_error', message: 'An unexpected error occurred' } },
-    500
-  );
+  getServiceFactory(c.env).logger.error(`unhandled error on ${c.req.method} ${c.req.path}`, err);
+
+  if (isApiRoute(c.req.path)) {
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+
+  const isHtmxPartial =
+    c.req.header('HX-Request') === 'true' && c.req.header('HX-Boosted') !== 'true';
+
+  if (isHtmxPartial) {
+    return c.html(htmxErrorFragment(), 500, {
+      'HX-Retarget': '#main-content',
+      'HX-Reswap': 'innerHTML',
+    });
+  }
+
+  return serveErrorPage(c.env.ASSETS, 500);
 });
 
 app.use('*', withSecurityHeaders);

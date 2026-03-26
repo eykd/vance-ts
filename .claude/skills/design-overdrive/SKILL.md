@@ -1,23 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: overdrive
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack;
-  React library references replaced (motion/Framer Motion → GSAP/Web Animations API; TanStack Virtual → vanilla virtual scrolling)
--->
-
 ---
-
 name: design-overdrive
 description: Push interfaces past conventional limits with technically ambitious implementations. Whether that's a shader, a 60fps virtual table, spring physics on a dialog, or scroll-driven reveals — make users ask "how did they do that?"
 args:
-
-- name: target
-  description: The feature or area to push into overdrive (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or area to push into overdrive (optional)
+    required: false
+    user-invocable: true
 ---
 
 Start your response with:
@@ -184,3 +172,5 @@ The gap between "cool" and "extraordinary" is in the last 20% of refinement: the
 **Related skills**: `/design-animate` — purposeful animation strategy; `/design-frontend` — design principles and anti-patterns; `/htmx-pattern-library` — HTMX transition patterns
 
 Remember: "Technically extraordinary" isn't about using the newest API. It's about making an interface do something users didn't think a website could do.
+
+Use subagents liberally and aggressively to conserve the main context window.
