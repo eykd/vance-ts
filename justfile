@@ -137,6 +137,7 @@ dev-worker:
 
 # Build and deploy to Cloudflare Workers
 deploy: hugo-build
+    npx wrangler d1 migrations apply clawtask --remote
     npx wrangler deploy
 
 # ============================================================================
