@@ -89,7 +89,7 @@ function clarifyModal(
         </select>
         <div id="clarify-error-${item.id}"></div>
         <div class="modal-action">
-          <button type="button" class="btn btn-ghost" onclick="this.closest('dialog').close()">
+          <button type="button" class="btn btn-ghost" @click="$el.closest('dialog').close()">
             Cancel
           </button>
           <button type="submit" class="btn btn-primary">Clarify</button>
@@ -116,6 +116,7 @@ export function inboxPage(props: InboxPageProps): string {
     .map(
       (item, index) =>
         html`<li
+          x-data
           class="flex items-center justify-between p-3 bg-base-100 border border-base-300 rounded-lg animate-slide-in"
           style="animation-delay: ${safe(String(index * 50))}ms"
         >
@@ -123,7 +124,7 @@ export function inboxPage(props: InboxPageProps): string {
           <button
             type="button"
             class="btn btn-sm btn-outline"
-            onclick="document.getElementById('clarify-modal-${item.id}').showModal()"
+            @click="$el.closest('li').querySelector('dialog').showModal()"
           >
             Clarify
           </button>

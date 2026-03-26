@@ -43,7 +43,7 @@ describe('inboxPage', () => {
       contexts,
     });
 
-    expect(result).toContain("document.getElementById('clarify-modal-i1').showModal()");
+    expect(result).toContain("$el.closest('li').querySelector('dialog').showModal()");
     expect(result).toContain('id="clarify-modal-i1"');
   });
 
