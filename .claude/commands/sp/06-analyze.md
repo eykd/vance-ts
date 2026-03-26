@@ -206,7 +206,21 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
   ```
 - **Auto-fix for orphan tasks**: Add `**Spec**: [best-match-requirement]` to task description
 
-#### F. Inconsistency
+#### F. Layer Coverage
+
+For each user story, check that tasks cover all architectural layers implied by the story's requirements:
+
+- **Domain** (entities, value objects, domain services)
+- **Application** (use cases, DTOs)
+- **Infrastructure** (repositories, external services)
+- **Presentation** (handlers, templates, partials, pages, HTMX interactions)
+
+A user story that describes user-facing behavior (e.g., "user can create X", "user can rename Y") but has NO presentation layer tasks is a coverage gap — even if it has API handler tasks. API endpoints serve programmatic clients; presentation tasks serve the UI that users interact with.
+
+- **Auto-fix**: Create missing presentation layer tasks under the user story, referencing plan.md sections that describe UI requirements (accessibility, HTMX patterns, inline editing, etc.)
+- Only flag stories where the spec explicitly describes user-facing interaction AND plan.md contains presentation requirements for that interaction
+
+#### G. Inconsistency
 
 - **Terminology drift**: Use `/glossary` skill to:
   - Check if terms in spec.md, plan.md, and task descriptions match glossary
@@ -320,8 +334,8 @@ List any fixes that required user approval and were applied.
 
 **Coverage Summary Table:**
 
-| Requirement Key | Has Task? | Task IDs | Notes |
-| --------------- | --------- | -------- | ----- |
+| Requirement Key | Has Task? | Task IDs | Layers (D/A/I/P) | Notes |
+| --------------- | --------- | -------- | ---------------- | ----- |
 
 **Constitution Alignment Issues:** (if any - only manual tasks listed)
 

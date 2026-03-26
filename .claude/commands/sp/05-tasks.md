@@ -43,7 +43,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    d. Store epic ID for subsequent task creation steps
 
 4. **Execute task generation workflow**:
-   - Load plan.md and extract tech stack, libraries, project structure
+   - Load plan.md and extract tech stack, libraries, project structure, and **presentation layer requirements** (UI patterns, templates, partials, HTMX interactions, accessibility requirements, Alpine.js components, inline editing patterns, confirmation dialogs, focus management). Map presentation requirements to the user stories they serve.
    - Load spec.md and extract user stories with their priorities (P1, P2, P3, etc.)
    - If data-model.md exists: Extract entities and map to user stories
    - If contracts/ exists: Map endpoints to user stories
@@ -122,7 +122,19 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Create without dependencies between them
    - They will all appear in `br ready` once their common parent is ready
 
-6. **Verify Task Hierarchy**:
+6. **Layer Completeness Check**:
+
+   For each user story, verify that tasks exist for every architectural layer the story touches. A user story that creates/modifies data typically needs tasks in ALL of:
+   - **Domain**: Entity, value object, or domain service changes
+   - **Application**: Use case or DTO changes
+   - **Infrastructure**: Repository or external service changes
+   - **Presentation**: Handler, template, partial, or page changes
+
+   If a user story has domain/application/infrastructure tasks but NO presentation task, and the spec describes user-facing behavior for that story (e.g., "user can create X", "user can rename Y"), flag it and create the missing presentation task(s). The spec's user stories describe what users do — if a user story says "user can create X", there must be a UI task for the creation interface, not just an API endpoint.
+
+   Similarly, if a user story has presentation tasks but no domain/infrastructure tasks, verify this is intentional (e.g., a purely cosmetic change).
+
+7. **Verify Task Hierarchy**:
 
    ```bash
    br dep tree <epic-id> --direction up
@@ -132,7 +144,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Verify the hierarchy: Epic → User Story Tasks → Implementation Sub-tasks
    - Check for any circular dependencies: `br dep cycles`
 
-7. **Close Phase Task in Beads**:
+8. **Close Phase Task in Beads**:
 
    After creating all implementation tasks, close the 05-tasks phase task to unblock the implement phase.
 
@@ -152,7 +164,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    d. Report: "Phase [sp:05-tasks] complete. Run `/sp:next` or `/sp:06-analyze` to validate artifacts."
 
-8. **Report**: Output summary including:
+9. **Report**: Output summary including:
    - **Beads epic ID** and total tasks created in beads
    - **Implement task ID** (`$IMPLEMENT_TASK_ID`) containing all user story tasks
    - Task count per user story (with task IDs)
@@ -212,7 +224,8 @@ Sub-task: "<action> <target> in <file-path>"
    - Map all related components to their story:
      - Models needed for that story
      - Services needed for that story
-     - Endpoints/UI needed for that story
+     - API endpoints needed for that story (from contracts/)
+     - Presentation layer: pages, templates, partials, HTMX handlers, Alpine.js components needed for that story (from plan.md)
      - If tests requested: Tests specific to that story
    - Mark story dependencies (most stories should be independent)
 
@@ -229,6 +242,12 @@ Sub-task: "<action> <target> in <file-path>"
    - Shared infrastructure → Setup phase tasks
    - Foundational/blocking tasks → Foundational phase tasks
    - Story-specific setup → within that story's sub-tasks
+
+5. **From Plan (Presentation/UI)**:
+   - Scan plan.md for presentation layer requirements: templates, partials, pages, HTMX interactions, Alpine.js components, accessibility requirements, inline editing patterns, confirmation dialogs, focus management
+   - Map each UI component/interaction to its user story
+   - Each user story with a UI-facing requirement MUST have at least one presentation layer sub-task
+   - If plan.md describes accessibility requirements (ARIA, keyboard navigation, focus management), create sub-tasks for those — they are implementation work, not documentation
 
 ### Phase Structure
 
