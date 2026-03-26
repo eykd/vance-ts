@@ -27,6 +27,34 @@
 **Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
 **Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
+## Presentation Design
+
+> _Delete this section entirely for backend-only features with no user-facing UI._
+
+**Component Framework**: [e.g., DaisyUI 5 + Tailwind CSS 4, or N/A]
+**Interaction Patterns**: [e.g., HTMX partial swaps, Alpine.js reactive state, static Hugo pages]
+**Accessibility Target**: [e.g., WCAG 2.2 AA, AAA, or N/A]
+
+### UI Decisions
+
+<!--
+  For each user-facing screen or component introduced by this feature,
+  document the design approach. These decisions feed into sp:05-tasks
+  to generate presentation layer sub-tasks with the right design-* skills.
+-->
+
+| Screen / Component        | User Story | Approach                            | Design Skills                        |
+| ------------------------- | ---------- | ----------------------------------- | ------------------------------------ |
+| [e.g., 404 error page]    | US1        | [DaisyUI hero + alert, static HTML] | `/design-language-to-daisyui`        |
+| [e.g., Onboarding wizard] | US2        | [Multi-step Alpine.js, empty state] | `/design-onboard`, `/design-clarify` |
+
+### Quality Pass
+
+**Design quality target**: [MVP / Production / Flagship]
+**Post-implementation refinement**: [List applicable skills or "None planned"]
+
+- e.g., `/design-polish`, `/design-audit`, `/design-adapt`
+
 ## Constitution Check
 
 _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._

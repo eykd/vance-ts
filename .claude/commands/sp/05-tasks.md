@@ -43,7 +43,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    d. Store epic ID for subsequent task creation steps
 
 4. **Execute task generation workflow**:
-   - Load plan.md and extract tech stack, libraries, project structure, and **presentation layer requirements** (UI patterns, templates, partials, HTMX interactions, accessibility requirements, Alpine.js components, inline editing patterns, confirmation dialogs, focus management). Map presentation requirements to the user stories they serve.
+   - Load plan.md and extract tech stack, libraries, project structure, and **presentation layer requirements** (UI patterns, templates, partials, HTMX interactions, accessibility requirements, Alpine.js components, inline editing patterns, confirmation dialogs, focus management) **and** the `## Presentation Design` section if present (UI Decisions table with per-component design skills, Quality Pass with post-implementation refinement plan). Map presentation requirements to the user stories they serve.
    - Load spec.md and extract user stories with their priorities (P1, P2, P3, etc.)
    - If data-model.md exists: Extract entities and map to user stories
    - If contracts/ exists: Map endpoints to user stories
@@ -65,16 +65,20 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    **Skill Mapping Reference** - Use these skills based on task type:
 
-   | Task Pattern                                | Skills                                                         |
-   | ------------------------------------------- | -------------------------------------------------------------- |
-   | `Create.*entity`, `.*domain model`          | `/ddd-domain-modeling`, `/typescript-unit-testing`             |
-   | `Implement.*repository`, `.*D1.*`           | `/d1-repository-implementation`, `/vitest-integration-testing` |
-   | `Create.*handler`, `.*route handler`        | `/worker-request-handler`                                      |
-   | `Create.*template`, `.*HTML.*`, `.*partial` | `/htmx-alpine-templates`                                       |
-   | `Write.*test`, `.*spec.*`                   | `/typescript-unit-testing`                                     |
-   | `Setup.*`, `Configure.*`                    | `/vitest-cloudflare-config`                                    |
-   | `.*HTMX.*`, `.*interactive`                 | `/htmx-pattern-library`                                        |
-   | `.*security.*`, `.*auth.*`                  | `/org-authorization`                                           |
+   | Task Pattern                                          | Skills                                                         |
+   | ----------------------------------------------------- | -------------------------------------------------------------- |
+   | `Create.*entity`, `.*domain model`                    | `/ddd-domain-modeling`, `/typescript-unit-testing`             |
+   | `Implement.*repository`, `.*D1.*`                     | `/d1-repository-implementation`, `/vitest-integration-testing` |
+   | `Create.*handler`, `.*route handler`                  | `/worker-request-handler`                                      |
+   | `Create.*template`, `.*HTML.*`, `.*partial`           | `/htmx-alpine-templates`                                       |
+   | `Write.*test`, `.*spec.*`                             | `/typescript-unit-testing`                                     |
+   | `Setup.*`, `Configure.*`                              | `/vitest-cloudflare-config`                                    |
+   | `.*HTMX.*`, `.*interactive`                           | `/htmx-pattern-library`                                        |
+   | `.*security.*`, `.*auth.*`                            | `/org-authorization`                                           |
+   | `.*DaisyUI.*`, `.*component.*class`                   | `/design-language-to-daisyui`                                  |
+   | `.*onboard.*`, `.*empty.state`, `.*first.run`         | `/design-onboard`                                              |
+   | `.*error.message`, `.*copy`, `.*label`, `.*microcopy` | `/design-clarify`                                              |
+   | `.*responsive.*`, `.*mobile.*`, `.*breakpoint`        | `/design-adapt`                                                |
 
    For each user story from spec.md:
 
@@ -248,6 +252,11 @@ Sub-task: "<action> <target> in <file-path>"
    - Map each UI component/interaction to its user story
    - Each user story with a UI-facing requirement MUST have at least one presentation layer sub-task
    - If plan.md describes accessibility requirements (ARIA, keyboard navigation, focus management), create sub-tasks for those — they are implementation work, not documentation
+   - If plan.md includes a `## Presentation Design` section, use the **UI Decisions** table to:
+     - Match each screen/component row to its user story (via the "User Story" column)
+     - Include the **Design Skills** column values in the sub-task's `**Skills**:` field alongside any skills from the mapping table
+     - If the table lists `/design-language-to-daisyui`, the sub-task description should note: "Use `/design-language-to-daisyui` to translate component descriptions into DaisyUI 5 classes"
+   - If plan.md includes a `### Quality Pass` section listing post-implementation refinement skills, generate a Design Review task in the Final Phase (see Phase Structure below)
 
 ### Phase Structure
 
@@ -258,6 +267,15 @@ Sub-task: "<action> <target> in <file-path>"
   - Implementation steps are sub-tasks under the user story task
   - Each phase should be a complete, independently testable increment
 - **Final Phase**: Polish & Cross-Cutting Concerns - Tasks directly under epic
+  - If plan.md has a `## Presentation Design` section with a `### Quality Pass` listing post-implementation refinement skills, create a "Design Review" sub-task:
+    ```bash
+    br create "Design review: <feature-area>" -p <lowest-story-priority + 1> --parent $IMPLEMENT_TASK_ID \
+      --description "**Skills**: <skills-from-quality-pass>
+    **Scope**: Run each listed design skill against the implemented UI for this feature.
+    **Acceptance**: Each skill's output reviewed and applied or explicitly deferred."
+    ```
+  - This task depends on ALL user story presentation sub-tasks completing first
+  - Skip this task entirely if plan.md has no Presentation Design section or Quality Pass lists "None planned"
 
 ## Beads Error Handling
 
