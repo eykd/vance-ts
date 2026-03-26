@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/cloudflare';
 import type { Context } from 'hono';
 import { Hono } from 'hono/tiny';
 import type { MiddlewareHandler } from 'hono/types';
@@ -7,11 +8,14 @@ import { apiNotFound, healthCheck } from './presentation/handlers/ApiHandlers';
 import { appPartialNotFound } from './presentation/handlers/AppPartialHandlers';
 import { htmxErrorFragment, serveErrorPage } from './presentation/handlers/ErrorPageHandlers';
 import { staticAssetFallthrough } from './presentation/handlers/StaticAssetHandler';
+import { createBodyLimitMiddleware } from './presentation/middleware/bodyLimit';
+import { isOriginAllowed } from './presentation/middleware/originCheck';
 import { authErrorPage } from './presentation/templates/pages/authError';
 import type { AppEnv } from './presentation/types';
 import { authErrorStatusCode } from './presentation/utils/authErrorStatus';
+import { ensureSecureCookies } from './presentation/utils/ensureSecureCookies';
 import { isApiRoute } from './presentation/utils/isApiRoute';
-import { CACHE_CONTROL_NO_STORE, SECURITY_HEADERS } from './presentation/utils/securityHeaders';
+import { SECURITY_HEADERS } from './presentation/utils/securityHeaders';
 
 // Durable Object class must be exported from the worker entry point so
 // the Workers runtime can register it as a named DO binding.
@@ -49,12 +53,11 @@ const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<
  * Global error handler for unhandled exceptions in route handlers/middleware.
  *
  * Routes errors to the appropriate response format based on the request:
- * - `/api/*` paths → JSON `{ error: "Internal server error" }` with 500 status
- * - HTMX partial requests (HX-Request without HX-Boosted) → HTML error fragment
+ * - `/api/*` paths -> JSON `{ error: "Internal server error" }` with 500 status
+ * - HTMX partial requests (HX-Request without HX-Boosted) -> HTML error fragment
  * with HX-Retarget/#main-content and HX-Reswap/innerHTML headers
- * - All other requests (including HTMX boosted) → pre-built HTML 500 error page
+ * - All other requests (including HTMX boosted) -> pre-built HTML 500 error page
  *
- * Logs the error with method and path context via the ServiceFactory logger.
  * No internal error details are exposed in any response (FR-005).
  *
  * @param err - The uncaught error
@@ -62,15 +65,13 @@ const withSecurityHeaders: MiddlewareHandler<AppEnv> = async (c, next): Promise<
  * @returns An appropriate error response
  */
 app.onError(async (err, c) => {
+  Sentry.captureException(err);
   getServiceFactory(c.env).logger.error(`unhandled error on ${c.req.method} ${c.req.path}`, err);
 
   if (isApiRoute(c.req.path)) {
     return c.json({ error: 'Internal server error' }, 500);
   }
 
-  // HTMX partial requests (not boosted navigations) expect HTML fragments,
-  // not full documents. HX-Boosted navigations are full-page loads and should
-  // receive the full 500 error page instead.
   const isHtmxPartial =
     c.req.header('HX-Request') === 'true' && c.req.header('HX-Boosted') !== 'true';
 
@@ -85,6 +86,7 @@ app.onError(async (err, c) => {
 });
 
 app.use('*', withSecurityHeaders);
+app.use('*', createBodyLimitMiddleware());
 
 /**
  * Middleware: require authentication before proceeding.
@@ -101,10 +103,45 @@ const withRequireAuth: MiddlewareHandler<AppEnv> = async (c, next): Promise<Resp
 };
 
 app.use('/app/*', withRequireAuth);
+app.use('/app/*', async (c, next): Promise<Response | void> => {
+  return getServiceFactory(c.env).requireWorkspaceMiddleware(c as Context<AppEnv>, next);
+});
 app.use('/dashboard/*', withRequireAuth);
 
 /** Health check endpoint. */
 app.get('/api/health', healthCheck);
+
+/**
+ * Sentry test endpoint — throws an intentional error to verify error tracking.
+ *
+ * @throws {Error} Always throws to generate a Sentry event.
+ */
+app.get('/api/debug-sentry', (): never => {
+  throw new Error('Sentry integration test');
+});
+
+/**
+ * Origin-check middleware for POST /api/auth/*.
+ *
+ * better-auth's `formCsrfMiddleware` skips origin validation when a request
+ * carries no cookies and no Fetch Metadata headers. This allows cross-origin
+ * JSON POSTs (e.g. from an attacker page) to reach sign-up and sign-in
+ * endpoints unchecked. This middleware closes the gap by validating the
+ * `Origin` header against `BETTER_AUTH_URL` for every POST to `/api/auth/*`.
+ *
+ * A per-env cache avoids reconstructing the middleware on every request while
+ * still supporting env rotation within the same isolate.
+ */
+app.use('/api/auth/*', async (c, next): Promise<Response | void> => {
+  if (c.req.method !== 'POST') return next();
+  if (!isOriginAllowed(c.req.header('Origin'), c.env.BETTER_AUTH_URL)) {
+    return c.json(
+      { error: { code: 'origin_not_allowed', message: 'Cross-origin requests are not allowed' } },
+      403
+    );
+  }
+  return next();
+});
 
 /**
  * Rate limit middleware for POST /api/auth/sign-in/*.
@@ -148,10 +185,7 @@ app.get('/api/auth/error', (c): Response => {
   const errorCode = c.req.query('error') ?? null;
   return new Response(authErrorPage(), {
     status: authErrorStatusCode(errorCode),
-    headers: {
-      'Content-Type': 'text/html; charset=utf-8',
-      'Cache-Control': CACHE_CONTROL_NO_STORE,
-    },
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store, no-cache' },
   });
 });
 
@@ -170,7 +204,7 @@ app.get('/api/auth/callback/*', apiNotFound);
 /**
  * better-auth API pass-through.
  *
- * Delegates all GET/POST requests under `/api/auth/*` to the better-auth
+ * Delegates all GET/HEAD/POST requests under `/api/auth/*` to the better-auth
  * handler via the ServiceFactory (so worker.ts never imports from
  * infrastructure directly). The response is reconstructed as a new Response
  * to expose mutable headers to the `/api/*` security-headers middleware.
@@ -178,14 +212,128 @@ app.get('/api/auth/callback/*', apiNotFound);
  * Must be registered before the `/api/*` catch-all so that auth API requests
  * are handled here rather than returning 404.
  */
-app.on(['GET', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
+app.on(['GET', 'HEAD', 'POST'], '/api/auth/*', async (c): Promise<Response> => {
   try {
+    if (
+      c.req.method === 'POST' &&
+      c.req.header('content-type')?.includes('application/json') === true
+    ) {
+      try {
+        await c.req.raw.clone().json();
+      } catch {
+        return c.json(
+          { error: { code: 'invalid_json', message: 'Request body must be valid JSON' } },
+          400
+        );
+      }
+    }
+
     const authResponse = await getServiceFactory(c.env).authHandler(c.req.raw);
-    return new Response(authResponse.body, authResponse);
+    if (authResponse.status >= 500) {
+      const authError = new Error(`auth handler returned HTTP ${String(authResponse.status)}`);
+      getServiceFactory(c.env).logger.error('auth handler error', authError);
+      Sentry.captureException(authError);
+      return c.json(
+        { error: { code: 'service_unavailable', message: 'Service unavailable' } },
+        503,
+        { 'Retry-After': '30' }
+      );
+    }
+    return ensureSecureCookies(new Response(authResponse.body, authResponse));
   } catch (error: unknown) {
     getServiceFactory(c.env).logger.error('auth handler error', error);
-    return c.json({ error: 'Service Unavailable' }, 503, { 'Retry-After': '30' });
+    Sentry.captureException(error);
+    return c.json({ error: { code: 'service_unavailable', message: 'Service unavailable' } }, 503, {
+      'Retry-After': '30',
+    });
   }
+});
+
+/**
+ * Middleware: require session authentication and workspace resolution for all
+ * `/api/v1/*` routes. Returns JSON 401/503 on failure; populates
+ * `c.var.workspaceId` on success.
+ */
+app.use('/api/v1/*', async (c, next): Promise<Response | void> => {
+  return getServiceFactory(c.env).requireApiAuthMiddleware(c as Context<AppEnv>, next);
+});
+
+app.use('/api/v1/*', async (c, next): Promise<Response | void> => {
+  return getServiceFactory(c.env).requireWorkspaceMiddleware(c as Context<AppEnv>, next);
+});
+
+/** Lists all areas in the authenticated user's workspace. */
+app.get('/api/v1/areas', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).areaApiHandlers.handleListAreas(c as Context<AppEnv>);
+});
+
+/** Lists all contexts in the authenticated user's workspace. */
+app.get('/api/v1/contexts', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).contextApiHandlers.handleListContexts(c as Context<AppEnv>);
+});
+
+/** Captures a new inbox item for the authenticated user. */
+app.post('/api/v1/inbox', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).inboxItemApiHandlers.handleCaptureInboxItem(c as Context<AppEnv>);
+});
+
+/** Lists inbox items for the authenticated user's workspace. */
+app.get('/api/v1/inbox', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).inboxItemApiHandlers.handleListInboxItems(c as Context<AppEnv>);
+});
+
+/** Clarifies an inbox item into an action. */
+app.post('/api/v1/inbox/:id/clarify', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleClarify(c as Context<AppEnv>);
+});
+
+/** Lists actions for the authenticated user's workspace. */
+app.get('/api/v1/actions', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleListActions(c as Context<AppEnv>);
+});
+
+/** Activates a ready action. */
+app.post('/api/v1/actions/:id/activate', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleActivate(c as Context<AppEnv>);
+});
+
+/** Completes an active action. */
+app.post('/api/v1/actions/:id/complete', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).actionApiHandlers.handleComplete(c as Context<AppEnv>);
+});
+
+/**
+ * Returns 405 Method Not Allowed for unsupported methods on API v1 routes.
+ *
+ * Registered after the specific method handlers so that only unhandled
+ * methods (PUT, DELETE, PATCH, etc.) reach these catch-alls.
+ */
+app.all('/api/v1/inbox', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET, POST' });
+});
+
+app.all('/api/v1/areas', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET' });
+});
+
+app.all('/api/v1/contexts', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET' });
+});
+
+app.all('/api/v1/inbox/:id/clarify', (c): Response => {
+  return c.body(null, 405, { Allow: 'POST' });
+});
+
+app.all('/api/v1/actions', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET' });
+});
+
+app.all('/api/v1/actions/:id/activate', (c): Response => {
+  return c.body(null, 405, { Allow: 'POST' });
+});
+
+app.all('/api/v1/actions/:id/complete', (c): Response => {
+  return c.body(null, 405, { Allow: 'POST' });
 });
 
 /** Catch-all for unimplemented API routes. */
@@ -221,9 +369,34 @@ app.post('/auth/sign-up', async (c): Promise<Response> => {
   return getServiceFactory(c.env).authPageHandlers.handlePostSignUp(c.req.raw);
 });
 
+/** Renders the sign-out confirmation page. */
+app.get('/auth/sign-out', (c): Response => {
+  return getServiceFactory(c.env).authPageHandlers.handleGetSignOut(c.req.raw);
+});
+
 /** Terminates the authenticated user's session. */
 app.post('/auth/sign-out', async (c): Promise<Response> => {
   return getServiceFactory(c.env).authPageHandlers.handlePostSignOut(c.req.raw);
+});
+
+/** Renders the forgot-password form page. */
+app.get('/auth/forgot-password', (c): Response => {
+  return getServiceFactory(c.env).authPageHandlers.handleGetForgotPassword(c.req.raw);
+});
+
+/** Requests a password reset for the submitted email address. */
+app.post('/auth/forgot-password', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).authPageHandlers.handlePostForgotPassword(c.req.raw);
+});
+
+/** Renders the reset-password form page with the token from the URL. */
+app.get('/auth/reset-password', (c): Response => {
+  return getServiceFactory(c.env).authPageHandlers.handleGetResetPassword(c.req.raw);
+});
+
+/** Resets the user's password using the verification token. */
+app.post('/auth/reset-password', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).authPageHandlers.handlePostResetPassword(c.req.raw);
 });
 
 /**
@@ -241,7 +414,50 @@ app.all('/auth/sign-up', (c): Response => {
 });
 
 app.all('/auth/sign-out', (c): Response => {
-  return c.body(null, 405, { Allow: 'POST' });
+  return c.body(null, 405, { Allow: 'GET, POST' });
+});
+
+app.all('/auth/forgot-password', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET, POST' });
+});
+
+app.all('/auth/reset-password', (c): Response => {
+  return c.body(null, 405, { Allow: 'GET, POST' });
+});
+
+/** Renders the dashboard page. */
+app.get('/app', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPageHandlers.handleGetDashboard(c as Context<AppEnv>);
+});
+
+/** Renders the inbox page. */
+app.get('/app/inbox', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPageHandlers.handleGetInbox(c as Context<AppEnv>);
+});
+
+/** Renders the actions page. */
+app.get('/app/actions', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPageHandlers.handleGetActions(c as Context<AppEnv>);
+});
+
+/** Captures a new inbox item (HTMX partial). */
+app.post('/app/_/inbox/capture', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPartialHandlers.handleCaptureInbox(c as Context<AppEnv>);
+});
+
+/** Clarifies an inbox item into an action (HTMX partial). */
+app.post('/app/_/inbox/:id/clarify', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPartialHandlers.handleClarifyInbox(c as Context<AppEnv>);
+});
+
+/** Activates an action (HTMX partial). */
+app.post('/app/_/actions/:id/activate', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPartialHandlers.handleActivateAction(c as Context<AppEnv>);
+});
+
+/** Completes an action (HTMX partial). */
+app.post('/app/_/actions/:id/complete', async (c): Promise<Response> => {
+  return getServiceFactory(c.env).appPartialHandlers.handleCompleteAction(c as Context<AppEnv>);
 });
 
 /** Catch-all for unimplemented app partial routes. */
