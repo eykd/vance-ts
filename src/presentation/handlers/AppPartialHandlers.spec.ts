@@ -470,8 +470,8 @@ describe('AppPartialHandlers', () => {
         contextId: 'ctx-1',
         actorId: 'actor-1',
       });
-      const html = await res.text();
-      expect(html).toContain('Buy organic milk');
+      const body = await res.text();
+      expect(body).toBe('');
     });
   });
 });

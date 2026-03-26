@@ -168,7 +168,7 @@ export class AppPartialHandlers {
         422
       );
     }
-    return c.html(html`<li>${result.data.title}</li>`);
+    return c.body('', 200);
   }
 }
 
