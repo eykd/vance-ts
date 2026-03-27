@@ -1060,19 +1060,50 @@ find_leaf_task() {
         fi
     fi
 
+    # Third: check for open parent tasks that may contain ready leaves deeper down.
+    # This handles the case where a parent (e.g. sp:07-implement phase) is "open"
+    # but not "ready" because it has open children — yet those children may be ready.
+    local open_json
+    open_json=$(beads list --status=open --parent "$parent_id" --json 2>/dev/null | \
+        jq --arg p "$parent_id" '[.[] | select(.id != $p and .issue_type != "event")]')
+
+    count=$(echo "$open_json" | jq 'length')
+    if [[ "$count" -gt 0 ]]; then
+        # Try each open task to see if it has ready leaves inside
+        local idx
+        for (( idx=0; idx<count; idx++ )); do
+            local candidate_id
+            candidate_id=$(echo "$open_json" | jq -r ".[$idx].id")
+            if task_has_active_children "$candidate_id"; then
+                if find_leaf_task "$candidate_id"; then
+                    return 0
+                fi
+            fi
+        done
+    fi
+
     # Safety net: orphaned prerequisites not in the epic hierarchy
     # Only fires at the top level (parent_id == EPIC_ID) to avoid infinite recursion,
     # and only when the epic still has open tasks (meaning something is blocking progress,
     # not that the epic is simply complete).
     if [[ "$parent_id" == "$EPIC_ID" ]] && has_open_tasks "$EPIC_ID"; then
+        # Collect all epic IDs so we can exclude tasks belonging to any epic
+        local all_epic_ids
+        all_epic_ids=$(br list --type epic --json 2>/dev/null | jq -r '[.issues[].id] // []')
+
         local orphan_ready
         orphan_ready=$(beads ready --json 2>/dev/null | \
-            jq --arg p "$EPIC_ID" \
-               '[.[] | select(.id != $p and .issue_type != "event" and ((.priority // 4) | tonumber) <= 3)]')
+            jq --arg p "$EPIC_ID" --argjson epics "$all_epic_ids" \
+               '[.[] | select(
+                    .id != $p and
+                    .issue_type != "event" and
+                    ((.priority // 4) | tonumber) <= 3 and
+                    (. as $t | [$epics[] as $e | $t.id | startswith($e + ".")] | any | not)
+                )]')
         local orphan_count
         orphan_count=$(echo "$orphan_ready" | jq 'length')
         if [[ "$orphan_count" -gt 0 ]]; then
-            log_warn "Found $orphan_count globally-ready task(s) outside epic — likely orphaned prerequisites"
+            log WARN "Found $orphan_count globally-ready task(s) outside epic — likely orphaned prerequisites"
             echo "$orphan_ready" | jq '.[0]'
             return 0
         fi
@@ -2550,20 +2581,51 @@ Description:
 $task_description"
 
         # Route US<N> tasks to ATDD cycle; all others use /sp:next
+        # Safety net: only route to ATDD if acceptance spec files exist in specs/acceptance-specs/
         if echo "$task_title" | grep -qP 'US\d+'; then
-            log INFO "Routing task $task_id to ATDD cycle (US<N> task detected)"
-
-            if [[ "$DRY_RUN" == "true" ]]; then
-                log INFO "DRY RUN: Would execute ATDD cycle for $task_id"
-                echo "--- DRY RUN: ATDD cycle for $task_id ---"
-                return "$EXIT_SUCCESS"
+            local has_acceptance_specs=false
+            if compgen -G "specs/acceptance-specs/US*.txt" > /dev/null 2>&1; then
+                has_acceptance_specs=true
             fi
 
-            if execute_atdd_cycle "$next_task" "$epic_id"; then
-                log INFO "ATDD cycle completed for task $task_id"
-                auto_close_completed_parents "$task_id" "$epic_id"
+            if [[ "$has_acceptance_specs" == "true" ]]; then
+                log INFO "Routing task $task_id to ATDD cycle (US<N> task detected, acceptance specs found)"
+
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    log INFO "DRY RUN: Would execute ATDD cycle for $task_id"
+                    echo "--- DRY RUN: ATDD cycle for $task_id ---"
+                    return "$EXIT_SUCCESS"
+                fi
+
+                if execute_atdd_cycle "$next_task" "$epic_id"; then
+                    log INFO "ATDD cycle completed for task $task_id"
+                    auto_close_completed_parents "$task_id" "$epic_id"
+                else
+                    triage_blocked_task "$next_task" "$epic_id"
+                fi
             else
-                triage_blocked_task "$next_task" "$epic_id"
+                log WARN "US<N> task $task_id detected but no acceptance spec files found in specs/acceptance-specs/ — falling back to normal task routing"
+                log WARN "Run sp:05-tasks to generate acceptance spec files, or rename this task to remove the US prefix"
+                # Fall through to normal task processing below
+                local focused_prompt
+                focused_prompt=$(generate_focused_prompt "$next_task")
+
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    log INFO "DRY RUN: Would invoke Claude with prompt"
+                    log_block "Dry Run Prompt" "$focused_prompt"
+                    echo "---"
+                    echo "$focused_prompt"
+                    echo "---"
+                    return "$EXIT_SUCCESS"
+                fi
+
+                if invoke_claude_with_retry "$focused_prompt"; then
+                    log INFO "Task processing completed successfully"
+                    auto_close_completed_parents "$task_id" "$epic_id"
+                else
+                    log ERROR "Task processing failed after $MAX_RETRIES retries"
+                    return "$EXIT_FAILURE"
+                fi
             fi
         else
             # Generate focused prompt

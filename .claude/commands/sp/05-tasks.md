@@ -43,7 +43,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    d. Store epic ID for subsequent task creation steps
 
 4. **Execute task generation workflow**:
-   - Load plan.md and extract tech stack, libraries, project structure, and **presentation layer requirements** (UI patterns, templates, partials, HTMX interactions, accessibility requirements, Alpine.js components, inline editing patterns, confirmation dialogs, focus management) **and** the `## Presentation Design` section if present (UI Decisions table with per-component design skills, Quality Pass with post-implementation refinement plan). Map presentation requirements to the user stories they serve.
+   - Load plan.md and extract tech stack, libraries, project structure, and **presentation layer requirements** (UI patterns, templates, partials, HTMX interactions, accessibility requirements, Alpine.js components, inline editing patterns, confirmation dialogs, focus management) **and** the `## Presentation Design` section if present (UI Decisions table with per-component design skills, Quality Pass with post-implementation refinement plan). Also extract the `## Acceptance Test Strategy` section if present (user stories with acceptance scenarios and planned spec file paths). Map presentation requirements to the user stories they serve.
    - Load spec.md and extract user stories with their priorities (P1, P2, P3, etc.)
    - If data-model.md exists: Extract entities and map to user stories
    - If contracts/ exists: Map endpoints to user stories
@@ -126,17 +126,54 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Create without dependencies between them
    - They will all appear in `br ready` once their common parent is ready
 
-6. **Layer Completeness Check**:
+6. **Generate Acceptance Spec Files** (ATDD outer loop setup):
 
-   For each user story, verify that tasks exist for every architectural layer the story touches. A user story that creates/modifies data typically needs tasks in ALL of:
-   - **Domain**: Entity, value object, or domain service changes
-   - **Application**: Use case or DTO changes
-   - **Infrastructure**: Repository or external service changes
-   - **Presentation**: Handler, template, partial, or page changes
+   For each user story in spec.md that has **Acceptance Scenarios**, extract the GWT scenarios and write them as structured `.txt` files in `specs/acceptance-specs/`. This sets up the outer ATDD loop so ralph can run the inner TDD cycle during `sp:07-implement`.
 
-   If a user story has domain/application/infrastructure tasks but NO presentation task, and the spec describes user-facing behavior for that story (e.g., "user can create X", "user can rename Y"), flag it and create the missing presentation task(s). The spec's user stories describe what users do — if a user story says "user can create X", there must be a UI task for the creation interface, not just an API endpoint.
+   a. Determine the next available US number by scanning existing files:
 
-   Similarly, if a user story has presentation tasks but no domain/infrastructure tasks, verify this is intentional (e.g., a purely cosmetic change).
+   ```bash
+   ls specs/acceptance-specs/US*.txt 2>/dev/null | sed 's/.*US0*//' | sed 's/-.*//' | sort -n | tail -1
+   ```
+
+   Start numbering from the next available number (e.g., if US15 exists, start at US16).
+
+   b. For each user story, create a `.txt` file in `specs/acceptance-specs/` using this format:
+
+   ```text
+   ;=============================================
+   ; <scenario title in sentence case>.
+   ;=============================================
+   GIVEN <precondition>.
+   WHEN <action>.
+   THEN <expected outcome>.
+   THEN <additional assertion if needed>.
+   ```
+
+   - File naming: `US<NN>-<kebab-case-slug>.txt` (e.g., `US16-create-area.txt`)
+   - Each scenario gets its own `;=====` header block
+   - Each GIVEN/WHEN/THEN line ends with a period
+   - Keep scenarios behavioral (what the user does/sees), not implementation-specific
+   - Extract scenarios directly from the spec's **Acceptance Scenarios** sections
+
+   c. Run the acceptance pipeline to generate test stubs:
+
+   ```bash
+   just acceptance 2>&1 || true
+   ```
+
+   If `just acceptance` is not available, run the parse and generate steps manually:
+
+   ```bash
+   npx tsx acceptance/parse-specs.ts
+   npx tsx acceptance/generate-tests.ts
+   ```
+
+   d. Verify generated stubs exist in `generated-acceptance-tests/` and contain "acceptance test not yet bound" (confirming RED state).
+
+   e. Record acceptance spec file paths in the report for reference.
+
+   **Important**: The acceptance spec files must exist BEFORE ralph processes `US<N>` tasks, because ralph's ATDD cycle requires them. If spec.md has no acceptance scenarios for a user story, skip that story (no spec file needed).
 
 7. **Verify Task Hierarchy**:
 
@@ -172,6 +209,8 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Beads epic ID** and total tasks created in beads
    - **Implement task ID** (`$IMPLEMENT_TASK_ID`) containing all user story tasks
    - Task count per user story (with task IDs)
+   - **Acceptance spec files** created in `specs/acceptance-specs/` (with file paths)
+   - **Generated test stubs** in `generated-acceptance-tests/` (RED state confirmed)
    - Parallel opportunities identified
    - Independent test criteria for each story
    - Suggested MVP scope (typically just User Story 1)

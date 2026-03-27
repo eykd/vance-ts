@@ -138,6 +138,7 @@ If no relevant solutions are found, omit the `## Applied Learnings` section.
 
 - Use absolute paths
 - ERROR on gate failures or unresolved clarifications
+- Fill the **Acceptance Test Strategy** section in plan.md: list each user story that has acceptance scenarios in the spec, the planned acceptance spec file path (`specs/acceptance-specs/US<NN>-<slug>.txt`), and the scenario count. This section documents the ATDD outer loop — `sp:05-tasks` will create the actual files.
 
 ## Commit Changes
 

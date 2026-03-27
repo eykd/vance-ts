@@ -123,6 +123,16 @@ ios/ or android/
 **Structure Decision**: [Document the selected structure and reference the real
 directories captured above]
 
+## Acceptance Test Strategy
+
+> **ATDD Outer Loop**: Each user story with acceptance scenarios in the spec will have a corresponding acceptance spec file created during `sp:05-tasks`. These files live in `specs/acceptance-specs/` and follow the GWT format consumed by the acceptance pipeline. Ralph's ATDD cycle depends on these files existing before `US<N>` tasks are processed.
+
+| User Story | Acceptance Spec File                       | Scenarios |
+| ---------- | ------------------------------------------ | --------- |
+| [US1: ...] | `specs/acceptance-specs/US<NN>-<slug>.txt` | [N]       |
+
+**Pipeline**: `specs/acceptance-specs/*.txt` → `acceptance/parse-specs.ts` → `acceptance/generate-tests.ts` → `generated-acceptance-tests/*.spec.ts`
+
 ## Complexity Tracking
 
 > **Fill ONLY if Constitution Check has violations that must be justified**

@@ -206,21 +206,7 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
   ```
 - **Auto-fix for orphan tasks**: Add `**Spec**: [best-match-requirement]` to task description
 
-#### F. Layer Coverage
-
-For each user story, check that tasks cover all architectural layers implied by the story's requirements:
-
-- **Domain** (entities, value objects, domain services)
-- **Application** (use cases, DTOs)
-- **Infrastructure** (repositories, external services)
-- **Presentation** (handlers, templates, partials, pages, HTMX interactions)
-
-A user story that describes user-facing behavior (e.g., "user can create X", "user can rename Y") but has NO presentation layer tasks is a coverage gap — even if it has API handler tasks. API endpoints serve programmatic clients; presentation tasks serve the UI that users interact with.
-
-- **Auto-fix**: Create missing presentation layer tasks under the user story, referencing plan.md sections that describe UI requirements (accessibility, HTMX patterns, inline editing, etc.)
-- Only flag stories where the spec explicitly describes user-facing interaction AND plan.md contains presentation requirements for that interaction
-
-#### G. Inconsistency
+#### F. Inconsistency
 
 - **Terminology drift**: Use `/glossary` skill to:
   - Check if terms in spec.md, plan.md, and task descriptions match glossary
@@ -233,6 +219,20 @@ A user story that describes user-facing behavior (e.g., "user can create X", "us
 - Conflicting requirements (e.g., one requires Next.js while other specifies Vue)
 - **Auto-fix for terminology**: Search/replace to standardize terminology across spec.md and plan.md using glossary as authority
 - **Manual task**: Create HIGH remediation task for conflicting requirements (requires user decision)
+
+#### G. Acceptance Spec Coverage
+
+- For each `US<N>` task under `[sp:07-implement]`, verify a corresponding acceptance spec file exists in `specs/acceptance-specs/`:
+  ```bash
+  ls specs/acceptance-specs/US*.txt 2>/dev/null
+  ```
+- Cross-reference: each user story in spec.md with **Acceptance Scenarios** should have a matching `.txt` file
+- **Auto-fix**: If acceptance spec files are missing but spec.md has GWT acceptance scenarios for that story, create the `.txt` file by extracting the scenarios (same format as sp:05-tasks step 6)
+- **CRITICAL finding**: If a `US<N>` task exists but has no acceptance spec file AND spec.md has no acceptance scenarios for that story, flag as CRITICAL — ralph's ATDD cycle will fail without it
+- After creating any missing spec files, run the acceptance pipeline to generate stubs:
+  ```bash
+  just acceptance 2>&1 || true
+  ```
 
 ### 6. Apply Auto-Fixes
 
@@ -334,8 +334,8 @@ List any fixes that required user approval and were applied.
 
 **Coverage Summary Table:**
 
-| Requirement Key | Has Task? | Task IDs | Layers (D/A/I/P) | Notes |
-| --------------- | --------- | -------- | ---------------- | ----- |
+| Requirement Key | Has Task? | Task IDs | Notes |
+| --------------- | --------- | -------- | ----- |
 
 **Constitution Alignment Issues:** (if any - only manual tasks listed)
 
