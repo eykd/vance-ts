@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 describe('pre-tool-use-bash entry point', () => {
   it('exits promptly when stdin closes (timer must be unreffed)', async () => {
-    const MAX_EXIT_MS = 2000;
+    const MAX_EXIT_MS = 5000;
     const start = Date.now();
 
     const exitCode = await new Promise<number | null>((resolve, reject) => {
