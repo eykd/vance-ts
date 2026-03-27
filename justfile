@@ -66,8 +66,12 @@ fix: format lint-fix
 test-workers:
     npm run test:workers
 
-# Run the full CI pipeline locally
-ci: clean install type-check lint lint-unused format-check test-coverage build hugo-install hugo-test test-workers
+# Validate GitHub Actions workflow files
+actionlint:
+    npx -y @tktco/node-actionlint
+
+# Run the full CI pipeline locally (mirrors GitHub CI exactly)
+ci: clean install type-check lint lint-unused format-check test-coverage build hugo-install hugo-test test-workers actionlint acceptance test-mutants
     @echo "✅ CI pipeline completed successfully!"
 
 # Watch mode for TypeScript compilation

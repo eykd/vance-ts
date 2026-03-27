@@ -72,6 +72,12 @@ jobs:
         if: steps.check-hugo-quality.outputs.exists == 'true'
         run: npm run test:ci
 
+      - name: Acceptance tests
+        if: steps.check-hugo-quality.outputs.exists == 'true'
+        run: |
+          rm -rf acceptance-pipeline/ir/
+          npx tsx acceptance/pipeline.ts --action=run
+
       - name: Detect flaky tests
         id: flaky-check
         if: "!cancelled() && steps.check-hugo-quality.outputs.exists == 'true'"
