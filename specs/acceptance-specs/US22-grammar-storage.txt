@@ -1,0 +1,20 @@
+;=============================================
+; Grammar round-trips through storage identically.
+;=============================================
+GIVEN a parsed grammar.
+WHEN stored and then retrieved.
+THEN the retrieved grammar is identical to the original.
+
+;=============================================
+; Missing grammar key returns not-found.
+;=============================================
+GIVEN a grammar key that does not exist in storage.
+WHEN retrieved.
+THEN a grammar not found result is returned.
+
+;=============================================
+; Listing returns all stored grammar keys.
+;=============================================
+GIVEN multiple grammars stored.
+WHEN listing available grammars.
+THEN all stored grammar keys are returned.

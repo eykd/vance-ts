@@ -111,14 +111,14 @@ migrations/
 
 | User Story | Acceptance Spec File                                  | Scenarios |
 | ---------- | ----------------------------------------------------- | --------- |
-| US1        | `specs/acceptance-specs/US01-render-grammar.txt`      | 4         |
-| US2        | `specs/acceptance-specs/US02-selection-modes.txt`     | 5         |
-| US3        | `specs/acceptance-specs/US03-scoped-randomness.txt`   | 3         |
-| US4        | `specs/acceptance-specs/US04-grammar-parsing.txt`     | 4         |
-| US5        | `specs/acceptance-specs/US05-template-evaluation.txt` | 3         |
-| US6        | `specs/acceptance-specs/US06-article-generation.txt`  | 3         |
-| US7        | `specs/acceptance-specs/US07-grammar-storage.txt`     | 3         |
-| US8        | `specs/acceptance-specs/US08-grammar-includes.txt`    | 3         |
+| US1        | `specs/acceptance-specs/US16-render-grammar.txt`      | 4         |
+| US2        | `specs/acceptance-specs/US17-selection-modes.txt`     | 5         |
+| US3        | `specs/acceptance-specs/US18-scoped-randomness.txt`   | 3         |
+| US4        | `specs/acceptance-specs/US19-grammar-parsing.txt`     | 4         |
+| US5        | `specs/acceptance-specs/US20-template-evaluation.txt` | 3         |
+| US6        | `specs/acceptance-specs/US21-article-generation.txt`  | 4         |
+| US7        | `specs/acceptance-specs/US22-grammar-storage.txt`     | 3         |
+| US8        | `specs/acceptance-specs/US23-grammar-includes.txt`    | 3         |
 
 ## Implementation Order
 
