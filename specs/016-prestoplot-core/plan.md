@@ -135,7 +135,7 @@ These have no imports from application or infrastructure. Build in any order, bu
 2. **errors.ts** — Domain error types (needed by everything else)
 3. **renderedString.ts** — RenderedString value object
 4. **seed.ts** — Seed, ScopedSeed value objects (pure string manipulation, no async hashing here)
-5. **grammar.ts** — Grammar aggregate root, Rule types, SelectionMode enum, RenderStrategy enum, Databag/Datalist/Database interfaces
+5. **grammar.ts** — Grammar aggregate root, Rule types (TextRule, ListRule, StructRule), SelectionMode enum, RenderStrategy enum
 6. **articleGeneration.ts** — getArticle pure function with special cases
 7. **selectionModes.ts** — Selection algorithm functions (REUSE, PICK, RATCHET, LIST), depends on seed.ts for Rng type
 8. **markovChain.ts** — MarkovChainModel, trainMarkovChain, generateMarkov (depends on Rng type)

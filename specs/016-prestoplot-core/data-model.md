@@ -64,12 +64,12 @@ RenderContext (runtime, not persisted)
 
 **StructRule**:
 
-| Field    | Type                        | Constraints                       |
-| -------- | --------------------------- | --------------------------------- |
-| name     | string                      | Unique within grammar             |
-| type     | "struct"                    | Discriminant                      |
-| fields   | ReadonlyMap<string, string> | Field name → rule name/value      |
-| template | string                      | Template string with {field} refs |
+| Field    | Type                        | Constraints                                           |
+| -------- | --------------------------- | ----------------------------------------------------- |
+| name     | string                      | Unique within grammar                                 |
+| type     | "struct"                    | Discriminant                                          |
+| fields   | ReadonlyMap<string, string> | Field name → rule name/value                          |
+| template | string                      | Template string with {{ field }} refs (jinja2 syntax) |
 
 ### WeightedAlternative
 
@@ -131,7 +131,7 @@ Serialized as JSON in KV/D1:
   "rules": {
     "main": {
       "type": "text",
-      "alternatives": [{ "text": "A {adjective} {noun}.", "weight": 1 }],
+      "alternatives": [{ "text": "A {{ adjective }} {{ noun }}.", "weight": 1 }],
       "strategy": "template"
     }
   }

@@ -157,7 +157,7 @@ A grammar file can include rules from other grammar files, enabling content reus
 
 - What happens when a grammar has zero rules? → Error: grammar must contain at least one rule.
 - What happens when a PICK mode rule has been fully exhausted and requests continue? → A new epoch begins (reshuffled).
-- What happens when a MARKOV chain has insufficient training data? → Fallback to empty string or minimum-length output with available data.
+- What happens when a MARKOV chain has insufficient training data? → Rejected at parse time with a clear error if corpus is empty; dead-end states during generation raise an error.
 - What happens when template recursion is too deep? → Recursion depth limit prevents stack overflow; error raised at limit.
 - What happens when seed string is empty? → Rejected as `invalid_seed` error (empty seed has a publicly known hash, making output predictable).
 - What happens when a grammar includes itself? → Detected as circular include; error raised.
@@ -181,12 +181,12 @@ A grammar file can include rules from other grammar files, enabling content reus
 
 ### Key Entities
 
-- **Grammar**: The aggregate root — a named collection of rules that together produce rendered text. Identified by a unique key.
+- **Grammar**: The aggregate root — a named collection of rules that together produce rendered text. Identified by a unique key. Contains an `entry` rule name (default rule to render) and an optional `includes` list of other grammar keys.
 - **Rule**: A named text generation rule within a grammar. Comes in three types: TextRule (weighted alternatives), ListRule (ordered items with a selection mode), StructRule (key-value fields rendered as a template).
 - **Seed**: A value object wrapping a string that determines all random choices during rendering. Converted to an integer via SHA-256 hashing.
 - **ScopedSeed**: A derived seed combining a base seed with a scope key, producing an independent PRNG stream for each rule evaluation.
 - **SelectionMode**: An enumeration (REUSE, PICK, RATCHET, MARKOV, LIST) controlling how alternatives are chosen from a list.
-- **RenderedString**: A wrapper around generated text that preserves rendering metadata (which rule produced it, which seed was used).
+- **RenderedString**: A wrapper around generated text that preserves rendering metadata (which rule produced it).
 - **RenderContext**: The runtime state during a render pass, holding the current seed, resolved rules, template engine, and recursion depth counter.
 - **GrammarDto**: The serialization format for storing/retrieving grammars from KV or D1.
 
@@ -197,9 +197,9 @@ A grammar file can include rules from other grammar files, enabling content reus
 - **SC-001**: Given any seed string, rendering the same grammar produces identical output 100% of the time (determinism guarantee).
 - **SC-002**: Content authors can write a new grammar YAML file and see rendered output without modifying any application code.
 - **SC-003**: All five selection modes produce output matching their documented behavioral contracts when tested with known seeds.
-- **SC-004**: Grammar parse errors provide actionable messages that identify the specific rule name and line causing the issue.
+- **SC-004**: Grammar parse errors provide actionable messages that identify the specific rule name causing the issue.
 - **SC-005**: Indefinite article generation is correct for all documented English special cases (at least 20 test words covering edge cases).
-- **SC-006**: Grammar includes resolve transitively (A includes B includes C) and circular includes are detected within 1 second.
+- **SC-006**: Grammar includes resolve transitively (A includes B includes C) and circular includes are detected and reported as an error before rendering begins.
 - **SC-007**: Template expressions are fully resolved — no unresolved `{...}` or `{{ ... }}` markers appear in final rendered output.
 - **SC-008**: Grammar storage round-trips (store → retrieve → render) produce identical output to rendering from the original parsed grammar.
 
