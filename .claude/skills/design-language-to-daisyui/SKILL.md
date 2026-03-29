@@ -82,3 +82,5 @@ For layout composition strategy, see `/design-arrange`. For design system alignm
 - **Card borders** use `card-border` (outline) or `card-dash` (dashed), not the emphasis modifiers directly.
 - **Opacity suffixes** work on any color: `bg-primary/50`, `text-base-content/60` for luminance variation.
 - **Theme radius tokens**: `rounded-box` (cards/modals), `rounded-field` (inputs/buttons), `rounded-badge` (badges/pills).
+
+Use subagents liberally and aggressively to conserve the main context window.

@@ -72,6 +72,12 @@ jobs:
         if: steps.check-hugo-quality.outputs.exists == 'true'
         run: npm run test:ci
 
+      - name: Acceptance tests
+        if: steps.check-hugo-quality.outputs.exists == 'true'
+        run: |
+          rm -rf acceptance-pipeline/ir/
+          npx tsx acceptance/pipeline.ts --action=run
+
       - name: Detect flaky tests
         id: flaky-check
         if: "!cancelled() && steps.check-hugo-quality.outputs.exists == 'true'"
@@ -310,6 +316,14 @@ jobs:
           cd hugo && npm install && npx hugo --minify && cd ..
           node scripts/sync-asset-paths.js
           node scripts/check-route-collisions.js
+
+      - name: Apply D1 migrations
+        if: steps.check-wrangler.outputs.exists == 'true' && steps.check-configured.outputs.configured == 'true' && steps.check-credentials.outputs.configured == 'true' && github.event_name == 'push'
+        uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply clawtask --remote
 
       - name: Deploy to Cloudflare Workers
         if: steps.check-wrangler.outputs.exists == 'true' && steps.check-configured.outputs.configured == 'true' && steps.check-hugo.outputs.exists == 'true' && steps.check-credentials.outputs.configured == 'true' && github.event_name == 'push'

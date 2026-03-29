@@ -1,28 +1,63 @@
 {{/*
-  Site header - navigation bar with logo, main menu, and auth-aware buttons.
+  Site header - responsive navigation bar with logo, main menu, and auth-aware buttons.
+  Mobile: hamburger dropdown via DaisyUI dropdown (CSS focus, no JS required).
+  Desktop: horizontal menu visible at lg breakpoint.
   Auth state driven by Alpine.js $store.auth (reads indicator cookie client-side).
   Menus configured in config/_default/menus.yaml (main)
 */}}
-<div class="navbar bg-base-100 shadow-sm">
-  <div class="flex-1">
-    <a href="{{ .Site.BaseURL }}" class="btn btn-ghost">
+<header>
+<nav class="navbar bg-base-100/50 backdrop-blur-sm border-b border-base-300" aria-label="Main navigation">
+  {{/* --- navbar-start: logo + mobile hamburger dropdown --- */}}
+  <div class="navbar-start">
+    {{/* Mobile hamburger dropdown (visible below lg) */}}
+    <div class="dropdown">
+      <div tabindex="0" role="button" class="btn btn-ghost lg:hidden" aria-label="Open menu">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" />
+        </svg>
+      </div>
+      <ul tabindex="0" class="menu menu-sm dropdown-content bg-base-100 rounded-box z-10 mt-3 w-52 p-2 shadow" x-data>
+        {{ range site.Menus.main }}
+          {{ $isActive := or ($.IsMenuCurrent "main" .) ($.HasMenuCurrent "main" .) }}
+          <li><a href="{{ .URL }}"{{ if $isActive }} class="active" aria-current="page"{{ end }}>{{ .Name }}</a></li>
+        {{ end }}
+        {{/* Mobile auth links — unauthenticated visible by default (progressive enhancement for no-JS) */}}
+        <li class="menu-title lg:hidden">Account</li>
+        <li :class="{ 'hidden': $store.auth.isAuthenticated }">
+          <a href="/auth/sign-in">Sign In</a>
+        </li>
+        <li :class="{ 'hidden': $store.auth.isAuthenticated }">
+          <a href="/auth/sign-up">Sign Up</a>
+        </li>
+        {{/* Authenticated: hidden until Alpine confirms auth (x-cloak prevents FOUC) */}}
+        <li x-cloak :class="{ 'hidden': !$store.auth.isAuthenticated }">
+          <a href="/app">Dashboard</a>
+        </li>
+      </ul>
+    </div>
+    {{/* Logo + site title */}}
+    <a href="{{ "/" | relURL }}" class="btn btn-ghost">
       {{- with .Site.Params.logo }}
         {{- with resources.Get . }}
-          <img src="{{ .Permalink }}" class="size-6 xl:size-12" alt="{{ $.Site.Title }} logo" />
+          <img src="{{ .RelPermalink }}" class="size-6 xl:size-12" alt="{{ $.Site.Title }} logo" />
         {{- end }}
       {{- end }}
-      <span class="hidden lg:block text-success-content text-balance font-semibold text-sm md:text-xl lg:text-2xl">{{ .Site.Title }}</span>
+      <span class="text-primary text-balance font-semibold font-serif text-sm sm:text-xl lg:text-2xl">{{ .Site.Title }}</span>
     </a>
   </div>
-  <div class="flex-none">
-    <ul class="menu menu-horizontal">
+  {{/* --- navbar-center: desktop horizontal menu (hidden on mobile) --- */}}
+  <div class="navbar-center hidden lg:flex">
+    <ul class="menu menu-horizontal px-1">
       {{ range site.Menus.main }}
-        <li class="text-center">
-          <a class="link link-hover" href="{{ .URL }}">{{ .Name }}</a>
+        {{ $isActive := or ($.IsMenuCurrent "main" .) ($.HasMenuCurrent "main" .) }}
+        <li>
+          <a class="link link-hover{{ if $isActive }} active{{ end }}" href="{{ .URL }}"{{ if $isActive }} aria-current="page"{{ end }}>{{ .Name }}</a>
         </li>
       {{ end }}
     </ul>
-    {{/* Auth-aware navbar buttons — Alpine.js swaps between states */}}
+  </div>
+  {{/* --- navbar-end: auth-aware buttons (desktop only, mobile uses dropdown) --- */}}
+  <div class="navbar-end hidden lg:flex">
     <div x-data class="min-w-48" aria-live="polite">
       {{/* Unauthenticated: visible by default (progressive enhancement for no-JS) */}}
       <ul class="menu menu-horizontal" :class="{ 'hidden': $store.auth.isAuthenticated }" aria-label="Account">
@@ -36,9 +71,10 @@
       {{/* Authenticated: hidden until Alpine confirms auth (x-cloak prevents FOUC) */}}
       <ul class="menu menu-horizontal" x-cloak :class="{ 'hidden': !$store.auth.isAuthenticated }" aria-label="Account">
         <li class="text-center">
-          {{ partial "components/button/primary" (dict "label" "Dashboard" "href" "/dashboard/") }}
+          {{ partial "components/button/primary" (dict "label" "Dashboard" "href" "/app") }}
         </li>
       </ul>
     </div>
   </div>
-</div>
+</nav>
+</header>

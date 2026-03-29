@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: quieter
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-quieter
 description: Tone down overly bold or visually aggressive designs. Reduces intensity while maintaining design quality and impact. Use when designs feel too loud, overstimulating, or visually heavy.
 args:
-
-- name: target
-  description: The feature or component to make quieter (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or component to make quieter (optional)
+    required: false
+    user-invocable: true
 ---
 
 Reduce visual intensity in designs that are too bold, aggressive, or overstimulating, creating a more refined and approachable aesthetic without losing effectiveness.
@@ -120,3 +109,5 @@ Ensure refinement maintains quality:
 - **Sophistication**: Does it feel more refined and premium?
 
 Remember: Quiet design is confident design. It doesn't need to shout. Less is more, but less is also harder. Refine with precision and maintain intentionality.
+
+Use subagents liberally and aggressively to conserve the main context window.

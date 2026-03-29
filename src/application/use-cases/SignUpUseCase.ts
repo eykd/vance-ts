@@ -17,9 +17,11 @@ import { MAX_ATTEMPTS, REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 /**
  * Input DTO for the sign-up use case.
  */
-type SignUpRequest = {
+export type SignUpRequest = {
   /** The user's email address. */
   email: string;
+  /** The user's display name. When omitted or empty, derived from the email prefix. */
+  name?: string;
   /** The user's plaintext password. */
   password: string;
   /** Client IP address used for rate limit key construction. */
@@ -33,15 +35,21 @@ type SignUpRequest = {
  * identifies the error category and its origin:
  * - `email_taken` — an account with this email already exists (from `AuthService.signUp`)
  * - `weak_password` — password too short/long per auth config (from `AuthService.signUp`)
+ * - `invalid_email` — email format is invalid (from `AuthService.signUp`)
  * - `password_too_common` — password is in the OWASP blocklist (detected in this use case)
  * - `rate_limited` — IP exceeded the allowed attempt window (`RateLimiter` or `AuthService`)
  * - `service_error` — infrastructure failure, e.g. DB unavailable (`AuthService` or `RateLimiter`)
  */
-type SignUpResult =
+export type SignUpResult =
   | { ok: true }
   | {
       ok: false;
-      kind: 'email_taken' | 'weak_password' | 'password_too_common' | 'service_error';
+      kind:
+        | 'email_taken'
+        | 'weak_password'
+        | 'invalid_email'
+        | 'password_too_common'
+        | 'service_error';
     }
   | { ok: false; kind: 'rate_limited'; retryAfter?: number };
 
@@ -53,7 +61,7 @@ type SignUpResult =
  * reject with `rate_limited` if the limit is exceeded (counter unchanged on rejection).
  * 2. Check the password against the common-password blocklist; reject with
  * `password_too_common` if found (better-auth v1.4.x provides no validate hook).
- * 3. Derive `name` from the email prefix (required by better-auth v1.4.x).
+ * 3. Use the provided `name`, or derive from the email prefix if absent (required by better-auth v1.4.x).
  * 4. Delegate to {@link AuthService.signUp}; adapter maps better-auth responses to types.
  *
  * @example
@@ -111,9 +119,13 @@ export class SignUpUseCase {
         return { ok: false, kind: 'password_too_common' };
       }
 
-      // noUncheckedIndexedAccess: split('@')[0] is always defined; undefined check is unreachable.
-      const prefix = request.email.split('@')[0];
-      const name = prefix !== undefined && prefix !== '' ? prefix : request.email;
+      // Use provided name if present; otherwise fall back to email prefix (required by better-auth).
+      let name = request.name ?? '';
+      if (name === '') {
+        // noUncheckedIndexedAccess: split('@')[0] is always defined; undefined check is unreachable.
+        const prefix = request.email.split('@')[0];
+        name = prefix !== undefined && prefix !== '' ? prefix : request.email;
+      }
 
       const result = await this.authService.signUp({
         email: request.email,

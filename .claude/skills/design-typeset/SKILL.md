@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: typeset
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-typeset
 description: Improve typography by fixing font choices, hierarchy, sizing, weight consistency, and readability. Makes text feel intentional and polished. Provides font selection and hierarchy strategy — complements tailwind-daisyui-design which provides prose classes and readability rules.
 args:
-
-- name: target
-  description: The feature or component to improve typography for (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or component to improve typography for (optional)
+    required: false
+    user-invocable: true
 ---
 
 Assess and improve typography that feels generic, inconsistent, or poorly structured — turning default-looking text into intentional, well-crafted type.
@@ -134,3 +123,5 @@ Build a clear type scale:
 - **Accessibility**: Does text meet WCAG contrast ratios? Is it zoomable to 200%?
 
 Remember: Typography is the foundation of interface design — it carries the majority of information. Getting it right is the highest-leverage improvement you can make.
+
+Use subagents liberally and aggressively to conserve the main context window.

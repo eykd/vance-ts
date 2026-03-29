@@ -235,6 +235,9 @@ Always use subagents liberally and aggressively to conserve the main context win
 
 ## Active Technologies
 
+- TypeScript (ES2022) + Hugo Go templates + Hono (HTTP framework), DaisyUI 5, Tailwind CSS 4, Hugo (015-static-error-pages)
+- N/A (no persistence — static pages only) (015-static-error-pages)
+
 - TypeScript ES2022 (Workers runtime + Node.js CLI tool) + @cloudflare/workers-types, tsx (CLI runner) (015-galaxy-seed-d1)
 - D1 (SQLite-based, binding `env.DB`) (015-galaxy-seed-d1)
 

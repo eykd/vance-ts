@@ -1,13 +1,13 @@
 @import 'tailwindcss';
 /* Scan Worker presentation templates so TailwindCSS includes classes used in server-rendered HTML. */
-@source "../../src/presentation/templates";
+@source "../../worker-templates";
 @plugin "@tailwindcss/typography";
 @plugin "daisyui";
 
 @theme {
-  --font-sans: Inter, Roboto, 'Helvetica Neue', 'Arial Nova', 'Nimbus Sans', Arial, sans-serif;
-  --font-serif: 'Iowan Old Style', 'Palatino Linotype', 'URW Palladio L', P052, serif;
-  --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+  --font-sans: 'Lexend', system-ui, sans-serif;
+  --font-serif: 'DM Sans', 'Iowan Old Style', 'Palatino Linotype', serif;
+  --font-mono: 'Fragment Mono', ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
 }
 
 body {
@@ -20,6 +20,14 @@ body {
   display: none !important;
 }
 
+/* Restore visible focus indicator for .link elements inside .menu.
+   DaisyUI's .menu sets outline-style:none on :focus-visible, leaving only
+   a 10% background tint — too subtle for WCAG 2.4.7 compliance. */
+.menu :where(li:not(.menu-title) > :not(ul, details, .menu-title, .btn)):where(.link):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
 /* Featured image hero background */
 .hero-featured {
   background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), var(--hero-bg-image);
@@ -27,37 +35,187 @@ body {
   background-position: center;
 }
 
+/* ── Animations & Micro-interactions ─────────────────────────────── */
+
+/* 1. Page entrance: subtle fade-up for main content on load */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out;
+}
+
+/* 2. Staggered list item entrance: items slide in from the left */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out both;
+}
+
+/* 3. Button press: tactile scale-down on active state */
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+/* 4. Card hover glow: warm glow on interactive cards */
+.card-hover-glow {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover-glow:hover {
+  border-color: oklch(50% 0.2 30 / 0.3);
+  box-shadow: 0 0 20px oklch(50% 0.2 30 / 0.08);
+}
+
+/* 5. Focus ring: pulsing outline for keyboard navigation */
+@keyframes focus-pulse {
+  0%, 100% { outline-color: oklch(50% 0.2 30); }
+  50% { outline-color: oklch(50% 0.2 30 / 0.5); }
+}
+:focus-visible {
+  outline: 2px solid oklch(50% 0.2 30);
+  outline-offset: 2px;
+  animation: focus-pulse 2s ease-in-out infinite;
+}
+
+/* 6. Navbar link hover: underline slides in from center */
+.navbar a.link-hover::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: oklch(50% 0.2 30);
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+.navbar a.link-hover:hover::after {
+  transform: scaleX(1);
+}
+
+/* 7. Reduced motion: respect user accessibility preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-slide-in {
+    animation: none;
+  }
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
+  :focus-visible {
+    animation: none;
+  }
+  .card-hover-glow {
+    transition: none;
+  }
+  .navbar a.link-hover::after {
+    transition: none;
+  }
+}
+
+/* ClawTask Dark Theme - Primary */
 @plugin "daisyui/theme" {
-  name: "lemonade";
+  name: "clawtask-dark";
   default: true;
-  prefersdark: false;
-  color-scheme: "light";
-  --color-base-100: oklch(98.71% 0.02 123.72);
-  --color-base-200: oklch(91.8% 0.018 123.72);
-  --color-base-300: oklch(84.89% 0.017 123.72);
-  --color-base-content: oklch(19.742% 0.004 123.72);
-  --color-primary: oklch(58.92% 0.199 134.6);
-  --color-primary-content: oklch(98% 0.022 95.277);
-  --color-secondary: oklch(77.75% 0.196 111.09);
-  --color-secondary-content: oklch(15.55% 0.039 111.09);
-  --color-accent: oklch(85.39% 0.201 100.73);
-  --color-accent-content: oklch(17.078% 0.04 100.73);
-  --color-neutral: oklch(30.98% 0.075 108.6);
-  --color-neutral-content: oklch(86.196% 0.015 108.6);
-  --color-info: oklch(86.19% 0.047 224.14);
-  --color-info-content: oklch(17.238% 0.009 224.14);
-  --color-success: oklch(86.19% 0.047 157.85);
-  --color-success-content: oklch(17.238% 0.009 157.85);
-  --color-warning: oklch(86.19% 0.047 102.15);
-  --color-warning-content: oklch(17.238% 0.009 102.15);
-  --color-error: oklch(86.19% 0.047 25.85);
-  --color-error-content: oklch(17.238% 0.009 25.85);
-  --radius-selector: 1rem;
-  --radius-field: 0.5rem;
-  --radius-box: 1rem;
+  prefersdark: true;
+  color-scheme: dark;
+
+  /* Base: warm charcoal with brown undertone (hue ~55°) */
+  --color-base-100: oklch(16% 0.015 55);
+  --color-base-200: oklch(13% 0.015 55);
+  --color-base-300: oklch(22% 0.02 55);
+  --color-base-content: oklch(92% 0.01 55);
+
+  /* Primary: OpenClaw red-orange — darkened for dark theme, light text */
+  --color-primary: oklch(50% 0.2 30);
+  --color-primary-content: oklch(98% 0.005 55);
+
+  /* Secondary: warm amber/gold — deep for dark surfaces */
+  --color-secondary: oklch(52% 0.12 75);
+  --color-secondary-content: oklch(98% 0.005 75);
+
+  /* Accent: warm copper-rose */
+  --color-accent: oklch(50% 0.11 45);
+  --color-accent-content: oklch(98% 0.005 45);
+
+  /* Neutral: warm gray-brown */
+  --color-neutral: oklch(28% 0.02 55);
+  --color-neutral-content: oklch(90% 0.01 55);
+
+  /* Status: warm-toned, darkened for dark theme */
+  --color-info: oklch(50% 0.1 230);
+  --color-info-content: oklch(98% 0.005 230);
+
+  --color-success: oklch(48% 0.14 150);
+  --color-success-content: oklch(98% 0.005 150);
+
+  --color-warning: oklch(55% 0.12 75);
+  --color-warning-content: oklch(98% 0.005 75);
+
+  --color-error: oklch(48% 0.18 25);
+  --color-error-content: oklch(98% 0.005 25);
+
+  /* Shape */
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1px;
-  --depth: 0;
+  --depth: 1;
+  --noise: 0;
+}
+
+/* ClawTask Light Theme - Secondary */
+@plugin "daisyui/theme" {
+  name: "clawtask-light";
+  default: false;
+  prefersdark: false;
+  color-scheme: light;
+
+  /* Base: warm cream/stone (hue ~65°) */
+  --color-base-100: oklch(97% 0.012 65);
+  --color-base-200: oklch(93% 0.018 65);
+  --color-base-300: oklch(88% 0.022 65);
+  --color-base-content: oklch(20% 0.02 55);
+
+  /* Primary: deeper red-orange for light backgrounds */
+  --color-primary: oklch(48% 0.2 30);
+  --color-primary-content: oklch(98% 0.005 30);
+
+  /* Secondary: deep amber for light mode */
+  --color-secondary: oklch(45% 0.12 75);
+  --color-secondary-content: oklch(98% 0.005 75);
+
+  /* Accent: warm copper */
+  --color-accent: oklch(48% 0.11 45);
+  --color-accent-content: oklch(98% 0.005 45);
+
+  /* Neutral: warm dark brown */
+  --color-neutral: oklch(25% 0.03 55);
+  --color-neutral-content: oklch(97% 0.01 55);
+
+  /* Status: warm-toned */
+  --color-info: oklch(45% 0.12 230);
+  --color-info-content: oklch(98% 0.005 230);
+
+  --color-success: oklch(45% 0.15 150);
+  --color-success-content: oklch(98% 0.005 150);
+
+  --color-warning: oklch(85% 0.1 80);
+  --color-warning-content: oklch(10% 0.02 80);
+
+  --color-error: oklch(48% 0.2 25);
+  --color-error-content: oklch(98% 0.005 25);
+
+  /* Shape */
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
   --noise: 0;
 }

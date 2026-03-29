@@ -220,6 +220,20 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 - **Auto-fix for terminology**: Search/replace to standardize terminology across spec.md and plan.md using glossary as authority
 - **Manual task**: Create HIGH remediation task for conflicting requirements (requires user decision)
 
+#### G. Acceptance Spec Coverage
+
+- For each `US<N>` task under `[sp:07-implement]`, verify a corresponding acceptance spec file exists in `specs/acceptance-specs/`:
+  ```bash
+  ls specs/acceptance-specs/US*.txt 2>/dev/null
+  ```
+- Cross-reference: each user story in spec.md with **Acceptance Scenarios** should have a matching `.txt` file
+- **Auto-fix**: If acceptance spec files are missing but spec.md has GWT acceptance scenarios for that story, create the `.txt` file by extracting the scenarios (same format as sp:05-tasks step 6)
+- **CRITICAL finding**: If a `US<N>` task exists but has no acceptance spec file AND spec.md has no acceptance scenarios for that story, flag as CRITICAL — ralph's ATDD cycle will fail without it
+- After creating any missing spec files, run the acceptance pipeline to generate stubs:
+  ```bash
+  just acceptance 2>&1 || true
+  ```
+
 ### 6. Apply Auto-Fixes
 
 Before creating manual remediation tasks, apply auto-fixes where safe:

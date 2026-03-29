@@ -43,7 +43,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    d. Store epic ID for subsequent task creation steps
 
 4. **Execute task generation workflow**:
-   - Load plan.md and extract tech stack, libraries, project structure
+   - Load plan.md and extract tech stack, libraries, project structure, and **presentation layer requirements** (UI patterns, templates, partials, HTMX interactions, accessibility requirements, Alpine.js components, inline editing patterns, confirmation dialogs, focus management) **and** the `## Presentation Design` section if present (UI Decisions table with per-component design skills, Quality Pass with post-implementation refinement plan). Also extract the `## Acceptance Test Strategy` section if present (user stories with acceptance scenarios and planned spec file paths). Map presentation requirements to the user stories they serve.
    - Load spec.md and extract user stories with their priorities (P1, P2, P3, etc.)
    - If data-model.md exists: Extract entities and map to user stories
    - If contracts/ exists: Map endpoints to user stories
@@ -65,16 +65,20 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    **Skill Mapping Reference** - Use these skills based on task type:
 
-   | Task Pattern                                | Skills                                                         |
-   | ------------------------------------------- | -------------------------------------------------------------- |
-   | `Create.*entity`, `.*domain model`          | `/ddd-domain-modeling`, `/typescript-unit-testing`             |
-   | `Implement.*repository`, `.*D1.*`           | `/d1-repository-implementation`, `/vitest-integration-testing` |
-   | `Create.*handler`, `.*route handler`        | `/worker-request-handler`                                      |
-   | `Create.*template`, `.*HTML.*`, `.*partial` | `/htmx-alpine-templates`                                       |
-   | `Write.*test`, `.*spec.*`                   | `/typescript-unit-testing`                                     |
-   | `Setup.*`, `Configure.*`                    | `/vitest-cloudflare-config`                                    |
-   | `.*HTMX.*`, `.*interactive`                 | `/htmx-pattern-library`                                        |
-   | `.*security.*`, `.*auth.*`                  | `/org-authorization`                                           |
+   | Task Pattern                                          | Skills                                                         |
+   | ----------------------------------------------------- | -------------------------------------------------------------- |
+   | `Create.*entity`, `.*domain model`                    | `/ddd-domain-modeling`, `/typescript-unit-testing`             |
+   | `Implement.*repository`, `.*D1.*`                     | `/d1-repository-implementation`, `/vitest-integration-testing` |
+   | `Create.*handler`, `.*route handler`                  | `/worker-request-handler`                                      |
+   | `Create.*template`, `.*HTML.*`, `.*partial`           | `/htmx-alpine-templates`                                       |
+   | `Write.*test`, `.*spec.*`                             | `/typescript-unit-testing`                                     |
+   | `Setup.*`, `Configure.*`                              | `/vitest-cloudflare-config`                                    |
+   | `.*HTMX.*`, `.*interactive`                           | `/htmx-pattern-library`                                        |
+   | `.*security.*`, `.*auth.*`                            | `/org-authorization`                                           |
+   | `.*DaisyUI.*`, `.*component.*class`                   | `/design-language-to-daisyui`                                  |
+   | `.*onboard.*`, `.*empty.state`, `.*first.run`         | `/design-onboard`                                              |
+   | `.*error.message`, `.*copy`, `.*label`, `.*microcopy` | `/design-clarify`                                              |
+   | `.*responsive.*`, `.*mobile.*`, `.*breakpoint`        | `/design-adapt`                                                |
 
    For each user story from spec.md:
 
@@ -122,7 +126,56 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Create without dependencies between them
    - They will all appear in `br ready` once their common parent is ready
 
-6. **Verify Task Hierarchy**:
+6. **Generate Acceptance Spec Files** (ATDD outer loop setup):
+
+   For each user story in spec.md that has **Acceptance Scenarios**, extract the GWT scenarios and write them as structured `.txt` files in `specs/acceptance-specs/`. This sets up the outer ATDD loop so ralph can run the inner TDD cycle during `sp:07-implement`.
+
+   a. Determine the next available US number by scanning existing files:
+
+   ```bash
+   ls specs/acceptance-specs/US*.txt 2>/dev/null | sed 's/.*US0*//' | sed 's/-.*//' | sort -n | tail -1
+   ```
+
+   Start numbering from the next available number (e.g., if US15 exists, start at US16).
+
+   b. For each user story, create a `.txt` file in `specs/acceptance-specs/` using this format:
+
+   ```text
+   ;=============================================
+   ; <scenario title in sentence case>.
+   ;=============================================
+   GIVEN <precondition>.
+   WHEN <action>.
+   THEN <expected outcome>.
+   THEN <additional assertion if needed>.
+   ```
+
+   - File naming: `US<NN>-<kebab-case-slug>.txt` (e.g., `US16-create-area.txt`)
+   - Each scenario gets its own `;=====` header block
+   - Each GIVEN/WHEN/THEN line ends with a period
+   - Keep scenarios behavioral (what the user does/sees), not implementation-specific
+   - Extract scenarios directly from the spec's **Acceptance Scenarios** sections
+
+   c. Run the acceptance pipeline to generate test stubs:
+
+   ```bash
+   just acceptance 2>&1 || true
+   ```
+
+   If `just acceptance` is not available, run the parse and generate steps manually:
+
+   ```bash
+   npx tsx acceptance/parse-specs.ts
+   npx tsx acceptance/generate-tests.ts
+   ```
+
+   d. Verify generated stubs exist in `generated-acceptance-tests/` and contain "acceptance test not yet bound" (confirming RED state).
+
+   e. Record acceptance spec file paths in the report for reference.
+
+   **Important**: The acceptance spec files must exist BEFORE ralph processes `US<N>` tasks, because ralph's ATDD cycle requires them. If spec.md has no acceptance scenarios for a user story, skip that story (no spec file needed).
+
+7. **Verify Task Hierarchy**:
 
    ```bash
    br dep tree <epic-id> --direction up
@@ -132,7 +185,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Verify the hierarchy: Epic → User Story Tasks → Implementation Sub-tasks
    - Check for any circular dependencies: `br dep cycles`
 
-7. **Close Phase Task in Beads**:
+8. **Close Phase Task in Beads**:
 
    After creating all implementation tasks, close the 05-tasks phase task to unblock the implement phase.
 
@@ -152,10 +205,12 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    d. Report: "Phase [sp:05-tasks] complete. Run `/sp:next` or `/sp:06-analyze` to validate artifacts."
 
-8. **Report**: Output summary including:
+9. **Report**: Output summary including:
    - **Beads epic ID** and total tasks created in beads
    - **Implement task ID** (`$IMPLEMENT_TASK_ID`) containing all user story tasks
    - Task count per user story (with task IDs)
+   - **Acceptance spec files** created in `specs/acceptance-specs/` (with file paths)
+   - **Generated test stubs** in `generated-acceptance-tests/` (RED state confirmed)
    - Parallel opportunities identified
    - Independent test criteria for each story
    - Suggested MVP scope (typically just User Story 1)
@@ -212,7 +267,8 @@ Sub-task: "<action> <target> in <file-path>"
    - Map all related components to their story:
      - Models needed for that story
      - Services needed for that story
-     - Endpoints/UI needed for that story
+     - API endpoints needed for that story (from contracts/)
+     - Presentation layer: pages, templates, partials, HTMX handlers, Alpine.js components needed for that story (from plan.md)
      - If tests requested: Tests specific to that story
    - Mark story dependencies (most stories should be independent)
 
@@ -230,6 +286,17 @@ Sub-task: "<action> <target> in <file-path>"
    - Foundational/blocking tasks → Foundational phase tasks
    - Story-specific setup → within that story's sub-tasks
 
+5. **From Plan (Presentation/UI)**:
+   - Scan plan.md for presentation layer requirements: templates, partials, pages, HTMX interactions, Alpine.js components, accessibility requirements, inline editing patterns, confirmation dialogs, focus management
+   - Map each UI component/interaction to its user story
+   - Each user story with a UI-facing requirement MUST have at least one presentation layer sub-task
+   - If plan.md describes accessibility requirements (ARIA, keyboard navigation, focus management), create sub-tasks for those — they are implementation work, not documentation
+   - If plan.md includes a `## Presentation Design` section, use the **UI Decisions** table to:
+     - Match each screen/component row to its user story (via the "User Story" column)
+     - Include the **Design Skills** column values in the sub-task's `**Skills**:` field alongside any skills from the mapping table
+     - If the table lists `/design-language-to-daisyui`, the sub-task description should note: "Use `/design-language-to-daisyui` to translate component descriptions into DaisyUI 5 classes"
+   - If plan.md includes a `### Quality Pass` section listing post-implementation refinement skills, generate a Design Review task in the Final Phase (see Phase Structure below)
+
 ### Phase Structure
 
 - **Phase 1**: Setup (project initialization) - Tasks directly under epic
@@ -239,6 +306,15 @@ Sub-task: "<action> <target> in <file-path>"
   - Implementation steps are sub-tasks under the user story task
   - Each phase should be a complete, independently testable increment
 - **Final Phase**: Polish & Cross-Cutting Concerns - Tasks directly under epic
+  - If plan.md has a `## Presentation Design` section with a `### Quality Pass` listing post-implementation refinement skills, create a "Design Review" sub-task:
+    ```bash
+    br create "Design review: <feature-area>" -p <lowest-story-priority + 1> --parent $IMPLEMENT_TASK_ID \
+      --description "**Skills**: <skills-from-quality-pass>
+    **Scope**: Run each listed design skill against the implemented UI for this feature.
+    **Acceptance**: Each skill's output reviewed and applied or explicitly deferred."
+    ```
+  - This task depends on ALL user story presentation sub-tasks completing first
+  - Skip this task entirely if plan.md has no Presentation Design section or Quality Pass lists "None planned"
 
 ## Beads Error Handling
 

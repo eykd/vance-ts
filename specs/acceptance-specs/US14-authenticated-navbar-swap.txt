@@ -3,7 +3,7 @@
 ;=============================================
 GIVEN an authenticated user on any page.
 WHEN the page loads.
-THEN the navbar displays a "Dashboard" link pointing to /dashboard/ instead of Sign In and Sign Up links.
+THEN the navbar displays a "Dashboard" link pointing to /app instead of Sign In and Sign Up links.
 
 ;=============================================
 ; Unauthenticated visitors see Sign In and Sign Up links in the navbar.
@@ -17,4 +17,4 @@ THEN the navbar displays "Sign In" and "Sign Up" links.
 ;=============================================
 GIVEN an authenticated user viewing the navbar.
 WHEN they click the "Dashboard" link.
-THEN the browser navigates to /dashboard/.
+THEN the browser navigates to /app.

@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: critique
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-critique
 description: Evaluate design effectiveness from a UX perspective. Assesses visual hierarchy, information architecture, emotional resonance, and overall design quality with actionable feedback. Use when you need honest design evaluation before shipping.
 args:
-
-- name: area
-  description: The feature or area to critique (optional)
-  required: false
-  user-invocable: true
-
+  - name: area
+    description: The feature or area to critique (optional)
+    required: false
+    user-invocable: true
 ---
 
 ## MANDATORY PREPARATION
@@ -162,3 +151,5 @@ Provocative questions that might unlock better solutions:
 - Give concrete suggestions, not just "consider exploring..."
 - Prioritize ruthlessly — if everything is important, nothing is
 - Don't soften criticism — developers need honest feedback to ship great design
+
+Use subagents liberally and aggressively to conserve the main context window.

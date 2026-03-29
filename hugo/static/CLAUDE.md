@@ -5,6 +5,7 @@ Files copied directly to output without processing. Used for assets that don't n
 ## Contents
 
 - `_headers` - Cloudflare Workers headers configuration
+- `robots.txt` - Search engine crawler directives
 - `.gitkeep` - Keeps directory in git
 
 ## Usage

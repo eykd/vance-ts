@@ -182,6 +182,15 @@ Spec: specs/014-guard-hook-hardening/spec.md
 
 ---
 
+## Static Error Pages
+
+Keywords: error page, 404, 500, not found, server error, internal server error, HTML error,
+static error, friendly error, branded error, error template, Hugo error, worker error,
+JSON error, API error, error handler, error boundary, fallback page, user-facing error
+Spec: specs/015-static-error-pages/spec.md
+
+---
+
 ## How to Update This File
 
 When adding a new spec via `/sp:01-specify`, the workflow updates this file automatically.

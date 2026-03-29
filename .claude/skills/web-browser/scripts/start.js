@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn, execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import puppeteer from 'puppeteer-core';
 
 const platform = process.platform;
@@ -35,10 +35,20 @@ if (unknownArgs.length > 0) {
 function findChromePath() {
   const home = process.env['HOME'] ?? '';
 
-  // Check Playwright Chromium first (all platforms)
-  const playwrightChrome = `${home}/.cache/ms-playwright/chromium-1200/chrome-linux64/chrome`;
-  if (existsSync(playwrightChrome)) {
-    return playwrightChrome;
+  // Check Playwright Chromium first (all platforms) - find any installed version
+  try {
+    const playwrightDir = `${home}/.cache/ms-playwright`;
+    if (existsSync(playwrightDir)) {
+      const entries = readdirSync(playwrightDir).filter(e => e.startsWith('chromium-')).sort().reverse();
+      for (const entry of entries) {
+        const candidate = `${playwrightDir}/${entry}/chrome-linux64/chrome`;
+        if (existsSync(candidate)) {
+          return candidate;
+        }
+      }
+    }
+  } catch {
+    // Fall through to other paths
   }
 
   if (platform === 'darwin') {

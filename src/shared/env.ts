@@ -16,4 +16,6 @@ export interface Env {
   readonly BETTER_AUTH_SECRET: string;
   /** Durable Object namespace for atomic rate limiting. */
   readonly RATE_LIMIT: DurableObjectNamespace;
+  /** Sentry DSN for error tracking. */
+  readonly SENTRY_DSN: string;
 }

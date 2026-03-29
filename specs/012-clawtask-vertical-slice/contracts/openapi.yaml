@@ -1,0 +1,455 @@
+openapi: '3.1.0'
+info:
+  title: ClawTask API
+  version: '1.0.0'
+  description: |
+    GTD-style task management API. All endpoints require authentication via
+    the better-auth session cookie. Resources are scoped to the authenticated
+    user's workspace.
+
+servers:
+  - url: /api/v1
+
+components:
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - validation_error
+                - not_found
+                - invalid_status_transition
+                - area_not_active
+                - area_not_found
+                - context_not_found
+                - service_error
+            message:
+              type: string
+
+    InboxItem:
+      type: object
+      required:
+        [id, title, description, status, clarifiedIntoType, clarifiedIntoId, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+        status:
+          type: string
+          enum: [inbox, clarified]
+        clarifiedIntoType:
+          type: string
+          enum: [action]
+          nullable: true
+        clarifiedIntoId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Action:
+      type: object
+      required:
+        [id, createdByActorId, title, description, status, areaId, contextId, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdByActorId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+        status:
+          type: string
+          enum: [ready, active, done, waiting, scheduled, archived]
+        areaId:
+          type: string
+          format: uuid
+        contextId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Area:
+      type: object
+      required: [id, name, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        status:
+          type: string
+          enum: [active, archived]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Context:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        createdAt:
+          type: string
+          format: date-time
+
+  responses:
+    Unauthenticated:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: unauthenticated
+              message: Authentication required
+    NotFound:
+      description: Resource not found (or belongs to another workspace)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: not_found
+              message: Inbox item not found
+    ValidationError:
+      description: Input validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: validation_error
+              message: Title is required
+    UnprocessableEntity:
+      description: Business rule violation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+
+paths:
+  # ─── Inbox ────────────────────────────────────────────────────────────────
+
+  /inbox:
+    get:
+      operationId: listInboxItems
+      summary: List all inbox items in the workspace
+      tags: [Inbox]
+      responses:
+        '200':
+          description: Array of inbox items (all statuses)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InboxItem'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+    post:
+      operationId: captureInboxItem
+      summary: Capture a new inbox item
+      tags: [Inbox]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                  description: The captured thought or commitment
+                description:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                  description: Optional elaboration
+            example:
+              title: 'Buy groceries'
+      responses:
+        '201':
+          description: Inbox item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InboxItem'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /inbox/{id}/clarify:
+    post:
+      operationId: clarifyInboxItem
+      summary: Clarify an inbox item into a standalone action
+      description: |
+        Atomically transitions the inbox item to `clarified` and creates a
+        new action in `ready` status. Both entities have audit events recorded.
+        Fails with 422 if the inbox item is already clarified, the area is
+        archived, or the context is not found.
+      tags: [Inbox]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, areaId, contextId]
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                  description: The action's title (may differ from the inbox item title)
+                areaId:
+                  type: string
+                  format: uuid
+                  description: ID of an active Area in the workspace
+                contextId:
+                  type: string
+                  format: uuid
+                  description: ID of a Context in the workspace
+            example:
+              title: 'Buy groceries'
+              areaId: '123e4567-e89b-12d3-a456-426614174001'
+              contextId: '123e4567-e89b-12d3-a456-426614174002'
+      responses:
+        '200':
+          description: Inbox item clarified; action created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [inboxItem, action]
+                properties:
+                  inboxItem:
+                    $ref: '#/components/schemas/InboxItem'
+                  action:
+                    $ref: '#/components/schemas/Action'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Business rule violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              examples:
+                already_clarified:
+                  value:
+                    error:
+                      code: invalid_status_transition
+                      message: 'Inbox item is already clarified'
+                area_not_active:
+                  value:
+                    error:
+                      code: area_not_active
+                      message: 'Area is archived and cannot be used'
+                area_not_found:
+                  value:
+                    error:
+                      code: area_not_found
+                      message: 'Area not found in workspace'
+                context_not_found:
+                  value:
+                    error:
+                      code: context_not_found
+                      message: 'Context not found in workspace'
+
+  # ─── Actions ──────────────────────────────────────────────────────────────
+
+  /actions:
+    get:
+      operationId: listActions
+      summary: List actions, optionally filtered by status
+      tags: [Actions]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ready, active, done]
+          description: Filter by a single status value; omit to return all actions
+      responses:
+        '200':
+          description: Array of actions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Action'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /actions/{id}/activate:
+    post:
+      operationId: activateAction
+      summary: Transition a ready action to active
+      tags: [Actions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Action activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                error:
+                  code: invalid_status_transition
+                  message: 'Action cannot be activated from its current status'
+
+  /actions/{id}/complete:
+    post:
+      operationId: completeAction
+      summary: Transition an active action to done
+      tags: [Actions]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Action completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Action'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                error:
+                  code: invalid_status_transition
+                  message: 'Action cannot be completed from its current status'
+
+  # ─── Areas ────────────────────────────────────────────────────────────────
+
+  /areas:
+    get:
+      operationId: listAreas
+      summary: List all areas in the workspace
+      tags: [Areas]
+      responses:
+        '200':
+          description: Array of areas (all statuses)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Area'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  # ─── Contexts ─────────────────────────────────────────────────────────────
+
+  /contexts:
+    get:
+      operationId: listContexts
+      summary: List all contexts in the workspace
+      tags: [Contexts]
+      responses:
+        '200':
+          description: Array of contexts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Context'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'

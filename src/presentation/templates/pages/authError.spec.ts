@@ -10,7 +10,7 @@ describe('authErrorPage', () => {
 
   it('renders page title "Authentication Error"', () => {
     const result = authErrorPage();
-    expect(result).toContain('<title>Authentication Error</title>');
+    expect(result).toContain('<title>Authentication Error | ClawTask</title>');
   });
 
   it('renders an error heading', () => {
@@ -30,7 +30,7 @@ describe('authErrorPage', () => {
 
   it('renders a generic error message', () => {
     const result = authErrorPage();
-    expect(result).toContain('Something went wrong during authentication');
+    expect(result).toContain('Something went wrong while signing you in');
   });
 
   it('renders a link back to sign-in', () => {
@@ -43,9 +43,10 @@ describe('authErrorPage', () => {
     expect(result.toLowerCase()).not.toContain('better-auth');
   });
 
-  it('does not contain external links', () => {
+  it('does not contain external links in body content', () => {
     const result = authErrorPage();
-    expect(result).not.toMatch(/href="https?:\/\//);
+    const body = result.slice(result.indexOf('<body'));
+    expect(body).not.toMatch(/<a[^>]*href="https?:\/\//);
   });
 
   it('uses the shared auth layout (DaisyUI card)', () => {

@@ -116,3 +116,5 @@ See [references/phases.md](references/phases.md) for detailed phase definitions,
 - [references/phases.md](references/phases.md) — Detailed phase definitions and templated prompts
 - [references/design-patterns.md](references/design-patterns.md) — Hero sections, card grids, motion techniques
 - [references/hugo-templates.md](references/hugo-templates.md) — File responsibilities, baseof.html, layout patterns
+
+Use subagents liberally and aggressively to conserve the main context window.

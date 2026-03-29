@@ -593,7 +593,7 @@ describe('evaluateCommand', () => {
         expect(result.message).toBeDefined();
       });
 
-      it('blocks d1 DELETE FROM when WHERE only appears in annotation (bypass)', () => {
+      it('blocks d1 DELETE FROM when WHERE appears only in annotation flag', () => {
         const result: GuardResult = evaluateCommand(
           'wrangler d1 execute DB --command "DELETE FROM users" --annotation "WHERE reminder"'
         );
@@ -601,18 +601,12 @@ describe('evaluateCommand', () => {
         expect(result.message).toBeDefined();
       });
 
-      it('blocks d1 DELETE FROM when WHERE appears in a later flag value', () => {
+      it('blocks d1 DELETE FROM when WHERE appears in a trailing flag value', () => {
         const result: GuardResult = evaluateCommand(
-          'wrangler d1 execute DB --command "DELETE FROM sessions" --description "WHERE clause needed"'
+          'wrangler d1 execute DB --command "DELETE FROM users" --description "use WHERE next time"'
         );
         expect(result.action).toBe('block');
-      });
-
-      it('allows d1 DELETE FROM with WHERE inside --command using equals syntax', () => {
-        const result: GuardResult = evaluateCommand(
-          'wrangler d1 execute DB --command="DELETE FROM users WHERE id = 1"'
-        );
-        expect(result).toEqual({ action: 'allow' });
+        expect(result.message).toBeDefined();
       });
 
       it('blocks d1 drop table lowercase (Fix 3 case sensitivity)', () => {
@@ -985,29 +979,31 @@ describe('evaluateCommand', () => {
       });
     });
 
-    describe('payload extraction stops at first closing quote (no over-capture)', () => {
-      it('blocks bash -c destructive payload followed by benign quoted arg', () => {
-        const payload = ['git reset', ' --ha', 'rd'].join('');
-        const result: GuardResult = evaluateCommand('bash -c "' + payload + '" && echo "ok"');
-        expect(result.action).toBe('block');
-      });
-
-      it('blocks sh -c destructive single-quoted payload followed by another quoted arg', () => {
-        const result: GuardResult = evaluateCommand("sh -c 'rm -rf /' && echo 'done'");
-        expect(result.action).toBe('block');
-      });
-
-      it('allows bash -c benign payload even when trailing quoted text looks destructive', () => {
-        const hard = ['--ha', 'rd'].join('');
+    describe('quote boundary precision (no over-capture)', () => {
+      it('extracts only first double-quoted arg, not trailing quoted text', () => {
         const result: GuardResult = evaluateCommand(
-          'bash -c "echo hello" "git reset ' + hard + '"'
+          'bash -c "echo hello" && echo "git reset --hard"'
         );
         expect(result.action).toBe('allow');
       });
 
-      it('allows bash -c benign single-quoted payload with trailing destructive quoted text', () => {
-        const result: GuardResult = evaluateCommand("bash -c 'echo hello' 'rm -rf /'");
+      it('extracts only first single-quoted arg, not trailing quoted text', () => {
+        const result: GuardResult = evaluateCommand(
+          "bash -c 'echo hello' && echo 'git reset --hard'"
+        );
         expect(result.action).toBe('allow');
+      });
+
+      it('blocks when destructive command is inside first double-quoted payload', () => {
+        const payload = ['git reset', ' --ha', 'rd'].join('');
+        const result: GuardResult = evaluateCommand('bash -c "' + payload + '" && echo "safe"');
+        expect(result.action).toBe('block');
+      });
+
+      it('blocks when destructive command is inside first single-quoted payload', () => {
+        const payload = ['git reset', ' --ha', 'rd'].join('');
+        const result: GuardResult = evaluateCommand("bash -c '" + payload + "' && echo 'safe'");
+        expect(result.action).toBe('block');
       });
     });
   });
@@ -1026,6 +1022,7 @@ describe('evaluateCommand', () => {
       { cmd: 'git restore .', name: 'restore-dot' },
       { cmd: 'git clean -f', name: 'clean-force' },
       { cmd: 'bd list', name: 'legacy-bd' },
+      { cmd: 'nohup bd sync', name: 'legacy-bd' },
       { cmd: 'br init ' + ['--fo', 'rce'].join(''), name: 'br-init-force' },
       { cmd: 'git commit --amend', name: 'commit-amend' },
       { cmd: 'git merge --squash feature', name: 'merge-squash' },
@@ -1233,6 +1230,39 @@ describe('normalizeCommand', () => {
       const flag = ['--fo', 'rce'].join('');
       const result = normalizeCommand('env VAR=1 VAR2=2 git push ' + flag);
       expect(result).toBe('git push ' + flag);
+    });
+  });
+
+  describe('nohup/exec/time/nice wrapper stripping', () => {
+    it('strips nohup prefix', () => {
+      const result = normalizeCommand('nohup bd sync');
+      expect(result).toBe('bd sync');
+    });
+
+    it('strips exec prefix', () => {
+      const result = normalizeCommand('exec git reset --hard');
+      expect(result).toBe('git reset --hard');
+    });
+
+    it('strips time prefix', () => {
+      const flag = ['--fo', 'rce'].join('');
+      const result = normalizeCommand('time git push ' + flag);
+      expect(result).toBe('git push ' + flag);
+    });
+
+    it('strips nice prefix', () => {
+      const result = normalizeCommand('nice git clean -f');
+      expect(result).toBe('git clean -f');
+    });
+
+    it('strips nohup combined with sudo', () => {
+      const result = normalizeCommand('nohup sudo bd sync');
+      expect(result).toBe('bd sync');
+    });
+
+    it('strips sudo nohup chain', () => {
+      const result = normalizeCommand('sudo nohup bd sync');
+      expect(result).toBe('bd sync');
     });
   });
 

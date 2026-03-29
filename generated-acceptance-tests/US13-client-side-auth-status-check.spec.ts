@@ -32,7 +32,7 @@ it("An authenticated user has client-side auth status.", async () => {
   const { csrfToken: regCsrf } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'charlie@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'charlie@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     regCsrf,
     undefined,
     '198.51.100.10',

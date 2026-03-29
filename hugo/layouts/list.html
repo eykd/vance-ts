@@ -6,7 +6,7 @@
 <section class="py-16">
   <div class="container mx-auto px-4">
     {{ with .Title }}
-      <h1 class="mb-8 text-center text-4xl md:text-5xl font-bold">{{ . }}</h1>
+      <h1 class="mb-8 text-center text-4xl md:text-5xl font-bold font-serif">{{ . }}</h1>
     {{ end }}
     {{ with .Description }}
       <p class="mx-auto mb-12 text-center text-lg text-base-content/70 max-w-2xl text-balance">{{ . }}</p>
@@ -22,13 +22,13 @@
     {{ if $paginator.Pages }}
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {{ range $paginator.Pages }}
-        <div class="card bg-base-100 shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+        <div class="card bg-base-100 border border-base-300 hover:border-primary/30 hover:-translate-y-1 transition-all duration-300">
           {{ with .Params.featured_image }}
             {{ with resources.Get . }}
             <figure class="aspect-video overflow-hidden">
-              <a href="{{ $.Permalink }}">
+              <a href="{{ $.RelPermalink }}">
                 <img
-                  src="{{ .Permalink }}"
+                  src="{{ .RelPermalink }}"
                   alt="{{ $.Title }}"
                   class="object-cover w-full h-full hover:scale-105 transition-transform duration-300"
                 />
@@ -38,7 +38,7 @@
           {{ end }}
           <div class="card-body">
             <h2 class="card-title">
-              <a class="link link-hover" href="{{ .Permalink }}">{{ .Title }}</a>
+              <a class="link link-hover" href="{{ .RelPermalink }}">{{ .Title }}</a>
             </h2>
             {{ with .Description }}
               <p class="text-base-content/70 line-clamp-2">{{ . }}</p>
@@ -47,9 +47,9 @@
               <p class="text-sm text-base-content/50">{{ .Format "January 2, 2006" }}</p>
             {{ end }}
             <div class="card-actions justify-end mt-4">
-              <a href="{{ .Permalink }}" class="btn btn-primary btn-sm">
+              <a href="{{ .RelPermalink }}" class="btn btn-primary btn-sm">
                 Read More
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                 </svg>
               </a>

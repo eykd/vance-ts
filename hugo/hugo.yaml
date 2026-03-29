@@ -1,9 +1,13 @@
 # Hugo core configuration - build settings, modules, taxonomies, and outputs.
 # Site-specific settings are in config/_default/params.yaml.
 
-baseURL: "https://vance-ts.pages.dev/"
+baseURL: "https://meetclawtask.com/"
+
+title: "ClawTask"
 
 languageCode: "en-us"
+
+disableHugoGeneratorInject: true
 
 build:
   buildStats:
@@ -29,7 +33,6 @@ module:
       target: "assets"
 
 taxonomies:
-  series: "series"
   tags: "tags"
 
 outputs:

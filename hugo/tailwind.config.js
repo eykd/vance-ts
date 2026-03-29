@@ -7,8 +7,9 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'Roboto', "'Helvetica Neue'", "'Arial Nova'", "'Nimbus Sans'", 'Arial', 'sans-serif'],
-        serif: ["'Iowan Old Style'", "'Palatino Linotype'", "'URW Palladio L'", "P052", "serif"],
+        sans: ['Lexend', 'system-ui', 'sans-serif'],
+        serif: ["'DM Sans'", "'Iowan Old Style'", "'Palatino Linotype'", 'serif'],
+        mono: ["'Fragment Mono'", 'ui-monospace', "'Cascadia Code'", "'Source Code Pro'", 'Menlo', 'Consolas', 'monospace'],
       },
     },
   },

@@ -3,13 +3,13 @@
 
 main:
   - name: "Home"
-    url: "/"
+    pageRef: "/"
     weight: 1
   - name: "Posts"
-    url: "/posts/"
+    pageRef: "/posts"
     weight: 2
   - name: "About"
-    url: "/about/"
+    pageRef: "/about"
     weight: 3
 
 footer:

@@ -3,21 +3,20 @@
 #
 # This script creates a tmplr-format template file from the repository,
 # using the txtar-inspired format with {### FILE path ###} headers.
-# The output is gzip-compressed to reduce file size.
 #
 # Usage: ./scripts/build-template.sh
-# Output: dist/turtlebased-ts.tmplr.gz
+# Output: dist/template.tmplr
 
 set -euo pipefail
 
 # Configuration
 readonly OUTPUT_DIR="dist"
-readonly OUTPUT_FILE="${OUTPUT_DIR}/turtlebased-ts.tmplr"
-readonly OUTPUT_FILE_GZ="${OUTPUT_FILE}.gz"
+readonly OUTPUT_FILE="${OUTPUT_DIR}/template.tmplr"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # Hardcoded exclusions (in addition to .gitignore)
+# Trailing slashes are required for directory matching
 readonly EXCLUSIONS=(
     ".git/"
     ".beads/"
@@ -51,8 +50,8 @@ is_excluded() {
     local path="$1"
 
     for exclusion in "${EXCLUSIONS[@]}"; do
-        # Check if path starts with exclusion pattern (directory)
-        if [[ "$path" == "${exclusion}"* ]] || [[ "$path" == "${exclusion%/}"* ]]; then
+        # Check if path starts with exclusion directory (exact prefix with trailing slash)
+        if [[ "$path" == "${exclusion}"* ]]; then
             return 0
         fi
     done
@@ -90,13 +89,16 @@ ensure_output_dir() {
     fi
 }
 
-# Get list of files to include in template
+# Get list of files to include in template, counting exclusions via temp file
 # Uses git ls-files to respect .gitignore (FR-003)
 get_files() {
-    git ls-files --cached --others --exclude-standard | while read -r file; do
+    local exclude_count_file="$1"
+    local count=0
+
+    while IFS= read -r file; do
         # Skip excluded directories (FR-004 through FR-007)
         if is_excluded "$file"; then
-            ((files_excluded++)) || true
+            ((count++)) || true
             continue
         fi
 
@@ -104,7 +106,9 @@ get_files() {
         if [[ -f "$file" ]]; then
             echo "$file"
         fi
-    done
+    done < <(git ls-files --cached --others --exclude-standard)
+
+    echo "$count" > "$exclude_count_file"
 }
 
 # Transform package.json content to use app_name variable (FR-012)
@@ -140,80 +144,6 @@ compatibility_date = "$today"
 EOF
 }
 
-# Generate wrangler.worker.toml content for scheduled Workers (FR-014)
-generate_wrangler_worker_toml() {
-    local today
-    today="$(date +%Y-%m-%d)"
-    cat << EOF
-# Cloudflare Worker configuration for scheduled tasks
-# This is a SEPARATE Worker from your Pages deployment
-#
-# WHY TWO FILES?
-# - wrangler.toml → Cloudflare Pages (static site + Functions)
-# - wrangler.worker.toml → Standalone Worker (cron triggers)
-#
-# Cloudflare Pages does NOT support [triggers] configuration.
-# If you need scheduled tasks (cron jobs), deploy this Worker separately.
-
-name = "{{ app_name }}-cron"
-main = "functions/cron/example-task.ts"
-compatibility_date = "$today"
-compatibility_flags = ["nodejs_compat"]
-
-# Cron Triggers
-# Uncomment and configure as needed:
-#
-# [triggers]
-# crons = [
-#   "0 6 * * *",      # Daily at 6 AM UTC
-#   "*/15 * * * *",   # Every 15 minutes
-#   "0 0 * * 0"       # Weekly on Sunday at midnight
-# ]
-#
-# Cron syntax: minute hour day month day-of-week
-# See: https://developers.cloudflare.com/workers/configuration/cron-triggers/
-
-# Bindings (should match wrangler.toml for shared resources)
-# Uncomment and configure as needed:
-#
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "{{ app_name }}-db"
-# database_id = "your-database-id"  # Use same ID as Pages deployment
-#
-# [[kv_namespaces]]
-# binding = "KV"
-# id = "your-kv-namespace-id"  # Use same ID as Pages deployment
-#
-# [[r2_buckets]]
-# binding = "R2"
-# bucket_name = "{{ app_name }}-storage"  # Use same bucket as Pages deployment
-
-# Environment Variables
-# Set secrets via: wrangler secret put SECRET_NAME --config wrangler.worker.toml
-#
-# Example secrets you might need:
-# - RESEND_API_KEY (for sending scheduled emails)
-# - BASE_URL (for generating links in notifications)
-# - FROM_EMAIL (for email sender address)
-
-# Deployment
-# Deploy this Worker separately from Pages:
-#   wrangler deploy --config wrangler.worker.toml
-#
-# Test locally with cron simulation:
-#   wrangler dev --config wrangler.worker.toml --test-scheduled
-#   curl "http://localhost:8787/__scheduled?cron=*+*+*+*+*"
-
-EOF
-}
-
-# Required scaffold directories (excluded from git but needed for tests)
-readonly SCAFFOLD_DIRS=(
-    "thoughts/handoffs"
-    "thoughts/ledgers"
-)
-
 # Write a file section to the template (FR-011)
 write_file_section() {
     local path="$1"
@@ -228,14 +158,18 @@ write_file_section() {
 build_template() {
     info "Building template..."
 
+    # Temp file for exclusion count (avoids subshell counter bug)
+    local exclude_count_file
+    exclude_count_file="$(mktemp)"
+
     # Clear/create output file
     > "$OUTPUT_FILE"
 
     # Add template preamble (comment section)
     cat >> "$OUTPUT_FILE" << 'EOF'
-# turtlebased-ts template
+# template.tmplr
 # Generated by build-template.sh
-# Use with: gunzip -k turtlebased-ts.tmplr.gz && tmplr make turtlebased-ts.tmplr <output-dir> app_name=<your-app-name>
+# Use with: tmplr make template.tmplr <output-dir> app_name=<your-app-name>
 
 EOF
 
@@ -245,112 +179,36 @@ EOF
     write_file_section "wrangler.toml" "$wrangler_content" >> "$OUTPUT_FILE"
     ((files_processed++)) || true
 
-    # Add wrangler.worker.toml (generated template for scheduled Workers) (FR-014)
-    local wrangler_worker_content
-    wrangler_worker_content="$(generate_wrangler_worker_toml)"
-    write_file_section "wrangler.worker.toml" "$wrangler_worker_content" >> "$OUTPUT_FILE"
-    ((files_processed++)) || true
-
-    # Add scaffold directories with .gitkeep (excluded dirs that need to exist)
-    for dir in "${SCAFFOLD_DIRS[@]}"; do
-        write_file_section "${dir}/.gitkeep" "" >> "$OUTPUT_FILE"
-        ((files_processed++)) || true
-    done
-
-    # Add example cron handler (FR-014)
-    write_file_section "functions/cron/example-task.ts" "$(cat << 'CRON_EOF'
-/**
- * Example scheduled task handler
- *
- * This file demonstrates how to create a Cloudflare Worker with cron triggers.
- * Deploy using: wrangler deploy --config wrangler.worker.toml
- *
- * For production use:
- * 1. Uncomment [triggers] in wrangler.worker.toml
- * 2. Configure cron schedule (e.g., "0 6 * * *" for daily at 6 AM)
- * 3. Replace this example with your actual scheduled task logic
- * 4. Configure bindings (D1, KV, R2) to match your Pages deployment
- */
-
-interface Env {
-  // Uncomment bindings as needed (must match wrangler.worker.toml):
-  // DB: D1Database;
-  // KV: KVNamespace;
-  // R2: R2Bucket;
-  // RESEND_API_KEY?: string;
-  // BASE_URL?: string;
-}
-
-export default {
-  async scheduled(
-    event: ScheduledEvent,
-    env: Env,
-    ctx: ExecutionContext
-  ): Promise<void> {
-    console.log('Cron trigger executed at:', new Date(event.scheduledTime).toISOString());
-
-    // Example: Log execution
-    // In production, replace with actual task logic:
-    // - Send daily reports
-    // - Cleanup old records
-    // - Sync data with external APIs
-    // - Send scheduled notifications
-
-    try {
-      // Your scheduled task logic here
-      const result = await performScheduledTask(env, event.scheduledTime);
-      console.log('Task completed successfully:', result);
-    } catch (error) {
-      console.error('Scheduled task failed:', error);
-      // Consider sending error notifications or logging to monitoring service
-    }
-  },
-};
-
-async function performScheduledTask(
-  env: Env,
-  scheduledTime: number
-): Promise<{ message: string }> {
-  // Replace with your actual task logic
-  return {
-    message: `Example task executed at ${new Date(scheduledTime).toISOString()}`,
-  };
-}
-CRON_EOF
-)" >> "$OUTPUT_FILE"
-    ((files_processed++)) || true
-
     # Process each file from the repository
     while IFS= read -r file; do
-        local content
+        # Write file header
+        echo "{### FILE ${file} ###}" >> "$OUTPUT_FILE"
 
         # Special handling for package.json (FR-012)
         if [[ "$file" == "package.json" ]]; then
-            content="$(transform_package_json "$(cat "$file")")"
+            transform_package_json "$(cat "$file")" >> "$OUTPUT_FILE"
         else
-            content="$(cat "$file")"
+            # Use cat directly to handle binary files without command substitution
+            cat "$file" >> "$OUTPUT_FILE"
         fi
 
-        write_file_section "$file" "$content" >> "$OUTPUT_FILE"
+        echo "" >> "$OUTPUT_FILE"
         ((files_processed++)) || true
-    done < <(get_files)
+    done < <(get_files "$exclude_count_file")
+
+    # Read exclusion count from temp file
+    files_excluded="$(cat "$exclude_count_file")"
 
     # Count excluded directories
     dirs_excluded="${#EXCLUSIONS[@]}"
 }
 
-# Compress the template file
-compress_template() {
-    info "Compressing template..."
-    gzip -f "$OUTPUT_FILE"
-}
-
 # Print summary (FR-017)
 print_summary() {
     local output_path
-    output_path="$(cd "$REPO_ROOT" && pwd)/${OUTPUT_FILE_GZ}"
+    output_path="$(cd "$REPO_ROOT" && pwd)/${OUTPUT_FILE}"
     local size
-    size="$(du -h "$OUTPUT_FILE_GZ" | cut -f1)"
+    size="$(du -h "$OUTPUT_FILE" | cut -f1)"
 
     info "Processed: ${files_processed} files"
     info "Excluded: ${dirs_excluded} directories, ${files_excluded} files (gitignore)"
@@ -364,7 +222,6 @@ main() {
     validate_repository
     ensure_output_dir
     build_template
-    compress_template
     print_summary
 
     info "Template build complete!"
