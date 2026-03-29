@@ -12,7 +12,7 @@ describe('Logger port', () => {
   describe('interface contract', () => {
     it('can be satisfied by a test double that accepts message and cause', () => {
       const errorFn = vi.fn();
-      const stub: Logger = { error: errorFn };
+      const stub: Logger = { error: errorFn, info: vi.fn() };
 
       stub.error('something went wrong', new Error('cause'));
 
@@ -21,11 +21,20 @@ describe('Logger port', () => {
 
     it('can be satisfied by a test double that accepts message without cause', () => {
       const errorFn = vi.fn();
-      const stub: Logger = { error: errorFn };
+      const stub: Logger = { error: errorFn, info: vi.fn() };
 
       stub.error('something went wrong');
 
       expect(errorFn).toHaveBeenCalledWith('something went wrong');
+    });
+
+    it('can be satisfied by a test double that accepts an info message', () => {
+      const infoFn = vi.fn();
+      const stub: Logger = { error: vi.fn(), info: infoFn };
+
+      stub.info('operation completed');
+
+      expect(infoFn).toHaveBeenCalledWith('operation completed');
     });
   });
 });

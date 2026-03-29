@@ -44,6 +44,9 @@
   },
   "homepage": "https://github.com/turtlebased/turtlebased-ts#readme",
   "lint-staged": {
+    "hugo/{assets/css/styles.css,layouts/**/*.html,tailwind.config.js}": [
+      "bash -c 'rm -rf hugo/public && cd hugo && npx hugo --minify && cd .. && node scripts/sync-asset-paths.js && git add src/presentation/generated/assetPaths.ts'"
+    ],
     "src/**/*.ts": [
       "prettier --write",
       "eslint --fix --max-warnings 0 --no-warn-ignored",
@@ -79,6 +82,7 @@
     "@cloudflare/workers-types": "^4.20260317.1",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
+    "@sentry/cli": "^2.58.5",
     "@stryker-mutator/core": "^9.6.0",
     "@stryker-mutator/typescript-checker": "^9.6.0",
     "@stryker-mutator/vitest-runner": "^9.6.0",
@@ -110,6 +114,7 @@
   },
   "dependencies": {
     "@noble/hashes": "^2.0.1",
+    "@sentry/cloudflare": "^10.46.0",
     "better-auth": "1.5.6",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.12.8"

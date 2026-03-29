@@ -15,7 +15,7 @@ it("Authenticated users see a Dashboard link in the navbar.", async () => {
   const { csrfToken: regCsrf } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'alice@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'alice@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     regCsrf,
     undefined,
     '198.51.100.1',
@@ -41,12 +41,12 @@ it("Authenticated users see a Dashboard link in the navbar.", async () => {
   );
   const html = await pageRes.text();
 
-  // THEN the navbar displays a "Dashboard" link pointing to /dashboard/
+  // THEN the navbar displays a "Dashboard" link pointing to /app
   // instead of Sign In and Sign Up links.
   // The __Host-auth_status=1 indicator cookie drives the Alpine.js swap.
   expect(setCookie).toContain('__Host-auth_status=1');
   expect(html).toContain('Dashboard');
-  expect(html).toContain('/dashboard/');
+  expect(html).toContain('/app');
   // The authenticated menu is wired to the Alpine.js auth store via class binding.
   expect(html).toContain(":class=\"{ 'hidden': !$store.auth.isAuthenticated }\"");
 });
@@ -78,7 +78,7 @@ it("The Dashboard link navigates to the dashboard page.", async () => {
   const { csrfToken: regCsrf } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'bob@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'bob@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     regCsrf,
     undefined,
     '198.51.100.2',
@@ -87,13 +87,13 @@ it("The Dashboard link navigates to the dashboard page.", async () => {
 
   // WHEN they click the "Dashboard" link.
   const res = await SELF.fetch(
-    new Request('https://example.com/dashboard/', {
+    new Request('https://example.com/app', {
       headers: { Cookie: sessionCookie },
       redirect: 'manual',
     }),
   );
 
-  // THEN the browser navigates to /dashboard/.
+  // THEN the browser navigates to /app.
   // The auth guard allows access (no redirect), serving the dashboard page.
   expect(res.status).not.toBe(302);
   const html = await res.text();

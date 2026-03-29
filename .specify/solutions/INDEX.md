@@ -17,4 +17,9 @@ Solutions are organized by category. Each entry links to a detailed solution doc
 
 ## Solutions
 
-_No solutions documented yet. Run `/compound` after solving a problem to capture the learning._
+### tooling
+
+- [ralph.sh Epic Detection Fails When Branch Uses Hyphens but Epic Title Uses Spaces](tooling/ralph-epic-detection-hyphens-vs-spaces.md) — `gsub("-"; " ")` normalizes branch hyphens before jq title match (2026-03-03)
+- [Two Kinds of Remediation Tasks: Design Constraints vs Pre-Existing Code Fixes](tooling/remediation-task-classification.md) — findings for unwritten code belong in US story descriptions, not standalone tasks (2026-03-03)
+- [Ralph ATDD Routing Blocks Acceptance-Spec-Only Tasks](tooling/ralph-atdd-routing-blocks-spec-only-tasks.md) — drop `US` prefix from spec-writing tasks so ralph doesn't route them to ATDD cycle (2026-03-27)
+- [Spec-Kit Workflow Missing Acceptance Spec Phase](tooling/spec-kit-missing-acceptance-spec-phase.md) — sp:05-tasks must create acceptance spec files from GWT scenarios before implementation begins (2026-03-27)

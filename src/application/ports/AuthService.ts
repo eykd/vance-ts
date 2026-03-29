@@ -74,6 +74,7 @@ export interface AuthService {
    * **Result kind origins** (for implementors and callers):
    * - `email_taken` — `BetterAuthService`: better-auth HTTP 422.
    * - `weak_password` — `BetterAuthService`: better-auth HTTP 400 (password too short/long).
+   * - `invalid_email` — `BetterAuthService`: better-auth HTTP 400 with `INVALID_EMAIL` code.
    * - `rate_limited` — `BetterAuthService`: better-auth HTTP 429 (not KV rate limiting).
    * - `service_error` — `BetterAuthService`: non-2xx/400/422/429 response or thrown exception.
    *
@@ -93,7 +94,7 @@ export interface AuthService {
     name: string;
   }): Promise<
     | { ok: true }
-    | { ok: false; kind: 'email_taken' | 'weak_password' | 'service_error' }
+    | { ok: false; kind: 'email_taken' | 'weak_password' | 'invalid_email' | 'service_error' }
     | { ok: false; kind: 'rate_limited'; retryAfter?: number }
   >;
 
@@ -131,4 +132,37 @@ export interface AuthService {
    * @param password - The submitted plaintext password to verify against the dummy hash.
    */
   verifyDummyPassword(password: string): Promise<void>;
+
+  /**
+   * Requests a password reset for the given email address.
+   *
+   * The underlying implementation generates a verification token, stores it,
+   * and triggers the configured email delivery (or console log in development).
+   * Returns the same success shape regardless of whether the email exists
+   * to prevent email enumeration (FR-007).
+   *
+   * @param params - Password reset request parameters.
+   * @param params.email - The email address requesting the reset.
+   * @param params.redirectTo - Optional URL path to redirect to after token callback.
+   * @returns `{ ok: true }` on success (always, to prevent enumeration), or a typed failure.
+   */
+  requestPasswordReset(params: {
+    email: string;
+    redirectTo?: string;
+  }): Promise<{ ok: true } | { ok: false; kind: 'service_error' }>;
+
+  /**
+   * Resets a user's password using a valid verification token.
+   *
+   * @param params - Password reset parameters.
+   * @param params.token - The verification token from the reset URL.
+   * @param params.newPassword - The new password to set.
+   * @returns Typed result indicating success or failure kind.
+   */
+  resetPassword(params: {
+    token: string;
+    newPassword: string;
+  }): Promise<
+    { ok: true } | { ok: false; kind: 'invalid_token' | 'weak_password' | 'service_error' }
+  >;
 }

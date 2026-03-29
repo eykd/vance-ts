@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+
 import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
 import { defineConfig } from 'vitest/config';
 
@@ -33,6 +35,16 @@ export default defineConfig({
         },
       },
       {
+        resolve: {
+          alias: [
+            {
+              // Swap Argon2id (19 MiB, ~2-5 s/hash) for PBKDF2-fast (~1 ms/hash)
+              // in acceptance tests. Matches all import paths ending in passwordHasher.
+              find: /.*\/domain\/services\/passwordHasher(\.js)?$/,
+              replacement: resolve(import.meta.dirname, 'tests/fast-password-hasher'),
+            },
+          ],
+        },
         plugins: [
           cloudflareTest({
             wrangler: { configPath: './wrangler.toml' },

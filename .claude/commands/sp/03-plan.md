@@ -111,7 +111,21 @@ If no relevant solutions are found, omit the `## Applied Learnings` section.
    - Use standard REST/GraphQL patterns
    - Output OpenAPI/GraphQL schema to `/contracts/`
 
-3. **Agent context update**:
+3. **Presentation Design** (if feature has user-facing UI):
+   - Check if the spec describes user-facing screens, pages, or interactions
+   - If yes: Fill the `## Presentation Design` section in plan.md
+     - List each new screen/component in the UI Decisions table
+     - Map each to its user story
+     - For each, determine applicable design-\* skills based on component type:
+       - New pages with DaisyUI components → `/design-language-to-daisyui`
+       - First-run or empty state experiences → `/design-onboard`
+       - Error messages, form labels, microcopy → `/design-clarify`
+       - Must work across screen sizes → `/design-adapt`
+     - Set quality target (MVP/Production/Flagship) based on feature priority
+     - List any post-implementation refinement skills in Quality Pass
+   - If no user-facing UI: Delete the `## Presentation Design` section from plan.md
+
+4. **Agent context update**:
    - Run `.specify/scripts/bash/update-agent-context.sh claude`
    - These scripts detect which AI agent is in use
    - Update the appropriate agent-specific context file
@@ -124,6 +138,7 @@ If no relevant solutions are found, omit the `## Applied Learnings` section.
 
 - Use absolute paths
 - ERROR on gate failures or unresolved clarifications
+- Fill the **Acceptance Test Strategy** section in plan.md: list each user story that has acceptance scenarios in the spec, the planned acceptance spec file path (`specs/acceptance-specs/US<NN>-<slug>.txt`), and the scenario count. This section documents the ATDD outer loop — `sp:05-tasks` will create the actual files.
 
 ## Commit Changes
 

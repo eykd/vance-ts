@@ -31,7 +31,7 @@ it("An authenticated user can access protected pages.", async () => {
   const { csrfToken: regCsrf } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'alice@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'alice@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     regCsrf,
     undefined,
     '198.51.100.31',
@@ -56,7 +56,7 @@ it("An expired session is treated as no session.", async () => {
   const { csrfToken: regCsrf } = await getAuthForm('/auth/sign-up');
   await submitAuthForm(
     '/auth/sign-up',
-    { email: 'alice@example.com', password: 'SuperSecure#Pass789' },
+    { email: 'alice@example.com', password: 'SuperSecure#Pass789', password_confirm: 'SuperSecure#Pass789' },
     regCsrf,
     undefined,
     '198.51.100.32',

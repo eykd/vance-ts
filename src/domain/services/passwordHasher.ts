@@ -63,17 +63,6 @@ export const PRODUCTION_PARAMS: Argon2Params = {
 } as const;
 
 /**
- * Lightweight parameters for tests. Fast on pure-JS argon2id
- * while still exercising the full code path.
- */
-export const TEST_PARAMS: Argon2Params = {
-  m: MIN_MEMORY_KB,
-  t: 1,
-  p: 1,
-  dkLen: DERIVED_BYTES,
-} as const;
-
-/**
  * Converts a hex string to a Uint8Array backed by a plain ArrayBuffer.
  *
  * Returns an empty Uint8Array when the hex string has odd length (malformed

@@ -80,6 +80,14 @@ const THIRTY_DAY_MAX_AGE = 2_592_000;
 const AUTH_INDICATOR_COOKIE_ATTRIBUTES = 'Secure; SameSite=Lax; Path=/';
 
 /**
+ * Two-minute TTL for flash cookies — long enough to survive the redirect
+ * from sign-up to sign-in, short enough to minimise replay.
+ */
+const FLASH_MAX_AGE = 120;
+
+const FLASH_COOKIE_ATTRIBUTES = 'HttpOnly; Secure; SameSite=Strict; Path=/';
+
+/**
  * Builds a Set-Cookie header value for the auth indicator cookie.
  *
  * This cookie is intentionally NOT HttpOnly so that client-side JavaScript
@@ -130,6 +138,120 @@ export function clearSessionCookie(sessionCookieName: string): string {
 }
 
 /**
+ * Builds a Set-Cookie header value for the flash registered cookie.
+ *
+ * This short-lived, HttpOnly cookie replaces the spoofable `?registered=true`
+ * query parameter. It is set on the redirect after successful sign-up and
+ * consumed (cleared) on the sign-in GET handler.
+ *
+ * @param flashRegisteredCookieName - The flash cookie name (e.g. `__Host-flash_registered` or `flash_registered` on localhost).
+ * @returns A Set-Cookie header value string
+ */
+export function buildFlashRegisteredCookie(flashRegisteredCookieName: string): string {
+  return `${flashRegisteredCookieName}=1; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=${FLASH_MAX_AGE}`;
+}
+
+/**
+ * Builds a Set-Cookie header value that clears the flash registered cookie.
+ *
+ * @param flashRegisteredCookieName - The flash cookie name (e.g. `__Host-flash_registered` or `flash_registered` on localhost).
+ * @returns A Set-Cookie header value string with Max-Age=0
+ */
+export function clearFlashRegisteredCookie(flashRegisteredCookieName: string): string {
+  return `${flashRegisteredCookieName}=; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=0`;
+}
+
+/**
+ * Builds a Set-Cookie header value for the flash reset cookie.
+ *
+ * This short-lived, HttpOnly cookie replaces the spoofable `?reset=true`
+ * query parameter. It is set on the redirect after successful password reset
+ * and consumed (cleared) on the sign-in GET handler.
+ *
+ * @param flashResetCookieName - The flash cookie name (e.g. `__Host-flash_reset` or `flash_reset` on localhost).
+ * @returns A Set-Cookie header value string
+ */
+export function buildFlashResetCookie(flashResetCookieName: string): string {
+  return `${flashResetCookieName}=1; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=${FLASH_MAX_AGE}`;
+}
+
+/**
+ * Builds a Set-Cookie header value that clears the flash reset cookie.
+ *
+ * @param flashResetCookieName - The flash cookie name (e.g. `__Host-flash_reset` or `flash_reset` on localhost).
+ * @returns A Set-Cookie header value string with Max-Age=0
+ */
+export function clearFlashResetCookie(flashResetCookieName: string): string {
+  return `${flashResetCookieName}=; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=0`;
+}
+
+/**
+ * Returns true when the Cookie request header contains the flash reset cookie.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @param flashResetCookieName - The flash cookie name (e.g. `__Host-flash_reset` or `flash_reset` on localhost).
+ * @returns True if the flash reset cookie is present
+ */
+export function hasFlashResetCookie(
+  cookieHeader: string | null,
+  flashResetCookieName: string
+): boolean {
+  return extractCookieValue(cookieHeader, flashResetCookieName) !== null;
+}
+
+/**
+ * Builds a Set-Cookie header value for the flash forgot-password cookie.
+ *
+ * This short-lived, HttpOnly cookie replaces the spoofable `?success=true`
+ * query parameter. It is set on the redirect after submitting the
+ * forgot-password form and consumed (cleared) on the forgot-password GET handler.
+ *
+ * @param flashForgotCookieName - The flash cookie name (e.g. `__Host-flash_forgot` or `flash_forgot` on localhost).
+ * @returns A Set-Cookie header value string
+ */
+export function buildFlashForgotCookie(flashForgotCookieName: string): string {
+  return `${flashForgotCookieName}=1; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=${FLASH_MAX_AGE}`;
+}
+
+/**
+ * Builds a Set-Cookie header value that clears the flash forgot-password cookie.
+ *
+ * @param flashForgotCookieName - The flash cookie name (e.g. `__Host-flash_forgot` or `flash_forgot` on localhost).
+ * @returns A Set-Cookie header value string with Max-Age=0
+ */
+export function clearFlashForgotCookie(flashForgotCookieName: string): string {
+  return `${flashForgotCookieName}=; ${FLASH_COOKIE_ATTRIBUTES}; Max-Age=0`;
+}
+
+/**
+ * Returns true when the Cookie request header contains the flash forgot-password cookie.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @param flashForgotCookieName - The flash cookie name (e.g. `__Host-flash_forgot` or `flash_forgot` on localhost).
+ * @returns True if the flash forgot-password cookie is present
+ */
+export function hasFlashForgotCookie(
+  cookieHeader: string | null,
+  flashForgotCookieName: string
+): boolean {
+  return extractCookieValue(cookieHeader, flashForgotCookieName) !== null;
+}
+
+/**
+ * Returns true when the Cookie request header contains the flash registered cookie.
+ *
+ * @param cookieHeader - The value of the Cookie request header, or null if absent
+ * @param flashRegisteredCookieName - The flash cookie name (e.g. `__Host-flash_registered` or `flash_registered` on localhost).
+ * @returns True if the flash registered cookie is present
+ */
+export function hasFlashRegisteredCookie(
+  cookieHeader: string | null,
+  flashRegisteredCookieName: string
+): boolean {
+  return extractCookieValue(cookieHeader, flashRegisteredCookieName) !== null;
+}
+
+/**
  * Extracts a named cookie's value from a Cookie request header string.
  *
  * @param cookieHeader - The value of the Cookie request header, or null if absent
@@ -176,7 +298,8 @@ export function extractSessionToken(
  * @returns True if a session cookie is present
  */
 export function hasSessionCookie(cookieHeader: string | null, sessionCookieName: string): boolean {
-  return extractCookieValue(cookieHeader, sessionCookieName) !== null;
+  const value = extractCookieValue(cookieHeader, sessionCookieName);
+  return value !== null && value !== '';
 }
 
 /**
@@ -190,7 +313,8 @@ export function hasAuthIndicatorCookie(
   cookieHeader: string | null,
   authIndicatorCookieName: string
 ): boolean {
-  return extractCookieValue(cookieHeader, authIndicatorCookieName) !== null;
+  const value = extractCookieValue(cookieHeader, authIndicatorCookieName);
+  return value !== null && value !== '';
 }
 
 /**

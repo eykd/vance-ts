@@ -140,6 +140,18 @@ describe('SignUpUseCase', () => {
       }
     });
 
+    it('returns ok: false kind: invalid_email when authService returns invalid_email', async () => {
+      expect.assertions(2);
+      authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'invalid_email' });
+
+      const result = await useCase.execute(defaultRequest);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('invalid_email');
+      }
+    });
+
     it('returns ok: false kind: rate_limited when authService returns rate_limited', async () => {
       expect.assertions(2);
       authServiceMock.signUp.mockResolvedValue({ ok: false, kind: 'rate_limited' });
@@ -249,7 +261,22 @@ describe('SignUpUseCase', () => {
       );
     });
 
-    it('calls authService.signUp with email, password, and name derived from email prefix', async () => {
+    it('uses provided name when present', async () => {
+      await useCase.execute({
+        email: 'alice@example.com',
+        password: 'correcthorse12',
+        name: 'Alice Smith',
+        ip: '1.2.3.4',
+      });
+
+      expect(authServiceMock.signUp).toHaveBeenCalledWith({
+        email: 'alice@example.com',
+        password: 'correcthorse12',
+        name: 'Alice Smith',
+      });
+    });
+
+    it('falls back to email prefix as name when name is not provided', async () => {
       await useCase.execute({
         email: 'alice@example.com',
         password: 'correcthorse12',
@@ -263,7 +290,22 @@ describe('SignUpUseCase', () => {
       });
     });
 
-    it('falls back to full email as name when email prefix is empty (e.g. @domain.com)', async () => {
+    it('falls back to email prefix as name when name is empty string', async () => {
+      await useCase.execute({
+        email: 'alice@example.com',
+        password: 'correcthorse12',
+        name: '',
+        ip: '1.2.3.4',
+      });
+
+      expect(authServiceMock.signUp).toHaveBeenCalledWith({
+        email: 'alice@example.com',
+        password: 'correcthorse12',
+        name: 'alice',
+      });
+    });
+
+    it('falls back to full email as name when email prefix is empty and no name provided', async () => {
       await useCase.execute({
         email: '@domain.com',
         password: 'correcthorse12',

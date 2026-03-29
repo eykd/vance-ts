@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { RequestPasswordResetUseCase } from '../../application/use-cases/RequestPasswordResetUseCase.js';
+import type { ResetPasswordUseCase } from '../../application/use-cases/ResetPasswordUseCase.js';
 import type { SignInUseCase } from '../../application/use-cases/SignInUseCase.js';
 import type { SignOutUseCase } from '../../application/use-cases/SignOutUseCase.js';
 import type { SignUpUseCase } from '../../application/use-cases/SignUpUseCase.js';
@@ -23,6 +25,15 @@ const PROD_CSRF_NAME = '__Host-csrf';
 
 /** Production auth indicator cookie name used in tests. */
 const PROD_INDICATOR_NAME = '__Host-auth_status';
+
+/** Production flash registered cookie name used in tests. */
+const PROD_FLASH_REGISTERED_NAME = '__Host-flash_registered';
+
+/** Production flash reset cookie name used in tests. */
+const PROD_FLASH_RESET_NAME = '__Host-flash_reset';
+
+/** Production flash forgot cookie name used in tests. */
+const PROD_FLASH_FORGOT_NAME = '__Host-flash_forgot';
 
 /** Cookie header containing the test CSRF token. */
 const CSRF_COOKIE = `__Host-csrf=${TEST_CSRF}`;
@@ -132,7 +143,9 @@ function makeSignOutPostRequest(options?: {
  * @param options.csrfToken - CSRF token in the form body (default: TEST_CSRF).
  * @param options.csrfCookie - CSRF token value in the Cookie header (default: TEST_CSRF).
  * @param options.email - Email address in the form body.
+ * @param options.name - Display name in the form body.
  * @param options.password - Password in the form body.
+ * @param options.passwordConfirm - Confirm password in the form body (defaults to password value).
  * @param options.contentType - Content-Type header value.
  * @param options.rawBody - If set, overrides the computed form body.
  * @returns A fully-formed POST Request for sign-up.
@@ -141,7 +154,9 @@ function makeSignUpPostRequest(options?: {
   csrfToken?: string;
   csrfCookie?: string;
   email?: string;
+  name?: string;
   password?: string;
+  passwordConfirm?: string;
   contentType?: string;
   rawBody?: string;
 }): Request {
@@ -149,12 +164,20 @@ function makeSignUpPostRequest(options?: {
     csrfToken = TEST_CSRF,
     csrfCookie = TEST_CSRF,
     email = 'newuser@example.com',
+    name = 'New User',
     password = 'correcthorse12',
     contentType = 'application/x-www-form-urlencoded',
     rawBody,
   } = options ?? {};
+  const passwordConfirm = options?.passwordConfirm ?? password;
 
-  const params = new URLSearchParams({ _csrf: csrfToken, email, password });
+  const params = new URLSearchParams({
+    _csrf: csrfToken,
+    email,
+    name,
+    password,
+    password_confirm: passwordConfirm,
+  });
 
   return new Request('https://example.com/auth/sign-up', {
     method: 'POST',
@@ -170,19 +193,28 @@ describe('AuthPageHandlers', () => {
   let signInUseCaseMock: ReturnType<typeof makeUseCaseMock>;
   let signUpUseCaseMock: ReturnType<typeof makeUseCaseMock>;
   let signOutUseCaseMock: ReturnType<typeof makeUseCaseMock>;
+  let requestPasswordResetUseCaseMock: ReturnType<typeof makeUseCaseMock>;
+  let resetPasswordUseCaseMock: ReturnType<typeof makeUseCaseMock>;
   let handlers: AuthPageHandlers;
 
   beforeEach(() => {
     signInUseCaseMock = makeUseCaseMock();
     signUpUseCaseMock = makeUseCaseMock();
     signOutUseCaseMock = makeUseCaseMock();
+    requestPasswordResetUseCaseMock = makeUseCaseMock();
+    resetPasswordUseCaseMock = makeUseCaseMock();
     handlers = new AuthPageHandlers(
       signInUseCaseMock as unknown as SignInUseCase,
       signUpUseCaseMock as unknown as SignUpUseCase,
       signOutUseCaseMock as unknown as SignOutUseCase,
+      requestPasswordResetUseCaseMock as unknown as RequestPasswordResetUseCase,
+      resetPasswordUseCaseMock as unknown as ResetPasswordUseCase,
       PROD_COOKIE_NAME,
       PROD_CSRF_NAME,
-      PROD_INDICATOR_NAME
+      PROD_INDICATOR_NAME,
+      PROD_FLASH_REGISTERED_NAME,
+      PROD_FLASH_RESET_NAME,
+      PROD_FLASH_FORGOT_NAME
     );
   });
 
@@ -253,15 +285,37 @@ describe('AuthPageHandlers', () => {
       expect(body).not.toContain('Account created successfully');
     });
 
-    it('shows registered success banner when registered=true query param is set', async () => {
-      const req = new Request('https://example.com/auth/sign-in?registered=true');
+    it('shows registered success banner when flash registered cookie is present', async () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: '__Host-flash_registered=1' },
+      });
       const res = handlers.handleGetSignIn(req);
       const body = await res.text();
       expect(body).toContain('Account created successfully');
     });
 
-    it('does not show registered success banner when registered=false', async () => {
-      const req = new Request('https://example.com/auth/sign-in?registered=false');
+    it('clears flash registered cookie when it is present', () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: '__Host-flash_registered=1' },
+      });
+      const res = handlers.handleGetSignIn(req);
+      const setCookies = (res.headers as unknown as { getAll(name: string): string[] }).getAll(
+        'Set-Cookie'
+      );
+      const clearCookie = setCookies.find((c: string) => c.includes('__Host-flash_registered='));
+      expect(clearCookie).toBeDefined();
+      expect(clearCookie).toContain('Max-Age=0');
+    });
+
+    it('does not show registered success banner when flash cookie is absent', async () => {
+      const req = new Request('https://example.com/auth/sign-in');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('Account created successfully');
+    });
+
+    it('ignores spoofable registered=true query parameter', async () => {
+      const req = new Request('https://example.com/auth/sign-in?registered=true');
       const res = handlers.handleGetSignIn(req);
       const body = await res.text();
       expect(body).not.toContain('Account created successfully');
@@ -314,10 +368,29 @@ describe('AuthPageHandlers', () => {
       expect(body).toContain('/dashboard');
     });
 
-    it('redirects to / with 303 when session cookie is present', () => {
+    it('redirects to / with 303 when session cookie is present and no redirectTo', () => {
       const req = new Request('https://example.com/auth/sign-in', {
         headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
       });
+      const res = handlers.handleGetSignIn(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/');
+    });
+
+    it('redirects to validated redirectTo with 303 when session cookie is present', () => {
+      const req = new Request('https://example.com/auth/sign-in?redirectTo=%2Fdashboard%2F', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` },
+      });
+      const res = handlers.handleGetSignIn(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/dashboard/');
+    });
+
+    it('sanitises redirectTo to / for authenticated user when redirectTo is external', () => {
+      const req = new Request(
+        'https://example.com/auth/sign-in?redirectTo=https%3A%2F%2Fevil.com',
+        { headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session_token` } }
+      );
       const res = handlers.handleGetSignIn(req);
       expect(res.status).toBe(303);
       expect(res.headers.get('Location')).toBe('/');
@@ -640,6 +713,15 @@ describe('AuthPageHandlers', () => {
         expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
       });
 
+      it('links back to sign-in page', async () => {
+        signInUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makePostRequest();
+        const res = await handlers.handlePostSignIn(req);
+        const body = await res.text();
+        expect(body).toContain('href="/auth/sign-in"');
+        expect(body).toContain('Back to Sign In');
+      });
+
       it('includes retry seconds in body when retryAfter is provided', async () => {
         signInUseCaseMock.execute.mockResolvedValue({
           ok: false,
@@ -665,7 +747,7 @@ describe('AuthPageHandlers', () => {
         const req = makePostRequest({ email: 'User@Example.COM' });
         await handlers.handlePostSignIn(req);
         expect(signInUseCaseMock.execute).toHaveBeenCalledWith(
-          expect.objectContaining({ email: 'user@example.com' })
+          expect.objectContaining({ email: 'user@example.com', ip: 'unknown' })
         );
       });
 
@@ -673,7 +755,7 @@ describe('AuthPageHandlers', () => {
         const req = makePostRequest({ email: '  alice@example.com  ' });
         await handlers.handlePostSignIn(req);
         expect(signInUseCaseMock.execute).toHaveBeenCalledWith(
-          expect.objectContaining({ email: 'alice@example.com' })
+          expect.objectContaining({ email: 'alice@example.com', ip: 'unknown' })
         );
       });
     });
@@ -767,10 +849,11 @@ describe('AuthPageHandlers', () => {
       expect(res.headers.get('X-Frame-Options')).toBe('DENY');
     });
 
-    it('renders the sign-up form with email and password inputs', async () => {
+    it('renders the sign-up form with name, email, and password inputs', async () => {
       const req = new Request('https://example.com/auth/sign-up');
       const res = handlers.handleGetSignUp(req);
       const body = await res.text();
+      expect(body).toContain('name="name"');
       expect(body).toContain('name="email"');
       expect(body).toContain('name="password"');
     });
@@ -923,6 +1006,79 @@ describe('AuthPageHandlers', () => {
       });
     });
 
+    describe('password confirmation mismatch', () => {
+      it('returns 200 status when passwords do not match', async () => {
+        const req = makeSignUpPostRequest({
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(200);
+      });
+
+      it('re-renders the form with a password_confirm field error', async () => {
+        const req = makeSignUpPostRequest({
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('id="password_confirm-error"');
+        expect(body).toContain('Passwords do not match');
+      });
+
+      it('does not call the sign-up use case when passwords do not match', async () => {
+        const req = makeSignUpPostRequest({
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        await handlers.handlePostSignUp(req);
+        expect(signUpUseCaseMock.execute).not.toHaveBeenCalled();
+      });
+
+      it('re-renders the form with the submitted email pre-filled', async () => {
+        const req = makeSignUpPostRequest({
+          email: 'alice@example.com',
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('alice@example.com');
+      });
+
+      it('re-renders the form with the submitted name pre-filled', async () => {
+        const req = makeSignUpPostRequest({
+          name: 'Alice Smith',
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('Alice Smith');
+      });
+
+      it('does not render a general error banner for password mismatch', async () => {
+        const req = makeSignUpPostRequest({
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).not.toContain('id="register-error"');
+      });
+
+      it('sets a fresh CSRF cookie on the error response', async () => {
+        const req = makeSignUpPostRequest({
+          password: 'correcthorse12',
+          passwordConfirm: 'differentpass12',
+        });
+        const res = await handlers.handlePostSignUp(req);
+        const setCookie = res.headers.get('Set-Cookie') ?? '';
+        expect(setCookie).toContain('__Host-csrf=');
+      });
+    });
+
     describe('successful registration', () => {
       beforeEach(() => {
         signUpUseCaseMock.execute.mockResolvedValue({ ok: true });
@@ -934,20 +1090,33 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(303);
       });
 
-      it('redirects to /auth/sign-in?registered=true', async () => {
+      it('redirects to /auth/sign-in', async () => {
         const req = makeSignUpPostRequest();
         const res = await handlers.handlePostSignUp(req);
-        expect(res.headers.get('Location')).toBe('/auth/sign-in?registered=true');
+        expect(res.headers.get('Location')).toBe('/auth/sign-in');
       });
 
-      it('passes email, password, and IP to the sign-up use case', async () => {
+      it('sets flash registered cookie on the redirect response', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const setCookies = (res.headers as unknown as { getAll(name: string): string[] }).getAll(
+          'Set-Cookie'
+        );
+        const flashCookie = setCookies.find((c: string) => c.includes('__Host-flash_registered='));
+        expect(flashCookie).toBeDefined();
+        expect(flashCookie).toContain('__Host-flash_registered=1');
+      });
+
+      it('passes email, name, password, and IP to the sign-up use case', async () => {
         const req = makeSignUpPostRequest({
           email: 'alice@example.com',
+          name: 'Alice Smith',
           password: 'supersecure12',
         });
         await handlers.handlePostSignUp(req);
         expect(signUpUseCaseMock.execute).toHaveBeenCalledWith({
           email: 'alice@example.com',
+          name: 'Alice Smith',
           password: 'supersecure12',
           ip: 'unknown',
         });
@@ -965,10 +1134,60 @@ describe('AuthPageHandlers', () => {
         expect(res.status).toBe(303);
       });
 
-      it('redirects to /auth/sign-in?registered=true (same URL as success)', async () => {
+      it('redirects to /auth/sign-in (same URL as success)', async () => {
         const req = makeSignUpPostRequest();
         const res = await handlers.handlePostSignUp(req);
-        expect(res.headers.get('Location')).toBe('/auth/sign-in?registered=true');
+        expect(res.headers.get('Location')).toBe('/auth/sign-in');
+      });
+
+      it('sets flash registered cookie (same as success)', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const setCookies = (res.headers as unknown as { getAll(name: string): string[] }).getAll(
+          'Set-Cookie'
+        );
+        const flashCookie = setCookies.find((c: string) => c.includes('__Host-flash_registered='));
+        expect(flashCookie).toBeDefined();
+      });
+    });
+
+    describe('invalid email', () => {
+      beforeEach(() => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'invalid_email' });
+      });
+
+      it('returns 200 status', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        expect(res.status).toBe(200);
+      });
+
+      it('re-renders the form with an email error message', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('Please enter a valid email address');
+      });
+
+      it('renders the error as a per-field email error (id="email-error")', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('id="email-error"');
+      });
+
+      it('does not render a general error banner for invalid email', async () => {
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).not.toContain('id="register-error"');
+      });
+
+      it('re-renders the form with the submitted email pre-filled', async () => {
+        const req = makeSignUpPostRequest({ email: 'not-an-email' });
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('not-an-email');
       });
     });
 
@@ -1087,7 +1306,7 @@ describe('AuthPageHandlers', () => {
         const req = makeSignUpPostRequest({ email: 'User@Example.COM' });
         await handlers.handlePostSignUp(req);
         expect(signUpUseCaseMock.execute).toHaveBeenCalledWith(
-          expect.objectContaining({ email: 'user@example.com' })
+          expect.objectContaining({ email: 'user@example.com', ip: 'unknown' })
         );
       });
 
@@ -1095,7 +1314,15 @@ describe('AuthPageHandlers', () => {
         const req = makeSignUpPostRequest({ email: '  alice@example.com  ' });
         await handlers.handlePostSignUp(req);
         expect(signUpUseCaseMock.execute).toHaveBeenCalledWith(
-          expect.objectContaining({ email: 'alice@example.com' })
+          expect.objectContaining({ email: 'alice@example.com', ip: 'unknown' })
+        );
+      });
+
+      it('trims whitespace from name before passing to the sign-up use case', async () => {
+        const req = makeSignUpPostRequest({ name: '  Alice Smith  ' });
+        await handlers.handlePostSignUp(req);
+        expect(signUpUseCaseMock.execute).toHaveBeenCalledWith(
+          expect.objectContaining({ name: 'Alice Smith', ip: 'unknown' })
         );
       });
     });
@@ -1149,6 +1376,77 @@ describe('AuthPageHandlers', () => {
         const res = await handlers.handlePostSignUp(req);
         expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
       });
+
+      it('links back to sign-up page instead of sign-in', async () => {
+        signUpUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'rate_limited' });
+        const req = makeSignUpPostRequest();
+        const res = await handlers.handlePostSignUp(req);
+        const body = await res.text();
+        expect(body).toContain('href="/auth/sign-up"');
+        expect(body).toContain('Back to Sign Up');
+      });
+    });
+  });
+
+  describe('handleGetSignOut', () => {
+    it('returns 200 status', () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      expect(res.status).toBe(200);
+    });
+
+    it('sets Content-Type to text/html', () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      expect(res.headers.get('Content-Type')).toContain('text/html');
+    });
+
+    it('sets Cache-Control: no-store, no-cache', () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      expect(res.headers.get('Cache-Control')).toBe('no-store, no-cache');
+    });
+
+    it('sets __Host-csrf cookie', () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      const setCookie = res.headers.get('Set-Cookie') ?? '';
+      expect(setCookie).toContain('__Host-csrf=');
+    });
+
+    it('applies security headers', () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+    });
+
+    it('renders a sign-out confirmation form with POST action', async () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      const body = await res.text();
+      expect(body).toContain('method="POST"');
+      expect(body).toContain('action="/auth/sign-out"');
+    });
+
+    it('embeds the CSRF token in the form as a hidden _csrf field', async () => {
+      const req = new Request('https://example.com/auth/sign-out');
+      const res = handlers.handleGetSignOut(req);
+      const setCookie = res.headers.get('Set-Cookie') ?? '';
+      const match = /__Host-csrf=([^;]+)/.exec(setCookie);
+      const csrfToken = match?.[1];
+      expect(csrfToken).toBeDefined();
+      const body = await res.text();
+      expect(body).toContain(`name="_csrf" value="${csrfToken ?? ''}"`);
+    });
+
+    it('redirects to home when user already has a session cookie', () => {
+      const req = new Request('https://example.com/auth/sign-out', {
+        headers: { Cookie: `${PROD_COOKIE_NAME}=valid_session` },
+      });
+      const res = handlers.handleGetSignOut(req);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Content-Type')).toContain('text/html');
     });
   });
 
@@ -1333,6 +1631,370 @@ describe('AuthPageHandlers', () => {
           setCookies.some((v) => v.includes('__Host-auth_status=') && v.includes('Max-Age=0'))
         ).toBe(true);
       });
+    });
+  });
+
+  describe('handleGetForgotPassword', () => {
+    it('returns 200 status', () => {
+      const req = new Request('https://example.com/auth/forgot-password');
+      const res = handlers.handleGetForgotPassword(req);
+      expect(res.status).toBe(200);
+    });
+
+    it('renders forgot password form', async () => {
+      const req = new Request('https://example.com/auth/forgot-password');
+      const res = handlers.handleGetForgotPassword(req);
+      const body = await res.text();
+      expect(body).toContain('Forgot Password');
+      expect(body).toContain('/auth/forgot-password');
+    });
+
+    it('shows success banner when flash forgot cookie is present', async () => {
+      const req = new Request('https://example.com/auth/forgot-password', {
+        headers: { Cookie: '__Host-flash_forgot=1' },
+      });
+      const res = handlers.handleGetForgotPassword(req);
+      const body = await res.text();
+      expect(body).toContain('password reset link has been sent');
+    });
+
+    it('clears flash forgot cookie when present', () => {
+      const req = new Request('https://example.com/auth/forgot-password', {
+        headers: { Cookie: '__Host-flash_forgot=1' },
+      });
+      const res = handlers.handleGetForgotPassword(req);
+      const setCookies = res.headers.getSetCookie();
+      expect(
+        setCookies.some((c) => c.includes('__Host-flash_forgot=') && c.includes('Max-Age=0'))
+      ).toBe(true);
+    });
+
+    it('does not show success banner when flash forgot cookie is absent', async () => {
+      const req = new Request('https://example.com/auth/forgot-password');
+      const res = handlers.handleGetForgotPassword(req);
+      const body = await res.text();
+      expect(body).not.toContain('password reset link has been sent');
+    });
+
+    it('sets CSRF cookie', () => {
+      const req = new Request('https://example.com/auth/forgot-password');
+      const res = handlers.handleGetForgotPassword(req);
+      expect(res.headers.get('Set-Cookie')).toContain('__Host-csrf=');
+    });
+  });
+
+  describe('handlePostForgotPassword', () => {
+    /**
+     * Builds a POST request to /auth/forgot-password.
+     *
+     * @param options - Optional overrides for the request.
+     * @returns A Request with form-encoded body and CSRF cookie.
+     */
+    function makeForgotPasswordPostRequest(
+      options?: Partial<{
+        email: string;
+        csrfToken: string;
+        csrfCookie: string;
+        contentType: string;
+      }>
+    ): Request {
+      const {
+        email = 'test@example.com',
+        csrfToken = TEST_CSRF,
+        csrfCookie = TEST_CSRF,
+        contentType = 'application/x-www-form-urlencoded',
+      } = options ?? {};
+      const params = new URLSearchParams({ _csrf: csrfToken, email });
+      return new Request('https://example.com/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': contentType,
+          Cookie: `__Host-csrf=${csrfCookie}`,
+        },
+        body: params.toString(),
+      });
+    }
+
+    it('redirects to forgot-password page on valid request', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeForgotPasswordPostRequest();
+      const res = await handlers.handlePostForgotPassword(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/auth/forgot-password');
+    });
+
+    it('sets flash forgot cookie on valid request', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeForgotPasswordPostRequest();
+      const res = await handlers.handlePostForgotPassword(req);
+      const setCookies = res.headers.getSetCookie();
+      expect(setCookies.some((c) => c.includes('__Host-flash_forgot=1'))).toBe(true);
+    });
+
+    it('passes lowercased trimmed email to use case', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeForgotPasswordPostRequest({ email: '  Test@Example.COM  ' });
+      await handlers.handlePostForgotPassword(req);
+      expect(requestPasswordResetUseCaseMock.execute).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'test@example.com', ip: 'unknown' })
+      );
+    });
+
+    it('returns 429 when rate limited', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({
+        ok: false,
+        kind: 'rate_limited',
+        retryAfter: 600,
+      });
+      const req = makeForgotPasswordPostRequest();
+      const res = await handlers.handlePostForgotPassword(req);
+      expect(res.status).toBe(429);
+    });
+
+    it('links back to forgot password page when rate limited', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({
+        ok: false,
+        kind: 'rate_limited',
+        retryAfter: 600,
+      });
+      const req = makeForgotPasswordPostRequest();
+      const res = await handlers.handlePostForgotPassword(req);
+      const body = await res.text();
+      expect(body).toContain('href="/auth/forgot-password"');
+      expect(body).toContain('Back to Forgot Password');
+    });
+
+    it('redirects with flash cookie on service_error to prevent email enumeration', async () => {
+      requestPasswordResetUseCaseMock.execute.mockResolvedValue({
+        ok: false,
+        kind: 'service_error',
+      });
+      const req = makeForgotPasswordPostRequest();
+      const res = await handlers.handlePostForgotPassword(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/auth/forgot-password');
+      const setCookies = res.headers.getSetCookie();
+      expect(setCookies.some((c) => c.includes('__Host-flash_forgot=1'))).toBe(true);
+    });
+
+    it('returns 403 when CSRF token is invalid', async () => {
+      const req = makeForgotPasswordPostRequest({ csrfCookie: 'wrong' });
+      const res = await handlers.handlePostForgotPassword(req);
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('handleGetResetPassword', () => {
+    it('returns 200 with token in query', async () => {
+      const req = new Request('https://example.com/auth/reset-password?token=abc123');
+      const res = handlers.handleGetResetPassword(req);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('Reset Password');
+      expect(body).toContain('abc123');
+    });
+
+    it('returns 400 when token is missing', async () => {
+      const req = new Request('https://example.com/auth/reset-password');
+      const res = handlers.handleGetResetPassword(req);
+      expect(res.status).toBe(400);
+      const body = await res.text();
+      expect(body).toContain('invalid or has expired');
+    });
+
+    it('sets CSRF cookie', () => {
+      const req = new Request('https://example.com/auth/reset-password?token=abc');
+      const res = handlers.handleGetResetPassword(req);
+      expect(res.headers.get('Set-Cookie')).toContain('__Host-csrf=');
+    });
+  });
+
+  describe('handlePostResetPassword', () => {
+    /**
+     * Builds a POST request to /auth/reset-password.
+     *
+     * @param options - Optional overrides for the request.
+     * @returns A Request with form-encoded body and CSRF cookie.
+     */
+    function makeResetPasswordPostRequest(
+      options?: Partial<{
+        token: string;
+        password: string;
+        passwordConfirm: string;
+        csrfToken: string;
+        csrfCookie: string;
+        contentType: string;
+      }>
+    ): Request {
+      const {
+        token = 'valid-token-123',
+        password = 'newSecurePass123',
+        passwordConfirm = 'newSecurePass123',
+        csrfToken = TEST_CSRF,
+        csrfCookie = TEST_CSRF,
+        contentType = 'application/x-www-form-urlencoded',
+      } = options ?? {};
+      const params = new URLSearchParams({
+        _csrf: csrfToken,
+        token,
+        password,
+        password_confirm: passwordConfirm,
+      });
+      return new Request('https://example.com/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': contentType,
+          Cookie: `__Host-csrf=${csrfCookie}`,
+        },
+        body: params.toString(),
+      });
+    }
+
+    it('redirects to sign-in on success', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('Location')).toBe('/auth/sign-in');
+    });
+
+    it('sets flash reset cookie on success', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      const setCookies = (res.headers as unknown as { getAll(name: string): string[] }).getAll(
+        'Set-Cookie'
+      );
+      const flashCookie = setCookies.find((c: string) => c.includes('__Host-flash_reset='));
+      expect(flashCookie).toBeDefined();
+      expect(flashCookie).toContain('__Host-flash_reset=1');
+    });
+
+    it('passes token and password to use case', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: true });
+      const req = makeResetPasswordPostRequest({
+        token: 'my-token',
+        password: 'myNewPass12345',
+        passwordConfirm: 'myNewPass12345',
+      });
+      await handlers.handlePostResetPassword(req);
+      expect(resetPasswordUseCaseMock.execute).toHaveBeenCalledWith({
+        token: 'my-token',
+        newPassword: 'myNewPass12345',
+      });
+    });
+
+    it('re-renders form with error on invalid_token', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'invalid_token' });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(400);
+      const body = await res.text();
+      expect(body).toContain('invalid or has expired');
+    });
+
+    it('re-renders form with password error on weak_password', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'weak_password' });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('at least 12 characters');
+    });
+
+    it('re-renders form with password error on password_too_common', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({
+        ok: false,
+        kind: 'password_too_common',
+      });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('too common');
+    });
+
+    it('re-renders form with general error on service_error', async () => {
+      resetPasswordUseCaseMock.execute.mockResolvedValue({ ok: false, kind: 'service_error' });
+      const req = makeResetPasswordPostRequest();
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('An error occurred. Please try again.');
+    });
+
+    it('returns 400 when token is empty', async () => {
+      const req = makeResetPasswordPostRequest({ token: '' });
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(400);
+      const body = await res.text();
+      expect(body).toContain('invalid or has expired');
+    });
+
+    it('re-renders form with password_confirm error when passwords do not match', async () => {
+      expect.assertions(2);
+      const req = makeResetPasswordPostRequest({
+        password: 'newSecurePass123',
+        passwordConfirm: 'differentPassword',
+      });
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(200);
+      const body = await res.text();
+      expect(body).toContain('Passwords do not match');
+    });
+
+    it('does not call use case when passwords do not match', async () => {
+      expect.assertions(1);
+      const req = makeResetPasswordPostRequest({
+        password: 'newSecurePass123',
+        passwordConfirm: 'differentPassword',
+      });
+      await handlers.handlePostResetPassword(req);
+      expect(resetPasswordUseCaseMock.execute).not.toHaveBeenCalled();
+    });
+
+    it('returns 403 when CSRF token is invalid', async () => {
+      const req = makeResetPasswordPostRequest({ csrfCookie: 'wrong' });
+      const res = await handlers.handlePostResetPassword(req);
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('handleGetSignIn with password reset success', () => {
+    it('shows password reset success banner when flash reset cookie is present', async () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: '__Host-flash_reset=1' },
+      });
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).toContain('Password reset successfully');
+    });
+
+    it('clears the flash reset cookie when present', () => {
+      const req = new Request('https://example.com/auth/sign-in', {
+        headers: { Cookie: '__Host-flash_reset=1' },
+      });
+      const res = handlers.handleGetSignIn(req);
+      const setCookies = (res.headers as unknown as { getAll(name: string): string[] }).getAll(
+        'Set-Cookie'
+      );
+      const clearCookie = setCookies.find((c: string) => c.includes('__Host-flash_reset='));
+      expect(clearCookie).toBeDefined();
+      expect(clearCookie).toContain('Max-Age=0');
+    });
+
+    it('does not show password reset banner when flash reset cookie is absent', async () => {
+      const req = new Request('https://example.com/auth/sign-in');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('Password reset successfully');
+    });
+
+    it('does not show password reset banner from spoofable query parameter', async () => {
+      const req = new Request('https://example.com/auth/sign-in?reset=true');
+      const res = handlers.handleGetSignIn(req);
+      const body = await res.text();
+      expect(body).not.toContain('Password reset successfully');
     });
   });
 });

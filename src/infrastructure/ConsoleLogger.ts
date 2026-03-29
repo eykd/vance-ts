@@ -18,6 +18,16 @@ import type { Logger } from '../application/ports/Logger.js';
  */
 export class ConsoleLogger implements Logger {
   /**
+   * Logs an informational message via `console.info`.
+   *
+   * @param message - Human-readable description of the event.
+   */
+  info(message: string): void {
+    // eslint-disable-next-line no-console
+    console.info(message);
+  }
+
+  /**
    * Logs an error-level message with an optional cause via `console.error`.
    *
    * @param message - Human-readable description of the error context.

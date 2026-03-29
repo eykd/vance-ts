@@ -26,7 +26,7 @@ describe('rateLimitPage', () => {
 
     it('renders page title "Too Many Requests"', () => {
       const result = rateLimitPage({});
-      expect(result).toContain('<title>Too Many Requests</title>');
+      expect(result).toContain('<title>Too Many Requests | ClawTask</title>');
     });
 
     it('does not mention retry time when retryAfter is undefined', () => {
@@ -37,6 +37,38 @@ describe('rateLimitPage', () => {
     it('renders a link back to sign-in', () => {
       const result = rateLimitPage({});
       expect(result).toContain('href="/auth/sign-in"');
+      expect(result).toContain('Back to Sign In');
+    });
+  });
+
+  describe('with custom backLink', () => {
+    it('renders the custom back link href', () => {
+      const result = rateLimitPage({
+        backLink: { href: '/auth/sign-up', label: 'Back to Sign Up' },
+      });
+      expect(result).toContain('href="/auth/sign-up"');
+    });
+
+    it('renders the custom back link label', () => {
+      const result = rateLimitPage({
+        backLink: { href: '/auth/sign-up', label: 'Back to Sign Up' },
+      });
+      expect(result).toContain('Back to Sign Up');
+    });
+
+    it('does not render the default back-to-sign-in label when custom backLink is provided', () => {
+      const result = rateLimitPage({
+        backLink: { href: '/auth/sign-up', label: 'Back to Sign Up' },
+      });
+      expect(result).not.toContain('Back to Sign In');
+    });
+
+    it('renders forgot password back link', () => {
+      const result = rateLimitPage({
+        backLink: { href: '/auth/forgot-password', label: 'Back to Forgot Password' },
+      });
+      expect(result).toContain('href="/auth/forgot-password"');
+      expect(result).toContain('Back to Forgot Password');
     });
   });
 

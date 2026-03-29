@@ -297,7 +297,7 @@ Instead:
     name: 'd1-delete-no-where',
     category: 'platform-ops',
     pattern: /wrangler\s+d1\s+execute\b.*\bDELETE\s+FROM\b/i,
-    safePatterns: [/--command[\s=]+["'][^"']*\bDELETE\s+FROM\b[^"']*\bWHERE\b[^"']*["']/i],
+    safePatterns: [/wrangler\s+d1\s+execute\b.*\bDELETE\s+FROM\b[^"]*\bWHERE\b/i],
     message: `BLOCKED: Destructive D1 SQL detected (DELETE FROM without WHERE).
 
 DELETE FROM without a WHERE clause removes all rows from the table.
@@ -325,7 +325,7 @@ Instead:
 
 /**
  * Normalizes a command by collapsing line continuations and stripping
- * command wrappers (sudo, env, command, leading backslash).
+ * command wrappers (sudo, env, command, nohup, exec, time, nice, leading backslash).
  *
  * Line continuations are collapsed first (S9), then wrappers are
  * iteratively stripped using a do-while loop until the string stabilizes (Fix 1).
@@ -413,11 +413,11 @@ function extractShellPayload(command: string, prefix: RegExp): string | null {
       }
       i++;
     }
-    // No closing quote found — return everything after the opening quote
+    // No closing quote found
     return stripped.slice(1);
   }
   if (first === "'") {
-    // Single-quoted: find first closing quote (no escaping in single quotes)
+    // Single-quoted: no escape sequences, find first closing quote
     const end = stripped.indexOf("'", 1);
     if (end > 0) {
       return stripped.slice(1, end);

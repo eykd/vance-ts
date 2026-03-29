@@ -1,0 +1,33 @@
+;=============================================
+; A ready action can be activated.
+;=============================================
+GIVEN the user has an action in ready status.
+WHEN the user POSTs to /api/v1/actions/:id/activate.
+THEN the response has status 200.
+THEN the action status becomes active.
+THEN an audit event is recorded for the activation.
+
+;=============================================
+; An active action can be completed.
+;=============================================
+GIVEN the user has an action in active status.
+WHEN the user POSTs to /api/v1/actions/:id/complete.
+THEN the response has status 200.
+THEN the action status becomes done.
+THEN an audit event is recorded for the completion.
+
+;=============================================
+; Attempting to activate a done action is rejected.
+;=============================================
+GIVEN the user has an action in done status.
+WHEN the user POSTs to /api/v1/actions/:id/activate.
+THEN the response has status 422.
+THEN the response body describes the invalid status transition.
+
+;=============================================
+; Attempting to complete a ready action without activating it first is rejected.
+;=============================================
+GIVEN the user has an action in ready status.
+WHEN the user POSTs to /api/v1/actions/:id/complete directly without activating first.
+THEN the response has status 422.
+THEN the response body describes the invalid status transition.

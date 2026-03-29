@@ -1,0 +1,25 @@
+;=============================================
+; Authenticated user can capture an item to their inbox.
+;=============================================
+GIVEN the user is authenticated with a provisioned workspace.
+WHEN the user POSTs to /api/v1/inbox with a non-empty title.
+THEN the response has status 201.
+THEN the response body contains the created inbox item with status inbox.
+THEN an audit event is recorded for the capture.
+
+;=============================================
+; Submitting an empty title is rejected with a descriptive error.
+;=============================================
+GIVEN the user is authenticated with a provisioned workspace.
+WHEN the user POSTs to /api/v1/inbox with an empty title.
+THEN the response has status 400.
+THEN the response body contains a descriptive error message.
+
+;=============================================
+; Authenticated user can list their inbox items.
+;=============================================
+GIVEN the user is authenticated with a provisioned workspace.
+GIVEN the user has captured at least one item to their inbox.
+WHEN the user requests GET /api/v1/inbox.
+THEN the response has status 200.
+THEN the response body contains only inbox items with status inbox.

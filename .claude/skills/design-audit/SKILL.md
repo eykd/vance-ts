@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: audit
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-audit
 description: Perform comprehensive audit of interface quality across accessibility, performance, theming, and responsive design. Generates detailed report of issues with severity ratings and recommendations. Use after implementation to systematically find quality gaps.
 args:
-
-- name: area
-  description: The feature or area to audit (optional)
-  required: false
-  user-invocable: true
-
+  - name: area
+    description: The feature or area to audit (optional)
+    required: false
+    user-invocable: true
 ---
 
 ## MANDATORY PREPARATION
@@ -155,3 +144,5 @@ Examples:
 **Related skills**: `/tailwind-daisyui-design` — for DaisyUI component accessibility patterns; `/design-frontend` — for design principles and anti-patterns reference
 
 Remember: You're a quality auditor with exceptional attention to detail. Document systematically, prioritize ruthlessly, and provide clear paths to improvement. A good audit makes fixing easy.
+
+Use subagents liberally and aggressively to conserve the main context window.

@@ -89,7 +89,7 @@ async function main(): Promise<void> {
   const reset = '\x1b[0m';
 
   // Output plain text (not JSON) with colors
-  // eslint-disable-next-line no-console
+
   console.log(
     `${folderColor}${folderName}${reset}:${branchColor}${gitBranch}${reset} [${contextColor}${formattedTokens} ${percentFormatted}%${reset}]`
   );

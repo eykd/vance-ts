@@ -1,3 +1,3 @@
-#!/usr/bin/env bash
-cd /home/sprite/turtlebased-ts
+#!/bin/bash
+cd /home/sprite/clawtask
 exec just dev

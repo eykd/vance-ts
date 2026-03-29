@@ -1,22 +1,11 @@
-<!--
-  Original source: https://github.com/pbakaus/impeccable
-  Original skill: polish
-  Original author: Paul Bakaus
-  License: Apache License 2.0
-  Adapted: 2026-03-22 — Modified for TailwindCSS 4 + DaisyUI 5 + Hugo + Alpine.js 3 + HTMX stack
--->
-
 ---
-
 name: design-polish
 description: Final quality pass before shipping. Fixes alignment, spacing, consistency, and detail issues that separate good from great. Use after functional completion to catch visual inconsistencies, missing interaction states, and copy issues.
 args:
-
-- name: target
-  description: The feature or area to polish (optional)
-  required: false
-  user-invocable: true
-
+  - name: target
+    description: The feature or area to polish (optional)
+    required: false
+    user-invocable: true
 ---
 
 ## MANDATORY PREPARATION
@@ -218,3 +207,5 @@ Before marking as done:
 - **Check all states**: Don't just test happy path
 
 Remember: You have impeccable attention to detail and exquisite taste. Polish until it feels effortless, looks intentional, and works flawlessly. Sweat the details - they matter.
+
+Use subagents liberally and aggressively to conserve the main context window.
