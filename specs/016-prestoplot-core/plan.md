@@ -221,6 +221,7 @@ All limits and thresholds with their owning files:
 | `MAX_MARKOV_CORPUS_PRODUCT` | 100,000    | `grammarParser.ts`                | chars × order budget        |
 | `MAX_MARKOV_ORDER`          | 10         | `grammarParser.ts`                | Markov order upper bound    |
 | `MAX_DTO_CACHE_SIZE`        | 100        | `cachedStorage.ts`                | Grammar DTO cache (FIFO)    |
+| `MAX_SEED_LENGTH`           | 256        | `renderStoryService.ts`           | Seed string length guard    |
 
 ### Validation Rules Placement
 
@@ -708,3 +709,35 @@ _Added by adversarial review (sp:04-red-team, 2026-03-24)._
 `RenderContext.seedIntCache` caches `seedToInt` results per render pass but discards the cache after each call. For Phase 4 batch rendering (e.g., 100 system descriptions per request), the same scoped seed strings are hashed redundantly: 50 rules × 100 renders = 5,000 SHA-256 calls. While `crypto.subtle.digest` is sub-millisecond in Workers, the aggregate adds measurable latency.
 
 **Decision**: Deferred — Phase 1 single-render use case does not require cross-render caching. If Phase 4 profiling shows SHA-256 as a hotspot, add a `SeedCache` (bounded `Map<string, number>`, max 10,000 entries) on `RenderStoryService` shared across render calls within one request. Do not share across requests to avoid unbounded growth.
+
+### Seed String Unicode Normalization (Medium — EdgeCase)
+
+_Added by adversarial review (sp:04-red-team, 2026-03-29)._
+
+Visually identical Unicode strings with different normalization forms (NFC vs NFD) produce different SHA-256 hashes. For example, "café" in NFC (4 code points: U+0063 U+0061 U+0066 U+00E9) and NFD (5 code points: U+0063 U+0061 U+0066 U+0065 U+0301) display identically but hash to different values. If seeds are derived from copy-pasted text, user input, or external systems, SC-001 ("same seed always yields same output") breaks silently — two users providing what appears to be the same seed get different game content.
+
+**Mitigation**: In `seedHasher.ts`, normalize the seed string to NFC before encoding: `new TextEncoder().encode(seed.normalize('NFC'))`. NFC is the W3C-recommended normalization form and the default for most text input. Document this normalization in `seedHasher.ts` JSDoc so future maintainers understand why it's necessary. Add test cases: seed "café" in NFC and NFD produce identical `seedToInt` output; seed with combining diacriticals (e.g., U+0065 U+0301) produces the same hash as the precomposed form (U+00E9).
+
+### Seed String Length Unbounded (Medium — Security)
+
+_Added by adversarial review (sp:04-red-team, 2026-03-29)._
+
+`RenderStoryRequest.seed` validates only non-emptiness (rejecting empty strings as `invalid_seed`). No maximum length is enforced. A multi-megabyte seed string triggers a large `TextEncoder.encode()` + `crypto.subtle.digest()` call. Since `seedToInt` is called for every scoped seed — formatted as `"{baseSeed}-{scopeKey}"` — a 1MB seed with 50 rules produces 50× 1MB+ strings to encode and hash, consuming ~50MB+ of encoding work per render against the Workers 128MB memory ceiling. This is a resource exhaustion vector even without exceeding `MAX_EVALUATIONS`.
+
+**Mitigation**: Add `MAX_SEED_LENGTH = 256` validation in `RenderStoryService.render()` before any processing. Reject seeds exceeding this limit with `{ ok: false, kind: 'invalid_seed', message: 'Seed exceeds maximum length of 256 characters' }`. 256 characters is generous for any reasonable seed format (hex strings, UUIDs, location identifiers) while bounding the amplification factor. Add to the Constants Placement table. Add test cases: seed at exactly 256 characters (valid); seed at 257 characters (rejected); seed at 1MB (rejected).
+
+### `seedToInt` Encoding MUST Use UTF-8 (Low — EdgeCase)
+
+_Added by adversarial review (sp:04-red-team, 2026-03-29)._
+
+The plan specifies "SHA-256 hashing via `crypto.subtle`" but `crypto.subtle.digest` accepts `ArrayBuffer`, not strings. The byte encoding used to convert the seed string determines the hash. If `seedHasher.ts` uses `TextEncoder` (UTF-8) but a future CLI tool, migration script, or cross-platform client uses UTF-16 or Latin-1 encoding, the same seed string produces different hashes — breaking determinism portability.
+
+**Mitigation**: In `seedHasher.ts`, explicitly use `new TextEncoder().encode(normalizedSeed)` (which is always UTF-8 per WHATWG spec) and document in JSDoc: "Seed strings are encoded as UTF-8 before SHA-256 hashing. External tools computing seed hashes MUST use UTF-8 encoding for compatibility." Add a test case: a seed containing non-ASCII characters (e.g., "système-α") produces a specific, hardcoded expected hash — this pins the encoding and prevents silent changes.
+
+### Include Depth Counting Convention (Low — EdgeCase)
+
+_Added by adversarial review (sp:04-red-team, 2026-03-29)._
+
+`MAX_INCLUDE_DEPTH = 20` bounds include chain depth, but the plan does not define whether the root grammar counts as depth 0 or depth 1. An off-by-one in the depth counter allows either 19 or 21 transitive include levels depending on the implementer's interpretation. For a limit this small (20), a one-off error is a 5% deviation.
+
+**Mitigation**: Define explicitly: the root grammar is depth 0. The first level of includes is depth 1. `MAX_INCLUDE_DEPTH = 20` means the deepest include chain is `root → include₁ → include₂ → ... → include₂₀` (20 hops from root). Throw `IncludeDepthError` when `depth > MAX_INCLUDE_DEPTH`. Document this convention in `renderStoryService.ts` JSDoc next to the constant definition. Add test cases: include chain at exactly depth 20 (valid); include chain at depth 21 (rejected).
