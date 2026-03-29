@@ -19,6 +19,10 @@ Implement the Prestoplot grammar-based text generation engine — a deterministi
 **Constraints**: No Node.js APIs, async seed hashing (crypto.subtle), Workers CPU time limits
 **Scale/Scope**: Dozens of grammar files, hundreds of rules per grammar, thousands of renders per request batch
 
+## Presentation Design
+
+> _Deleted — backend-only feature with no user-facing UI. Prestoplot Core is a library consumed by other application services._
+
 ## Constitution Check
 
 _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
@@ -100,6 +104,21 @@ migrations/
 **Structure Decision**: Follows existing Clean Architecture layout. Port interfaces go in `src/application/ports/` (one file per port, matching existing StarSystemRepository.ts, RouteRepository.ts convention). Domain and infrastructure get `prestoplot/` subdirectories mirroring `galaxy/` pattern. Tests colocated with source (Workers vitest pool requirement). Single template engine (jinja2 subset) — no ftemplate.
 
 **Coverage Note**: Workers vitest project (`src/**/*.spec.ts`) cannot contribute to v8 coverage reports — the Workers runtime lacks `node:inspector`. The 100% coverage threshold applies to `acceptance/**/*.ts` only. Prestoplot tests run and must pass but are coverage-exempt by runtime constraint.
+
+## Acceptance Test Strategy
+
+> **ATDD Outer Loop**: Each user story with acceptance scenarios in the spec will have a corresponding acceptance spec file created during `sp:05-tasks`. These files live in `specs/acceptance-specs/` and follow the GWT format consumed by the acceptance pipeline. Ralph's ATDD cycle depends on these files existing before `US<N>` tasks are processed.
+
+| User Story | Acceptance Spec File                                  | Scenarios |
+| ---------- | ----------------------------------------------------- | --------- |
+| US1        | `specs/acceptance-specs/US01-render-grammar.txt`      | 4         |
+| US2        | `specs/acceptance-specs/US02-selection-modes.txt`     | 5         |
+| US3        | `specs/acceptance-specs/US03-scoped-randomness.txt`   | 3         |
+| US4        | `specs/acceptance-specs/US04-grammar-parsing.txt`     | 4         |
+| US5        | `specs/acceptance-specs/US05-template-evaluation.txt` | 3         |
+| US6        | `specs/acceptance-specs/US06-article-generation.txt`  | 3         |
+| US7        | `specs/acceptance-specs/US07-grammar-storage.txt`     | 3         |
+| US8        | `specs/acceptance-specs/US08-grammar-includes.txt`    | 3         |
 
 ## Implementation Order
 

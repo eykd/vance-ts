@@ -2,7 +2,7 @@
 
 **Feature Branch**: `016-prestoplot-core`
 **Created**: 2026-03-24
-**Status**: Draft
+**Status**: Red-teamed
 **Beads Epic**: `turtlebased-s9rk`
 **Beads Phase Tasks**:
 
@@ -159,7 +159,7 @@ A grammar file can include rules from other grammar files, enabling content reus
 - What happens when a PICK mode rule has been fully exhausted and requests continue? → A new epoch begins (reshuffled).
 - What happens when a MARKOV chain has insufficient training data? → Fallback to empty string or minimum-length output with available data.
 - What happens when template recursion is too deep? → Recursion depth limit prevents stack overflow; error raised at limit.
-- What happens when seed string is empty? → SHA-256 of empty string is valid; produces a deterministic (if unusual) seed.
+- What happens when seed string is empty? → Rejected as `invalid_seed` error (empty seed has a publicly known hash, making output predictable).
 - What happens when a grammar includes itself? → Detected as circular include; error raised.
 
 ## Requirements
