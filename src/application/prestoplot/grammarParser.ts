@@ -343,6 +343,17 @@ function parseRule(
     return parseTextRule(name, value, moduleName, defaultStrategy);
   }
   if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return err(
+        new GrammarParseError(
+          'empty_alternatives',
+          `Grammar "${moduleName}": rule "${name}" must have at least one item or weighted alternative`
+        )
+      );
+    }
+    if (hasWeightedAlternatives(value)) {
+      return parseWeightedAlternatives(name, value, moduleName, defaultStrategy);
+    }
     return parseListRule(name, value, moduleName, defaultStrategy);
   }
   if (typeof value === 'object' && value !== null) {
@@ -404,6 +415,145 @@ function detectStrategy(text: string, defaultStrategy: RenderStrategy): RenderSt
     return RenderStrategy.TEMPLATE;
   }
   return defaultStrategy;
+}
+
+/**
+ * Checks if an array contains weighted alternative objects.
+ * An array is weighted alternatives if any non-options item has a `text` key.
+ *
+ * @param value - Array to check.
+ * @returns True if the array contains weighted alternative objects.
+ */
+function hasWeightedAlternatives(value: unknown[]): boolean {
+  if (value.length === 0) {
+    return false;
+  }
+  // Check first item (or second if first is an options object)
+  const firstItem = value[0];
+  if (isWeightedAlternativeObject(firstItem)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Checks if a value is a weighted alternative object (mapping with a `text` key and no `mode` key).
+ *
+ * @param value - Value to check.
+ * @returns True if value is a weighted alternative object.
+ */
+function isWeightedAlternativeObject(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    'text' in (value as Record<string, unknown>) &&
+    !('mode' in (value as Record<string, unknown>))
+  );
+}
+
+/**
+ * Parses a list of weighted alternative objects into a TextRule.
+ *
+ * @param name - Rule name.
+ * @param items - Array of weighted alternative objects.
+ * @param moduleName - Module name for error messages.
+ * @param defaultStrategy - Default render strategy.
+ * @returns Ok with a TextRule, Err on invalid weighted alternative structure.
+ */
+function parseWeightedAlternatives(
+  name: string,
+  items: unknown[],
+  moduleName: string,
+  defaultStrategy: RenderStrategy
+): Result<TextRule, GrammarParseError> {
+  if (items.length === 0) {
+    return err(
+      new GrammarParseError(
+        'empty_alternatives',
+        `Grammar "${moduleName}": rule "${name}" must have at least one weighted alternative`
+      )
+    );
+  }
+
+  const alternatives: WeightedAlternative[] = [];
+  let hasTemplate = false;
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i] as Record<string, unknown>;
+    const rawText = item['text'];
+
+    if (typeof rawText !== 'string') {
+      return err(
+        new GrammarParseError(
+          'invalid_weighted_text',
+          `Grammar "${moduleName}": rule "${name}" weighted alternative at index ${String(i)}: text must be a string, got ${typeof rawText}`
+        )
+      );
+    }
+
+    const normalized = normalizeText(rawText);
+
+    if (normalized.length > MAX_TEMPLATE_LENGTH) {
+      return err(
+        new GrammarParseError(
+          'template_too_long',
+          `Grammar "${moduleName}": rule "${name}" weighted alternative at index ${String(i)} template exceeds maximum length of ${String(MAX_TEMPLATE_LENGTH)}`
+        )
+      );
+    }
+
+    if (normalized.includes('{{') || /\{[A-Za-z_]/.test(normalized)) {
+      hasTemplate = true;
+    }
+
+    const rawWeight = item['weight'];
+    let weight = 1;
+    if (rawWeight !== undefined && rawWeight !== null) {
+      const weightCheck = validateWeight(rawWeight, name, i, moduleName);
+      if (!weightCheck.success) {
+        return weightCheck;
+      }
+      weight = weightCheck.value;
+    }
+
+    alternatives.push({ text: normalized, weight });
+  }
+
+  const strategy = hasTemplate ? RenderStrategy.TEMPLATE : defaultStrategy;
+
+  return ok({
+    name,
+    type: 'text' as const,
+    alternatives,
+    strategy,
+  });
+}
+
+/**
+ * Validates that a weight is a positive finite number.
+ *
+ * @param raw - Raw weight value.
+ * @param ruleName - Rule name for error messages.
+ * @param index - Item index for error messages.
+ * @param moduleName - Module name for error messages.
+ * @returns Ok with validated weight, Err on invalid weight.
+ */
+function validateWeight(
+  raw: unknown,
+  ruleName: string,
+  index: number,
+  moduleName: string
+): Result<number, GrammarParseError> {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) {
+    return err(
+      new GrammarParseError(
+        'invalid_weight',
+        `Grammar "${moduleName}": rule "${ruleName}" weight at index ${String(index)} must be a positive number, got ${String(raw)}`
+      )
+    );
+  }
+  return ok(raw);
 }
 
 /**

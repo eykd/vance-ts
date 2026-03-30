@@ -582,6 +582,97 @@ describe('parseGrammar', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Weighted alternatives (TextRule from array of {text, weight} objects)
+  // ---------------------------------------------------------------------------
+
+  describe('weighted alternatives parsing', () => {
+    it('parses an array of {text, weight} objects as a TextRule', () => {
+      const yaml =
+        '"Begin":\n  - {"text": "option A", "weight": 5}\n  - {"text": "option B", "weight": 3}';
+      const { value: grammar } = parseOk(yaml);
+      const rule = grammar.rules.get('Begin');
+      expect(rule?.type).toBe('text');
+      if (rule?.type === 'text') {
+        expect(rule.alternatives).toHaveLength(2);
+        expect(rule.alternatives[0]?.text).toBe('option A');
+        expect(rule.alternatives[0]?.weight).toBe(5);
+        expect(rule.alternatives[1]?.text).toBe('option B');
+        expect(rule.alternatives[1]?.weight).toBe(3);
+      }
+    });
+
+    it('defaults weight to 1 when not specified in weighted alternative object', () => {
+      const yaml = '"Begin":\n  - {"text": "only text"}';
+      const { value: grammar } = parseOk(yaml);
+      const rule = grammar.rules.get('Begin');
+      expect(rule?.type).toBe('text');
+      if (rule?.type === 'text') {
+        expect(rule.alternatives[0]?.weight).toBe(1);
+      }
+    });
+
+    it('detects TEMPLATE strategy for weighted alternatives with expressions', () => {
+      const yaml = '"Begin":\n  - {"text": "{Hero} wins", "weight": 2}\n"Hero": "Alice"';
+      const { value: grammar } = parseOk(yaml);
+      const rule = grammar.rules.get('Begin');
+      if (rule?.type === 'text') {
+        expect(rule.strategy).toBe(RenderStrategy.TEMPLATE);
+      }
+    });
+
+    it('normalizes text in weighted alternatives', () => {
+      const yaml = '"Begin":\n  - {"text": "  hello  ", "weight": 1}';
+      const { value: grammar } = parseOk(yaml);
+      const rule = grammar.rules.get('Begin');
+      if (rule?.type === 'text') {
+        expect(rule.alternatives[0]?.text).toBe('hello');
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Error cases: weight range validation
+  // ---------------------------------------------------------------------------
+
+  describe('weight range validation', () => {
+    it('returns error on weight of 0', () => {
+      const error = parseErr('"Begin":\n  - {"text": "bad", "weight": 0}');
+      expect(error.code).toBe('invalid_weight');
+      expect(error.message).toContain('must be a positive number');
+    });
+
+    it('returns error on negative weight', () => {
+      const error = parseErr('"Begin":\n  - {"text": "bad", "weight": -1}');
+      expect(error.code).toBe('invalid_weight');
+      expect(error.message).toContain('must be a positive number');
+    });
+
+    it('returns error when weight is a string', () => {
+      const error = parseErr('"Begin":\n  - {"text": "bad", "weight": "five"}');
+      expect(error.code).toBe('invalid_weight');
+      expect(error.message).toContain('must be a positive number');
+    });
+
+    it('returns error on empty weighted alternatives array', () => {
+      const error = parseErr('"Begin": []');
+      expect(error.code).toBe('empty_alternatives');
+      expect(error.message).toContain('must have at least one');
+    });
+
+    it('returns error when weighted alternative text is not a string', () => {
+      const error = parseErr('"Begin":\n  - {"text": 42, "weight": 1}');
+      expect(error.code).toBe('invalid_weighted_text');
+      expect(error.message).toContain('text must be a string');
+    });
+
+    it('returns error when weighted alternative text exceeds MAX_TEMPLATE_LENGTH', () => {
+      const longText = 'x'.repeat(MAX_TEMPLATE_LENGTH + 1);
+      const error = parseErr(`"Begin":\n  - {"text": "${longText}", "weight": 1}`);
+      expect(error.code).toBe('template_too_long');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Error cases: unsupported rule types
   // ---------------------------------------------------------------------------
 
