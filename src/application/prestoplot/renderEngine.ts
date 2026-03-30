@@ -12,6 +12,14 @@ import { RenderBudgetError } from '../../domain/prestoplot/errors.js';
 import type { Grammar, ListRule, TextRule } from '../../domain/prestoplot/grammar.js';
 import { RenderStrategy, SelectionMode } from '../../domain/prestoplot/grammar.js';
 import type { Seed } from '../../domain/prestoplot/seed.js';
+import type { SelectionState } from '../../domain/prestoplot/selectionModes.js';
+import {
+  createSelectionState,
+  selectList,
+  selectPick,
+  selectRatchet,
+  selectReuse,
+} from '../../domain/prestoplot/selectionModes.js';
 
 import type { RandomPort, Rng } from './RandomSource.js';
 import type { TemplateEnginePort } from './TemplateEngine.js';
@@ -25,20 +33,10 @@ export const MAX_EVALUATIONS = 10_000;
 interface RenderContext {
   /** Async SHA-256 results cache, keyed by scoped seed string. */
   readonly seedIntCache: Map<string, number>;
-  /** PICK mode shuffled arrays + RATCHET counters, keyed by rule name. */
-  readonly selectionState: Map<string, SelectionState>;
+  /** Shared selection state for stateful modes (PICK, RATCHET). */
+  readonly selectionState: SelectionState;
   /** Total rule evaluations in this render pass. */
   evaluationCount: number;
-}
-
-/** Per-rule selection state for stateful modes (PICK, RATCHET). */
-interface SelectionState {
-  /** Current cursor position within the shuffled/ordered sequence. */
-  cursor: number;
-  /** Shuffled indices (PICK) or sequential order. */
-  indices: number[];
-  /** Epoch counter for PICK mode reshuffling. */
-  epoch: number;
 }
 
 /**
@@ -67,7 +65,7 @@ export function createRenderEngine(
 ): RenderEngine {
   const context: RenderContext = {
     seedIntCache: new Map(),
-    selectionState: new Map(),
+    selectionState: createSelectionState(),
     evaluationCount: 0,
   };
 
@@ -121,40 +119,8 @@ export function createRenderEngine(
   }
 
   /**
-   * Get or initialize selection state for a rule.
-   *
-   * @param ruleName - The rule name to look up selection state for.
-   * @returns The existing or newly initialized selection state.
-   */
-  function getSelectionState(ruleName: string): SelectionState {
-    let state = context.selectionState.get(ruleName);
-    if (state === undefined) {
-      state = { cursor: 0, indices: [], epoch: 0 };
-      context.selectionState.set(ruleName, state);
-    }
-    return state;
-  }
-
-  /**
-   * Fisher-Yates shuffle of indices using the given RNG.
-   *
-   * @param count - The number of indices to generate and shuffle.
-   * @param rng - The random number generator for shuffling.
-   * @returns A shuffled array of indices from 0 to count-1.
-   */
-  function shuffleIndices(count: number, rng: Rng): number[] {
-    const indices = Array.from({ length: count }, (_, i) => i);
-    for (let i = count - 1; i > 0; i--) {
-      const j = Math.floor(rng.next() * (i + 1));
-      const temp = indices[i]!;
-      indices[i] = indices[j]!;
-      indices[j] = temp;
-    }
-    return indices;
-  }
-
-  /**
    * Select an item from a list rule based on its selection mode.
+   * Delegates to domain selection functions for REUSE, PICK, RATCHET, LIST.
    *
    * @param rule - The list rule to select an item from.
    * @returns The selected item string.
@@ -163,33 +129,19 @@ export function createRenderEngine(
     switch (rule.selectionMode) {
       case SelectionMode.REUSE: {
         const rng = await getRng(rule.name);
-        const index = Math.floor(rng.next() * rule.items.length);
-        return rule.items[index]!;
+        return selectReuse(rule.items, rng);
       }
       case SelectionMode.RATCHET: {
-        const state = getSelectionState(rule.name);
-        const index = state.cursor % rule.items.length;
-        state.cursor++;
-        return rule.items[index]!;
+        return selectRatchet(rule.items, rule.name, context.selectionState);
       }
       case SelectionMode.LIST: {
         const rng = await getRng(rule.name);
         const index = Math.floor(rng.next() * rule.items.length);
-        return rule.items[index]!;
+        return selectList(rule.items, index);
       }
       case SelectionMode.PICK: {
-        const state = getSelectionState(rule.name);
-        if (state.indices.length === 0 || state.cursor >= state.indices.length) {
-          const epochSeed = `${seed}-${rule.name}-epoch-${String(state.epoch)}`;
-          const epochSeedInt = await getSeedInt(epochSeed);
-          const epochRng = randomPort.createRng(epochSeedInt);
-          state.indices = shuffleIndices(rule.items.length, epochRng);
-          state.cursor = 0;
-          state.epoch++;
-        }
-        const index = state.indices[state.cursor]!;
-        state.cursor++;
-        return rule.items[index]!;
+        const rng = await getRng(rule.name);
+        return selectPick(rule.items, rng, rule.name, context.selectionState);
       }
       case SelectionMode.MARKOV: {
         // MARKOV rendering handled by markovChain module (separate task)
