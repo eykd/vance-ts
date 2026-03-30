@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { GrammarParseError } from '../../domain/prestoplot/errors.js';
 import { RenderStrategy, SelectionMode } from '../../domain/prestoplot/grammar.js';
+import { MAX_MARKOV_CORPUS_PRODUCT } from '../../domain/prestoplot/markovChain.js';
 
 import {
   MAX_GRAMMAR_SOURCE_BYTES,
-  MAX_MARKOV_CORPUS_PRODUCT,
   MAX_MARKOV_ORDER,
   MAX_TEMPLATE_LENGTH,
   parseGrammar,
@@ -919,10 +919,6 @@ describe('parseGrammar', () => {
 
     it('exports MAX_MARKOV_ORDER as 10', () => {
       expect(MAX_MARKOV_ORDER).toBe(10);
-    });
-
-    it('exports MAX_MARKOV_CORPUS_PRODUCT as 100000', () => {
-      expect(MAX_MARKOV_CORPUS_PRODUCT).toBe(100_000);
     });
   });
 });

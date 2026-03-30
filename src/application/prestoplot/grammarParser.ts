@@ -34,8 +34,6 @@ export const MAX_TEMPLATE_LENGTH = 10_000;
 /** Maximum Markov order value. */
 export const MAX_MARKOV_ORDER = 10;
 
-export { MAX_MARKOV_CORPUS_PRODUCT };
-
 /** Pattern for valid grammar keys: lowercase, starts with letter, allows hyphens and underscores. */
 const GRAMMAR_KEY_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
