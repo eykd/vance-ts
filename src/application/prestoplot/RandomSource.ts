@@ -1,46 +1,12 @@
 /**
- * Random source port interfaces.
+ * Re-exports random source types from the domain layer.
  *
- * Defines the contract for creating seeded random number generators.
- * Separates async seed hashing (SHA-256) from synchronous PRNG
- * construction to keep the rendering hot path synchronous.
- *
- * Re-exports `Rng` from the domain layer as the canonical synchronous
- * PRNG interface shared across layers.
+ * RandomPort is defined in the domain layer where port interfaces
+ * belong per Clean Architecture. This module re-exports it for
+ * backward compatibility. Rng is re-exported from selectionModes.
  *
  * @module application/prestoplot/RandomSource
  */
 
-import type { Rng } from '../../domain/prestoplot/selectionModes.js';
-
-export type { Rng };
-
-/**
- * Port for creating seeded random number generators.
- *
- * Implementations provide deterministic randomness by hashing seed
- * strings to integers and constructing stateful PRNGs from those integers.
- */
-export interface RandomPort {
-  /**
-   * Convert a seed string to a 32-bit unsigned integer.
-   *
-   * Uses SHA-256 hashing, taking the first 4 bytes as big-endian uint32.
-   * Async because crypto.subtle.digest is async in Workers.
-   *
-   * @param seed - The seed string to hash.
-   * @returns A 32-bit unsigned integer derived from the seed.
-   */
-  seedToInt(seed: string): Promise<number>;
-
-  /**
-   * Create a new Rng instance from a numeric seed.
-   *
-   * The returned Rng is deterministic — same seed always produces
-   * the same sequence of values.
-   *
-   * @param seed - A 32-bit unsigned integer seed.
-   * @returns A stateful Rng that advances on each next() call.
-   */
-  createRng(seed: number): Rng;
-}
+export type { RandomPort } from '../../domain/prestoplot/randomPort.js';
+export type { Rng } from '../../domain/prestoplot/selectionModes.js';
