@@ -122,6 +122,35 @@ describe('createKVStorage', () => {
       expect(getFn).toHaveBeenCalledWith('grammar:mykey', 'json');
     });
 
+    it('throws StorageError with invalid_data code when KV returns non-GrammarDto object', async () => {
+      const { namespace, getFn } = createMockKV();
+      getFn.mockResolvedValueOnce({ not: 'a grammar dto' });
+      const storage = createKVStorage(namespace);
+      try {
+        await storage.load('corrupt');
+        expect.fail('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(StorageError);
+        expect((err as StorageError).code).toBe('invalid_data');
+      }
+    });
+
+    it('throws StorageError when KV returns a non-object value', async () => {
+      const { namespace, getFn } = createMockKV();
+      getFn.mockResolvedValueOnce('just a string');
+      const storage = createKVStorage(namespace);
+      await expect(storage.load('bad')).rejects.toThrow(StorageError);
+    });
+
+    it('returns valid GrammarDto unchanged after validation', async () => {
+      const { namespace, getFn } = createMockKV();
+      const dto = makeDto('valid', { greeting: { type: 'text' } });
+      getFn.mockResolvedValueOnce(dto);
+      const storage = createKVStorage(namespace);
+      const result = await storage.load('valid');
+      expect(result).toEqual(dto);
+    });
+
     it('wraps KV errors as StorageError', async () => {
       const { namespace, getFn } = createMockKV();
       getFn.mockRejectedValueOnce(new Error('KV read failure'));

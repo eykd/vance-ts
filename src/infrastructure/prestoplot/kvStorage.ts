@@ -8,6 +8,7 @@
  * @module infrastructure/prestoplot/kvStorage
  */
 
+import { isGrammarDto } from '../../application/prestoplot/dto.js';
 import type { GrammarDto, StoragePort } from '../../application/prestoplot/GrammarStorage.js';
 import { StorageError } from '../../domain/prestoplot/errors.js';
 
@@ -40,8 +41,18 @@ export function createKVStorage(kv: KVNamespace): StoragePort {
   return {
     async load(key: string): Promise<GrammarDto | null> {
       try {
-        return await kv.get<GrammarDto>(`${KEY_PREFIX}${key}`, 'json');
+        const raw: unknown = await kv.get(`${KEY_PREFIX}${key}`, 'json');
+        if (raw === null) {
+          return null;
+        }
+        if (!isGrammarDto(raw)) {
+          throw new StorageError('invalid_data', `Corrupted grammar data for key "${key}"`);
+        }
+        return raw;
       } catch (err) {
+        if (err instanceof StorageError) {
+          throw err;
+        }
         throw wrapError('load_failed', `Failed to load grammar "${key}"`, err);
       }
     },
