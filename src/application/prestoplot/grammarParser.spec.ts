@@ -728,6 +728,19 @@ describe('parseGrammar', () => {
       expect(error.code).toBe('invalid_includes');
       expect(error.message).toContain('must be strings');
     });
+
+    it.each([
+      ['empty string', ''],
+      ['uppercase key', 'Hello'],
+      ['path traversal', '../neighbor'],
+      ['contains spaces', 'a b'],
+      ['starts with digit', '0abc'],
+    ])('returns error when include key is invalid: %s', (_label: string, key: string) => {
+      const yaml = `"include":\n  - "${key}"\n"Begin": "Hello"`;
+      const error = parseErr(yaml);
+      expect(error.code).toBe('invalid_includes');
+      expect(error.message).toContain('must match pattern');
+    });
   });
 
   // ---------------------------------------------------------------------------

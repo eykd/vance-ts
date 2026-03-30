@@ -209,6 +209,14 @@ function extractIncludes(
         )
       );
     }
+    if (!GRAMMAR_KEY_PATTERN.test(item)) {
+      return err(
+        new GrammarParseError(
+          'invalid_includes',
+          `Grammar "${moduleName}": include key "${item}" must match pattern ${GRAMMAR_KEY_PATTERN.toString()}`
+        )
+      );
+    }
   }
   return ok(raw as string[]);
 }
