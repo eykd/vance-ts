@@ -4,7 +4,7 @@
  * @module infrastructure/galaxy/D1RouteRepository
  */
 
-import type { ConnectedSystem, RouteRepository } from '../../application/ports/RouteRepository.js';
+import type { ConnectedSystem, RouteRepository } from '../../domain/interfaces/RouteRepository.js';
 
 import { assertConnectedSystemRow, mapRowToConnectedSystem } from './mappers.js';
 

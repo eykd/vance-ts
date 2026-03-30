@@ -27,8 +27,8 @@ export const UnboundSentinel = 'throw new Error("acceptance test not yet bound")
 const IT_PREFIX_DOUBLE = /^it\("((?:[^"\\]|\\.)+)",\s+/;
 /** Regex matching `^it('desc',\s+` with single-quoted description. */
 const IT_PREFIX_SINGLE = /^it\('((?:[^'\\]|\\.)+)',\s+/;
-/** The exact suffix that ends the it() signature before the callback body. */
-const CALLBACK_SUFFIX = 'async () => {';
+/** Pattern matching the callback opening — supports both sync and async. */
+const CALLBACK_SUFFIX_RE = /^(async )?(\(\) => \{)/;
 
 /**
  * Matches an `it()` line with an optional vitest options object.
@@ -70,12 +70,13 @@ export function matchItLine(line: string): { description: string; matchLength: n
     pos += commaAndSpace[0].length;
   }
 
-  // Must end with the callback opening
-  if (!line.slice(pos).startsWith(CALLBACK_SUFFIX)) {
+  // Must end with the callback opening (sync or async)
+  const suffixMatch = CALLBACK_SUFFIX_RE.exec(line.slice(pos));
+  if (suffixMatch === null) {
     return null;
   }
 
-  return { description, matchLength: pos + CALLBACK_SUFFIX.length };
+  return { description, matchLength: pos + suffixMatch[0].length };
 }
 
 /**

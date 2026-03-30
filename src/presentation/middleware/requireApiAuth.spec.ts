@@ -1,7 +1,7 @@
 import { Hono } from 'hono/tiny';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthService } from '../../application/ports/AuthService.js';
+import type { AuthService } from '../../domain/interfaces/AuthService.js';
 import type { WorkspaceRepository } from '../../domain/interfaces/WorkspaceRepository.js';
 
 import { createRequireApiAuth } from './requireApiAuth.js';

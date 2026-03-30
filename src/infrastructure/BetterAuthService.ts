@@ -11,8 +11,8 @@
 
 import type { betterAuth } from 'better-auth';
 
-import type { AuthService, AuthSessionDto, AuthUserDto } from '../application/ports/AuthService.js';
-import type { Logger } from '../application/ports/Logger.js';
+import type { AuthService, AuthSessionDto, AuthUserDto } from '../domain/interfaces/AuthService.js';
+import type { Logger } from '../domain/interfaces/Logger.js';
 import { verifyPassword } from '../domain/services/passwordHasher.js';
 import { toHex } from '../shared/hex.js';
 

@@ -7,9 +7,9 @@
  * @module
  */
 
+import type { AuthService } from '../../domain/interfaces/AuthService.js';
+import type { Logger } from '../../domain/interfaces/Logger.js';
 import { COMMON_PASSWORDS } from '../../domain/value-objects/common-passwords.js';
-import type { AuthService } from '../ports/AuthService.js';
-import type { Logger } from '../ports/Logger.js';
 
 /**
  * Input DTO for the password reset use case.

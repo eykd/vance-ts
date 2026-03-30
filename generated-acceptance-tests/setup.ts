@@ -9,10 +9,15 @@ import { beforeAll } from 'vitest';
 import { registerLeakDetection } from './leak-detection.js';
 
 import {
+  captureInboxItem,
+  createReadyAction,
   extractSessionCookie,
   get,
   getAuthForm,
+  getFirstAreaId,
+  getFirstContextId,
   post,
+  setupUser,
   signInAs,
   submitAuthForm,
 } from './helpers.js';
@@ -25,6 +30,11 @@ globalThis.getAuthForm = getAuthForm;
 globalThis.submitAuthForm = submitAuthForm;
 globalThis.extractSessionCookie = extractSessionCookie;
 globalThis.signInAs = signInAs;
+globalThis.setupUser = setupUser;
+globalThis.captureInboxItem = captureInboxItem;
+globalThis.getFirstAreaId = getFirstAreaId;
+globalThis.getFirstContextId = getFirstContextId;
+globalThis.createReadyAction = createReadyAction;
 globalThis.env = env;
 
 /**

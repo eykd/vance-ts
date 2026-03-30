@@ -1,4 +1,4 @@
-import type { AuthSessionDto, AuthUserDto } from '../application/ports/AuthService';
+import type { AuthSessionDto, AuthUserDto } from '../domain/interfaces/AuthService';
 import type { Env } from '../shared/env';
 
 /**

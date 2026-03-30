@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Logger } from '../application/ports/Logger';
+import type { Logger } from '../domain/interfaces/Logger';
 import type { Env } from '../shared/env';
 
 import { type OnUserCreated, getAuth, resetAuth } from './auth';

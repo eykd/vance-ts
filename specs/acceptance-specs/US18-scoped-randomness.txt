@@ -1,0 +1,20 @@
+;=============================================
+; Seed hashing produces deterministic integers.
+;=============================================
+GIVEN a seed string "sol-42".
+WHEN converted to an integer via SHA-256 hashing.
+THEN the result is deterministic and consistent across renders.
+
+;=============================================
+; Different scope keys produce different sequences.
+;=============================================
+GIVEN a base seed and two different scope keys.
+WHEN scoped seeds are derived.
+THEN each produces a different but deterministic PRNG sequence.
+
+;=============================================
+; Adding unrelated rules does not change existing output.
+;=============================================
+GIVEN a grammar rendered with seed "sol-42".
+WHEN a new unrelated rule is added to the grammar.
+THEN existing rules produce the same output as before.

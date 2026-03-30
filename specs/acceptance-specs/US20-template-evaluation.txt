@@ -1,0 +1,20 @@
+;=============================================
+; Rule reference expressions are resolved.
+;=============================================
+GIVEN text containing a rule reference expression.
+WHEN rendered.
+THEN the expression is replaced with the rendered output of the referenced rule.
+
+;=============================================
+; Dot-access expressions resolve struct fields.
+;=============================================
+GIVEN text containing a dot-access expression for a struct rule field.
+WHEN rendered.
+THEN the expression is replaced with the struct field value.
+
+;=============================================
+; Missing rule reference produces clear error.
+;=============================================
+GIVEN text containing a reference to a non-existent rule.
+WHEN rendered.
+THEN a clear error identifies the missing reference.

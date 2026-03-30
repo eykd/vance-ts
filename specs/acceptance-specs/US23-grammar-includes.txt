@@ -1,0 +1,20 @@
+;=============================================
+; Included grammar rules are available for reference.
+;=============================================
+GIVEN grammar A that includes grammar B.
+WHEN grammar A is rendered.
+THEN rules from grammar B are available for reference.
+
+;=============================================
+; Circular includes are detected and rejected.
+;=============================================
+GIVEN grammar A includes B and B includes A.
+WHEN parsing.
+THEN a circular include error is raised.
+
+;=============================================
+; Transitive includes resolve across multiple grammars.
+;=============================================
+GIVEN grammar A includes B which includes C.
+WHEN rendered.
+THEN rules from all three grammars are available.

@@ -1,0 +1,27 @@
+;=============================================
+; Valid grammar file produces correct Grammar object.
+;=============================================
+GIVEN a valid YAML grammar file with text list and struct rules.
+WHEN parsed.
+THEN a Grammar object is produced with all rules correctly typed.
+
+;=============================================
+; Unknown rule type produces clear error.
+;=============================================
+GIVEN a YAML file with an unknown rule type.
+WHEN parsed.
+THEN a clear error message identifies the invalid rule.
+
+;=============================================
+; Missing rule reference produces validation error.
+;=============================================
+GIVEN a YAML file referencing a non-existent rule.
+WHEN parsed.
+THEN a validation error reports the missing reference.
+
+;=============================================
+; Circular includes are detected at parse time.
+;=============================================
+GIVEN a YAML file with circular includes.
+WHEN parsed.
+THEN a circular dependency error is raised.

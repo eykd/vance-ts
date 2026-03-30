@@ -14,12 +14,12 @@
 import { Hono } from 'hono/tiny';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { RateLimiter } from '../../application/ports/RateLimiter';
+import type { RateLimiter } from '../../domain/interfaces/RateLimiter';
 import {
   MAX_ATTEMPTS,
   REGISTER_WINDOW_SECONDS,
   SIGN_IN_WINDOW_SECONDS,
-} from '../../application/ports/RateLimiter';
+} from '../../domain/interfaces/RateLimiter';
 
 import { createApiAuthRateLimit } from './apiAuthRateLimit';
 

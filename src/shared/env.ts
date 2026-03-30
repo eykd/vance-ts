@@ -18,4 +18,6 @@ export interface Env {
   readonly RATE_LIMIT: DurableObjectNamespace;
   /** Sentry DSN for error tracking. */
   readonly SENTRY_DSN: string;
+  /** KV namespace for Prestoplot grammar storage. */
+  readonly GRAMMAR_KV: KVNamespace;
 }

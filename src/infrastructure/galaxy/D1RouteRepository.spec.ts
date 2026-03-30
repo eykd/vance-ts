@@ -21,7 +21,6 @@ const tEnv = typedEnv(env);
 
 describe('D1RouteRepository', () => {
   beforeAll(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- cloudflare:test types unresolvable in ESLint tsconfig
     await applyD1Migrations(tEnv.DB, STAR_SYSTEMS_AND_ROUTES_MIGRATION);
   });
 

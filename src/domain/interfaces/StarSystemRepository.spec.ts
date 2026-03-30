@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { stubStarSystem } from '../../../tests/fixtures/stubStarSystem';
-import type { StarSystem } from '../../domain/galaxy/types';
+import type { StarSystem } from '../galaxy/types';
 
 import type { StarSystemRepository } from './StarSystemRepository';
 

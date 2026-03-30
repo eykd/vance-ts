@@ -1,4 +1,4 @@
-import type { StarSystem } from '../../domain/galaxy/types';
+import type { StarSystem } from '../galaxy/types';
 
 /**
  * Port interface for accessing star system data.

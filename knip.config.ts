@@ -57,6 +57,8 @@ const config: KnipConfig = {
     '@stryker-mutator/api',
     // Used by tools/galaxy-generator (eslint config)
     'eslint-plugin-prettier',
+    // Will be imported by prestoplot-core grammar parser (in progress)
+    'yaml',
   ],
 
   ignoreBinaries: [

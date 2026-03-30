@@ -235,6 +235,9 @@ Always use subagents liberally and aggressively to conserve the main context win
 
 ## Active Technologies
 
+- TypeScript ES2022 (Cloudflare Workers runtime) + yaml (YAML parsing), @cloudflare/workers-types, existing Mulberry32 PRNG (016-prestoplot-core)
+- Cloudflare KV (primary), D1 (alternative), InMemory (testing) (016-prestoplot-core)
+
 - TypeScript (ES2022) + Hugo Go templates + Hono (HTTP framework), DaisyUI 5, Tailwind CSS 4, Hugo (015-static-error-pages)
 - N/A (no persistence — static pages only) (015-static-error-pages)
 

@@ -1,0 +1,34 @@
+;=============================================
+; REUSE mode selects with replacement.
+;=============================================
+GIVEN a rule with REUSE mode.
+WHEN rendered multiple times from the same seed.
+THEN items are selected with replacement allowing repeats.
+
+;=============================================
+; PICK mode selects without replacement per epoch.
+;=============================================
+GIVEN a rule with PICK mode.
+WHEN rendered N times where N equals the item count.
+THEN each item appears exactly once before any repeats.
+
+;=============================================
+; RATCHET mode cycles items sequentially.
+;=============================================
+GIVEN a rule with RATCHET mode.
+WHEN rendered sequentially.
+THEN items cycle in order and wrap around after the last item.
+
+;=============================================
+; LIST mode returns item at specified index.
+;=============================================
+GIVEN a rule with LIST mode and an index.
+WHEN rendered.
+THEN the specific item at that index is returned.
+
+;=============================================
+; MARKOV mode generates novel strings from training data.
+;=============================================
+GIVEN a rule with MARKOV mode and training data.
+WHEN rendered.
+THEN a novel string is generated using character-level Markov chain probabilities.

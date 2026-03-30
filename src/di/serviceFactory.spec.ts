@@ -54,6 +54,11 @@ const mocks = vi.hoisted(() => ({
   createActionApiHandlers: vi.fn(),
   AppPageHandlers: vi.fn(),
   AppPartialHandlers: vi.fn(),
+  createKVStorage: vi.fn(),
+  createCachedStorage: vi.fn(),
+  createMulberry32Random: vi.fn(),
+  Jinja2Engine: vi.fn(),
+  renderStory: vi.fn(),
 }));
 
 vi.mock('../infrastructure/auth', () => ({
@@ -213,6 +218,26 @@ vi.mock('../presentation/handlers/AppPartialHandlers', () => ({
   AppPartialHandlers: mocks.AppPartialHandlers,
 }));
 
+vi.mock('../infrastructure/prestoplot/kvStorage', () => ({
+  createKVStorage: mocks.createKVStorage,
+}));
+
+vi.mock('../infrastructure/prestoplot/cachedStorage', () => ({
+  createCachedStorage: mocks.createCachedStorage,
+}));
+
+vi.mock('../infrastructure/prestoplot/mulberry32Random', () => ({
+  createMulberry32Random: mocks.createMulberry32Random,
+}));
+
+vi.mock('../infrastructure/prestoplot/jinja2Engine', () => ({
+  Jinja2Engine: mocks.Jinja2Engine,
+}));
+
+vi.mock('../application/prestoplot/renderStoryService', () => ({
+  renderStory: mocks.renderStory,
+}));
+
 /**
  * Builds a minimal valid Env for testing.
  *
@@ -226,6 +251,7 @@ function makeEnv(overrides?: Partial<Env>): Env {
     BETTER_AUTH_URL: 'https://example.turtlebased.io',
     BETTER_AUTH_SECRET: 'a'.repeat(32),
     RATE_LIMIT: {} as DurableObjectNamespace,
+    GRAMMAR_KV: {} as KVNamespace,
     ...overrides,
   } as Env;
 }
@@ -1419,6 +1445,83 @@ describe('ServiceFactory', () => {
       const second = factory.appPartialHandlers;
       expect(first).toBe(second);
       expect(mocks.AppPartialHandlers).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('renderStoryService', () => {
+    it('wires CachedStorage wrapping KVStorage with prestoplot dependencies', () => {
+      const mockKvStorage = { load: vi.fn(), save: vi.fn() };
+      const mockCachedStorage = { load: vi.fn(), save: vi.fn() };
+      const mockRandomPort = { seedToInt: vi.fn(), createRng: vi.fn() };
+      const mockTemplateEngine = { evaluate: vi.fn() };
+
+      mocks.createKVStorage.mockReturnValue(mockKvStorage);
+      mocks.createCachedStorage.mockReturnValue(mockCachedStorage);
+      mocks.createMulberry32Random.mockReturnValue(mockRandomPort);
+      mocks.Jinja2Engine.mockImplementation(function () {
+        return mockTemplateEngine;
+      });
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+      const service = factory.renderStoryService;
+
+      expect(service).toBeDefined();
+      expect(typeof service).toBe('function');
+      expect(mocks.createKVStorage).toHaveBeenCalledWith(env.GRAMMAR_KV);
+      expect(mocks.createCachedStorage).toHaveBeenCalledWith(mockKvStorage);
+    });
+
+    it('delegates to renderStory with pre-bound dependencies', async () => {
+      const mockKvStorage = { load: vi.fn(), save: vi.fn() };
+      const mockCachedStorage = { load: vi.fn(), save: vi.fn() };
+      const mockRandomPort = { seedToInt: vi.fn(), createRng: vi.fn() };
+      const mockTemplateEngine = { evaluate: vi.fn() };
+      const mockResult = { ok: true, text: 'hello' };
+
+      mocks.createKVStorage.mockReturnValue(mockKvStorage);
+      mocks.createCachedStorage.mockReturnValue(mockCachedStorage);
+      mocks.createMulberry32Random.mockReturnValue(mockRandomPort);
+      mocks.Jinja2Engine.mockImplementation(function () {
+        return mockTemplateEngine;
+      });
+      mocks.renderStory.mockResolvedValue(mockResult);
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+      const request = { grammarKey: 'test', seed: 'abc' };
+      const result = await factory.renderStoryService(request);
+
+      expect(result).toBe(mockResult);
+      expect(mocks.renderStory).toHaveBeenCalledWith(
+        request,
+        mockCachedStorage,
+        mockRandomPort,
+        mockTemplateEngine
+      );
+    });
+
+    it('returns the same function on successive calls (lazy singleton)', () => {
+      const mockKvStorage = { load: vi.fn(), save: vi.fn() };
+      const mockCachedStorage = { load: vi.fn(), save: vi.fn() };
+      const mockRandomPort = { seedToInt: vi.fn(), createRng: vi.fn() };
+      const mockTemplateEngine = { evaluate: vi.fn() };
+
+      mocks.createKVStorage.mockReturnValue(mockKvStorage);
+      mocks.createCachedStorage.mockReturnValue(mockCachedStorage);
+      mocks.createMulberry32Random.mockReturnValue(mockRandomPort);
+      mocks.Jinja2Engine.mockImplementation(function () {
+        return mockTemplateEngine;
+      });
+
+      const env = makeEnv();
+      const factory = getServiceFactory(env);
+
+      const first = factory.renderStoryService;
+      const second = factory.renderStoryService;
+      expect(first).toBe(second);
+      expect(mocks.createKVStorage).toHaveBeenCalledTimes(1);
+      expect(mocks.createCachedStorage).toHaveBeenCalledTimes(1);
     });
   });
 });

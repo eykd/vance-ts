@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthService } from '../ports/AuthService.js';
-import type { Logger } from '../ports/Logger.js';
-import type { RateLimiter } from '../ports/RateLimiter.js';
+import type { AuthService } from '../../domain/interfaces/AuthService.js';
+import type { Logger } from '../../domain/interfaces/Logger.js';
+import type { RateLimiter } from '../../domain/interfaces/RateLimiter.js';
 import {
   MAX_ATTEMPTS,
   SIGN_IN_EMAIL_MAX_ATTEMPTS,
   SIGN_IN_EMAIL_WINDOW_SECONDS,
   SIGN_IN_WINDOW_SECONDS,
-} from '../ports/RateLimiter.js';
+} from '../../domain/interfaces/RateLimiter.js';
 
 import { SignInUseCase } from './SignInUseCase.js';
 

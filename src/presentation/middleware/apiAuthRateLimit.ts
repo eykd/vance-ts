@@ -16,8 +16,8 @@
 
 import type { Context, Next } from 'hono';
 
-import type { RateLimiter } from '../../application/ports/RateLimiter';
-import { MAX_ATTEMPTS } from '../../application/ports/RateLimiter';
+import type { RateLimiter } from '../../domain/interfaces/RateLimiter';
+import { MAX_ATTEMPTS } from '../../domain/interfaces/RateLimiter';
 import type { AppEnv } from '../types';
 import { extractClientIp } from '../utils/extractClientIp';
 

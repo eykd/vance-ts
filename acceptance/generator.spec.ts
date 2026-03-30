@@ -95,8 +95,21 @@ describe('matchItLine', () => {
     expect(matchItLine('it("test", { timeout: 30_000 } async () => {')).toBeNull();
   });
 
-  it('returns null if line does not end with async callback', () => {
-    expect(matchItLine('it("test", () => {')).toBeNull();
+  it('matches a sync callback', () => {
+    const result = matchItLine('it("test", () => {');
+    expect(result).not.toBeNull();
+    expect(result!.description).toBe('test');
+    expect(result!.matchLength).toBe('it("test", () => {'.length);
+  });
+
+  it('matches a sync callback with vitest options', () => {
+    const result = matchItLine('it("test", { timeout: 5000 }, () => {');
+    expect(result).not.toBeNull();
+    expect(result!.description).toBe('test');
+  });
+
+  it('returns null if callback is not an arrow function', () => {
+    expect(matchItLine('it("test", function() {')).toBeNull();
   });
 
   it('unescapes backslash sequences in description', () => {
@@ -224,6 +237,13 @@ describe('extractBoundFunctions', () => {
     const result = extractBoundFunctions(source);
     expect(result.has("User's profile.")).toBe(true);
     expect(result.get("User's profile.")).toBe(source);
+  });
+
+  it('preserves a bound implementation with sync callback', () => {
+    const source = `it("sync test", () => {\n  expect(1).toBe(1);\n});`;
+    const result = extractBoundFunctions(source);
+    expect(result.has('sync test')).toBe(true);
+    expect(result.get('sync test')).toBe(source);
   });
 
   it('preserves a bound function whose description contains escaped double quotes', () => {

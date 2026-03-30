@@ -8,11 +8,11 @@
  * @module
  */
 
+import type { AuthService } from '../../domain/interfaces/AuthService.js';
+import type { Logger } from '../../domain/interfaces/Logger.js';
+import type { RateLimiter } from '../../domain/interfaces/RateLimiter.js';
+import { MAX_ATTEMPTS, REGISTER_WINDOW_SECONDS } from '../../domain/interfaces/RateLimiter.js';
 import { COMMON_PASSWORDS } from '../../domain/value-objects/common-passwords.js';
-import type { AuthService } from '../ports/AuthService.js';
-import type { Logger } from '../ports/Logger.js';
-import type { RateLimiter } from '../ports/RateLimiter.js';
-import { MAX_ATTEMPTS, REGISTER_WINDOW_SECONDS } from '../ports/RateLimiter.js';
 
 /**
  * Input DTO for the sign-up use case.

@@ -182,6 +182,18 @@ Spec: specs/014-guard-hook-hardening/spec.md
 
 ---
 
+## Prestoplot Core
+
+Keywords: prestoplot, grammar, text generation, procedural text, YAML grammar, seed,
+deterministic rendering, selection mode, REUSE, PICK, RATCHET, MARKOV, LIST, template
+expression, jinja2, article generation, indefinite article, KV storage,
+grammar includes, Mulberry32, PRNG, scoped seed, render context, narrative, crew chatter,
+system description, content authoring
+
+Spec: specs/016-prestoplot-core/spec.md
+
+---
+
 ## Static Error Pages
 
 Keywords: error page, 404, 500, not found, server error, internal server error, HTML error,

@@ -8,9 +8,9 @@
  * @module
  */
 
-import type { AuthService } from '../ports/AuthService.js';
-import type { Logger } from '../ports/Logger.js';
-import type { RateLimiter } from '../ports/RateLimiter.js';
+import type { AuthService } from '../../domain/interfaces/AuthService.js';
+import type { Logger } from '../../domain/interfaces/Logger.js';
+import type { RateLimiter } from '../../domain/interfaces/RateLimiter.js';
 
 /** Rate limit window for password reset requests (15 minutes). */
 const RESET_WINDOW_SECONDS = 900;

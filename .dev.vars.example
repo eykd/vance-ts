@@ -8,3 +8,5 @@
 BETTER_AUTH_SECRET=
 # Public base URL for better-auth (use localhost for local dev)
 BETTER_AUTH_URL=http://localhost:8787
+# Sentry DSN for error tracking (set via 'wrangler secret put SENTRY_DSN' in production)
+SENTRY_DSN=

@@ -8,7 +8,7 @@
  * @module
  */
 
-import type { AuthService } from '../ports/AuthService.js';
+import type { AuthService } from '../../domain/interfaces/AuthService.js';
 
 /**
  * Input DTO for the sign-out use case.

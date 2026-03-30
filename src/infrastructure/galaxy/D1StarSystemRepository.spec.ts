@@ -20,7 +20,6 @@ const tEnv = typedEnv(env);
 
 describe('D1StarSystemRepository', () => {
   beforeAll(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- cloudflare:test types unresolvable in ESLint tsconfig
     await applyD1Migrations(tEnv.DB, STAR_SYSTEMS_MIGRATION);
   });
 

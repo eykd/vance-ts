@@ -20,7 +20,6 @@ head_sampling_rate = 1
 
 [vars]
 BETTER_AUTH_URL = "https://meetclawtask.com"
-SENTRY_DSN = "https://7bca9511c888608a009a723f2559af55@o4506101095137280.ingest.us.sentry.io/4511106056912896"
 
 routes = [
   { pattern = "meetclawtask.com", custom_domain = true },
@@ -41,6 +40,10 @@ binding = "DB"
 database_name = "clawtask"
 database_id = "af4840f9-c958-4c16-ae79-f71e662e9643"
 migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "GRAMMAR_KV"
+id = "1240cd8f9e3e4a15bff1dd3c9cead5d9"
 
 [[durable_objects.bindings]]
 name = "RATE_LIMIT"

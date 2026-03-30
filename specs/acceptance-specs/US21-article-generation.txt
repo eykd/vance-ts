@@ -1,0 +1,27 @@
+;=============================================
+; Vowel-starting word gets "an" article.
+;=============================================
+GIVEN the word "apple".
+WHEN an indefinite article is generated.
+THEN the result is "an apple".
+
+;=============================================
+; Consonant-sound word gets "a" article despite vowel spelling.
+;=============================================
+GIVEN the word "university".
+WHEN an indefinite article is generated.
+THEN the result is "a university".
+
+;=============================================
+; Silent-h word gets "an" article.
+;=============================================
+GIVEN the word "hour".
+WHEN an indefinite article is generated.
+THEN the result is "an hour".
+
+;=============================================
+; European-sound word gets "a" article despite vowel start.
+;=============================================
+GIVEN the word "European".
+WHEN an indefinite article is generated.
+THEN the result is "a European".

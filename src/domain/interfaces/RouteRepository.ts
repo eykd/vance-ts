@@ -1,4 +1,4 @@
-import type { StarSystem } from '../../domain/galaxy/types';
+import type { StarSystem } from '../galaxy/types';
 
 /**
  * A star system reachable via a route, along with the traversal cost.
