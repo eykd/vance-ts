@@ -239,6 +239,13 @@ describe('extractBoundFunctions', () => {
     expect(result.get("User's profile.")).toBe(source);
   });
 
+  it('preserves a bound implementation with sync callback', () => {
+    const source = `it("sync test", () => {\n  expect(1).toBe(1);\n});`;
+    const result = extractBoundFunctions(source);
+    expect(result.has('sync test')).toBe(true);
+    expect(result.get('sync test')).toBe(source);
+  });
+
   it('preserves a bound function whose description contains escaped double quotes', () => {
     // generateTests escapes " to \" in it() descriptions.
     // extractBoundFunctions must match and unescape so the map key
