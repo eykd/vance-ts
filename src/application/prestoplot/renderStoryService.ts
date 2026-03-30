@@ -93,69 +93,155 @@ export type RenderStoryResult =
     }
   | { readonly ok: false; readonly kind: 'include_limit'; readonly count: number };
 
+/** BFS queue entry for include resolution. */
+interface IncludeQueueEntry {
+  /** The grammar whose includes need processing. */
+  readonly grammar: Grammar;
+  /** Current depth in the include tree. */
+  readonly depth: number;
+  /** Path from root to this grammar (for cycle detection). */
+  readonly path: readonly string[];
+}
+
 /**
- * Resolve includes for a grammar, loading transitive dependencies from storage.
- * Merges included grammar rules into the base grammar (base rules take precedence).
+ * Validate that all StructRule field references point to rules that exist
+ * in the merged rules map. Throws GrammarParseError if a reference is dangling.
+ *
+ * @param rules - The merged rules map after include resolution.
+ * @param grammarKey - The root grammar key for error messages.
+ */
+function validateStructRuleReferences(rules: ReadonlyMap<string, Rule>, grammarKey: string): void {
+  for (const [ruleName, rule] of rules) {
+    if (rule.type === 'struct') {
+      for (const [fieldName, ruleRef] of rule.fields) {
+        if (!rules.has(ruleRef)) {
+          // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
+          throw new GrammarParseError(
+            'missing_field_reference',
+            `Grammar "${grammarKey}": StructRule "${ruleName}" field "${fieldName}" references rule "${ruleRef}" which does not exist after include resolution`
+          );
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Resolve includes for a grammar using BFS left-to-right traversal.
+ *
+ * Loads each BFS level in parallel via Promise.all. Uses a path stack for
+ * circular include detection and a seen set for diamond dedup.
+ * Merges included grammar rules into the base grammar (base rules take
+ * precedence, then left-to-right among includes).
+ *
+ * After resolution, validates that StructRule field references resolve to
+ * rules present in the merged set.
  *
  * @param grammar - The base grammar.
  * @param storage - Storage port for loading included grammars.
- * @param visited - Set of already-visited grammar keys for cycle detection.
- * @param depth - Current include depth.
+ * @param rootKey - The root grammar key (for the seen set).
  * @returns Merged grammar with all includes resolved.
  */
 async function resolveIncludes(
   grammar: Grammar,
   storage: StoragePort,
-  visited: Set<string>,
-  depth: number
+  rootKey: string
 ): Promise<Grammar> {
   if (grammar.includes.length === 0) {
+    validateStructRuleReferences(grammar.rules, grammar.key);
     return grammar;
   }
 
   const mergedRules = new Map<string, Rule>(grammar.rules);
+  const seen = new Set<string>([rootKey]);
 
-  for (const includeKey of grammar.includes) {
-    if (visited.has(includeKey)) {
-      // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
-      throw new CircularIncludeError([...visited, includeKey]);
-    }
+  let queue: IncludeQueueEntry[] = [{ grammar, depth: 0, path: [rootKey] }];
 
-    if (depth + 1 > MAX_INCLUDE_DEPTH) {
-      // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
-      throw new IncludeDepthError(includeKey, depth + 1);
-    }
+  while (queue.length > 0) {
+    /** Pending loads for this BFS level, preserving left-to-right order. */
+    const batch: { key: string; depth: number; path: readonly string[] }[] = [];
 
-    if (visited.size + 1 > MAX_INCLUDE_COUNT) {
-      // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
-      throw new IncludeLimitError(visited.size + 1);
-    }
+    for (const entry of queue) {
+      for (const includeKey of entry.grammar.includes) {
+        // Cycle: key appears in the path from root to current node
+        if (entry.path.includes(includeKey)) {
+          // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
+          throw new CircularIncludeError([...entry.path, includeKey]);
+        }
 
-    const dto = await storage.load(includeKey);
-    if (dto === null) {
-      // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
-      throw new StorageError(
-        'module_not_found',
-        `Included grammar "${includeKey}" not found in storage`
-      );
-    }
+        // Diamond dedup: already visited via another branch
+        if (seen.has(includeKey)) {
+          continue;
+        }
 
-    const parseResult = grammarFromDto(dto);
-    if (!parseResult.success) {
-      // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
-      throw parseResult.error;
-    }
+        const nextDepth = entry.depth + 1;
+        if (nextDepth > MAX_INCLUDE_DEPTH) {
+          // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
+          throw new IncludeDepthError(includeKey, nextDepth);
+        }
 
-    visited.add(includeKey);
-    const resolved = await resolveIncludes(parseResult.value, storage, visited, depth + 1);
+        seen.add(includeKey);
+        if (seen.size > MAX_INCLUDE_COUNT) {
+          // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
+          throw new IncludeLimitError(seen.size);
+        }
 
-    // Merge: base grammar rules take precedence over included rules
-    for (const [name, rule] of resolved.rules) {
-      if (!mergedRules.has(name)) {
-        mergedRules.set(name, rule);
+        batch.push({
+          key: includeKey,
+          depth: nextDepth,
+          path: [...entry.path, includeKey],
+        });
       }
     }
+
+    if (batch.length === 0) {
+      break;
+    }
+
+    // Parallel load all includes in this BFS level
+    const dtos = await Promise.all(batch.map((b) => storage.load(b.key)));
+
+    const nextQueue: IncludeQueueEntry[] = [];
+
+    for (let i = 0; i < batch.length; i++) {
+      const item = batch[i]!;
+      const dto = dtos[i] ?? null;
+
+      if (dto === null) {
+        // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
+        throw new StorageError(
+          'module_not_found',
+          `Included grammar "${item.key}" not found in storage`
+        );
+      }
+
+      const parseResult = grammarFromDto(dto);
+      if (!parseResult.success) {
+        // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
+        throw parseResult.error;
+      }
+
+      // Merge rules: first occurrence wins (parent > left include > right include)
+      for (const [name, rule] of parseResult.value.rules) {
+        if (!mergedRules.has(name)) {
+          mergedRules.set(name, rule);
+        }
+      }
+
+      // Enqueue for next BFS level if this grammar has its own includes
+      if (parseResult.value.includes.length > 0) {
+        nextQueue.push({
+          grammar: parseResult.value,
+          depth: item.depth,
+          path: item.path,
+        });
+      }
+    }
+
+    queue = nextQueue;
   }
+
+  validateStructRuleReferences(mergedRules, grammar.key);
 
   return Object.freeze({
     key: grammar.key,
@@ -227,9 +313,8 @@ export async function renderStory(
       };
     }
 
-    // Resolve includes
-    const visited = new Set<string>([request.grammarKey]);
-    const resolvedGrammar = await resolveIncludes(parseResult.value, storage, visited, 0);
+    // Resolve includes (BFS, parallel per level)
+    const resolvedGrammar = await resolveIncludes(parseResult.value, storage, request.grammarKey);
 
     // Create transient render engine and render entry rule
     const engine = createRenderEngine(resolvedGrammar, randomPort, templateEngine, seed);

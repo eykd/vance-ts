@@ -347,6 +347,472 @@ describe('RenderStoryService', () => {
     });
   });
 
+  describe('include resolution', () => {
+    /**
+     * Creates a GrammarDto with custom rules map.
+     *
+     * @param key - Grammar key.
+     * @param rules - Rule map.
+     * @param includes - Include list.
+     * @param entry - Entry rule name.
+     * @returns A GrammarDto with the given rules.
+     */
+    function makeDtoWithRules(
+      key: string,
+      rules: Record<string, unknown>,
+      includes: readonly string[] = [],
+      entry = 'Begin'
+    ): GrammarDto {
+      return { version: 1, key, entry, includes: [...includes], rules };
+    }
+
+    /**
+     * Creates a simple text rule DTO value.
+     *
+     * @param text - The text for the single alternative.
+     * @returns A plain text rule object.
+     */
+    function textRule(text: string): Record<string, unknown> {
+      return {
+        type: 'text',
+        alternatives: [{ text, weight: 1 }],
+        strategy: 'PLAIN',
+      };
+    }
+
+    it('resolves BFS left-to-right: loads level-1 before level-2', async () => {
+      // A includes [B, C], B includes [D]
+      // BFS order: load B and C (level 1), then D (level 2)
+      const loadOrder: string[] = [];
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['B', 'C']),
+        B: makeDtoWithRules('B', { Begin: textRule('from B'), Shared: textRule('from B') }, ['D']),
+        C: makeDtoWithRules('C', { Begin: textRule('from C'), Extra: textRule('from C') }),
+        D: makeDtoWithRules('D', { Begin: textRule('from D'), Deep: textRule('from D') }),
+      };
+      const storage: StoragePort = {
+        load: vi.fn().mockImplementation((key: string) => {
+          loadOrder.push(key);
+          return Promise.resolve(dtos[key] ?? null);
+        }),
+        save: vi.fn(),
+        delete: vi.fn(),
+        keys: vi.fn(),
+      };
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(true);
+      // First load is A (root), then B and C (level 1), then D (level 2)
+      expect(loadOrder).toEqual(['A', 'B', 'C', 'D']);
+    });
+
+    it('loads same-level includes in parallel via Promise.all', async () => {
+      // A includes [B, C, D] — all three should be loaded in parallel
+      let concurrentCalls = 0;
+      let maxConcurrent = 0;
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['B', 'C', 'D']),
+        B: makeDtoWithRules('B', { Begin: textRule('from B') }),
+        C: makeDtoWithRules('C', { Begin: textRule('from C') }),
+        D: makeDtoWithRules('D', { Begin: textRule('from D') }),
+      };
+      const storage: StoragePort = {
+        load: vi.fn().mockImplementation((key: string) => {
+          concurrentCalls++;
+          if (concurrentCalls > maxConcurrent) {
+            maxConcurrent = concurrentCalls;
+          }
+          return new Promise((resolve) => {
+            // Simulate async delay
+            setTimeout(() => {
+              concurrentCalls--;
+              resolve(dtos[key] ?? null);
+            }, 10);
+          });
+        }),
+        save: vi.fn(),
+        delete: vi.fn(),
+        keys: vi.fn(),
+      };
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(true);
+      // B, C, D should have been loaded concurrently (max concurrent >= 3)
+      expect(maxConcurrent).toBeGreaterThanOrEqual(3);
+    });
+
+    it('detects circular includes via path stack: A→B→A', async () => {
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['B']),
+        B: makeDtoWithRules('B', { Begin: textRule('from B') }, ['A']),
+      };
+      const storage = stubStorage(dtos);
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('circular_include');
+        if (result.kind === 'circular_include') {
+          expect(result.chain).toContain('A');
+          expect(result.chain).toContain('B');
+        }
+      }
+    });
+
+    it('detects circular includes: A→B→C→A', async () => {
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['B']),
+        B: makeDtoWithRules('B', { Begin: textRule('from B') }, ['C']),
+        C: makeDtoWithRules('C', { Begin: textRule('from C') }, ['A']),
+      };
+      const storage = stubStorage(dtos);
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('circular_include');
+      }
+    });
+
+    it('handles diamond includes without error: A→[B,C], B→D, C→D', async () => {
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['B', 'C']),
+        B: makeDtoWithRules('B', { Begin: textRule('from B') }, ['D']),
+        C: makeDtoWithRules('C', { Begin: textRule('from C') }, ['D']),
+        D: makeDtoWithRules('D', { Begin: textRule('from D'), Leaf: textRule('from D') }),
+      };
+      const storage = stubStorage(dtos);
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(true);
+      // D should only be loaded once (dedup)
+      const loadCalls = (storage.load as ReturnType<typeof vi.fn>).mock.calls.map(
+        (c: unknown[]) => c[0]
+      );
+      const dLoadCount = loadCalls.filter((k: unknown) => k === 'D').length;
+      expect(dLoadCount).toBe(1);
+    });
+
+    it('left-to-right precedence: first include rule wins', async () => {
+      // A includes [B, C], both B and C define rule "Color"
+      // B's "Color" should win (left-to-right)
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules(
+          'A',
+          {
+            Begin: {
+              type: 'text',
+              alternatives: [{ text: '{{ Color }}', weight: 1 }],
+              strategy: 'TEMPLATE',
+            },
+          },
+          ['B', 'C']
+        ),
+        B: makeDtoWithRules('B', { Begin: textRule('from B'), Color: textRule('blue') }),
+        C: makeDtoWithRules('C', { Begin: textRule('from C'), Color: textRule('red') }),
+      };
+      const storage = stubStorage(dtos);
+
+      const templateEngine: TemplateEnginePort = {
+        evaluate: vi.fn().mockImplementation((t: string) => t),
+      };
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        templateEngine
+      );
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.text).toBe('blue');
+      }
+    });
+
+    it('parent rules override included rules', async () => {
+      // A has its own "Color" rule and includes B which also has "Color"
+      // A's "Color" should win
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules(
+          'A',
+          {
+            Begin: {
+              type: 'text',
+              alternatives: [{ text: '{{ Color }}', weight: 1 }],
+              strategy: 'TEMPLATE',
+            },
+            Color: textRule('green'),
+          },
+          ['B']
+        ),
+        B: makeDtoWithRules('B', { Begin: textRule('from B'), Color: textRule('red') }),
+      };
+      const storage = stubStorage(dtos);
+
+      const templateEngine: TemplateEnginePort = {
+        evaluate: vi.fn().mockImplementation((t: string) => t),
+      };
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        templateEngine
+      );
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.text).toBe('green');
+      }
+    });
+
+    it('enforces MAX_INCLUDE_DEPTH=20', async () => {
+      // Create a chain of 22 grammars: g0→g1→g2→...→g21
+      const dtos: Record<string, GrammarDto> = {};
+      for (let i = 0; i <= 21; i++) {
+        const key = `g${String(i)}`;
+        const includes = i < 21 ? [`g${String(i + 1)}`] : [];
+        dtos[key] = makeDtoWithRules(key, { Begin: textRule(`from ${key}`) }, includes);
+      }
+      const storage = stubStorage(dtos);
+
+      const result = await renderStory(
+        { grammarKey: 'g0', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('include_depth');
+      }
+    });
+
+    it('enforces MAX_INCLUDE_COUNT=50', async () => {
+      // Create a wide grammar that includes 51 children
+      const dtos: Record<string, GrammarDto> = {};
+      const includes: string[] = [];
+      for (let i = 0; i < 51; i++) {
+        const key = `child${String(i)}`;
+        includes.push(key);
+        dtos[key] = makeDtoWithRules(key, { Begin: textRule(`from ${key}`) });
+      }
+      dtos['root'] = makeDtoWithRules('root', { Begin: textRule('from root') }, includes);
+      const storage = stubStorage(dtos);
+
+      const result = await renderStory(
+        { grammarKey: 'root', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('include_limit');
+      }
+    });
+
+    it('per-include error: missing included grammar returns module_not_found', async () => {
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['missing-grammar']),
+      };
+      const storage = stubStorage(dtos);
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        // StorageError for missing include maps to storage_error
+        expect(result.kind).toBe('storage_error');
+      }
+    });
+
+    it('per-include error: invalid included grammar DTO returns parse_error', async () => {
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['bad']),
+        bad: { version: 999, key: 'bad', entry: 'Begin', includes: [], rules: {} },
+      };
+      const storage = stubStorage(dtos);
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('parse_error');
+      }
+    });
+
+    it('post-include StructRule validation: field references missing rule', async () => {
+      // A has a StructRule whose field references "MissingRule"
+      // B is included but does not provide "MissingRule"
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules(
+          'A',
+          {
+            Begin: {
+              type: 'struct',
+              fields: { name: 'MissingRule' },
+              template: '{{ name }}',
+            },
+          },
+          ['B']
+        ),
+        B: makeDtoWithRules('B', { Begin: textRule('from B'), Other: textRule('other') }),
+      };
+      const storage = stubStorage(dtos);
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.kind).toBe('parse_error');
+      }
+    });
+
+    it('post-include StructRule validation passes when include provides required rule', async () => {
+      // A has a StructRule whose field references "NameRule"
+      // B provides "NameRule"
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules(
+          'A',
+          {
+            Begin: {
+              type: 'struct',
+              fields: { name: 'NameRule' },
+              template: '{{ name }}',
+            },
+          },
+          ['B']
+        ),
+        B: makeDtoWithRules('B', { Begin: textRule('from B'), NameRule: textRule('Alice') }),
+      };
+      const storage = stubStorage(dtos);
+
+      // Template engine that substitutes context values into {{ field }} placeholders
+      const templateEngine: TemplateEnginePort = {
+        evaluate: vi.fn().mockImplementation((template: string, ctx: Record<string, string>) => {
+          let result = template;
+          for (const [key, value] of Object.entries(ctx)) {
+            result = result.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), value);
+          }
+          return result;
+        }),
+      };
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        templateEngine
+      );
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.text).toBe('Alice');
+      }
+    });
+
+    it('transitive includes resolve correctly: A→B→C provides rules to A', async () => {
+      const dtos: Record<string, GrammarDto> = {
+        A: makeDtoWithRules(
+          'A',
+          {
+            Begin: {
+              type: 'text',
+              alternatives: [{ text: '{{ Deep }}', weight: 1 }],
+              strategy: 'TEMPLATE',
+            },
+          },
+          ['B']
+        ),
+        B: makeDtoWithRules('B', { Begin: textRule('from B') }, ['C']),
+        C: makeDtoWithRules('C', { Begin: textRule('from C'), Deep: textRule('deep-value') }),
+      };
+      const storage = stubStorage(dtos);
+
+      const templateEngine: TemplateEnginePort = {
+        evaluate: vi.fn().mockImplementation((t: string) => t),
+      };
+
+      const result = await renderStory(
+        { grammarKey: 'A', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        templateEngine
+      );
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.text).toBe('deep-value');
+      }
+    });
+
+    it('grammar with no includes resolves unchanged', async () => {
+      const dto = makeDto('simple');
+      const storage = stubStorage({ simple: dto });
+
+      const result = await renderStory(
+        { grammarKey: 'simple', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.text).toBe('Hello from simple');
+      }
+    });
+  });
+
   describe('seed isolation and rule independence', () => {
     it('two renderStory calls with same seed produce identical output', async () => {
       const dto = makeDto('grammar-a');
