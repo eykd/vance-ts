@@ -12,6 +12,8 @@ import { isGrammarDto } from '../../application/prestoplot/dto.js';
 import type { GrammarDto, StoragePort } from '../../application/prestoplot/GrammarStorage.js';
 import { StorageError } from '../../domain/prestoplot/errors.js';
 
+import { wrapError } from './storageUtils.js';
+
 /** Row shape returned by SELECT queries on the grammars table. */
 interface GrammarRow {
   /** JSON-serialized GrammarDto. */
@@ -22,19 +24,6 @@ interface GrammarRow {
 interface KeyRow {
   /** Grammar key. */
   readonly key: string;
-}
-
-/**
- * Wraps an unknown error as a StorageError.
- *
- * @param code - Machine-readable error code.
- * @param message - Human-readable message.
- * @param cause - The underlying error.
- * @returns A StorageError wrapping the cause.
- */
-function wrapError(code: string, message: string, cause: unknown): StorageError {
-  const err = cause instanceof Error ? cause : new Error(String(cause));
-  return new StorageError(code, message, err);
 }
 
 /**

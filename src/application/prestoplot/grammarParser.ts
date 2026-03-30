@@ -25,6 +25,8 @@ import {
 import { MAX_MARKOV_CORPUS_PRODUCT } from '../../domain/prestoplot/markovChain.js';
 import { type Result, err, ok } from '../../domain/shared/Result.js';
 
+import { GRAMMAR_KEY_PATTERN } from './constants.js';
+
 /** Maximum YAML source size in UTF-16 code units (256 KB). */
 export const MAX_GRAMMAR_SOURCE_BYTES = 262_144;
 
@@ -33,9 +35,6 @@ export const MAX_TEMPLATE_LENGTH = 10_000;
 
 /** Maximum Markov order value. */
 export const MAX_MARKOV_ORDER = 10;
-
-/** Pattern for valid grammar keys: lowercase, starts with letter, allows hyphens and underscores. */
-const GRAMMAR_KEY_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
 /** Pattern for valid rule names: starts with letter or underscore, alphanumeric + underscore. */
 const RULE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;

@@ -23,23 +23,21 @@ import type { Grammar, Rule } from '../../domain/prestoplot/grammar.js';
 import { createSeed } from '../../domain/prestoplot/seed.js';
 import type { Seed } from '../../domain/prestoplot/seed.js';
 
+import { GRAMMAR_KEY_PATTERN } from './constants.js';
 import { grammarFromDto } from './dto.js';
 import type { StoragePort } from './GrammarStorage.js';
 import type { RandomPort } from './RandomSource.js';
 import { createRenderEngine } from './renderEngine.js';
 import type { TemplateEnginePort } from './TemplateEngine.js';
 
+/** Re-export GRAMMAR_KEY_PATTERN for backward-compatible public API. */
+export { GRAMMAR_KEY_PATTERN };
+
 /**
  * Grammar key length guard. Prevents abuse from extremely long key strings
  * before reaching storage.
  */
 export const MAX_GRAMMAR_KEY_LENGTH = 128;
-
-/**
- * Pattern for valid grammar keys: lowercase, starts with a letter,
- * allows digits, hyphens, and underscores.
- */
-export const GRAMMAR_KEY_PATTERN = /^[a-z][a-z0-9_-]*$/;
 
 /**
  * Seed string length guard. Prevents DoS from extremely long seed strings

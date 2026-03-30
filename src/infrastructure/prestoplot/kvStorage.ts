@@ -12,24 +12,13 @@ import { isGrammarDto } from '../../application/prestoplot/dto.js';
 import type { GrammarDto, StoragePort } from '../../application/prestoplot/GrammarStorage.js';
 import { StorageError } from '../../domain/prestoplot/errors.js';
 
+import { wrapError } from './storageUtils.js';
+
 /** Maximum KV value size in bytes. */
 export const MAX_KV_VALUE_BYTES = 24_000_000;
 
 /** Key prefix for all grammar entries in KV. */
 const KEY_PREFIX = 'grammar:';
-
-/**
- * Wraps an unknown error as a StorageError.
- *
- * @param code - Machine-readable error code.
- * @param message - Human-readable message.
- * @param cause - The underlying error.
- * @returns A StorageError wrapping the cause.
- */
-function wrapError(code: string, message: string, cause: unknown): StorageError {
-  const err = cause instanceof Error ? cause : new Error(String(cause));
-  return new StorageError(code, message, err);
-}
 
 /**
  * Creates a {@link StoragePort} backed by a Cloudflare KV namespace.
