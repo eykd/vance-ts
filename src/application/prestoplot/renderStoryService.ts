@@ -30,6 +30,18 @@ import { createRenderEngine } from './renderEngine.js';
 import type { TemplateEnginePort } from './TemplateEngine.js';
 
 /**
+ * Grammar key length guard. Prevents abuse from extremely long key strings
+ * before reaching storage.
+ */
+export const MAX_GRAMMAR_KEY_LENGTH = 128;
+
+/**
+ * Pattern for valid grammar keys: lowercase, starts with a letter,
+ * allows digits, hyphens, and underscores.
+ */
+export const GRAMMAR_KEY_PATTERN = /^[a-z][a-z0-9_-]*$/;
+
+/**
  * Seed string length guard. Prevents DoS from extremely long seed strings
  * causing expensive SHA-256 operations.
  */
@@ -58,6 +70,7 @@ export interface RenderStoryRequest {
 /** Typed result of a render story operation. */
 export type RenderStoryResult =
   | { readonly success: true; readonly text: string }
+  | { readonly success: false; readonly kind: 'invalid_key'; readonly message: string }
   | { readonly success: false; readonly kind: 'invalid_seed'; readonly message: string }
   | { readonly success: false; readonly kind: 'module_not_found'; readonly moduleName: string }
   | {
@@ -269,6 +282,22 @@ export async function renderStory(
   templateEngine: TemplateEnginePort
 ): Promise<RenderStoryResult> {
   try {
+    // Validate grammar key length and format before storage call
+    if (request.grammarKey.length > MAX_GRAMMAR_KEY_LENGTH) {
+      return {
+        success: false,
+        kind: 'invalid_key',
+        message: `Grammar key exceeds maximum length of ${String(MAX_GRAMMAR_KEY_LENGTH)}`,
+      };
+    }
+    if (!GRAMMAR_KEY_PATTERN.test(request.grammarKey)) {
+      return {
+        success: false,
+        kind: 'invalid_key',
+        message: `Grammar key "${request.grammarKey}" must match pattern ${GRAMMAR_KEY_PATTERN.toString()}`,
+      };
+    }
+
     // Validate seed length before other processing
     if (request.seed.length > MAX_SEED_LENGTH) {
       return {

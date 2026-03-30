@@ -14,6 +14,8 @@ import { StorageError, TemplateError } from '../../domain/prestoplot/errors.js';
 import type { GrammarDto, StoragePort } from './GrammarStorage.js';
 import type { RandomPort } from './RandomSource.js';
 import {
+  GRAMMAR_KEY_PATTERN,
+  MAX_GRAMMAR_KEY_LENGTH,
   MAX_INCLUDE_COUNT,
   MAX_INCLUDE_DEPTH,
   MAX_SEED_LENGTH,
@@ -99,6 +101,24 @@ describe('RenderStoryService', () => {
     it('MAX_INCLUDE_COUNT equals 50', () => {
       expect(MAX_INCLUDE_COUNT).toBe(50);
     });
+
+    it('MAX_GRAMMAR_KEY_LENGTH equals 128', () => {
+      expect(MAX_GRAMMAR_KEY_LENGTH).toBe(128);
+    });
+
+    it('GRAMMAR_KEY_PATTERN matches valid keys', () => {
+      expect(GRAMMAR_KEY_PATTERN.test('hello')).toBe(true);
+      expect(GRAMMAR_KEY_PATTERN.test('crew-chatter')).toBe(true);
+      expect(GRAMMAR_KEY_PATTERN.test('a0_b-c')).toBe(true);
+    });
+
+    it('GRAMMAR_KEY_PATTERN rejects invalid keys', () => {
+      expect(GRAMMAR_KEY_PATTERN.test('')).toBe(false);
+      expect(GRAMMAR_KEY_PATTERN.test('0abc')).toBe(false);
+      expect(GRAMMAR_KEY_PATTERN.test('Hello')).toBe(false);
+      expect(GRAMMAR_KEY_PATTERN.test('a b')).toBe(false);
+      expect(GRAMMAR_KEY_PATTERN.test('../etc')).toBe(false);
+    });
   });
 
   describe('successful render', () => {
@@ -128,6 +148,66 @@ describe('RenderStoryService', () => {
   });
 
   describe('never-throws contract', () => {
+    it('maps grammar key exceeding MAX_GRAMMAR_KEY_LENGTH to invalid_key result', async () => {
+      const storage = stubStorage({});
+      const longKey = 'a'.repeat(MAX_GRAMMAR_KEY_LENGTH + 1);
+      const request: RenderStoryRequest = { grammarKey: longKey, seed: 'alpha' };
+
+      const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.kind).toBe('invalid_key');
+      }
+    });
+
+    it('accepts grammar key at exactly MAX_GRAMMAR_KEY_LENGTH', async () => {
+      const exactKey = 'a'.repeat(MAX_GRAMMAR_KEY_LENGTH);
+      const dto = makeDto(exactKey);
+      const storage = stubStorage({ [exactKey]: dto });
+      const request: RenderStoryRequest = { grammarKey: exactKey, seed: 'alpha' };
+
+      const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
+
+      expect(result.success).toBe(true);
+    });
+
+    it('maps grammar key with invalid format to invalid_key result', async () => {
+      const storage = stubStorage({});
+      const request: RenderStoryRequest = { grammarKey: '../traversal', seed: 'alpha' };
+
+      const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.kind).toBe('invalid_key');
+      }
+    });
+
+    it('maps empty grammar key to invalid_key result', async () => {
+      const storage = stubStorage({});
+      const request: RenderStoryRequest = { grammarKey: '', seed: 'alpha' };
+
+      const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.kind).toBe('invalid_key');
+      }
+    });
+
+    it('maps uppercase grammar key to invalid_key result', async () => {
+      const storage = stubStorage({});
+      const request: RenderStoryRequest = { grammarKey: 'InvalidKey', seed: 'alpha' };
+
+      const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.kind).toBe('invalid_key');
+      }
+    });
+
     it('maps invalid (empty) seed to invalid_seed result', async () => {
       const storage = stubStorage({});
       const request: RenderStoryRequest = { grammarKey: 'any', seed: '' };
@@ -381,14 +461,14 @@ describe('RenderStoryService', () => {
     }
 
     it('resolves BFS left-to-right: loads level-1 before level-2', async () => {
-      // A includes [B, C], B includes [D]
-      // BFS order: load B and C (level 1), then D (level 2)
+      // a includes [b, c], b includes [d]
+      // BFS order: load b and c (level 1), then d (level 2)
       const loadOrder: string[] = [];
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['B', 'C']),
-        B: makeDtoWithRules('B', { Begin: textRule('from B'), Shared: textRule('from B') }, ['D']),
-        C: makeDtoWithRules('C', { Begin: textRule('from C'), Extra: textRule('from C') }),
-        D: makeDtoWithRules('D', { Begin: textRule('from D'), Deep: textRule('from D') }),
+        a: makeDtoWithRules('a', { Begin: textRule('from a') }, ['b', 'c']),
+        b: makeDtoWithRules('b', { Begin: textRule('from b'), Shared: textRule('from b') }, ['d']),
+        c: makeDtoWithRules('c', { Begin: textRule('from c'), Extra: textRule('from c') }),
+        d: makeDtoWithRules('d', { Begin: textRule('from d'), Deep: textRule('from d') }),
       };
       const storage: StoragePort = {
         load: vi.fn().mockImplementation((key: string) => {
@@ -401,26 +481,26 @@ describe('RenderStoryService', () => {
       };
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         stubTemplateEngine()
       );
 
       expect(result.success).toBe(true);
-      // First load is A (root), then B and C (level 1), then D (level 2)
-      expect(loadOrder).toEqual(['A', 'B', 'C', 'D']);
+      // First load is a (root), then b and c (level 1), then d (level 2)
+      expect(loadOrder).toEqual(['a', 'b', 'c', 'd']);
     });
 
     it('loads same-level includes in parallel via Promise.all', async () => {
-      // A includes [B, C, D] — all three should be loaded in parallel
+      // a includes [b, c, d] — all three should be loaded in parallel
       let concurrentCalls = 0;
       let maxConcurrent = 0;
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['B', 'C', 'D']),
-        B: makeDtoWithRules('B', { Begin: textRule('from B') }),
-        C: makeDtoWithRules('C', { Begin: textRule('from C') }),
-        D: makeDtoWithRules('D', { Begin: textRule('from D') }),
+        a: makeDtoWithRules('a', { Begin: textRule('from a') }, ['b', 'c', 'd']),
+        b: makeDtoWithRules('b', { Begin: textRule('from b') }),
+        c: makeDtoWithRules('c', { Begin: textRule('from c') }),
+        d: makeDtoWithRules('d', { Begin: textRule('from d') }),
       };
       const storage: StoragePort = {
         load: vi.fn().mockImplementation((key: string) => {
@@ -442,26 +522,26 @@ describe('RenderStoryService', () => {
       };
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         stubTemplateEngine()
       );
 
       expect(result.success).toBe(true);
-      // B, C, D should have been loaded concurrently (max concurrent >= 3)
+      // b, c, d should have been loaded concurrently (max concurrent >= 3)
       expect(maxConcurrent).toBeGreaterThanOrEqual(3);
     });
 
-    it('detects circular includes via path stack: A→B→A', async () => {
+    it('detects circular includes via path stack: a→b→a', async () => {
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['B']),
-        B: makeDtoWithRules('B', { Begin: textRule('from B') }, ['A']),
+        a: makeDtoWithRules('a', { Begin: textRule('from a') }, ['b']),
+        b: makeDtoWithRules('b', { Begin: textRule('from b') }, ['a']),
       };
       const storage = stubStorage(dtos);
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         stubTemplateEngine()
@@ -471,22 +551,22 @@ describe('RenderStoryService', () => {
       if (!result.success) {
         expect(result.kind).toBe('circular_include');
         if (result.kind === 'circular_include') {
-          expect(result.chain).toContain('A');
-          expect(result.chain).toContain('B');
+          expect(result.chain).toContain('a');
+          expect(result.chain).toContain('b');
         }
       }
     });
 
-    it('detects circular includes: A→B→C→A', async () => {
+    it('detects circular includes: a→b→c→a', async () => {
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['B']),
-        B: makeDtoWithRules('B', { Begin: textRule('from B') }, ['C']),
-        C: makeDtoWithRules('C', { Begin: textRule('from C') }, ['A']),
+        a: makeDtoWithRules('a', { Begin: textRule('from a') }, ['b']),
+        b: makeDtoWithRules('b', { Begin: textRule('from b') }, ['c']),
+        c: makeDtoWithRules('c', { Begin: textRule('from c') }, ['a']),
       };
       const storage = stubStorage(dtos);
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         stubTemplateEngine()
@@ -498,37 +578,37 @@ describe('RenderStoryService', () => {
       }
     });
 
-    it('handles diamond includes without error: A→[B,C], B→D, C→D', async () => {
+    it('handles diamond includes without error: a→[b,c], b→d, c→d', async () => {
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['B', 'C']),
-        B: makeDtoWithRules('B', { Begin: textRule('from B') }, ['D']),
-        C: makeDtoWithRules('C', { Begin: textRule('from C') }, ['D']),
-        D: makeDtoWithRules('D', { Begin: textRule('from D'), Leaf: textRule('from D') }),
+        a: makeDtoWithRules('a', { Begin: textRule('from a') }, ['b', 'c']),
+        b: makeDtoWithRules('b', { Begin: textRule('from b') }, ['d']),
+        c: makeDtoWithRules('c', { Begin: textRule('from c') }, ['d']),
+        d: makeDtoWithRules('d', { Begin: textRule('from d'), Leaf: textRule('from d') }),
       };
       const storage = stubStorage(dtos);
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         stubTemplateEngine()
       );
 
       expect(result.success).toBe(true);
-      // D should only be loaded once (dedup)
+      // d should only be loaded once (dedup)
       const loadCalls = (storage.load as ReturnType<typeof vi.fn>).mock.calls.map(
         (c: unknown[]) => c[0]
       );
-      const dLoadCount = loadCalls.filter((k: unknown) => k === 'D').length;
+      const dLoadCount = loadCalls.filter((k: unknown) => k === 'd').length;
       expect(dLoadCount).toBe(1);
     });
 
     it('left-to-right precedence: first include rule wins', async () => {
-      // A includes [B, C], both B and C define rule "Color"
-      // B's "Color" should win (left-to-right)
+      // a includes [b, c], both b and c define rule "Color"
+      // b's "Color" should win (left-to-right)
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules(
-          'A',
+        a: makeDtoWithRules(
+          'a',
           {
             Begin: {
               type: 'text',
@@ -536,10 +616,10 @@ describe('RenderStoryService', () => {
               strategy: 'TEMPLATE',
             },
           },
-          ['B', 'C']
+          ['b', 'c']
         ),
-        B: makeDtoWithRules('B', { Begin: textRule('from B'), Color: textRule('blue') }),
-        C: makeDtoWithRules('C', { Begin: textRule('from C'), Color: textRule('red') }),
+        b: makeDtoWithRules('b', { Begin: textRule('from b'), Color: textRule('blue') }),
+        c: makeDtoWithRules('c', { Begin: textRule('from c'), Color: textRule('red') }),
       };
       const storage = stubStorage(dtos);
 
@@ -548,7 +628,7 @@ describe('RenderStoryService', () => {
       };
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         templateEngine
@@ -561,11 +641,11 @@ describe('RenderStoryService', () => {
     });
 
     it('parent rules override included rules', async () => {
-      // A has its own "Color" rule and includes B which also has "Color"
-      // A's "Color" should win
+      // a has its own "Color" rule and includes b which also has "Color"
+      // a's "Color" should win
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules(
-          'A',
+        a: makeDtoWithRules(
+          'a',
           {
             Begin: {
               type: 'text',
@@ -574,9 +654,9 @@ describe('RenderStoryService', () => {
             },
             Color: textRule('green'),
           },
-          ['B']
+          ['b']
         ),
-        B: makeDtoWithRules('B', { Begin: textRule('from B'), Color: textRule('red') }),
+        b: makeDtoWithRules('b', { Begin: textRule('from b'), Color: textRule('red') }),
       };
       const storage = stubStorage(dtos);
 
@@ -585,7 +665,7 @@ describe('RenderStoryService', () => {
       };
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         templateEngine
@@ -690,12 +770,12 @@ describe('RenderStoryService', () => {
 
     it('per-include error: missing included grammar returns module_not_found', async () => {
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['missing-grammar']),
+        a: makeDtoWithRules('a', { Begin: textRule('from a') }, ['missing-grammar']),
       };
       const storage = stubStorage(dtos);
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         stubTemplateEngine()
@@ -710,13 +790,13 @@ describe('RenderStoryService', () => {
 
     it('per-include error: invalid included grammar DTO returns parse_error', async () => {
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules('A', { Begin: textRule('from A') }, ['bad']),
+        a: makeDtoWithRules('a', { Begin: textRule('from a') }, ['bad']),
         bad: { version: 999, key: 'bad', entry: 'Begin', includes: [], rules: {} },
       };
       const storage = stubStorage(dtos);
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         stubTemplateEngine()
@@ -729,11 +809,11 @@ describe('RenderStoryService', () => {
     });
 
     it('post-include StructRule validation: field references missing rule', async () => {
-      // A has a StructRule whose field references "MissingRule"
-      // B is included but does not provide "MissingRule"
+      // a has a StructRule whose field references "MissingRule"
+      // b is included but does not provide "MissingRule"
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules(
-          'A',
+        a: makeDtoWithRules(
+          'a',
           {
             Begin: {
               type: 'struct',
@@ -741,14 +821,14 @@ describe('RenderStoryService', () => {
               template: '{{ name }}',
             },
           },
-          ['B']
+          ['b']
         ),
-        B: makeDtoWithRules('B', { Begin: textRule('from B'), Other: textRule('other') }),
+        b: makeDtoWithRules('b', { Begin: textRule('from b'), Other: textRule('other') }),
       };
       const storage = stubStorage(dtos);
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         stubTemplateEngine()
@@ -761,11 +841,11 @@ describe('RenderStoryService', () => {
     });
 
     it('post-include StructRule validation passes when include provides required rule', async () => {
-      // A has a StructRule whose field references "NameRule"
-      // B provides "NameRule"
+      // a has a StructRule whose field references "NameRule"
+      // b provides "NameRule"
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules(
-          'A',
+        a: makeDtoWithRules(
+          'a',
           {
             Begin: {
               type: 'struct',
@@ -773,9 +853,9 @@ describe('RenderStoryService', () => {
               template: '{{ name }}',
             },
           },
-          ['B']
+          ['b']
         ),
-        B: makeDtoWithRules('B', { Begin: textRule('from B'), NameRule: textRule('Alice') }),
+        b: makeDtoWithRules('b', { Begin: textRule('from b'), NameRule: textRule('Alice') }),
       };
       const storage = stubStorage(dtos);
 
@@ -791,7 +871,7 @@ describe('RenderStoryService', () => {
       };
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         templateEngine
@@ -803,10 +883,10 @@ describe('RenderStoryService', () => {
       }
     });
 
-    it('transitive includes resolve correctly: A→B→C provides rules to A', async () => {
+    it('transitive includes resolve correctly: a→b→c provides rules to a', async () => {
       const dtos: Record<string, GrammarDto> = {
-        A: makeDtoWithRules(
-          'A',
+        a: makeDtoWithRules(
+          'a',
           {
             Begin: {
               type: 'text',
@@ -814,10 +894,10 @@ describe('RenderStoryService', () => {
               strategy: 'TEMPLATE',
             },
           },
-          ['B']
+          ['b']
         ),
-        B: makeDtoWithRules('B', { Begin: textRule('from B') }, ['C']),
-        C: makeDtoWithRules('C', { Begin: textRule('from C'), Deep: textRule('deep-value') }),
+        b: makeDtoWithRules('b', { Begin: textRule('from b') }, ['c']),
+        c: makeDtoWithRules('c', { Begin: textRule('from c'), Deep: textRule('deep-value') }),
       };
       const storage = stubStorage(dtos);
 
@@ -826,7 +906,7 @@ describe('RenderStoryService', () => {
       };
 
       const result = await renderStory(
-        { grammarKey: 'A', seed: 'test' },
+        { grammarKey: 'a', seed: 'test' },
         storage,
         stubRandomPort(),
         templateEngine
