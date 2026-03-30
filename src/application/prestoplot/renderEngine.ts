@@ -135,9 +135,9 @@ export function createRenderEngine(
         return selectRatchet(rule.items, rule.name, context.selectionState);
       }
       case SelectionMode.LIST: {
-        const rng = await getRng(rule.name);
-        const index = Math.min(Math.floor(rng.next() * rule.items.length), rule.items.length - 1);
-        return selectList(rule.items, index);
+        const count = context.selectionState.ratchetCounts.get(rule.name) ?? 0;
+        context.selectionState.ratchetCounts.set(rule.name, count + 1);
+        return selectList(rule.items, count);
       }
       case SelectionMode.PICK: {
         const rng = await getRng(rule.name);

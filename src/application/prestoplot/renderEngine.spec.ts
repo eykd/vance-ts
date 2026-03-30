@@ -305,51 +305,37 @@ describe('RenderEngine', () => {
       expect(result).toBe('a b');
     });
 
-    it('renders LIST mode with index from RNG', async () => {
+    it('renders LIST mode sequentially using selection state', async () => {
       const rules = new Map<string, Rule>([
-        ['Begin', listRule('Begin', ['zero', 'one', 'two'], SelectionMode.LIST)],
+        ['Begin', textRule('Begin', '{{ Item }} {{ Item }} {{ Item }}', RenderStrategy.TEMPLATE)],
+        ['Item', listRule('Item', ['zero', 'one', 'two'], SelectionMode.LIST)],
       ]);
       const grammar = makeGrammar(rules);
-      // RNG value 0.0 should give index 0
-      const rng: Rng = { next: vi.fn().mockReturnValue(0.0) };
-      const randomPort: RandomPort = {
-        seedToInt: vi.fn().mockResolvedValue(42),
-        createRng: vi.fn().mockReturnValue(rng),
-      };
-      const engine = createRenderEngine(
-        grammar,
-        randomPort,
-        passthroughTemplateEngine(),
-        'seed' as Seed
-      );
+      const templateEngine = resolvingTemplateEngine();
+      const engine = createRenderEngine(grammar, stubRandomPort(), templateEngine, 'seed' as Seed);
 
       const result = await engine.renderEntry();
 
-      expect(result).toBe('zero');
+      // LIST advances sequentially: index 0, 1, 2
+      expect(result).toBe('zero one two');
     });
 
-    it('clamps LIST mode index when float precision yields items.length', async () => {
+    it('clamps LIST mode index when calls exceed item count', async () => {
       const rules = new Map<string, Rule>([
-        ['Begin', listRule('Begin', ['zero', 'one', 'two'], SelectionMode.LIST)],
+        [
+          'Begin',
+          textRule('Begin', '{{ Item }} {{ Item }} {{ Item }} {{ Item }}', RenderStrategy.TEMPLATE),
+        ],
+        ['Item', listRule('Item', ['a', 'b'], SelectionMode.LIST)],
       ]);
       const grammar = makeGrammar(rules);
-      // RNG returning exactly 1.0 would make Math.floor(1.0 * 3) = 3, out of bounds
-      const rng: Rng = { next: vi.fn().mockReturnValue(1.0) };
-      const randomPort: RandomPort = {
-        seedToInt: vi.fn().mockResolvedValue(42),
-        createRng: vi.fn().mockReturnValue(rng),
-      };
-      const engine = createRenderEngine(
-        grammar,
-        randomPort,
-        passthroughTemplateEngine(),
-        'seed' as Seed
-      );
+      const templateEngine = resolvingTemplateEngine();
+      const engine = createRenderEngine(grammar, stubRandomPort(), templateEngine, 'seed' as Seed);
 
       const result = await engine.renderEntry();
 
-      // Should clamp to last item instead of going out of bounds
-      expect(result).toBe('two');
+      // LIST clamps beyond bounds: index 0='a', 1='b', 2→clamped='b', 3→clamped='b'
+      expect(result).toBe('a b b b');
     });
 
     it('renders PICK mode without replacement', async () => {
