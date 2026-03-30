@@ -11,7 +11,7 @@ describe("US21-article-generation", () => {
 
 // Vowel-starting word gets "an" article.
 // Source: specs/acceptance-specs/US21-article-generation.txt:2
-it("Vowel-starting word gets \"an\" article.", async () => {
+it("Vowel-starting word gets \"an\" article.", () => {
   // GIVEN the word "apple".
   const word = "apple";
 
@@ -25,7 +25,7 @@ it("Vowel-starting word gets \"an\" article.", async () => {
 
 // Consonant-sound word gets "a" article despite vowel spelling.
 // Source: specs/acceptance-specs/US21-article-generation.txt:9
-it("Consonant-sound word gets \"a\" article despite vowel spelling.", async () => {
+it("Consonant-sound word gets \"a\" article despite vowel spelling.", () => {
   // GIVEN the word "university".
   const word = "university";
 
@@ -39,7 +39,7 @@ it("Consonant-sound word gets \"a\" article despite vowel spelling.", async () =
 
 // Silent-h word gets "an" article.
 // Source: specs/acceptance-specs/US21-article-generation.txt:16
-it("Silent-h word gets \"an\" article.", async () => {
+it("Silent-h word gets \"an\" article.", () => {
   // GIVEN the word "hour".
   const word = "hour";
 
@@ -53,7 +53,7 @@ it("Silent-h word gets \"an\" article.", async () => {
 
 // European-sound word gets "a" article despite vowel start.
 // Source: specs/acceptance-specs/US21-article-generation.txt:23
-it("European-sound word gets \"a\" article despite vowel start.", async () => {
+it("European-sound word gets \"a\" article despite vowel start.", () => {
   // GIVEN the word "European".
   const word = "European";
 
