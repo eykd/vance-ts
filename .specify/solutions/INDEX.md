@@ -26,3 +26,7 @@ Solutions are organized by category. Each entry links to a detailed solution doc
 - [US Number Mismatch Between Tasks and Specs Skips ATDD Binding](tooling/us-number-mismatch-skips-atdd-binding.md) — task titles used feature-local US numbers (US1–US8) but spec files used global numbers (US16–US23), so ralph couldn't find specs and fell back to unit TDD (2026-03-30)
 - [Stale eslint-disable Directives Fail CI With max-warnings: 0](tooling/stale-eslint-disable-directives-fail-ci.md) — lint-staged only checks staged files; stale disable comments in untouched files drift undetected until CI lints the full tree (2026-03-30)
 - [Background Agent Sandbox Blocks ralph.sh](tooling/background-agent-sandbox-blocks-ralph.md) — Haiku subagents default to sandboxed Bash; ralph.sh needs explicit `dangerouslyDisableSandbox: true` instruction in the agent prompt (2026-03-30)
+
+### clean-architecture
+
+- [Port Interfaces Consistently Defined in Application Layer](clean-architecture/port-interfaces-in-wrong-layer.md) — port/repository interfaces keep being created in application instead of domain; plans must explicitly place them in `src/domain/` (2026-03-30)
