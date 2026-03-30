@@ -119,45 +119,109 @@ export function grammarToDto(grammar: Grammar): GrammarDto {
  * Deserializes a plain rule object back to a domain Rule.
  *
  * @param raw - The raw serialized rule.
+ * @param key - The map key for this rule, used as fallback name.
  * @returns Ok with a Rule, or Err with GrammarParseError.
  */
-function ruleFromPlain(raw: unknown): Result<Rule, GrammarParseError> {
+function ruleFromPlain(raw: unknown, key: string): Result<Rule, GrammarParseError> {
+  if (raw === null || raw === undefined || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {
+      success: false,
+      error: new GrammarParseError('invalid_rule', 'Rule must be a non-null object'),
+    };
+  }
+
   const obj = raw as Record<string, unknown>;
-  const type = obj['type'] as string;
+  const type = obj['type'];
+
+  if (typeof type !== 'string') {
+    return {
+      success: false,
+      error: new GrammarParseError('invalid_rule', 'Rule type must be a string'),
+    };
+  }
 
   switch (type) {
-    case 'text':
+    case 'text': {
+      const name = typeof obj['name'] === 'string' ? obj['name'] : key;
+      const alternatives = obj['alternatives'];
+      const strategy = obj['strategy'];
+      if (!Array.isArray(alternatives) || typeof strategy !== 'string') {
+        return {
+          success: false,
+          error: new GrammarParseError(
+            'invalid_rule',
+            'Text rule has invalid alternatives or strategy'
+          ),
+        };
+      }
       return {
         success: true,
         value: {
-          name: obj['name'] as string,
+          name,
           type: 'text',
-          alternatives: (obj['alternatives'] as Array<{ text: string; weight: number }>).map(
-            (a) => ({ text: a.text, weight: a.weight })
-          ),
-          strategy: obj['strategy'] as RenderStrategy,
+          alternatives: (alternatives as Array<{ text: string; weight: number }>).map((a) => ({
+            text: a.text,
+            weight: a.weight,
+          })),
+          strategy: strategy as RenderStrategy,
         } satisfies TextRule,
       };
-    case 'list':
+    }
+    case 'list': {
+      const name = typeof obj['name'] === 'string' ? obj['name'] : key;
+      const items = obj['items'];
+      const selectionMode = obj['selectionMode'];
+      const strategy = obj['strategy'];
+      if (
+        !Array.isArray(items) ||
+        typeof selectionMode !== 'string' ||
+        typeof strategy !== 'string'
+      ) {
+        return {
+          success: false,
+          error: new GrammarParseError(
+            'invalid_rule',
+            'List rule has invalid items, selectionMode, or strategy'
+          ),
+        };
+      }
       return {
         success: true,
         value: {
-          name: obj['name'] as string,
+          name,
           type: 'list',
-          items: obj['items'] as string[],
-          selectionMode: obj['selectionMode'] as SelectionMode,
-          strategy: obj['strategy'] as RenderStrategy,
+          items: items as string[],
+          selectionMode: selectionMode as SelectionMode,
+          strategy: strategy as RenderStrategy,
         } satisfies ListRule,
       };
+    }
     case 'struct': {
-      const fieldsObj = obj['fields'] as Record<string, string>;
+      const name = typeof obj['name'] === 'string' ? obj['name'] : key;
+      const fields = obj['fields'];
+      const template = obj['template'];
+      if (
+        fields === null ||
+        fields === undefined ||
+        typeof fields !== 'object' ||
+        Array.isArray(fields) ||
+        typeof template !== 'string'
+      ) {
+        return {
+          success: false,
+          error: new GrammarParseError(
+            'invalid_rule',
+            'Struct rule has invalid fields or template'
+          ),
+        };
+      }
       return {
         success: true,
         value: {
-          name: obj['name'] as string,
+          name,
           type: 'struct',
-          fields: new Map(Object.entries(fieldsObj)),
-          template: obj['template'] as string,
+          fields: new Map(Object.entries(fields as Record<string, string>)),
+          template,
         } satisfies StructRule,
       };
     }
@@ -188,7 +252,7 @@ export function grammarFromDto(dto: GrammarDto): Result<Grammar, GrammarParseErr
 
   const rules = new Map<string, Rule>();
   for (const [name, raw] of Object.entries(dto.rules)) {
-    const result = ruleFromPlain(raw);
+    const result = ruleFromPlain(raw, name);
     if (!result.success) {
       return result;
     }

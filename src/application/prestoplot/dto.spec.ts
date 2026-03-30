@@ -318,6 +318,180 @@ describe('grammarFromDto', () => {
     }
   });
 
+  it('returns error when raw rule is not an object', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: { x: 'not-an-object' },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when raw rule is null', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: { x: null },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when rule type is not a string', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: { x: { name: 'x', type: 42 } },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when text rule has non-array alternatives', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: { x: { name: 'x', type: 'text', alternatives: 'not-array', strategy: 'PLAIN' } },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('falls back to map key when rule name is not a string', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'ok',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: {
+          name: 123,
+          type: 'text',
+          alternatives: [{ text: 'hi', weight: 1 }],
+          strategy: 'PLAIN',
+        },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const rule = result.value.rules.get('x');
+      expect(rule?.name).toBe('x');
+    }
+  });
+
+  it('returns error when text rule has non-string strategy', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: { name: 'x', type: 'text', alternatives: [{ text: 'hi', weight: 1 }], strategy: 99 },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when list rule has non-array items', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: {
+          name: 'x',
+          type: 'list',
+          items: 'not-array',
+          selectionMode: 'PICK',
+          strategy: 'PLAIN',
+        },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when list rule has non-string selectionMode', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: { name: 'x', type: 'list', items: ['a'], selectionMode: 42, strategy: 'PLAIN' },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when struct rule has non-object fields', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: { name: 'x', type: 'struct', fields: 'not-object', template: '{{ a }}' },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when struct rule has non-string template', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: { name: 'x', type: 'struct', fields: { a: 'b' }, template: 42 },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
   it('preserves includes through round-trip', () => {
     const grammar = makeGrammar('inc', [['greeting', textRule]], 'greeting', ['base', 'extra']);
     const dto = grammarToDto(grammar);
