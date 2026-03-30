@@ -47,7 +47,7 @@ export function createCachedStorage(
    * Evicts the oldest cache entry if the cache exceeds the size limit.
    */
   function evictIfNeeded(): void {
-    while (insertionOrder.length > MAX_DTO_CACHE_SIZE) {
+    if (insertionOrder.length > MAX_DTO_CACHE_SIZE) {
       const oldest = insertionOrder.shift();
       if (oldest !== undefined) {
         cache.delete(oldest);
