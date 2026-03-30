@@ -156,7 +156,6 @@ const tradePairs: readonly TradePairRow[] = [
 
 describe('Galaxy seeder end-to-end integration', () => {
   beforeAll(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- cloudflare:test types unresolvable in ESLint tsconfig
     await applyD1Migrations(tEnv.DB, FULL_GALAXY_MIGRATION);
 
     const sql = generateSQL(systems, routes, tradePairs);

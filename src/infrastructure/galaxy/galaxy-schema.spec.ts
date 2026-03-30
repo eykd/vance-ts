@@ -69,7 +69,6 @@ interface ColumnProjection {
 
 describe('galaxy schema migration', () => {
   beforeAll(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call -- cloudflare:test types unresolvable in ESLint tsconfig
     await applyD1Migrations(typedEnv.DB, GALAXY_MIGRATIONS);
   });
 
