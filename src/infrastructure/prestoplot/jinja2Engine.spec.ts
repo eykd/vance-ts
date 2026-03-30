@@ -312,6 +312,109 @@ describe('Jinja2Engine', () => {
     });
   });
 
+  describe('adversarial: prototype pollution', () => {
+    it('should throw TemplateError for {{ constructor }} on empty context', () => {
+      expect(() => engine().evaluate('{{ constructor }}', {}, 0)).toThrow(TemplateError);
+    });
+
+    it('should throw TemplateError for {{ __proto__ }} on empty context', () => {
+      expect(() => engine().evaluate('{{ __proto__ }}', {}, 0)).toThrow(TemplateError);
+    });
+
+    it('should throw TemplateError for .constructor field accessor on string', () => {
+      expect(() => engine().evaluate('{{ ctx.constructor }}', { ctx: 'val' }, 0)).toThrow(
+        TemplateError
+      );
+    });
+
+    it('should throw TemplateError for .__proto__ field accessor on string', () => {
+      expect(() => engine().evaluate('{{ ctx.__proto__ }}', { ctx: 'val' }, 0)).toThrow(
+        TemplateError
+      );
+    });
+
+    it('should not resolve inherited toString from prototype chain', () => {
+      expect(() => engine().evaluate('{{ toString }}', {}, 0)).toThrow(TemplateError);
+    });
+  });
+
+  describe('adversarial: nested braces performance', () => {
+    it('should tokenize 1000 nested {{ in O(n) without hanging', () => {
+      const nested = '{{'.repeat(1000);
+      const start = performance.now();
+      // This should either throw quickly or complete; must not hang
+      try {
+        engine().evaluate(nested, {}, 0);
+      } catch {
+        // Expected — unclosed or empty expression
+      }
+      const elapsed = performance.now() - start;
+      // O(n) should complete well under 500ms for 2000 chars
+      expect(elapsed).toBeLessThan(500);
+    });
+  });
+
+  describe('adversarial: unclosed delimiters', () => {
+    it('should throw TemplateError for unclosed {{ at end of template', () => {
+      expect(() => engine().evaluate('text {{', {}, 0)).toThrow(TemplateError);
+    });
+
+    it('should throw TemplateError for unclosed {{ with partial expression', () => {
+      expect(() => engine().evaluate('{{ x', { x: 'val' }, 0)).toThrow(TemplateError);
+    });
+
+    it('should throw TemplateError for unclosed comment {# at end', () => {
+      expect(() => engine().evaluate('text {# oops', {}, 0)).toThrow(TemplateError);
+    });
+
+    it('should throw TemplateError for unclosed comment with content', () => {
+      expect(() => engine().evaluate('{# this never closes', {}, 0)).toThrow(TemplateError);
+    });
+  });
+
+  describe('adversarial: emoji and unicode preservation', () => {
+    it('should preserve emoji in template text around expressions', () => {
+      expect(engine().evaluate('🌟 {{ x }} 🌟', { x: 'star' }, 0)).toBe('🌟 star 🌟');
+    });
+
+    it('should preserve multi-codepoint emoji in context values', () => {
+      expect(engine().evaluate('{{ e }}', { e: '👨‍👩‍👧‍👦' }, 0)).toBe('👨‍👩‍👧‍👦');
+    });
+
+    it('should handle emoji-only template', () => {
+      expect(engine().evaluate('🎵🎶🎵', {}, 0)).toBe('🎵🎶🎵');
+    });
+  });
+
+  describe('adversarial: long expression truncation', () => {
+    it('should truncate long template in syntax error messages to 50 chars', () => {
+      // Use a filter pipe to trigger a syntax error that includes the template excerpt
+      const longTemplate = '{{ x | ' + 'f'.repeat(100) + ' }}';
+      try {
+        engine().evaluate(longTemplate, { x: 'val' }, 0);
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(TemplateError);
+        const msg = (err as TemplateError).message;
+        expect(msg).toContain('...');
+        // The truncated template excerpt should be at most 53 chars (50 + "...")
+        const quoted = msg.match(/"([^"]*)"/)?.[1] ?? '';
+        expect(quoted.length).toBeLessThanOrEqual(53);
+      }
+    });
+
+    it('should not truncate short template in syntax error messages', () => {
+      try {
+        engine().evaluate('{{ x | f }}', { x: 'val' }, 0);
+        expect.unreachable('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(TemplateError);
+        const msg = (err as TemplateError).message;
+        expect(msg).not.toContain('...');
+      }
+    });
+  });
+
   describe('edge cases', () => {
     it('should handle single open brace as literal text', () => {
       expect(engine().evaluate('a { b', {}, 0)).toBe('a { b');
