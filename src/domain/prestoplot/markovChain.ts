@@ -10,7 +10,7 @@
 
 import type { Result } from '../shared/Result.js';
 
-import type { SelectionRng } from './selectionModes.js';
+import type { Rng } from './selectionModes.js';
 
 /** Sentinel character marking start-of-string boundaries. */
 export const MARKOV_START = '\x02';
@@ -83,7 +83,7 @@ export function markovDeadEnd(deadKey: string): MarkovDeadEndError {
  * @param rng - Seeded RNG instance.
  * @returns The selected item.
  */
-export function rngChoice<T>(items: readonly T[], rng: SelectionRng): T {
+export function rngChoice<T>(items: readonly T[], rng: Rng): T {
   const index = Math.min(Math.floor(rng.next() * items.length), items.length - 1);
   return items[index]!;
 }
@@ -147,7 +147,7 @@ const DEFAULT_MAX_LENGTH = 100;
  */
 export function generateMarkov(
   model: MarkovChainModel,
-  rng: SelectionRng,
+  rng: Rng,
   maxLength: number = DEFAULT_MAX_LENGTH,
   start?: string
 ): Result<string, MarkovDeadEndError | RangeError> {

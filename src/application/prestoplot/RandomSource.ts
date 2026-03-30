@@ -5,23 +5,15 @@
  * Separates async seed hashing (SHA-256) from synchronous PRNG
  * construction to keep the rendering hot path synchronous.
  *
+ * Re-exports `Rng` from the domain layer as the canonical synchronous
+ * PRNG interface shared across layers.
+ *
  * @module application/prestoplot/RandomSource
  */
 
-/**
- * Synchronous random number generator (stateful, seeded).
- *
- * Each call to next() advances internal state deterministically.
- * Same seed always produces the same sequence.
- */
-export interface Rng {
-  /**
-   * Returns a float in [0, 1). Advances internal state.
-   *
-   * @returns A pseudo-random number in the range [0, 1).
-   */
-  next(): number;
-}
+import type { Rng } from '../../domain/prestoplot/selectionModes.js';
+
+export type { Rng };
 
 /**
  * Port for creating seeded random number generators.

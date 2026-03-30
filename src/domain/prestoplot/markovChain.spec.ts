@@ -15,15 +15,15 @@ import {
   rngChoice,
   trainMarkovChain,
 } from './markovChain.js';
-import type { SelectionRng } from './selectionModes.js';
+import type { Rng } from './selectionModes.js';
 
 /**
  * Creates a deterministic RNG from a sequence of values.
  *
  * @param values - Sequence of [0,1) values to cycle through.
- * @returns A SelectionRng that returns values in order, cycling.
+ * @returns A Rng that returns values in order, cycling.
  */
-function fakeRng(values: number[]): SelectionRng {
+function fakeRng(values: number[]): Rng {
   let i = 0;
   return {
     next(): number {

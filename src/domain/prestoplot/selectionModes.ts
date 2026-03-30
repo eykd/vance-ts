@@ -11,10 +11,17 @@
  */
 
 /**
- * Minimal synchronous RNG interface consumed by selection algorithms.
+ * Synchronous random number generator (stateful, seeded).
+ *
+ * Each call to next() advances internal state deterministically.
+ * Same seed always produces the same sequence.
  */
-export interface SelectionRng {
-  /** Returns a float in [0, 1). Advances internal state. */
+export interface Rng {
+  /**
+   * Returns a float in [0, 1). Advances internal state.
+   *
+   * @returns A pseudo-random number in the range [0, 1).
+   */
   next(): number;
 }
 
@@ -60,7 +67,7 @@ export function createSelectionState(): SelectionState {
  * @param rng - Seeded RNG instance.
  * @returns The selected item.
  */
-export function selectReuse(items: readonly string[], rng: SelectionRng): string {
+export function selectReuse(items: readonly string[], rng: Rng): string {
   const index = Math.min(Math.floor(rng.next() * items.length), items.length - 1);
   return items[index]!;
 }
@@ -80,7 +87,7 @@ export function selectReuse(items: readonly string[], rng: SelectionRng): string
  */
 export function selectPick(
   items: readonly string[],
-  rng: SelectionRng,
+  rng: Rng,
   stateKey: string,
   state: SelectionState
 ): string {
@@ -143,7 +150,7 @@ export function selectList(items: readonly string[], index: number): string {
  * @param rng - Seeded RNG instance.
  * @returns A shuffled array of indices [0, length).
  */
-function fisherYatesShuffle(length: number, rng: SelectionRng): number[] {
+function fisherYatesShuffle(length: number, rng: Rng): number[] {
   const indices = Array.from({ length }, (_, i) => i);
   for (let i = length - 1; i > 0; i--) {
     const j = Math.min(Math.floor(rng.next() * (i + 1)), i);
