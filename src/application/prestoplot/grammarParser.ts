@@ -22,6 +22,7 @@ import {
   type WeightedAlternative,
   createGrammar,
 } from '../../domain/prestoplot/grammar.js';
+import { MAX_MARKOV_CORPUS_PRODUCT } from '../../domain/prestoplot/markovChain.js';
 import { type Result, err, ok } from '../../domain/shared/Result.js';
 
 /** Maximum YAML source size in UTF-16 code units (256 KB). */
@@ -33,8 +34,7 @@ export const MAX_TEMPLATE_LENGTH = 10_000;
 /** Maximum Markov order value. */
 export const MAX_MARKOV_ORDER = 10;
 
-/** Maximum Markov corpus product (totalChars x order). */
-export const MAX_MARKOV_CORPUS_PRODUCT = 100_000;
+export { MAX_MARKOV_CORPUS_PRODUCT };
 
 /** Pattern for valid grammar keys: lowercase, starts with letter, allows hyphens and underscores. */
 const GRAMMAR_KEY_PATTERN = /^[a-z][a-z0-9_-]*$/;
