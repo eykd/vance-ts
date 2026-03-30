@@ -313,14 +313,6 @@ function validateRuleName(name: string, moduleName: string): Result<void, Gramma
       )
     );
   }
-  if (name.includes('-')) {
-    return err(
-      new GrammarParseError(
-        'invalid_rule_name',
-        `Grammar "${moduleName}": rule name "${name}" must not contain hyphens (used as seed separator)`
-      )
-    );
-  }
   return ok(undefined);
 }
 

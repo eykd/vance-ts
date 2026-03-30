@@ -417,6 +417,12 @@ describe('parseGrammar', () => {
       expect(error.code).toBe('invalid_rule_name');
     });
 
+    it('rejects rule names with hyphens via pattern check', () => {
+      const error = parseErr('"Begin": "{foo-bar}"\n"foo-bar": "value"');
+      expect(error.code).toBe('invalid_rule_name');
+      expect(error.message).toContain('must match pattern');
+    });
+
     it('accepts valid rule names with underscores', () => {
       const { value: grammar } = parseOk('"Begin": "{_private}"\n"_private": "secret"');
       expect(grammar.rules.has('_private')).toBe(true);
