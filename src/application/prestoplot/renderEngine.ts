@@ -27,6 +27,9 @@ import type { TemplateEnginePort } from './TemplateEngine.js';
 /** Per-render work budget to prevent exponential-time grammar expansion. */
 export const MAX_EVALUATIONS = 10_000;
 
+/** Regex to match {{ ruleName }} references in template text. */
+const RULE_REF_RE = /\{\{\s*(\w+)\s*\}\}/;
+
 /**
  * Per-render runtime state. Single-use — discarded after each render call.
  */
@@ -152,9 +155,6 @@ export function createRenderEngine(
       }
     }
   }
-
-  /** Regex to match {{ ruleName }} references in template text. */
-  const RULE_REF_RE = /\{\{\s*(\w+)\s*\}\}/;
 
   /**
    * Resolve template text by rendering rule references left-to-right,
