@@ -8,6 +8,7 @@
  * @module infrastructure/prestoplot/d1Storage
  */
 
+import { isGrammarDto } from '../../application/prestoplot/dto.js';
 import type { GrammarDto, StoragePort } from '../../application/prestoplot/GrammarStorage.js';
 import { StorageError } from '../../domain/prestoplot/errors.js';
 
@@ -58,8 +59,15 @@ export function createD1Storage(db: D1Database): StoragePort {
           return null;
         }
 
-        return JSON.parse(row.data) as GrammarDto;
+        const parsed: unknown = JSON.parse(row.data);
+        if (!isGrammarDto(parsed)) {
+          throw new StorageError('invalid_data', `Corrupted grammar data for key "${key}"`);
+        }
+        return parsed;
       } catch (err) {
+        if (err instanceof StorageError) {
+          throw err;
+        }
         throw wrapError('load_failed', `Failed to load grammar "${key}"`, err);
       }
     },

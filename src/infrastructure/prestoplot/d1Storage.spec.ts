@@ -173,6 +173,56 @@ describe('createD1Storage', () => {
       expect(result).toEqual(dto);
     });
 
+    it('throws StorageError when deserialized data fails GrammarDto validation', async () => {
+      const { db, prepareFn } = createMockD1();
+
+      const invalidData = { notAGrammar: true };
+      prepareFn.mockImplementation(() => {
+        const boundStmt = {
+          first: vi.fn().mockResolvedValue({ data: JSON.stringify(invalidData) }),
+          run: vi.fn(),
+          all: vi.fn(),
+        };
+        return {
+          bind: vi.fn().mockReturnValue(boundStmt),
+          first: boundStmt.first,
+          run: boundStmt.run,
+          all: boundStmt.all,
+        };
+      });
+
+      const storage = createD1Storage(db);
+      await expect(storage.load('corrupt')).rejects.toThrow(StorageError);
+    });
+
+    it('includes invalid_data code when deserialized data fails validation', async () => {
+      const { db, prepareFn } = createMockD1();
+
+      const invalidData = { version: 999, key: 'x' };
+      prepareFn.mockImplementation(() => {
+        const boundStmt = {
+          first: vi.fn().mockResolvedValue({ data: JSON.stringify(invalidData) }),
+          run: vi.fn(),
+          all: vi.fn(),
+        };
+        return {
+          bind: vi.fn().mockReturnValue(boundStmt),
+          first: boundStmt.first,
+          run: boundStmt.run,
+          all: boundStmt.all,
+        };
+      });
+
+      const storage = createD1Storage(db);
+      try {
+        await storage.load('corrupt');
+        expect.fail('should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(StorageError);
+        expect((err as StorageError).code).toBe('invalid_data');
+      }
+    });
+
     it('wraps D1 errors as StorageError', async () => {
       const { db, prepareFn } = createMockD1();
 
