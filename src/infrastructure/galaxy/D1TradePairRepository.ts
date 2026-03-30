@@ -7,7 +7,7 @@
 import type {
   TradePairPartner,
   TradePairRepository,
-} from '../../application/ports/TradePairRepository.js';
+} from '../../domain/interfaces/TradePairRepository.js';
 
 import { assertTradePairPartnerRow, mapRowToTradePairPartner } from './mappers.js';
 

@@ -5,7 +5,7 @@ import type {
   AuthService,
   AuthSessionDto,
   AuthUserDto,
-} from '../../application/ports/AuthService.js';
+} from '../../domain/interfaces/AuthService.js';
 
 import { createRequireAuth } from './requireAuth.js';
 

@@ -8,7 +8,7 @@
  * @module
  */
 
-import type { Logger } from '../application/ports/Logger.js';
+import type { Logger } from '../domain/interfaces/Logger.js';
 
 /**
  * Logger implementation backed by `console`.

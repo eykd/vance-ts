@@ -12,11 +12,6 @@
  * @module
  */
 
-import type { AuthService } from '../application/ports/AuthService';
-import type { Logger } from '../application/ports/Logger';
-import type { RateLimiter } from '../application/ports/RateLimiter';
-import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../application/ports/RateLimiter';
-import type { TradePairRepository } from '../application/ports/TradePairRepository';
 import type { StoragePort } from '../application/prestoplot/GrammarStorage';
 import type { RandomPort } from '../application/prestoplot/RandomSource';
 import type {
@@ -42,10 +37,15 @@ import type { ActionRepository } from '../domain/interfaces/ActionRepository';
 import type { ActorRepository } from '../domain/interfaces/ActorRepository';
 import type { AreaRepository } from '../domain/interfaces/AreaRepository';
 import type { AuditEventRepository } from '../domain/interfaces/AuditEventRepository';
+import type { AuthService } from '../domain/interfaces/AuthService';
 import type { ContextRepository } from '../domain/interfaces/ContextRepository';
 import type { InboxItemRepository } from '../domain/interfaces/InboxItemRepository';
+import type { Logger } from '../domain/interfaces/Logger';
+import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../domain/interfaces/RateLimiter';
+import type { RateLimiter } from '../domain/interfaces/RateLimiter';
 import type { RouteRepository } from '../domain/interfaces/RouteRepository';
 import type { StarSystemRepository } from '../domain/interfaces/StarSystemRepository';
+import type { TradePairRepository } from '../domain/interfaces/TradePairRepository';
 import type { WorkspaceRepository } from '../domain/interfaces/WorkspaceRepository';
 import type { TemplateEnginePort } from '../domain/prestoplot/templateEnginePort';
 import { getAuth, resetAuth } from '../infrastructure/auth';

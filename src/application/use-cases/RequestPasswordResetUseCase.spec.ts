@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthService } from '../ports/AuthService.js';
-import type { Logger } from '../ports/Logger.js';
-import type { RateLimiter } from '../ports/RateLimiter.js';
+import type { AuthService } from '../../domain/interfaces/AuthService.js';
+import type { Logger } from '../../domain/interfaces/Logger.js';
+import type { RateLimiter } from '../../domain/interfaces/RateLimiter.js';
 
 import { RequestPasswordResetUseCase } from './RequestPasswordResetUseCase.js';
 

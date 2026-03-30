@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Logger } from '../application/ports/Logger';
+import type { Logger } from '../domain/interfaces/Logger';
 
 import { ConsoleLogger } from './ConsoleLogger';
 

@@ -12,7 +12,7 @@
  * @module
  */
 
-import type { RateLimiter } from '../application/ports/RateLimiter';
+import type { RateLimiter } from '../domain/interfaces/RateLimiter';
 
 /** Base URL used for Durable Object internal fetch calls. */
 const DO_BASE_URL = 'https://rate-limit-do';

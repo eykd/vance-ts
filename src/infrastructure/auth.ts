@@ -47,7 +47,7 @@ import type { Auth, BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 
-import type { Logger } from '../application/ports/Logger.js';
+import type { Logger } from '../domain/interfaces/Logger.js';
 import { hashPassword, verifyPassword } from '../domain/services/passwordHasher';
 import { isPlainHttpLocalhost } from '../shared/authCookieNames';
 import type { Env } from '../shared/env';

@@ -4,7 +4,7 @@ import {
   MAX_ATTEMPTS,
   REGISTER_WINDOW_SECONDS,
   SIGN_IN_WINDOW_SECONDS,
-} from '../application/ports/RateLimiter';
+} from '../domain/interfaces/RateLimiter';
 
 import { DurableObjectRateLimiter } from './DurableObjectRateLimiter';
 

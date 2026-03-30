@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MAX_ATTEMPTS, SIGN_IN_WINDOW_SECONDS } from '../application/ports/RateLimiter';
+import { MAX_ATTEMPTS, SIGN_IN_WINDOW_SECONDS } from '../domain/interfaces/RateLimiter';
 import type { Env } from '../shared/env';
 
 import { RateLimitDO } from './RateLimitDO';

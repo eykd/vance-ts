@@ -15,7 +15,7 @@
 
 import type { Context, Next } from 'hono';
 
-import type { AuthService } from '../../application/ports/AuthService.js';
+import type { AuthService } from '../../domain/interfaces/AuthService.js';
 import type { WorkspaceRepository } from '../../domain/interfaces/WorkspaceRepository.js';
 import type { AppEnv } from '../types.js';
 import { extractSessionToken } from '../utils/cookieBuilder.js';
