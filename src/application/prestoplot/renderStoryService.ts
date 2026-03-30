@@ -57,41 +57,41 @@ export interface RenderStoryRequest {
 
 /** Typed result of a render story operation. */
 export type RenderStoryResult =
-  | { readonly ok: true; readonly text: string }
-  | { readonly ok: false; readonly kind: 'invalid_seed'; readonly message: string }
-  | { readonly ok: false; readonly kind: 'module_not_found'; readonly moduleName: string }
+  | { readonly success: true; readonly text: string }
+  | { readonly success: false; readonly kind: 'invalid_seed'; readonly message: string }
+  | { readonly success: false; readonly kind: 'module_not_found'; readonly moduleName: string }
   | {
-      readonly ok: false;
+      readonly success: false;
       readonly kind: 'circular_include';
       readonly chain: readonly string[];
     }
   | {
-      readonly ok: false;
+      readonly success: false;
       readonly kind: 'parse_error';
       readonly moduleName: string;
       readonly message: string;
     }
   | {
-      readonly ok: false;
+      readonly success: false;
       readonly kind: 'template_error';
       readonly sourcePath: string;
       readonly message: string;
     }
   | {
-      readonly ok: false;
+      readonly success: false;
       readonly kind: 'storage_error';
       readonly moduleName: string;
       readonly message: string;
     }
-  | { readonly ok: false; readonly kind: 'seed_error'; readonly message: string }
-  | { readonly ok: false; readonly kind: 'render_budget'; readonly evaluationCount: number }
+  | { readonly success: false; readonly kind: 'seed_error'; readonly message: string }
+  | { readonly success: false; readonly kind: 'render_budget'; readonly evaluationCount: number }
   | {
-      readonly ok: false;
+      readonly success: false;
       readonly kind: 'include_depth';
       readonly moduleName: string;
       readonly depth: number;
     }
-  | { readonly ok: false; readonly kind: 'include_limit'; readonly count: number };
+  | { readonly success: false; readonly kind: 'include_limit'; readonly count: number };
 
 /** BFS queue entry for include resolution. */
 interface IncludeQueueEntry {
@@ -272,7 +272,7 @@ export async function renderStory(
     // Validate seed length before other processing
     if (request.seed.length > MAX_SEED_LENGTH) {
       return {
-        ok: false,
+        success: false,
         kind: 'invalid_seed',
         message: `Seed exceeds maximum length of ${String(MAX_SEED_LENGTH)}`,
       };
@@ -281,7 +281,7 @@ export async function renderStory(
     // Validate seed (non-empty, non-whitespace)
     const seedResult = createSeed(request.seed);
     if (!seedResult.success) {
-      return { ok: false, kind: 'invalid_seed', message: seedResult.error.message };
+      return { success: false, kind: 'invalid_seed', message: seedResult.error.message };
     }
     const seed: Seed = seedResult.value;
 
@@ -292,21 +292,21 @@ export async function renderStory(
     } catch (storageErr: unknown) {
       const message = storageErr instanceof Error ? storageErr.message : 'Unknown storage error';
       return {
-        ok: false,
+        success: false,
         kind: 'storage_error',
         moduleName: request.grammarKey,
         message,
       };
     }
     if (dto === null) {
-      return { ok: false, kind: 'module_not_found', moduleName: request.grammarKey };
+      return { success: false, kind: 'module_not_found', moduleName: request.grammarKey };
     }
 
     // Parse DTO to domain Grammar
     const parseResult = grammarFromDto(dto);
     if (!parseResult.success) {
       return {
-        ok: false,
+        success: false,
         kind: 'parse_error',
         moduleName: request.grammarKey,
         message: parseResult.error.message,
@@ -320,7 +320,7 @@ export async function renderStory(
     const engine = createRenderEngine(resolvedGrammar, randomPort, templateEngine, seed);
     const text = await engine.renderEntry();
 
-    return { ok: true, text };
+    return { success: true, text };
   } catch (error: unknown) {
     return mapErrorToResult(error, request.grammarKey);
   }
@@ -335,25 +335,25 @@ export async function renderStory(
  */
 function mapErrorToResult(error: unknown, grammarKey: string): RenderStoryResult {
   if (error instanceof RenderBudgetError) {
-    return { ok: false, kind: 'render_budget', evaluationCount: error.evaluationCount };
+    return { success: false, kind: 'render_budget', evaluationCount: error.evaluationCount };
   }
   if (error instanceof CircularIncludeError) {
-    return { ok: false, kind: 'circular_include', chain: error.chain };
+    return { success: false, kind: 'circular_include', chain: error.chain };
   }
   if (error instanceof IncludeDepthError) {
     return {
-      ok: false,
+      success: false,
       kind: 'include_depth',
       moduleName: error.moduleName,
       depth: error.depth,
     };
   }
   if (error instanceof IncludeLimitError) {
-    return { ok: false, kind: 'include_limit', count: error.count };
+    return { success: false, kind: 'include_limit', count: error.count };
   }
   if (error instanceof GrammarParseError) {
     return {
-      ok: false,
+      success: false,
       kind: 'parse_error',
       moduleName: grammarKey,
       message: error.message,
@@ -361,7 +361,7 @@ function mapErrorToResult(error: unknown, grammarKey: string): RenderStoryResult
   }
   if (error instanceof TemplateError) {
     return {
-      ok: false,
+      success: false,
       kind: 'template_error',
       sourcePath: grammarKey,
       message: error.message,
@@ -369,7 +369,7 @@ function mapErrorToResult(error: unknown, grammarKey: string): RenderStoryResult
   }
   if (error instanceof StorageError) {
     return {
-      ok: false,
+      success: false,
       kind: 'storage_error',
       moduleName: grammarKey,
       message: error.message,
@@ -378,7 +378,7 @@ function mapErrorToResult(error: unknown, grammarKey: string): RenderStoryResult
   // Seed hashing failure or any other unexpected error
   if (error instanceof Error) {
     // Check if this is a crypto/seed-related error from seedToInt
-    return { ok: false, kind: 'seed_error', message: error.message };
+    return { success: false, kind: 'seed_error', message: error.message };
   }
-  return { ok: false, kind: 'seed_error', message: 'Unknown error during rendering' };
+  return { success: false, kind: 'seed_error', message: 'Unknown error during rendering' };
 }

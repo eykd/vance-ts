@@ -109,8 +109,8 @@ describe('RenderStoryService', () => {
 
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
+      expect(result.success).toBe(true);
+      if (result.success) {
         expect(result.text).toBe('Hello from test-grammar');
       }
     });
@@ -134,8 +134,8 @@ describe('RenderStoryService', () => {
 
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('invalid_seed');
       }
     });
@@ -146,8 +146,8 @@ describe('RenderStoryService', () => {
 
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('invalid_seed');
       }
     });
@@ -159,8 +159,8 @@ describe('RenderStoryService', () => {
 
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('invalid_seed');
       }
     });
@@ -173,7 +173,7 @@ describe('RenderStoryService', () => {
 
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result.ok).toBe(true);
+      expect(result.success).toBe(true);
     });
 
     it('maps missing grammar to module_not_found result', async () => {
@@ -182,8 +182,8 @@ describe('RenderStoryService', () => {
 
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('module_not_found');
         expect(result.moduleName).toBe('nonexistent');
       }
@@ -200,8 +200,8 @@ describe('RenderStoryService', () => {
 
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('storage_error');
       }
     });
@@ -217,8 +217,8 @@ describe('RenderStoryService', () => {
 
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('storage_error');
       }
     });
@@ -234,8 +234,8 @@ describe('RenderStoryService', () => {
 
       const result = await renderStory(request, storage, randomPort, stubTemplateEngine());
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('seed_error');
       }
     });
@@ -259,8 +259,8 @@ describe('RenderStoryService', () => {
 
       const result = await renderStory(request, storage, stubRandomPort(), templateEngine);
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('template_error');
       }
     });
@@ -302,8 +302,8 @@ describe('RenderStoryService', () => {
 
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('render_budget');
       }
     });
@@ -319,29 +319,29 @@ describe('RenderStoryService', () => {
 
       // Must not throw — should return an error result
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
-      expect(result.ok).toBe(false);
+      expect(result.success).toBe(false);
     });
   });
 
   describe('RenderStoryResult type discrimination', () => {
-    it('success result has ok: true and text', async () => {
+    it('success result has success: true and text', async () => {
       const dto = makeDto('test');
       const storage = stubStorage({ test: dto });
       const request: RenderStoryRequest = { grammarKey: 'test', seed: 'good-seed' };
 
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result).toEqual({ ok: true, text: 'Hello from test' });
+      expect(result).toEqual({ success: true, text: 'Hello from test' });
     });
 
-    it('error results have ok: false and kind', async () => {
+    it('error results have success: false and kind', async () => {
       const storage = stubStorage({});
       const request: RenderStoryRequest = { grammarKey: 'missing', seed: 'alpha' };
 
       const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(typeof result.kind).toBe('string');
       }
     });
@@ -407,7 +407,7 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(true);
+      expect(result.success).toBe(true);
       // First load is A (root), then B and C (level 1), then D (level 2)
       expect(loadOrder).toEqual(['A', 'B', 'C', 'D']);
     });
@@ -448,7 +448,7 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(true);
+      expect(result.success).toBe(true);
       // B, C, D should have been loaded concurrently (max concurrent >= 3)
       expect(maxConcurrent).toBeGreaterThanOrEqual(3);
     });
@@ -467,8 +467,8 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('circular_include');
         if (result.kind === 'circular_include') {
           expect(result.chain).toContain('A');
@@ -492,8 +492,8 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('circular_include');
       }
     });
@@ -514,7 +514,7 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(true);
+      expect(result.success).toBe(true);
       // D should only be loaded once (dedup)
       const loadCalls = (storage.load as ReturnType<typeof vi.fn>).mock.calls.map(
         (c: unknown[]) => c[0]
@@ -554,8 +554,8 @@ describe('RenderStoryService', () => {
         templateEngine
       );
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
+      expect(result.success).toBe(true);
+      if (result.success) {
         expect(result.text).toBe('blue');
       }
     });
@@ -591,8 +591,8 @@ describe('RenderStoryService', () => {
         templateEngine
       );
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
+      expect(result.success).toBe(true);
+      if (result.success) {
         expect(result.text).toBe('green');
       }
     });
@@ -615,7 +615,7 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(true);
+      expect(result.success).toBe(true);
     });
 
     it('rejects include chain at MAX_INCLUDE_DEPTH + 1 = 21', async () => {
@@ -635,8 +635,8 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('include_depth');
       }
     });
@@ -660,7 +660,7 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(true);
+      expect(result.success).toBe(true);
     });
 
     it('rejects when total grammar count exceeds MAX_INCLUDE_COUNT=50', async () => {
@@ -682,8 +682,8 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('include_limit');
       }
     });
@@ -701,8 +701,8 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         // StorageError for missing include maps to storage_error
         expect(result.kind).toBe('storage_error');
       }
@@ -722,8 +722,8 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('parse_error');
       }
     });
@@ -754,8 +754,8 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
+      expect(result.success).toBe(false);
+      if (!result.success) {
         expect(result.kind).toBe('parse_error');
       }
     });
@@ -797,8 +797,8 @@ describe('RenderStoryService', () => {
         templateEngine
       );
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
+      expect(result.success).toBe(true);
+      if (result.success) {
         expect(result.text).toBe('Alice');
       }
     });
@@ -832,8 +832,8 @@ describe('RenderStoryService', () => {
         templateEngine
       );
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
+      expect(result.success).toBe(true);
+      if (result.success) {
         expect(result.text).toBe('deep-value');
       }
     });
@@ -849,8 +849,8 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result.ok).toBe(true);
-      if (result.ok) {
+      expect(result.success).toBe(true);
+      if (result.success) {
         expect(result.text).toBe('Hello from simple');
       }
     });
@@ -865,8 +865,8 @@ describe('RenderStoryService', () => {
       const result1 = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
       const result2 = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
 
-      expect(result1.ok).toBe(true);
-      expect(result2.ok).toBe(true);
+      expect(result1.success).toBe(true);
+      expect(result2.success).toBe(true);
       expect(result1).toEqual(result2);
     });
 
@@ -950,9 +950,9 @@ describe('RenderStoryService', () => {
         stubTemplateEngine()
       );
 
-      expect(result1.ok).toBe(true);
-      expect(result2.ok).toBe(true);
-      if (result1.ok && result2.ok) {
+      expect(result1.success).toBe(true);
+      expect(result2.success).toBe(true);
+      if (result1.success && result2.success) {
         expect(result1.text).toBe(result2.text);
       }
     });
