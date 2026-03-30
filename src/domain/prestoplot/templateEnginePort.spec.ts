@@ -10,11 +10,7 @@ describe('TemplateEnginePort', () => {
    */
   function createStub(): TemplateEnginePort {
     return {
-      evaluate(
-        template: string,
-        _context: Readonly<Record<string, string>>,
-        _depth: number
-      ): string {
+      evaluate(template: string, _context: Readonly<Record<string, string>>): string {
         return template;
       },
     };
@@ -25,9 +21,9 @@ describe('TemplateEnginePort', () => {
     expect(port).toBeDefined();
   });
 
-  it('evaluate accepts template, context, and depth', () => {
+  it('evaluate accepts template and context', () => {
     const port = createStub();
-    const result = port.evaluate('hello {{ name }}', { name: 'world' }, 0);
+    const result = port.evaluate('hello {{ name }}', { name: 'world' });
     expect(typeof result).toBe('string');
   });
 });

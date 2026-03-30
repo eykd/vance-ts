@@ -23,9 +23,8 @@ export interface TemplateEnginePort {
    *
    * @param template - The text containing template expressions.
    * @param context - Map of variable names to already-rendered string values.
-   * @param depth - Current recursion depth for cycle detection.
    * @returns Plain text with all expressions resolved.
-   * @throws {import('./errors.js').TemplateError} On unresolvable references, syntax errors, or depth exceeding MAX_DEPTH (50).
+   * @throws {import('./errors.js').TemplateError} On unresolvable references or syntax errors.
    */
-  evaluate(template: string, context: Readonly<Record<string, string>>, depth: number): string;
+  evaluate(template: string, context: Readonly<Record<string, string>>): string;
 }

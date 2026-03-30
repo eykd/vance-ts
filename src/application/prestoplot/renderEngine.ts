@@ -196,7 +196,7 @@ export function createRenderEngine(
     }
 
     // Phase 2: delegate to template engine for remaining expressions
-    return templateEngine.evaluate(result, renderedCtx, 0);
+    return templateEngine.evaluate(result, renderedCtx);
   }
 
   /**
@@ -238,7 +238,7 @@ export function createRenderEngine(
         for (const [fieldName, ruleRef] of rule.fields) {
           fieldCtx[fieldName] = await renderRule(ruleRef);
         }
-        return templateEngine.evaluate(rule.template, fieldCtx, 0);
+        return templateEngine.evaluate(rule.template, fieldCtx);
       }
     }
 

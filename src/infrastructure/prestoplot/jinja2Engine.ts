@@ -371,9 +371,6 @@ function buildExprToken(trimmedExpr: string, template: string, strip: StripDirec
  * with FIFO eviction at MAX_CACHE_SIZE.
  */
 export class Jinja2Engine implements TemplateEnginePort {
-  /** Maximum recursion depth for template evaluation. */
-  static readonly MAX_DEPTH = 50;
-
   /** Maximum number of accessors in a single expression chain. */
   static readonly MAX_ACCESSOR_DEPTH = MAX_ACCESSOR_DEPTH;
 
@@ -391,15 +388,10 @@ export class Jinja2Engine implements TemplateEnginePort {
    *
    * @param template - The text containing template expressions.
    * @param context - Map of variable names to already-rendered string values.
-   * @param depth - Current recursion depth for cycle detection.
    * @returns Plain text with all expressions resolved.
-   * @throws {TemplateError} On syntax errors, unsupported features, or depth exceeded.
+   * @throws {TemplateError} On syntax errors or unsupported features.
    */
-  evaluate(template: string, context: Readonly<Record<string, string>>, depth: number): string {
-    if (depth >= Jinja2Engine.MAX_DEPTH) {
-      throw new TemplateError('max_depth_exceeded', 'Maximum recursion depth exceeded');
-    }
-
+  evaluate(template: string, context: Readonly<Record<string, string>>): string {
     const tokens = this.tokenizeWithCache(template);
     return this.render(tokens, context);
   }
