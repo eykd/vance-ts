@@ -325,5 +325,5 @@ export function grammarFromDto(dto: GrammarDto): Result<Grammar, GrammarParseErr
     rules.set(name, result.value);
   }
 
-  return createGrammar(dto.key, rules, dto.entry, dto.includes as string[]);
+  return createGrammar(dto.key, rules, dto.entry, dto.includes);
 }
