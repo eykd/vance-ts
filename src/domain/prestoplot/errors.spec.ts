@@ -11,7 +11,10 @@ import { DomainError } from '../errors/DomainError.js';
 import {
   CircularIncludeError,
   GrammarParseError,
+  IncludeDepthError,
+  IncludeLimitError,
   InvalidSeedError,
+  RenderBudgetError,
   RuleNotFoundError,
   StorageError,
   TemplateError,
@@ -148,6 +151,76 @@ describe('TemplateError', () => {
     const error = new TemplateError('bad', 'msg');
 
     expect(error.name).toBe('TemplateError');
+  });
+});
+
+describe('RenderBudgetError', () => {
+  it('extends DomainError', () => {
+    const error = new RenderBudgetError(10_000);
+
+    expect(error).toBeInstanceOf(DomainError);
+    expect(error).toBeInstanceOf(RenderBudgetError);
+  });
+
+  it('carries render_budget code and evaluation count', () => {
+    const error = new RenderBudgetError(10_001);
+
+    expect(error.code).toBe('render_budget');
+    expect(error.evaluationCount).toBe(10_001);
+    expect(error.message).toContain('10001');
+  });
+
+  it('sets name to RenderBudgetError', () => {
+    const error = new RenderBudgetError(5000);
+
+    expect(error.name).toBe('RenderBudgetError');
+  });
+});
+
+describe('IncludeDepthError', () => {
+  it('extends DomainError', () => {
+    const error = new IncludeDepthError('deep-grammar', 21);
+
+    expect(error).toBeInstanceOf(DomainError);
+    expect(error).toBeInstanceOf(IncludeDepthError);
+  });
+
+  it('carries include_depth code, module name and depth', () => {
+    const error = new IncludeDepthError('nested', 20);
+
+    expect(error.code).toBe('include_depth');
+    expect(error.moduleName).toBe('nested');
+    expect(error.depth).toBe(20);
+    expect(error.message).toContain('nested');
+  });
+
+  it('sets name to IncludeDepthError', () => {
+    const error = new IncludeDepthError('x', 5);
+
+    expect(error.name).toBe('IncludeDepthError');
+  });
+});
+
+describe('IncludeLimitError', () => {
+  it('extends DomainError', () => {
+    const error = new IncludeLimitError(51);
+
+    expect(error).toBeInstanceOf(DomainError);
+    expect(error).toBeInstanceOf(IncludeLimitError);
+  });
+
+  it('carries include_limit code and count', () => {
+    const error = new IncludeLimitError(50);
+
+    expect(error.code).toBe('include_limit');
+    expect(error.count).toBe(50);
+    expect(error.message).toContain('50');
+  });
+
+  it('sets name to IncludeLimitError', () => {
+    const error = new IncludeLimitError(10);
+
+    expect(error.name).toBe('IncludeLimitError');
   });
 });
 

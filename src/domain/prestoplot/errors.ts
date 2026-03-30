@@ -97,6 +97,70 @@ export class TemplateError extends DomainError {
 }
 
 /**
+ * Error raised when per-render evaluation count exceeds MAX_EVALUATIONS.
+ *
+ * Guards against exponential-time grammar expansion from branching mutual recursion.
+ */
+export class RenderBudgetError extends DomainError {
+  /** The evaluation count at the time the limit was exceeded. */
+  readonly evaluationCount: number;
+
+  /**
+   * Creates a new RenderBudgetError.
+   *
+   * @param evaluationCount - The evaluation count when the limit was hit.
+   */
+  constructor(evaluationCount: number) {
+    super('render_budget', `Render budget exceeded: ${String(evaluationCount)} evaluations`);
+    this.name = 'RenderBudgetError';
+    this.evaluationCount = evaluationCount;
+  }
+}
+
+/**
+ * Error raised when include chain depth exceeds MAX_INCLUDE_DEPTH.
+ */
+export class IncludeDepthError extends DomainError {
+  /** The grammar module that triggered the depth limit. */
+  readonly moduleName: string;
+
+  /** The depth at the time the limit was exceeded. */
+  readonly depth: number;
+
+  /**
+   * Creates a new IncludeDepthError.
+   *
+   * @param moduleName - The grammar module at the depth limit.
+   * @param depth - The depth when the limit was hit.
+   */
+  constructor(moduleName: string, depth: number) {
+    super('include_depth', `Include depth exceeded at "${moduleName}" (depth ${String(depth)})`);
+    this.name = 'IncludeDepthError';
+    this.moduleName = moduleName;
+    this.depth = depth;
+  }
+}
+
+/**
+ * Error raised when total resolved grammars exceed MAX_INCLUDE_COUNT.
+ */
+export class IncludeLimitError extends DomainError {
+  /** The count of resolved grammars when the limit was exceeded. */
+  readonly count: number;
+
+  /**
+   * Creates a new IncludeLimitError.
+   *
+   * @param count - The grammar count when the limit was hit.
+   */
+  constructor(count: number) {
+    super('include_limit', `Include limit exceeded: ${String(count)} grammars resolved`);
+    this.name = 'IncludeLimitError';
+    this.count = count;
+  }
+}
+
+/**
  * Error raised during grammar storage operations.
  */
 export class StorageError extends DomainError {
