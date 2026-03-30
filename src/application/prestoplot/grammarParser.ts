@@ -433,12 +433,7 @@ function hasWeightedAlternatives(value: unknown[]): boolean {
   if (value.length === 0) {
     return false;
   }
-  // Check first item (or second if first is an options object)
-  const firstItem = value[0];
-  if (isWeightedAlternativeObject(firstItem)) {
-    return true;
-  }
-  return false;
+  return isWeightedAlternativeObject(value[0]);
 }
 
 /**
