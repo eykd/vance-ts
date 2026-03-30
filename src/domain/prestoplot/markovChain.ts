@@ -99,6 +99,7 @@ export function rngChoice<T>(items: readonly T[], rng: Rng): T {
  * @param order - N-gram order. Default 2. Must be >= 1.
  * @returns Ok with trained model, or Err with RangeError.
  */
+// TODO: Wire to renderEngine when MARKOV selection mode is implemented
 export function trainMarkovChain(
   corpus: readonly string[],
   order: number = 2
@@ -145,6 +146,7 @@ const DEFAULT_MAX_LENGTH = 100;
  * @param start - Optional string to continue from. Default: fresh start.
  * @returns Ok with generated string, or Err with MarkovDeadEndError or RangeError.
  */
+// TODO: Wire to renderEngine when MARKOV selection mode is implemented
 export function generateMarkov(
   model: MarkovChainModel,
   rng: Rng,
