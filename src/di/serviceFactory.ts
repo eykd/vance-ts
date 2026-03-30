@@ -16,7 +16,6 @@ import type { AuthService } from '../application/ports/AuthService';
 import type { Logger } from '../application/ports/Logger';
 import type { RateLimiter } from '../application/ports/RateLimiter';
 import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../application/ports/RateLimiter';
-import type { StarSystemRepository } from '../application/ports/StarSystemRepository';
 import type { TradePairRepository } from '../application/ports/TradePairRepository';
 import type { StoragePort } from '../application/prestoplot/GrammarStorage';
 import type { RandomPort } from '../application/prestoplot/RandomSource';
@@ -46,6 +45,7 @@ import type { AuditEventRepository } from '../domain/interfaces/AuditEventReposi
 import type { ContextRepository } from '../domain/interfaces/ContextRepository';
 import type { InboxItemRepository } from '../domain/interfaces/InboxItemRepository';
 import type { RouteRepository } from '../domain/interfaces/RouteRepository';
+import type { StarSystemRepository } from '../domain/interfaces/StarSystemRepository';
 import type { WorkspaceRepository } from '../domain/interfaces/WorkspaceRepository';
 import type { TemplateEnginePort } from '../domain/prestoplot/templateEnginePort';
 import { getAuth, resetAuth } from '../infrastructure/auth';
