@@ -345,6 +345,36 @@ describe('RenderStoryService', () => {
       }
     });
 
+    it('maps RenderError to render_error result for unsupported MARKOV mode', async () => {
+      const dto: GrammarDto = {
+        version: 1,
+        key: 'markov-test',
+        entry: 'Begin',
+        includes: [],
+        rules: {
+          Begin: {
+            name: 'Begin',
+            type: 'list',
+            items: ['alpha', 'beta'],
+            selectionMode: 'MARKOV',
+            strategy: 'PLAIN',
+          },
+        },
+      };
+      const storage = stubStorage({ 'markov-test': dto });
+      const request: RenderStoryRequest = { grammarKey: 'markov-test', seed: 'alpha' };
+
+      const result = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.kind).toBe('render_error');
+        if (result.kind === 'render_error') {
+          expect(result.message).toContain('MARKOV');
+        }
+      }
+    });
+
     it('maps RenderBudgetError to render_budget result', async () => {
       // Create a grammar that will exceed evaluation budget
       const rules: Record<string, unknown> = {};

@@ -16,6 +16,7 @@ import {
   InvalidSeedError,
   ModuleNotFoundError,
   RenderBudgetError,
+  RenderError,
   RuleNotFoundError,
   StorageError,
   TemplateError,
@@ -130,6 +131,31 @@ describe('InvalidSeedError', () => {
     const error = new InvalidSeedError('bad');
 
     expect(error.name).toBe('InvalidSeedError');
+  });
+});
+
+describe('RenderError', () => {
+  it('extends DomainError', () => {
+    const error = new RenderError('unsupported_mode', 'MARKOV not implemented');
+
+    expect(error).toBeInstanceOf(DomainError);
+    expect(error).toBeInstanceOf(RenderError);
+  });
+
+  it('carries code and message', () => {
+    const error = new RenderError(
+      'unsupported_mode',
+      'MARKOV selection mode is not yet implemented'
+    );
+
+    expect(error.code).toBe('unsupported_mode');
+    expect(error.message).toBe('MARKOV selection mode is not yet implemented');
+  });
+
+  it('sets name to RenderError', () => {
+    const error = new RenderError('unsupported_mode', 'msg');
+
+    expect(error.name).toBe('RenderError');
   });
 });
 

@@ -9,7 +9,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { GrammarParseError, RenderBudgetError } from '../../domain/prestoplot/errors.js';
+import { RenderBudgetError, RenderError } from '../../domain/prestoplot/errors.js';
 import type { Grammar, Rule } from '../../domain/prestoplot/grammar.js';
 import { RenderStrategy, SelectionMode } from '../../domain/prestoplot/grammar.js';
 import type { Seed } from '../../domain/prestoplot/seed.js';
@@ -358,7 +358,7 @@ describe('RenderEngine', () => {
       }
     });
 
-    it('throws GrammarParseError for unsupported MARKOV mode', async () => {
+    it('throws RenderError for unsupported MARKOV mode', async () => {
       const rules = new Map<string, Rule>([
         ['Begin', listRule('Begin', ['alpha', 'beta'], SelectionMode.MARKOV)],
       ]);
@@ -370,7 +370,7 @@ describe('RenderEngine', () => {
         'seed' as Seed
       );
 
-      await expect(engine.renderEntry()).rejects.toThrow(GrammarParseError);
+      await expect(engine.renderEntry()).rejects.toThrow(RenderError);
       await expect(engine.renderEntry()).rejects.toThrow(
         'MARKOV selection mode is not yet implemented'
       );

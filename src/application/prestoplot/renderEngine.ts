@@ -8,7 +8,7 @@
  * @module application/prestoplot/renderEngine
  */
 
-import { GrammarParseError, RenderBudgetError } from '../../domain/prestoplot/errors.js';
+import { RenderBudgetError, RenderError } from '../../domain/prestoplot/errors.js';
 import type { Grammar, ListRule, TextRule } from '../../domain/prestoplot/grammar.js';
 import { RenderStrategy, SelectionMode } from '../../domain/prestoplot/grammar.js';
 import type { Seed } from '../../domain/prestoplot/seed.js';
@@ -148,10 +148,7 @@ export function createRenderEngine(
       }
       case SelectionMode.MARKOV: {
         // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
-        throw new GrammarParseError(
-          'unsupported_mode',
-          'MARKOV selection mode is not yet implemented'
-        );
+        throw new RenderError('unsupported_mode', 'MARKOV selection mode is not yet implemented');
       }
     }
   }

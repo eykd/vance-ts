@@ -81,6 +81,24 @@ export class InvalidSeedError extends DomainError {
 }
 
 /**
+ * Error raised when the render engine encounters an unsupported capability.
+ *
+ * Examples: MARKOV selection mode not yet implemented.
+ */
+export class RenderError extends DomainError {
+  /**
+   * Creates a new RenderError.
+   *
+   * @param code - Machine-readable error code.
+   * @param message - Human-readable message.
+   */
+  constructor(code: string, message: string) {
+    super(code, message);
+    this.name = 'RenderError';
+  }
+}
+
+/**
  * Error raised during template expression evaluation.
  */
 export class TemplateError extends DomainError {

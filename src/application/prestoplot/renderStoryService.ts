@@ -17,6 +17,7 @@ import {
   IncludeLimitError,
   ModuleNotFoundError,
   RenderBudgetError,
+  RenderError,
   StorageError,
   TemplateError,
 } from '../../domain/prestoplot/errors.js';
@@ -96,6 +97,7 @@ export type RenderStoryResult =
       readonly message: string;
     }
   | { readonly success: false; readonly kind: 'seed_error'; readonly message: string }
+  | { readonly success: false; readonly kind: 'render_error'; readonly message: string }
   | { readonly success: false; readonly kind: 'render_budget'; readonly evaluationCount: number }
   | {
       readonly success: false;
@@ -375,6 +377,13 @@ function mapErrorToResult(error: unknown, grammarKey: string): RenderStoryResult
   }
   if (error instanceof IncludeLimitError) {
     return { success: false, kind: 'include_limit', count: error.count };
+  }
+  if (error instanceof RenderError) {
+    return {
+      success: false,
+      kind: 'render_error',
+      message: error.message,
+    };
   }
   if (error instanceof GrammarParseError) {
     return {
