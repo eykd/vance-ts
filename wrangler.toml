@@ -44,7 +44,7 @@ migrations_dir = "migrations"
 
 [[kv_namespaces]]
 binding = "GRAMMAR_KV"
-id = "PLACEHOLDER_GRAMMAR_KV_ID"
+id = "1240cd8f9e3e4a15bff1dd3c9cead5d9"
 
 [[durable_objects.bindings]]
 name = "RATE_LIMIT"
