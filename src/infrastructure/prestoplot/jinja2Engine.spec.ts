@@ -112,6 +112,12 @@ describe('Jinja2Engine', () => {
         TemplateError
       );
     });
+
+    it('should use Object.hasOwn for variable lookup (not prototype chain)', () => {
+      // Verify Object.hasOwn is used — inherited properties should not resolve
+      const ctx = Object.create({ inherited: 'bad' }) as Record<string, string>;
+      expect(() => engine().evaluate('{{ inherited }}', ctx, 0)).toThrow(TemplateError);
+    });
   });
 
   describe('index accessor {{ name[0] }}', () => {
@@ -277,6 +283,32 @@ describe('Jinja2Engine', () => {
   describe("literal brace {{ '{'  }}", () => {
     it('should handle string literal for brace escaping', () => {
       expect(engine().evaluate("{{ '{' }}", { '{': '{' }, 0)).toBe('{');
+    });
+  });
+
+  describe('parseExpression error paths', () => {
+    it('should throw TemplateError for trailing dot in expression', () => {
+      expect(() => engine().evaluate('{{ x. }}', { x: 'val' }, 0)).toThrow(TemplateError);
+    });
+
+    it('should throw TemplateError for empty accessor after dot', () => {
+      expect(() => engine().evaluate('{{ x.. }}', { x: 'val' }, 0)).toThrow(TemplateError);
+    });
+
+    it('should throw TemplateError for unclosed index accessor', () => {
+      expect(() => engine().evaluate('{{ x[0 }}', { x: 'val' }, 0)).toThrow(TemplateError);
+    });
+
+    it('should throw TemplateError for unexpected character in expression', () => {
+      expect(() => engine().evaluate('{{ x! }}', { x: 'val' }, 0)).toThrow(TemplateError);
+    });
+
+    it('should throw TemplateError for unclosed string literal', () => {
+      expect(() => engine().evaluate("{{ 'unclosed }}", {}, 0)).toThrow(TemplateError);
+    });
+
+    it('should throw TemplateError for invalid expression start', () => {
+      expect(() => engine().evaluate('{{ 123 }}', {}, 0)).toThrow(TemplateError);
     });
   });
 
