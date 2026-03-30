@@ -42,6 +42,10 @@ database_name = "clawtask"
 database_id = "af4840f9-c958-4c16-ae79-f71e662e9643"
 migrations_dir = "migrations"
 
+[[kv_namespaces]]
+binding = "GRAMMAR_KV"
+id = "PLACEHOLDER_GRAMMAR_KV_ID"
+
 [[durable_objects.bindings]]
 name = "RATE_LIMIT"
 class_name = "RateLimitDO"

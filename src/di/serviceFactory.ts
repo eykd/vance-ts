@@ -19,6 +19,14 @@ import { REGISTER_WINDOW_SECONDS, SIGN_IN_WINDOW_SECONDS } from '../application/
 import type { RouteRepository } from '../application/ports/RouteRepository';
 import type { StarSystemRepository } from '../application/ports/StarSystemRepository';
 import type { TradePairRepository } from '../application/ports/TradePairRepository';
+import type { StoragePort } from '../application/prestoplot/GrammarStorage';
+import type { RandomPort } from '../application/prestoplot/RandomSource';
+import type {
+  RenderStoryRequest,
+  RenderStoryResult,
+} from '../application/prestoplot/renderStoryService';
+import { renderStory } from '../application/prestoplot/renderStoryService';
+import type { TemplateEnginePort } from '../application/prestoplot/TemplateEngine';
 import { ActivateActionUseCase } from '../application/use-cases/ActivateActionUseCase';
 import { CaptureInboxItemUseCase } from '../application/use-cases/CaptureInboxItemUseCase';
 import { ClarifyInboxItemToActionUseCase } from '../application/use-cases/ClarifyInboxItemToActionUseCase';
@@ -56,6 +64,10 @@ import { DurableObjectRateLimiter } from '../infrastructure/DurableObjectRateLim
 import { D1RouteRepository } from '../infrastructure/galaxy/D1RouteRepository';
 import { D1StarSystemRepository } from '../infrastructure/galaxy/D1StarSystemRepository';
 import { D1TradePairRepository } from '../infrastructure/galaxy/D1TradePairRepository';
+import { createCachedStorage } from '../infrastructure/prestoplot/cachedStorage';
+import { Jinja2Engine } from '../infrastructure/prestoplot/jinja2Engine';
+import { createKVStorage } from '../infrastructure/prestoplot/kvStorage';
+import { createMulberry32Random } from '../infrastructure/prestoplot/mulberry32Random';
 import { D1ActionRepository } from '../infrastructure/repositories/D1ActionRepository';
 import { D1ActorRepository } from '../infrastructure/repositories/D1ActorRepository';
 import { D1AreaRepository } from '../infrastructure/repositories/D1AreaRepository';
@@ -229,6 +241,11 @@ export class ServiceFactory {
 
   /** Cached AppPartialHandlers. */
   private _appPartialHandlers: AppPartialHandlers | null = null;
+
+  /** Cached renderStoryService bound function. */
+  private _renderStoryService:
+    | ((request: RenderStoryRequest) => Promise<RenderStoryResult>)
+    | null = null;
 
   /**
    * Creates a new ServiceFactory and initialises the better-auth instance.
@@ -742,6 +759,25 @@ export class ServiceFactory {
       this.completeActionUseCase
     );
     return this._appPartialHandlers;
+  }
+
+  /**
+   * Grammar-based text generation service.
+   *
+   * Pre-binds CachedStorage (wrapping KVStorage), Mulberry32Random, and
+   * Jinja2Engine so callers only need to provide a {@link RenderStoryRequest}.
+   *
+   * @returns A bound function that delegates to {@link renderStory}.
+   */
+  get renderStoryService(): (request: RenderStoryRequest) => Promise<RenderStoryResult> {
+    if (this._renderStoryService === null) {
+      const storage: StoragePort = createCachedStorage(createKVStorage(this.env.GRAMMAR_KV));
+      const randomPort: RandomPort = createMulberry32Random();
+      const templateEngine: TemplateEnginePort = new Jinja2Engine();
+      this._renderStoryService = (request: RenderStoryRequest): Promise<RenderStoryResult> =>
+        renderStory(request, storage, randomPort, templateEngine);
+    }
+    return this._renderStoryService;
   }
 
   /**
