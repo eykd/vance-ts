@@ -162,6 +162,22 @@ describe('Jinja2Engine', () => {
     it('should handle empty string for article accessor', () => {
       expect(engine().evaluate('{{ x.a }}', { x: '' }, 0)).toBe('a');
     });
+
+    it('should return "an" for silent-h words like "hour"', () => {
+      expect(engine().evaluate('{{ x.a }}', { x: 'hour' }, 0)).toBe('an');
+    });
+
+    it('should return "a" for uni- prefix words like "unicorn"', () => {
+      expect(engine().evaluate('{{ x.a }}', { x: 'unicorn' }, 0)).toBe('a');
+    });
+
+    it('should return "an hour" with .an accessor for silent-h', () => {
+      expect(engine().evaluate('{{ x.an }}', { x: 'hour' }, 0)).toBe('an hour');
+    });
+
+    it('should return "a unicorn" with .an accessor for uni- prefix', () => {
+      expect(engine().evaluate('{{ x.an }}', { x: 'unicorn' }, 0)).toBe('a unicorn');
+    });
   });
 
   describe('comments {# #}', () => {

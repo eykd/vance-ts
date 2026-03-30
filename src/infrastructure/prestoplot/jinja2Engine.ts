@@ -12,6 +12,7 @@
  */
 
 import type { TemplateEnginePort } from '../../application/prestoplot/TemplateEngine.js';
+import { getArticle } from '../../domain/prestoplot/articleGeneration.js';
 import { TemplateError } from '../../domain/prestoplot/errors.js';
 
 /** Maximum characters shown in error message template excerpts. */
@@ -51,9 +52,6 @@ type Accessor =
 /** Union of all token types produced by the tokenizer. */
 type Jinja2Token = LiteralToken | CommentToken | ExprToken;
 
-/** Vowels used for indefinite article detection. */
-const VOWELS = new Set(['a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U']);
-
 /**
  * Truncate a template string for error messages.
  *
@@ -65,23 +63,6 @@ function truncate(template: string): string {
     return template;
   }
   return template.slice(0, ERROR_TRUNCATE) + '...';
-}
-
-/**
- * Determine the indefinite article for a word.
- *
- * @param word - The word to check.
- * @returns "an" if the word starts with a vowel, "a" otherwise.
- */
-function indefiniteArticle(word: string): 'a' | 'an' {
-  if (word.length === 0) {
-    return 'a';
-  }
-  const first = word[0];
-  if (first !== undefined && VOWELS.has(first)) {
-    return 'an';
-  }
-  return 'a';
 }
 
 /**
@@ -509,7 +490,7 @@ export class Jinja2Engine implements TemplateEnginePort {
     // Process accessors on the resolved value
     for (const accessor of token.accessors) {
       if (accessor.kind === 'article') {
-        const article = indefiniteArticle(value);
+        const article = getArticle(value);
         switch (accessor.form) {
           case 'a':
             return article;
