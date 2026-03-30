@@ -136,7 +136,7 @@ export function createRenderEngine(
       }
       case SelectionMode.LIST: {
         const rng = await getRng(rule.name);
-        const index = Math.floor(rng.next() * rule.items.length);
+        const index = Math.min(Math.floor(rng.next() * rule.items.length), rule.items.length - 1);
         return selectList(rule.items, index);
       }
       case SelectionMode.PICK: {

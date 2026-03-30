@@ -328,6 +328,30 @@ describe('RenderEngine', () => {
       expect(result).toBe('zero');
     });
 
+    it('clamps LIST mode index when float precision yields items.length', async () => {
+      const rules = new Map<string, Rule>([
+        ['Begin', listRule('Begin', ['zero', 'one', 'two'], SelectionMode.LIST)],
+      ]);
+      const grammar = makeGrammar(rules);
+      // RNG returning exactly 1.0 would make Math.floor(1.0 * 3) = 3, out of bounds
+      const rng: Rng = { next: vi.fn().mockReturnValue(1.0) };
+      const randomPort: RandomPort = {
+        seedToInt: vi.fn().mockResolvedValue(42),
+        createRng: vi.fn().mockReturnValue(rng),
+      };
+      const engine = createRenderEngine(
+        grammar,
+        randomPort,
+        passthroughTemplateEngine(),
+        'seed' as Seed
+      );
+
+      const result = await engine.renderEntry();
+
+      // Should clamp to last item instead of going out of bounds
+      expect(result).toBe('two');
+    });
+
     it('renders PICK mode without replacement', async () => {
       const rules = new Map<string, Rule>([
         ['Begin', textRule('Begin', '{{ Item }} {{ Item }} {{ Item }}', RenderStrategy.TEMPLATE)],
