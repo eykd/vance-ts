@@ -20,7 +20,6 @@ head_sampling_rate = 1
 
 [vars]
 BETTER_AUTH_URL = "https://meetclawtask.com"
-SENTRY_DSN = "https://7bca9511c888608a009a723f2559af55@o4506101095137280.ingest.us.sentry.io/4511106056912896"
 
 routes = [
   { pattern = "meetclawtask.com", custom_domain = true },
