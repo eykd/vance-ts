@@ -44,10 +44,10 @@ export function createCachedStorage(
   const insertionOrder: string[] = [];
 
   /**
-   * Evicts the oldest cache entry if the cache exceeds the size limit.
+   * Evicts the oldest cache entry if the cache is at the size limit.
    */
   function evictIfNeeded(): void {
-    if (insertionOrder.length > MAX_DTO_CACHE_SIZE) {
+    if (insertionOrder.length >= MAX_DTO_CACHE_SIZE) {
       const oldest = insertionOrder.shift();
       if (oldest !== undefined) {
         cache.delete(oldest);
@@ -69,9 +69,9 @@ export function createCachedStorage(
         insertionOrder.splice(idx, 1);
       }
     }
+    evictIfNeeded();
     cache.set(key, { dto, storedAt: Date.now() });
     insertionOrder.push(key);
-    evictIfNeeded();
   }
 
   return {
