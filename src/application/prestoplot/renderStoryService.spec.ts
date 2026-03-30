@@ -597,7 +597,28 @@ describe('RenderStoryService', () => {
       }
     });
 
-    it('enforces MAX_INCLUDE_DEPTH=20', async () => {
+    it('accepts include chain at exactly MAX_INCLUDE_DEPTH=20', async () => {
+      // Create a chain of 21 grammars: g0→g1→g2→...→g20
+      // g0 is root (depth 0), g20 is at depth 20 — exactly at the limit
+      const dtos: Record<string, GrammarDto> = {};
+      for (let i = 0; i <= 20; i++) {
+        const key = `g${String(i)}`;
+        const includes = i < 20 ? [`g${String(i + 1)}`] : [];
+        dtos[key] = makeDtoWithRules(key, { Begin: textRule(`from ${key}`) }, includes);
+      }
+      const storage = stubStorage(dtos);
+
+      const result = await renderStory(
+        { grammarKey: 'g0', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('rejects include chain at MAX_INCLUDE_DEPTH + 1 = 21', async () => {
       // Create a chain of 22 grammars: g0→g1→g2→...→g21
       const dtos: Record<string, GrammarDto> = {};
       for (let i = 0; i <= 21; i++) {
@@ -620,7 +641,29 @@ describe('RenderStoryService', () => {
       }
     });
 
-    it('enforces MAX_INCLUDE_COUNT=50', async () => {
+    it('accepts exactly MAX_INCLUDE_COUNT=50 total grammars', async () => {
+      // Root + 49 includes = 50 total in the seen set (at the limit)
+      const dtos: Record<string, GrammarDto> = {};
+      const includes: string[] = [];
+      for (let i = 0; i < 49; i++) {
+        const key = `child${String(i)}`;
+        includes.push(key);
+        dtos[key] = makeDtoWithRules(key, { Begin: textRule(`from ${key}`) });
+      }
+      dtos['root'] = makeDtoWithRules('root', { Begin: textRule('from root') }, includes);
+      const storage = stubStorage(dtos);
+
+      const result = await renderStory(
+        { grammarKey: 'root', seed: 'test' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result.ok).toBe(true);
+    });
+
+    it('rejects when total grammar count exceeds MAX_INCLUDE_COUNT=50', async () => {
       // Create a wide grammar that includes 51 children
       const dtos: Record<string, GrammarDto> = {};
       const includes: string[] = [];
