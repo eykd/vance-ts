@@ -111,7 +111,7 @@ interface IncludeQueueEntry {
   readonly grammar: Grammar;
   /** Current depth in the include tree. */
   readonly depth: number;
-  /** Path from root to this grammar (for cycle detection). */
+  /** Path from root to this grammar (for cycle detection). Also passed as the chain to {@link CircularIncludeError} when a cycle is found. */
   readonly path: readonly string[];
 }
 
