@@ -724,7 +724,7 @@ function validateMarkovItems(
 
   // Items must not contain template syntax
   for (const item of items) {
-    if (item.includes('{') || item.includes('{{')) {
+    if (item.includes('{')) {
       return err(
         new GrammarParseError(
           'invalid_markov_item',
