@@ -6,46 +6,121 @@ import { describe, it, expect } from "vitest";
 
 import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
 
+import { parseGrammar } from "../src/application/prestoplot/grammarParser.js";
+import { grammarToDto } from "../src/application/prestoplot/dto.js";
+import { renderStory } from "../src/application/prestoplot/renderStoryService.js";
+import { createInMemoryStorage } from "../src/infrastructure/prestoplot/inMemoryStorage.js";
+import { createMulberry32Random } from "../src/infrastructure/prestoplot/mulberry32Random.js";
+import { Jinja2Engine } from "../src/infrastructure/prestoplot/jinja2Engine.js";
+
 describe("US16-render-grammar", () => {
 
 // Rendering a grammar with a seed produces deterministic output.
 // Source: specs/acceptance-specs/US16-render-grammar.txt:2
 it("Rendering a grammar with a seed produces deterministic output.", async () => {
   // GIVEN a valid YAML grammar with text rules.
-  // WHEN rendered with seed "alpha".
-  // THEN the output is a specific deterministic string that never changes for that seed.
+  const yaml = '"Begin": ["Hello", "Hi", "Hey", "Greetings", "Salutations"]';
+  const parsed = parseGrammar(yaml, "test-greeting");
+  expect(parsed.success).toBe(true);
+  if (!parsed.success) return;
 
-  throw new Error("acceptance test not yet bound");
+  const storage = createInMemoryStorage();
+  await storage.save("test-greeting", grammarToDto(parsed.value));
+  const random = createMulberry32Random();
+  const engine = new Jinja2Engine();
+
+  // WHEN rendered with seed "alpha".
+  const result1 = await renderStory({ grammarKey: "test-greeting", seed: "alpha" }, storage, random, engine);
+  const result2 = await renderStory({ grammarKey: "test-greeting", seed: "alpha" }, storage, random, engine);
+
+  // THEN the output is a specific deterministic string that never changes for that seed.
+  expect(result1.success).toBe(true);
+  expect(result2.success).toBe(true);
+  if (!result1.success || !result2.success) return;
+  expect(result1.text).toBe(result2.text);
 });
 
 // Different seeds produce different output.
 // Source: specs/acceptance-specs/US16-render-grammar.txt:9
 it("Different seeds produce different output.", async () => {
   // GIVEN the same grammar rendered with seed "beta".
-  // WHEN compared to the output from seed "alpha".
-  // THEN the outputs differ.
+  const yaml = '"Begin": ["Hello", "Hi", "Hey", "Greetings", "Salutations", "Howdy", "Welcome", "Good day"]';
+  const parsed = parseGrammar(yaml, "test-multi");
+  expect(parsed.success).toBe(true);
+  if (!parsed.success) return;
 
-  throw new Error("acceptance test not yet bound");
+  const storage = createInMemoryStorage();
+  await storage.save("test-multi", grammarToDto(parsed.value));
+  const random = createMulberry32Random();
+  const engine = new Jinja2Engine();
+
+  // WHEN compared to the output from seed "alpha".
+  const resultAlpha = await renderStory({ grammarKey: "test-multi", seed: "alpha" }, storage, random, engine);
+  const resultBeta = await renderStory({ grammarKey: "test-multi", seed: "beta" }, storage, random, engine);
+
+  // THEN the outputs differ.
+  expect(resultAlpha.success).toBe(true);
+  expect(resultBeta.success).toBe(true);
+  if (!resultAlpha.success || !resultBeta.success) return;
+  expect(resultAlpha.text).not.toBe(resultBeta.text);
 });
 
 // Nested rule references are fully resolved.
 // Source: specs/acceptance-specs/US16-render-grammar.txt:16
 it("Nested rule references are fully resolved.", async () => {
   // GIVEN a grammar with nested rule references.
-  // WHEN rendered.
-  // THEN nested references are fully resolved to plain text.
+  const yaml = [
+    '"Begin": "{{salutation}} {{name}}"',
+    '"salutation": ["Hello", "Hi"]',
+    '"name": ["Alice", "Bob"]',
+  ].join("\n");
+  const parsed = parseGrammar(yaml, "test-nested");
+  expect(parsed.success).toBe(true);
+  if (!parsed.success) return;
 
-  throw new Error("acceptance test not yet bound");
+  const storage = createInMemoryStorage();
+  await storage.save("test-nested", grammarToDto(parsed.value));
+  const random = createMulberry32Random();
+  const engine = new Jinja2Engine();
+
+  // WHEN rendered.
+  const result = await renderStory({ grammarKey: "test-nested", seed: "alpha" }, storage, random, engine);
+
+  // THEN nested references are fully resolved to plain text.
+  expect(result.success).toBe(true);
+  if (!result.success) return;
+  expect(result.text).not.toContain("{{");
+  expect(result.text).not.toContain("}}");
+  expect(result.text.length).toBeGreaterThan(0);
 });
 
 // Template expressions are evaluated and replaced.
 // Source: specs/acceptance-specs/US16-render-grammar.txt:23
 it("Template expressions are evaluated and replaced.", async () => {
   // GIVEN a grammar with template expressions in rendered text.
-  // WHEN rendered.
-  // THEN template expressions are evaluated and replaced with rule output.
+  const yaml = [
+    '"Begin": "The {{animal}} jumped over the {{obstacle}}"',
+    '"animal": ["fox", "cat"]',
+    '"obstacle": ["fence", "wall"]',
+  ].join("\n");
+  const parsed = parseGrammar(yaml, "test-template");
+  expect(parsed.success).toBe(true);
+  if (!parsed.success) return;
 
-  throw new Error("acceptance test not yet bound");
+  const storage = createInMemoryStorage();
+  await storage.save("test-template", grammarToDto(parsed.value));
+  const random = createMulberry32Random();
+  const engine = new Jinja2Engine();
+
+  // WHEN rendered.
+  const result = await renderStory({ grammarKey: "test-template", seed: "alpha" }, storage, random, engine);
+
+  // THEN template expressions are evaluated and replaced with rule output.
+  expect(result.success).toBe(true);
+  if (!result.success) return;
+  expect(result.text).not.toContain("{{");
+  expect(result.text).not.toContain("}}");
+  expect(result.text).toMatch(/^The (fox|cat) jumped over the (fence|wall)$/);
 });
 
 }); // end describe

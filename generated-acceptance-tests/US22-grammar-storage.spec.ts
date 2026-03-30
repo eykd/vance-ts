@@ -6,36 +6,93 @@ import { describe, it, expect } from "vitest";
 
 import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
 
+import { parseGrammar } from "../src/application/prestoplot/grammarParser.js";
+import { grammarToDto, grammarFromDto } from "../src/application/prestoplot/dto.js";
+import { createInMemoryStorage } from "../src/infrastructure/prestoplot/inMemoryStorage.js";
+
 describe("US22-grammar-storage", () => {
 
 // Grammar round-trips through storage identically.
 // Source: specs/acceptance-specs/US22-grammar-storage.txt:2
 it("Grammar round-trips through storage identically.", async () => {
   // GIVEN a parsed grammar.
-  // WHEN stored and then retrieved.
-  // THEN the retrieved grammar is identical to the original.
+  const yaml = [
+    '"Begin":',
+    '  - "Hello"',
+    '  - "Hi"',
+    '  - "Hey"',
+  ].join("\n");
+  const parsed = parseGrammar(yaml, "test-roundtrip");
+  expect(parsed.success).toBe(true);
+  if (!parsed.success) return;
 
-  throw new Error("acceptance test not yet bound");
+  const original = parsed.value;
+  const dto = grammarToDto(original);
+
+  // WHEN stored and then retrieved.
+  const storage = createInMemoryStorage();
+  await storage.save("test-roundtrip", dto);
+  const loaded = await storage.load("test-roundtrip");
+  expect(loaded).not.toBeNull();
+  if (loaded === null) return;
+
+  // THEN the retrieved grammar is identical to the original.
+  const restored = grammarFromDto(loaded);
+  expect(restored.success).toBe(true);
+  if (!restored.success) return;
+
+  expect(restored.value.key).toBe(original.key);
+  expect(restored.value.entry).toBe(original.entry);
+  expect([...restored.value.includes]).toEqual([...original.includes]);
+  expect(restored.value.rules.size).toBe(original.rules.size);
+
+  for (const [name, rule] of original.rules) {
+    const restoredRule = restored.value.rules.get(name);
+    expect(restoredRule).toBeDefined();
+    expect(restoredRule!.type).toBe(rule.type);
+    expect(restoredRule!.name).toBe(rule.name);
+  }
 });
 
 // Missing grammar key returns not-found.
 // Source: specs/acceptance-specs/US22-grammar-storage.txt:9
 it("Missing grammar key returns not-found.", async () => {
   // GIVEN a grammar key that does not exist in storage.
-  // WHEN retrieved.
-  // THEN a grammar not found result is returned.
+  const storage = createInMemoryStorage();
 
-  throw new Error("acceptance test not yet bound");
+  // WHEN retrieved.
+  const result = await storage.load("nonexistent-key");
+
+  // THEN a grammar not found result is returned.
+  expect(result).toBeNull();
 });
 
 // Listing returns all stored grammar keys.
 // Source: specs/acceptance-specs/US22-grammar-storage.txt:16
 it("Listing returns all stored grammar keys.", async () => {
   // GIVEN multiple grammars stored.
-  // WHEN listing available grammars.
-  // THEN all stored grammar keys are returned.
+  const storage = createInMemoryStorage();
 
-  throw new Error("acceptance test not yet bound");
+  const grammars = ["alpha", "beta", "gamma"];
+  for (const name of grammars) {
+    const yaml = [
+      '"Begin":',
+      `  - "${name}"`,
+    ].join("\n");
+    const parsed = parseGrammar(yaml, name);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    await storage.save(name, grammarToDto(parsed.value));
+  }
+
+  // WHEN listing available grammars.
+  const keys = await storage.keys();
+
+  // THEN all stored grammar keys are returned.
+  expect(keys).toHaveLength(3);
+  for (const name of grammars) {
+    expect(keys).toContain(name);
+  }
 });
 
 }); // end describe

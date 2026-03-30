@@ -6,6 +6,14 @@ import { describe, it, expect } from "vitest";
 
 import { extractSessionCookie, get, getAuthForm, post, signInAs, submitAuthForm } from "./helpers";
 
+import { seedToInt } from "../src/infrastructure/prestoplot/seedHasher.js";
+import { parseGrammar } from "../src/application/prestoplot/grammarParser.js";
+import { grammarToDto } from "../src/application/prestoplot/dto.js";
+import { renderStory } from "../src/application/prestoplot/renderStoryService.js";
+import { createInMemoryStorage } from "../src/infrastructure/prestoplot/inMemoryStorage.js";
+import { createMulberry32Random } from "../src/infrastructure/prestoplot/mulberry32Random.js";
+import { Jinja2Engine } from "../src/infrastructure/prestoplot/jinja2Engine.js";
+
 describe("US18-scoped-randomness", () => {
 
 // Seed hashing produces deterministic integers.
@@ -13,9 +21,13 @@ describe("US18-scoped-randomness", () => {
 it("Seed hashing produces deterministic integers.", async () => {
   // GIVEN a seed string "sol-42".
   // WHEN converted to an integer via SHA-256 hashing.
-  // THEN the result is deterministic and consistent across renders.
+  const result1 = await seedToInt("sol-42");
+  const result2 = await seedToInt("sol-42");
 
-  throw new Error("acceptance test not yet bound");
+  // THEN the result is deterministic and consistent across renders.
+  expect(result1).toBe(result2);
+  expect(typeof result1).toBe("number");
+  expect(Number.isInteger(result1)).toBe(true);
 });
 
 // Different scope keys produce different sequences.
@@ -23,19 +35,57 @@ it("Seed hashing produces deterministic integers.", async () => {
 it("Different scope keys produce different sequences.", async () => {
   // GIVEN a base seed and two different scope keys.
   // WHEN scoped seeds are derived.
-  // THEN each produces a different but deterministic PRNG sequence.
+  const resultA = await seedToInt("sol-42:ruleA");
+  const resultB = await seedToInt("sol-42:ruleB");
 
-  throw new Error("acceptance test not yet bound");
+  // THEN each produces a different but deterministic PRNG sequence.
+  expect(resultA).not.toBe(resultB);
+
+  // Verify determinism.
+  const resultA2 = await seedToInt("sol-42:ruleA");
+  expect(resultA).toBe(resultA2);
 });
 
 // Adding unrelated rules does not change existing output.
 // Source: specs/acceptance-specs/US18-scoped-randomness.txt:16
 it("Adding unrelated rules does not change existing output.", async () => {
   // GIVEN a grammar rendered with seed "sol-42".
-  // WHEN a new unrelated rule is added to the grammar.
-  // THEN existing rules produce the same output as before.
+  const yamlSmall = [
+    '"Begin": "{{greeting}}"',
+    '"greeting": ["Hello", "Hi", "Hey", "Howdy"]',
+  ].join("\n");
+  const parsedSmall = parseGrammar(yamlSmall, "test-scoped");
+  expect(parsedSmall.success).toBe(true);
+  if (!parsedSmall.success) return;
 
-  throw new Error("acceptance test not yet bound");
+  const storage1 = createInMemoryStorage();
+  await storage1.save("test-scoped", grammarToDto(parsedSmall.value));
+  const random = createMulberry32Random();
+  const engine = new Jinja2Engine();
+
+  const result1 = await renderStory({ grammarKey: "test-scoped", seed: "sol-42" }, storage1, random, engine);
+  expect(result1.success).toBe(true);
+  if (!result1.success) return;
+
+  // WHEN a new unrelated rule is added to the grammar.
+  const yamlLarger = [
+    '"Begin": "{{greeting}}"',
+    '"greeting": ["Hello", "Hi", "Hey", "Howdy"]',
+    '"farewell": ["Bye", "Ciao"]',
+  ].join("\n");
+  const parsedLarger = parseGrammar(yamlLarger, "test-scoped");
+  expect(parsedLarger.success).toBe(true);
+  if (!parsedLarger.success) return;
+
+  const storage2 = createInMemoryStorage();
+  await storage2.save("test-scoped", grammarToDto(parsedLarger.value));
+
+  const result2 = await renderStory({ grammarKey: "test-scoped", seed: "sol-42" }, storage2, random, engine);
+  expect(result2.success).toBe(true);
+  if (!result2.success) return;
+
+  // THEN existing rules produce the same output as before.
+  expect(result1.text).toBe(result2.text);
 });
 
 }); // end describe
