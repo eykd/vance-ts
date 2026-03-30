@@ -26,7 +26,7 @@ import type { Seed } from '../../domain/prestoplot/seed.js';
 
 import { GRAMMAR_KEY_PATTERN } from './constants.js';
 import { grammarFromDto } from './dto.js';
-import type { StoragePort } from './GrammarStorage.js';
+import type { GrammarDto, StoragePort } from './GrammarStorage.js';
 import type { RandomPort } from './RandomSource.js';
 import { createRenderEngine } from './renderEngine.js';
 import type { TemplateEnginePort } from './TemplateEngine.js';
@@ -311,7 +311,7 @@ export async function renderStory(
     const seed: Seed = seedResult.value;
 
     // Load grammar from storage
-    let dto;
+    let dto: GrammarDto | null;
     try {
       dto = await storage.load(request.grammarKey);
     } catch (storageErr: unknown) {
