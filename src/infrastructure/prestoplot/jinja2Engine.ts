@@ -18,6 +18,9 @@ import { TemplateError } from '../../domain/prestoplot/errors.js';
 /** Maximum characters shown in error message template excerpts. */
 const ERROR_TRUNCATE = 50;
 
+/** Maximum number of accessors in a single expression chain. */
+const MAX_ACCESSOR_DEPTH = 10;
+
 /** A literal text segment between interpolation expressions. */
 interface LiteralToken {
   readonly kind: 'literal';
@@ -203,10 +206,10 @@ function parseExpression(
       );
     }
 
-    if (accessors.length > Jinja2Engine.MAX_ACCESSOR_DEPTH) {
+    if (accessors.length > MAX_ACCESSOR_DEPTH) {
       throw new TemplateError(
         'accessor_depth_exceeded',
-        `Accessor chain exceeds maximum depth of ${String(Jinja2Engine.MAX_ACCESSOR_DEPTH)}`
+        `Accessor chain exceeds maximum depth of ${String(MAX_ACCESSOR_DEPTH)}`
       );
     }
   }
@@ -372,7 +375,7 @@ export class Jinja2Engine implements TemplateEnginePort {
   static readonly MAX_DEPTH = 50;
 
   /** Maximum number of accessors in a single expression chain. */
-  static readonly MAX_ACCESSOR_DEPTH = 10;
+  static readonly MAX_ACCESSOR_DEPTH = MAX_ACCESSOR_DEPTH;
 
   /** Maximum number of cached tokenized templates (FIFO eviction). */
   static readonly MAX_CACHE_SIZE = 500;
