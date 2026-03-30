@@ -102,11 +102,6 @@ export function parseGrammar(source: string, moduleName: string): ParseResult {
     return rulesResult;
   }
 
-  const entryCheck = validateEntryRule(rulesResult.value, moduleName);
-  if (!entryCheck.success) {
-    return entryCheck;
-  }
-
   return createGrammar(moduleName, rulesResult.value, 'Begin', includesResult.value);
 }
 
@@ -846,26 +841,4 @@ function normalizeText(text: string): string {
   });
 
   return dedented.join('\n').trim();
-}
-
-/**
- * Validates that the entry rule ("Begin") exists in the rules map.
- *
- * @param rules - Map of rule name to Rule.
- * @param moduleName - Module name for error messages.
- * @returns Ok on success, Err if "Begin" is not in the rules map.
- */
-function validateEntryRule(
-  rules: Map<string, Rule>,
-  moduleName: string
-): Result<void, GrammarParseError> {
-  if (!rules.has('Begin')) {
-    return err(
-      new GrammarParseError(
-        'entry_not_found',
-        `Grammar "${moduleName}": entry rule "Begin" not found in grammar rules`
-      )
-    );
-  }
-  return ok(undefined);
 }

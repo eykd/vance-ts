@@ -558,7 +558,7 @@ describe('parseGrammar', () => {
     it('returns error when Begin rule is missing', () => {
       const error = parseErr('"Hero": "a navigator"');
       expect(error.code).toBe('entry_not_found');
-      expect(error.message).toContain('entry rule "Begin" not found');
+      expect(error.message).toContain('Entry rule "Begin" not found');
     });
   });
 
