@@ -783,8 +783,10 @@ describe('RenderStoryService', () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        // StorageError for missing include maps to storage_error
-        expect(result.kind).toBe('storage_error');
+        expect(result.kind).toBe('module_not_found');
+        if (result.kind === 'module_not_found') {
+          expect(result.moduleName).toBe('missing-grammar');
+        }
       }
     });
 

@@ -15,6 +15,7 @@ import {
   GrammarParseError,
   IncludeDepthError,
   IncludeLimitError,
+  ModuleNotFoundError,
   RenderBudgetError,
   StorageError,
   TemplateError,
@@ -220,10 +221,7 @@ async function resolveIncludes(
 
       if (dto === null) {
         // eslint-disable-next-line no-restricted-syntax -- caught by renderStory's never-throws contract
-        throw new StorageError(
-          'module_not_found',
-          `Included grammar "${item.key}" not found in storage`
-        );
+        throw new ModuleNotFoundError(item.key);
       }
 
       const parseResult = grammarFromDto(dto);
@@ -393,6 +391,9 @@ function mapErrorToResult(error: unknown, grammarKey: string): RenderStoryResult
       sourcePath: grammarKey,
       message: error.message,
     };
+  }
+  if (error instanceof ModuleNotFoundError) {
+    return { success: false, kind: 'module_not_found', moduleName: error.moduleName };
   }
   if (error instanceof StorageError) {
     return {

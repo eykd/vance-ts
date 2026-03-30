@@ -161,6 +161,26 @@ export class IncludeLimitError extends DomainError {
 }
 
 /**
+ * Error raised when an included grammar module cannot be found in storage.
+ */
+export class ModuleNotFoundError extends DomainError {
+  /** The key of the missing grammar module. */
+  readonly moduleName: string;
+
+  /**
+   * Creates a new ModuleNotFoundError.
+   *
+   * @param moduleName - The grammar key that was not found.
+   * @param message - Optional human-readable message; defaults to a standard message.
+   */
+  constructor(moduleName: string, message?: string) {
+    super('module_not_found', message ?? `Included grammar "${moduleName}" not found in storage`);
+    this.name = 'ModuleNotFoundError';
+    this.moduleName = moduleName;
+  }
+}
+
+/**
  * Error raised during grammar storage operations.
  */
 export class StorageError extends DomainError {
