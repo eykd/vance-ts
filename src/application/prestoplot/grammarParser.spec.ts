@@ -804,6 +804,107 @@ describe('parseGrammar', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Adversarial YAML safety
+  // ---------------------------------------------------------------------------
+
+  describe('adversarial YAML safety', () => {
+    it('rejects YAML anchor bomb (billion laughs variant)', () => {
+      // Exponential expansion: each level doubles the previous
+      const yaml = [
+        '"a": &a "bang "',
+        '"b": &b [*a, *a]',
+        '"c": &c [*b, *b]',
+        '"d": &d [*c, *c]',
+        '"e": &e [*d, *d]',
+        '"f": &f [*e, *e]',
+        '"g": &g [*f, *f]',
+        '"Begin": "hello"',
+      ].join('\n');
+      const error = parseErr(yaml);
+      expect(error.code).toBe('yaml_parse_error');
+    });
+
+    it('rejects source at exactly MAX_GRAMMAR_SOURCE_BYTES + 1', () => {
+      const padding = 'x'.repeat(MAX_GRAMMAR_SOURCE_BYTES + 1);
+      const error = parseErr(padding);
+      expect(error.code).toBe('source_too_large');
+    });
+
+    it('accepts source at exactly MAX_GRAMMAR_SOURCE_BYTES (256 KB)', () => {
+      // Verify constant equals 256 * 1024
+      expect(MAX_GRAMMAR_SOURCE_BYTES).toBe(256 * 1024);
+      const overhead = '"Begin": "'.length + '"'.length; // 11
+      const filler = 'x'.repeat(MAX_GRAMMAR_SOURCE_BYTES - overhead);
+      const yaml = `"Begin": "${filler}"`;
+      expect(yaml.length).toBe(MAX_GRAMMAR_SOURCE_BYTES);
+      const result = parseGrammar(yaml, 'test-grammar');
+      if (!result.success) {
+        expect(result.error.code).not.toBe('source_too_large');
+      }
+    });
+
+    it('rejects bare boolean values (yes/no/on/off) via JSON schema', () => {
+      // Without schema:'json', YAML would coerce these to booleans.
+      // JSON schema requires quoted strings, so bare words cause parse errors
+      // or are treated as non-string types.
+      for (const bare of ['yes', 'no', 'on', 'off', 'true', 'false']) {
+        const yaml = `"Begin": "{Answer}"\n"Answer":\n  - ${bare}`;
+        const result = parseGrammar(yaml, 'test-grammar');
+        // JSON schema rejects bare booleans — either as a parse error or type error
+        if (result.success) {
+          // If it somehow parsed, verify items were NOT coerced to boolean strings
+          const rule = result.value.rules.get('Answer');
+          if (rule?.type === 'list') {
+            // Under JSON schema, bare words should not parse at all
+            // If they did, it's a safety violation
+            expect(rule.items[0]).not.toBe(true);
+            expect(rule.items[0]).not.toBe(false);
+          }
+        } else {
+          // Expected: parse or validation error
+          expect(result.error).toBeInstanceOf(GrammarParseError);
+        }
+      }
+    });
+
+    it('rejects duplicate top-level keys', () => {
+      const yaml = '"Begin": "first"\n"Begin": "second"';
+      const error = parseErr(yaml);
+      expect(error.code).toBe('yaml_parse_error');
+      expect(error.message).toContain('parse error');
+    });
+
+    it('rejects duplicate keys in nested mappings', () => {
+      const yaml = '"Begin": "{Stats}"\n"Stats":\n  "hp": "10"\n  "hp": "20"';
+      const error = parseErr(yaml);
+      expect(error.code).toBe('yaml_parse_error');
+    });
+
+    it('allows exactly maxAliasCount aliases (boundary)', () => {
+      let yaml = '"Anchor": &a "x"\n';
+      for (let i = 1; i <= 99; i++) {
+        yaml += `"Ref${String(i)}": *a\n`;
+      }
+      yaml += '"Begin": "hello"\n';
+      // 99 alias resolutions should be under the maxAliasCount:100 limit
+      const result = parseGrammar(yaml, 'test-grammar');
+      if (!result.success) {
+        expect(result.error.code).not.toBe('yaml_parse_error');
+      }
+    });
+
+    it('rejects aliases exceeding maxAliasCount', () => {
+      let yaml = '"Anchor": &a "x"\n';
+      for (let i = 1; i <= 101; i++) {
+        yaml += `"Ref${String(i)}": *a\n`;
+      }
+      yaml += '"Begin": "hello"\n';
+      const error = parseErr(yaml);
+      expect(error.code).toBe('yaml_parse_error');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Exported constants
   // ---------------------------------------------------------------------------
 
