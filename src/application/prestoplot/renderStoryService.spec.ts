@@ -303,7 +303,7 @@ describe('RenderStoryService', () => {
       }
     });
 
-    it('maps crypto.subtle failure to seed_error result', async () => {
+    it('maps crypto.subtle failure to internal_error result', async () => {
       const dto = makeDto('test');
       const storage = stubStorage({ test: dto });
       const randomPort: RandomPort = {
@@ -316,7 +316,43 @@ describe('RenderStoryService', () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.kind).toBe('seed_error');
+        expect(result.kind).toBe('internal_error');
+      }
+    });
+
+    it('maps TypeError runtime crash to internal_error result', async () => {
+      const dto = makeDto('test');
+      const storage = stubStorage({ test: dto });
+      const randomPort: RandomPort = {
+        seedToInt: vi.fn().mockRejectedValue(new TypeError('Cannot read properties of undefined')),
+        createRng: vi.fn().mockReturnValue({ next: vi.fn().mockReturnValue(0.5) }),
+      };
+      const request: RenderStoryRequest = { grammarKey: 'test', seed: 'alpha' };
+
+      const result = await renderStory(request, storage, randomPort, stubTemplateEngine());
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.kind).toBe('internal_error');
+        expect(result.message).toBe('Cannot read properties of undefined');
+      }
+    });
+
+    it('maps non-Error throw to internal_error result', async () => {
+      const dto = makeDto('test');
+      const storage = stubStorage({ test: dto });
+      const randomPort: RandomPort = {
+        seedToInt: vi.fn().mockRejectedValue('string error'),
+        createRng: vi.fn().mockReturnValue({ next: vi.fn().mockReturnValue(0.5) }),
+      };
+      const request: RenderStoryRequest = { grammarKey: 'test', seed: 'alpha' };
+
+      const result = await renderStory(request, storage, randomPort, stubTemplateEngine());
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.kind).toBe('internal_error');
+        expect(result.message).toBe('Unknown error during rendering');
       }
     });
 

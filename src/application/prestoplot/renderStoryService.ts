@@ -97,6 +97,7 @@ export type RenderStoryResult =
       readonly message: string;
     }
   | { readonly success: false; readonly kind: 'seed_error'; readonly message: string }
+  | { readonly success: false; readonly kind: 'internal_error'; readonly message: string }
   | { readonly success: false; readonly kind: 'render_error'; readonly message: string }
   | { readonly success: false; readonly kind: 'render_budget'; readonly evaluationCount: number }
   | {
@@ -412,10 +413,9 @@ function mapErrorToResult(error: unknown, grammarKey: string): RenderStoryResult
       message: error.message,
     };
   }
-  // Seed hashing failure or any other unexpected error
+  // Unrecognised Error subclass — runtime crash, crypto failure, or other unexpected error
   if (error instanceof Error) {
-    // Check if this is a crypto/seed-related error from seedToInt
-    return { success: false, kind: 'seed_error', message: error.message };
+    return { success: false, kind: 'internal_error', message: error.message };
   }
-  return { success: false, kind: 'seed_error', message: 'Unknown error during rendering' };
+  return { success: false, kind: 'internal_error', message: 'Unknown error during rendering' };
 }
