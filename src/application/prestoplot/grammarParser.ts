@@ -240,7 +240,7 @@ function extractRenderStrategy(
     );
   }
   const lower = raw.toLowerCase();
-  if (lower === 'ftemplate' || lower === 'jinja2') {
+  if (lower === 'jinja2') {
     return ok(RenderStrategy.TEMPLATE);
   }
   if (lower === 'plain') {

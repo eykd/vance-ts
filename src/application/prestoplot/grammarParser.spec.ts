@@ -222,9 +222,9 @@ describe('parseGrammar', () => {
       expect(grammar.rules.has('Begin')).toBe(true);
     });
 
-    it('parses the render strategy (ftemplate)', () => {
-      const { value: grammar } = parseOk('"render": "ftemplate"\n"Begin": "Hello"');
-      expect(grammar.rules.has('Begin')).toBe(true);
+    it('rejects ftemplate as unknown render strategy', () => {
+      const error = parseErr('"render": "ftemplate"\n"Begin": "Hello"');
+      expect(error.code).toBe('invalid_render_strategy');
     });
 
     it('defaults render strategy to TEMPLATE when not specified', () => {
@@ -759,7 +759,7 @@ describe('parseGrammar', () => {
         '"include":',
         '  - "vocabulary"',
         '',
-        '"render": "ftemplate"',
+        '"render": "jinja2"',
         '',
         '"Begin": "{Hero} traveled to {Destination}."',
         '',
