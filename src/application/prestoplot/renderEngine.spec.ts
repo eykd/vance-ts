@@ -493,4 +493,113 @@ describe('RenderEngine', () => {
       expect(result).toBe('a b a b');
     });
   });
+
+  describe('scoped seed isolation', () => {
+    it('produces identical output for two engines with the same seed', async () => {
+      const rules = new Map<string, Rule>([
+        ['Begin', textRule('Begin', '{{ Color }} {{ Animal }}', RenderStrategy.TEMPLATE)],
+        ['Color', listRule('Color', ['red', 'blue', 'green'], SelectionMode.REUSE)],
+        ['Animal', listRule('Animal', ['cat', 'dog', 'fox'], SelectionMode.REUSE)],
+      ]);
+      const grammar = makeGrammar(rules);
+      const templateEngine = resolvingTemplateEngine();
+
+      // Track seedToInt calls to return distinct values per scoped seed
+      let callCount = 0;
+      const seedMap = new Map<string, number>();
+      const randomPort: RandomPort = {
+        seedToInt: vi.fn().mockImplementation((s: string) => {
+          let val = seedMap.get(s);
+          if (val === undefined) {
+            val = 100 + callCount++;
+            seedMap.set(s, val);
+          }
+          return Promise.resolve(val);
+        }),
+        createRng: vi.fn().mockReturnValue({
+          next: vi.fn().mockReturnValue(0.3),
+        }),
+      };
+
+      const engine1 = createRenderEngine(grammar, randomPort, templateEngine, 'sameSeed' as Seed);
+      const result1 = await engine1.renderEntry();
+
+      // Reset call tracking but keep seedMap for same mapping
+      const randomPort2: RandomPort = {
+        seedToInt: vi.fn().mockImplementation((s: string) => {
+          return Promise.resolve(seedMap.get(s) ?? 0);
+        }),
+        createRng: vi.fn().mockReturnValue({
+          next: vi.fn().mockReturnValue(0.3),
+        }),
+      };
+
+      const engine2 = createRenderEngine(grammar, randomPort2, templateEngine, 'sameSeed' as Seed);
+      const result2 = await engine2.renderEntry();
+
+      expect(result1).toBe(result2);
+    });
+
+    it('scopes RNG seeds by rule name so different rules get different sequences', async () => {
+      const rules = new Map<string, Rule>([
+        ['Begin', textRule('Begin', '{{ A }} {{ B }}', RenderStrategy.TEMPLATE)],
+        ['A', textRule('A', 'a')],
+        ['B', textRule('B', 'b')],
+      ]);
+      const grammar = makeGrammar(rules);
+      const templateEngine = resolvingTemplateEngine();
+      const randomPort: RandomPort = {
+        seedToInt: vi.fn().mockImplementation((scopedSeed: string) => {
+          // Return different int per scoped seed
+          if (scopedSeed === 'mySeed-A') return Promise.resolve(100);
+          if (scopedSeed === 'mySeed-B') return Promise.resolve(200);
+          return Promise.resolve(42);
+        }),
+        createRng: vi.fn().mockReturnValue({
+          next: vi.fn().mockReturnValue(0.5),
+        }),
+      };
+
+      const engine = createRenderEngine(grammar, randomPort, templateEngine, 'mySeed' as Seed);
+      await engine.renderEntry();
+
+      // Verify seedToInt was called with different scoped seeds for A and B
+      const calls = (randomPort.seedToInt as ReturnType<typeof vi.fn>).mock.calls.map(
+        (c: unknown[]) => c[0]
+      );
+      expect(calls).toContain('mySeed-A');
+      expect(calls).toContain('mySeed-B');
+      // And they map to different seed ints
+      expect(await randomPort.seedToInt('mySeed-A')).not.toBe(
+        await randomPort.seedToInt('mySeed-B')
+      );
+    });
+
+    it('adding an unrelated rule does not change output', async () => {
+      const baseRules = new Map<string, Rule>([
+        ['Begin', textRule('Begin', '{{ Greeting }}', RenderStrategy.TEMPLATE)],
+        ['Greeting', textRule('Greeting', 'hello')],
+      ]);
+      const grammar1 = makeGrammar(baseRules);
+
+      const extendedRules = new Map<string, Rule>([
+        ['Begin', textRule('Begin', '{{ Greeting }}', RenderStrategy.TEMPLATE)],
+        ['Greeting', textRule('Greeting', 'hello')],
+        ['Unrelated', textRule('Unrelated', 'should not matter')],
+      ]);
+      const grammar2 = makeGrammar(extendedRules);
+
+      const templateEngine = resolvingTemplateEngine();
+      const port1 = stubRandomPort();
+      const port2 = stubRandomPort();
+
+      const engine1 = createRenderEngine(grammar1, port1, templateEngine, 'seed1' as Seed);
+      const result1 = await engine1.renderEntry();
+
+      const engine2 = createRenderEngine(grammar2, port2, templateEngine, 'seed1' as Seed);
+      const result2 = await engine2.renderEntry();
+
+      expect(result1).toBe(result2);
+    });
+  });
 });

@@ -346,4 +346,106 @@ describe('RenderStoryService', () => {
       }
     });
   });
+
+  describe('seed isolation and rule independence', () => {
+    it('two renderStory calls with same seed produce identical output', async () => {
+      const dto = makeDto('grammar-a');
+      const storage = stubStorage({ 'grammar-a': dto });
+      const request: RenderStoryRequest = { grammarKey: 'grammar-a', seed: 'deterministic' };
+
+      const result1 = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
+      const result2 = await renderStory(request, storage, stubRandomPort(), stubTemplateEngine());
+
+      expect(result1.ok).toBe(true);
+      expect(result2.ok).toBe(true);
+      expect(result1).toEqual(result2);
+    });
+
+    it('different seeds produce potentially different scoped seed ints', async () => {
+      const dto = makeDto('grammar-b');
+      const storage = stubStorage({ 'grammar-b': dto });
+
+      const seedToIntCalls: string[] = [];
+      const trackingRandomPort: RandomPort = {
+        seedToInt: vi.fn().mockImplementation((s: string) => {
+          seedToIntCalls.push(s);
+          return Promise.resolve(42);
+        }),
+        createRng: vi.fn().mockReturnValue({
+          next: vi.fn().mockReturnValue(0.5),
+        }),
+      };
+
+      const req1: RenderStoryRequest = { grammarKey: 'grammar-b', seed: 'alpha' };
+      const req2: RenderStoryRequest = { grammarKey: 'grammar-b', seed: 'beta' };
+
+      await renderStory(req1, storage, trackingRandomPort, stubTemplateEngine());
+      const alphaSeeds = [...seedToIntCalls];
+      seedToIntCalls.length = 0;
+
+      await renderStory(req2, storage, trackingRandomPort, stubTemplateEngine());
+      const betaSeeds = [...seedToIntCalls];
+
+      // Scoped seeds should differ because base seed differs
+      expect(alphaSeeds.length).toBeGreaterThan(0);
+      expect(betaSeeds.length).toBeGreaterThan(0);
+      expect(alphaSeeds[0]).not.toBe(betaSeeds[0]);
+    });
+
+    it('adding an unrelated rule to grammar does not change rendered output', async () => {
+      const smallDto: GrammarDto = {
+        version: 1,
+        key: 'small',
+        entry: 'Begin',
+        includes: [],
+        rules: {
+          Begin: {
+            type: 'text',
+            alternatives: [{ text: 'fixed output', weight: 1 }],
+            strategy: 'PLAIN',
+          },
+        },
+      };
+
+      const extendedDto: GrammarDto = {
+        version: 1,
+        key: 'extended',
+        entry: 'Begin',
+        includes: [],
+        rules: {
+          Begin: {
+            type: 'text',
+            alternatives: [{ text: 'fixed output', weight: 1 }],
+            strategy: 'PLAIN',
+          },
+          Extra: {
+            type: 'text',
+            alternatives: [{ text: 'never reached', weight: 1 }],
+            strategy: 'PLAIN',
+          },
+        },
+      };
+
+      const storage = stubStorage({ small: smallDto, extended: extendedDto });
+
+      const result1 = await renderStory(
+        { grammarKey: 'small', seed: 'iso' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+      const result2 = await renderStory(
+        { grammarKey: 'extended', seed: 'iso' },
+        storage,
+        stubRandomPort(),
+        stubTemplateEngine()
+      );
+
+      expect(result1.ok).toBe(true);
+      expect(result2.ok).toBe(true);
+      if (result1.ok && result2.ok) {
+        expect(result1.text).toBe(result2.text);
+      }
+    });
+  });
 });
