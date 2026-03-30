@@ -13,10 +13,10 @@ import { RenderBudgetError, RenderError } from '../../domain/prestoplot/errors.j
 import type { Grammar, Rule } from '../../domain/prestoplot/grammar.js';
 import { RenderStrategy, SelectionMode } from '../../domain/prestoplot/grammar.js';
 import type { Seed } from '../../domain/prestoplot/seed.js';
+import type { TemplateEnginePort } from '../../domain/prestoplot/templateEnginePort.js';
 
 import type { RandomPort, Rng } from './RandomSource.js';
 import { createRenderEngine, MAX_EVALUATIONS } from './renderEngine.js';
-import type { TemplateEnginePort } from './TemplateEngine.js';
 
 /**
  * Creates a minimal Grammar for testing.

@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { TemplateEnginePort } from '../../application/prestoplot/TemplateEngine.js';
 import { TemplateError } from '../../domain/prestoplot/errors.js';
+import type { TemplateEnginePort } from '../../domain/prestoplot/templateEnginePort.js';
 
 import { Jinja2Engine } from './jinja2Engine.js';
 

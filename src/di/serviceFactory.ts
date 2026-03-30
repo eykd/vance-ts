@@ -26,7 +26,6 @@ import type {
   RenderStoryResult,
 } from '../application/prestoplot/renderStoryService';
 import { renderStory } from '../application/prestoplot/renderStoryService';
-import type { TemplateEnginePort } from '../application/prestoplot/TemplateEngine';
 import { ActivateActionUseCase } from '../application/use-cases/ActivateActionUseCase';
 import { CaptureInboxItemUseCase } from '../application/use-cases/CaptureInboxItemUseCase';
 import { ClarifyInboxItemToActionUseCase } from '../application/use-cases/ClarifyInboxItemToActionUseCase';
@@ -48,6 +47,7 @@ import type { AuditEventRepository } from '../domain/interfaces/AuditEventReposi
 import type { ContextRepository } from '../domain/interfaces/ContextRepository';
 import type { InboxItemRepository } from '../domain/interfaces/InboxItemRepository';
 import type { WorkspaceRepository } from '../domain/interfaces/WorkspaceRepository';
+import type { TemplateEnginePort } from '../domain/prestoplot/templateEnginePort';
 import { getAuth, resetAuth } from '../infrastructure/auth';
 import {
   getAuthIndicatorCookieName,

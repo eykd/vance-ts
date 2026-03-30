@@ -24,13 +24,13 @@ import {
 import type { Grammar, Rule } from '../../domain/prestoplot/grammar.js';
 import { createSeed } from '../../domain/prestoplot/seed.js';
 import type { Seed } from '../../domain/prestoplot/seed.js';
+import type { TemplateEnginePort } from '../../domain/prestoplot/templateEnginePort.js';
 
 import { GRAMMAR_KEY_PATTERN } from './constants.js';
 import { grammarFromDto } from './dto.js';
 import type { GrammarDto, StoragePort } from './GrammarStorage.js';
 import type { RandomPort } from './RandomSource.js';
 import { createRenderEngine } from './renderEngine.js';
-import type { TemplateEnginePort } from './TemplateEngine.js';
 
 /** Re-export GRAMMAR_KEY_PATTERN for backward-compatible public API. */
 export { GRAMMAR_KEY_PATTERN };

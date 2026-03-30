@@ -11,9 +11,9 @@
  * @module infrastructure/prestoplot/jinja2Engine
  */
 
-import type { TemplateEnginePort } from '../../application/prestoplot/TemplateEngine.js';
 import { getArticle } from '../../domain/prestoplot/articleGeneration.js';
 import { TemplateError } from '../../domain/prestoplot/errors.js';
+import type { TemplateEnginePort } from '../../domain/prestoplot/templateEnginePort.js';
 
 /** Maximum characters shown in error message template excerpts. */
 const ERROR_TRUNCATE = 50;

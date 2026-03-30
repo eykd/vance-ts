@@ -20,9 +20,9 @@ import {
   selectRatchet,
   selectReuse,
 } from '../../domain/prestoplot/selectionModes.js';
+import type { TemplateEnginePort } from '../../domain/prestoplot/templateEnginePort.js';
 
 import type { RandomPort, Rng } from './RandomSource.js';
-import type { TemplateEnginePort } from './TemplateEngine.js';
 
 /** Per-render work budget to prevent exponential-time grammar expansion. */
 export const MAX_EVALUATIONS = 10_000;

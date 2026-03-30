@@ -10,6 +10,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { StorageError, TemplateError } from '../../domain/prestoplot/errors.js';
+import type { TemplateEnginePort } from '../../domain/prestoplot/templateEnginePort.js';
 
 import type { GrammarDto, StoragePort } from './GrammarStorage.js';
 import type { RandomPort } from './RandomSource.js';
@@ -22,7 +23,6 @@ import {
   renderStory,
 } from './renderStoryService.js';
 import type { RenderStoryRequest } from './renderStoryService.js';
-import type { TemplateEnginePort } from './TemplateEngine.js';
 
 /**
  * Creates an in-memory StoragePort with pre-loaded DTOs.

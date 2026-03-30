@@ -5,7 +5,7 @@
  * text. The engine resolves references against a context of already-rendered
  * rule outputs and variables.
  *
- * @module application/prestoplot/TemplateEngine
+ * @module domain/prestoplot/templateEnginePort
  */
 
 /**
@@ -25,7 +25,7 @@ export interface TemplateEnginePort {
    * @param context - Map of variable names to already-rendered string values.
    * @param depth - Current recursion depth for cycle detection.
    * @returns Plain text with all expressions resolved.
-   * @throws {import('../../domain/prestoplot/errors.js').TemplateError} On unresolvable references, syntax errors, or depth exceeding MAX_DEPTH (50).
+   * @throws {import('./errors.js').TemplateError} On unresolvable references, syntax errors, or depth exceeding MAX_DEPTH (50).
    */
   evaluate(template: string, context: Readonly<Record<string, string>>, depth: number): string;
 }

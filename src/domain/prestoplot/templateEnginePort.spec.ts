@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { TemplateEnginePort } from './TemplateEngine.js';
+import type { TemplateEnginePort } from './templateEnginePort.js';
 
 describe('TemplateEnginePort', () => {
   /**
