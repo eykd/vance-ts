@@ -12,9 +12,9 @@ import { GrammarParseError } from '../../domain/prestoplot/errors.js';
 import {
   type Grammar,
   type ListRule,
-  type RenderStrategy,
+  RenderStrategy,
   type Rule,
-  type SelectionMode,
+  SelectionMode,
   type StructRule,
   type TextRule,
   createGrammar,
@@ -25,6 +25,12 @@ import type { GrammarDto } from './GrammarStorage.js';
 
 /** Current DTO schema version. */
 const DTO_VERSION = 1;
+
+/** Set of valid RenderStrategy enum values for runtime validation. */
+const VALID_RENDER_STRATEGIES = new Set<string>(Object.values(RenderStrategy));
+
+/** Set of valid SelectionMode enum values for runtime validation. */
+const VALID_SELECTION_MODES = new Set<string>(Object.values(SelectionMode));
 
 // ---------------------------------------------------------------------------
 // Runtime type guard
@@ -154,6 +160,32 @@ function ruleFromPlain(raw: unknown, key: string): Result<Rule, GrammarParseErro
           ),
         };
       }
+      if (!VALID_RENDER_STRATEGIES.has(strategy)) {
+        return {
+          success: false,
+          error: new GrammarParseError(
+            'invalid_rule',
+            `Text rule has invalid strategy "${strategy}"`
+          ),
+        };
+      }
+      for (const alt of alternatives) {
+        if (
+          alt === null ||
+          alt === undefined ||
+          typeof alt !== 'object' ||
+          typeof (alt as Record<string, unknown>)['text'] !== 'string' ||
+          typeof (alt as Record<string, unknown>)['weight'] !== 'number'
+        ) {
+          return {
+            success: false,
+            error: new GrammarParseError(
+              'invalid_rule',
+              'Text rule alternative must have string text and number weight'
+            ),
+          };
+        }
+      }
       return {
         success: true,
         value: {
@@ -185,12 +217,36 @@ function ruleFromPlain(raw: unknown, key: string): Result<Rule, GrammarParseErro
           ),
         };
       }
+      if (!items.every((item): item is string => typeof item === 'string')) {
+        return {
+          success: false,
+          error: new GrammarParseError('invalid_rule', 'List rule items must all be strings'),
+        };
+      }
+      if (!VALID_SELECTION_MODES.has(selectionMode)) {
+        return {
+          success: false,
+          error: new GrammarParseError(
+            'invalid_rule',
+            `List rule has invalid selectionMode "${selectionMode}"`
+          ),
+        };
+      }
+      if (!VALID_RENDER_STRATEGIES.has(strategy)) {
+        return {
+          success: false,
+          error: new GrammarParseError(
+            'invalid_rule',
+            `List rule has invalid strategy "${strategy}"`
+          ),
+        };
+      }
       return {
         success: true,
         value: {
           name,
           type: 'list',
-          items: items as string[],
+          items,
           selectionMode: selectionMode as SelectionMode,
           strategy: strategy as RenderStrategy,
         } satisfies ListRule,
@@ -215,12 +271,22 @@ function ruleFromPlain(raw: unknown, key: string): Result<Rule, GrammarParseErro
           ),
         };
       }
+      const fieldEntries = Object.entries(fields as Record<string, unknown>);
+      if (!fieldEntries.every((entry) => typeof entry[1] === 'string')) {
+        return {
+          success: false,
+          error: new GrammarParseError(
+            'invalid_rule',
+            'Struct rule field values must all be strings'
+          ),
+        };
+      }
       return {
         success: true,
         value: {
           name,
           type: 'struct',
-          fields: new Map(Object.entries(fields as Record<string, string>)),
+          fields: new Map(fieldEntries as Array<[string, string]>),
           template,
         } satisfies StructRule,
       };

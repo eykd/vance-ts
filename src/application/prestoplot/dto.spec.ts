@@ -475,6 +475,146 @@ describe('grammarFromDto', () => {
     }
   });
 
+  it('returns error when text rule alternative has non-string text', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: {
+          name: 'x',
+          type: 'text',
+          alternatives: [{ text: 42, weight: 1 }],
+          strategy: 'PLAIN',
+        },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when text rule alternative has non-number weight', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: {
+          name: 'x',
+          type: 'text',
+          alternatives: [{ text: 'hi', weight: 'heavy' }],
+          strategy: 'PLAIN',
+        },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when text rule strategy is not a valid RenderStrategy', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: {
+          name: 'x',
+          type: 'text',
+          alternatives: [{ text: 'hi', weight: 1 }],
+          strategy: 'INVALID_STRATEGY',
+        },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when list rule items contain non-strings', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: {
+          name: 'x',
+          type: 'list',
+          items: ['a', 42, 'b'],
+          selectionMode: 'PICK',
+          strategy: 'PLAIN',
+        },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when list rule selectionMode is not a valid SelectionMode', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: { name: 'x', type: 'list', items: ['a'], selectionMode: 'BOGUS', strategy: 'PLAIN' },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when list rule strategy is not a valid RenderStrategy', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: { name: 'x', type: 'list', items: ['a'], selectionMode: 'PICK', strategy: 'BOGUS' },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
+  it('returns error when struct rule fields contain non-string values', () => {
+    const dto: GrammarDto = {
+      version: 1,
+      key: 'bad',
+      entry: 'x',
+      includes: [],
+      rules: {
+        x: { name: 'x', type: 'struct', fields: { a: 123 }, template: '{{ a }}' },
+      },
+    };
+    const result = grammarFromDto(dto);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.code).toBe('invalid_rule');
+    }
+  });
+
   it('returns error when struct rule has non-string template', () => {
     const dto: GrammarDto = {
       version: 1,
