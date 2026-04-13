@@ -101,7 +101,7 @@ jobs:
 
       - name: Comment on PR with flaky tests
         if: github.event_name == 'pull_request' && steps.flaky-check.outputs.has_report == 'true' && !cancelled()
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -180,7 +180,7 @@ jobs:
 
       - name: Comment on PR with mutation score
         if: steps.check-changes.outputs.has_changes == 'true' && !cancelled()
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
